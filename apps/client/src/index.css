@@ -9,9 +9,9 @@
 
 @theme {
   /* Màu chủ đạo (Nút bấm, active trạng thái Bác sĩ) */
-  --color-primary: #a3e635;
-  --color-primary-hover: #84cc16;
-  --color-primary-light: #ecfccb;
+  --color-brand: #a3e635;
+  --color-brand-hover: #84cc16;
+  --color-brand-light: #ecfccb;
 
   /* Khu vực Sidebar (Menu bên trái) */
   --color-sidebar: #1a1c23;
