@@ -1,5 +1,9 @@
 import { Layout } from "@repo/ui/layouts/layout";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { LogIn } from "./pages/auth/login";
+import { ForgetPassword } from "./pages/auth/forget-password";
+import { ConfirmOTP } from "./pages/auth/confirm-otp";
+import { ChangePassword } from "./pages/auth/change-password";
 
 function Page({ title }: { title: string }) {
   return (
@@ -13,6 +17,12 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Authentication */}
+        <Route path="/login" element={<LogIn />} />
+        <Route path="/forget-password" element={<ForgetPassword />} />
+        <Route path="/confirm-otp" element={<ConfirmOTP />} />
+        <Route path="/change-password" element={<ChangePassword />} />
+
         <Route element={<Layout userRole="admin" />}>
           <Route index element={<Page title="Overview" />} />
           <Route path="users" element={<Page title="User Management" />} />

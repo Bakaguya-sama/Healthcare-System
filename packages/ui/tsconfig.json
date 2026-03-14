@@ -4,6 +4,6 @@
     "outDir": "dist",
     "strictNullChecks": true
   },
-  "include": ["src"],
+  "include": ["src", "../../apps/client/src/components/ui/header.tsx"],
   "exclude": ["node_modules", "dist"]
 }
