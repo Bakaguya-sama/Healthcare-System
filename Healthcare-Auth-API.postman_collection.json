@@ -260,6 +260,70 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "9. Register Doctor",
+          "id": "d7e2f5a1-8c9e-4d2b-9f1c-5a7b6c3d8e9f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor@example.com\",\n  \"password\": \"Doctor123!\",\n  \"name\": \"Dr. Tran Thi Doctor\",\n  \"role\": \"doctor\",\n  \"gender\": \"female\",\n  \"phoneNumber\": \"+84987654321\",\n  \"address\": {\n    \"street\": \"456 Le Loi\",\n    \"ward\": \"Ward 2\",\n    \"district\": \"District 1\",\n    \"city\": \"Ho Chi Minh\",\n    \"country\": \"Vietnam\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10. Login Doctor",
+          "id": "f3a4b2c1-9d8e-4c7b-6a5f-3e2d1c9b8a7f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor@example.com\",\n  \"password\": \"Doctor123!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
         }
       ],
       "id": "b05337c5-fe17-44b3-bdf3-d9f27be17a1e"
