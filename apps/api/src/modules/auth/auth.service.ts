@@ -10,16 +10,19 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './entities/user.schema';
+import { Doctor, DoctorDocument, DoctorVerificationStatus } from '../users/entities/doctor.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ConfirmOtpDto } from './dto/confirm-otp.dto';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -41,6 +44,14 @@ export class AuthService {
       phoneNumber: dto.phoneNumber,
       address: dto.address,
     });
+
+    // Nếu là bác sĩ, tạo Doctor document
+    if (dto.role === UserRole.DOCTOR) {
+      await this.doctorModel.create({
+        userId: user._id,
+        verificationStatus: DoctorVerificationStatus.PENDING,
+      });
+    }
 
     return this.generateTokensResponse(user);
   }

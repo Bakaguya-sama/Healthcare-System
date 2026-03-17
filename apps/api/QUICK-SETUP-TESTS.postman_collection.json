@@ -1,0 +1,832 @@
+{
+  "info": {
+    "_postman_id": "healthcare-setup-tests",
+    "name": "Healthcare Setup - Test Sequence (Thứ Tự Logic)",
+    "description": "Pre-built test sequence theo thứ tự logic: Register → Verify → Profile → Session → Chat → AI",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "📋 BƯỚC 0: SETUP - Tạo 4 Tài Khoản",
+      "description": "Tạo Patient, Doctor, Doctor2, Admin",
+      "item": [
+        {
+          "name": "1️⃣ Register Patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Patient\",\n  \"role\": \"patient\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Patient"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"patient_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"patient_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Patient ID: \" + jsonData.user.id);",
+                  "  console.log(\"✅ Patient Token saved\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2️⃣ Register Doctor #1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Doctor\",\n  \"role\": \"doctor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Doctor #1 (chờ verify)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"doctor_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"doctor_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Doctor #1 ID: \" + jsonData.user.id);",
+                  "  console.log(\"✅ Doctor #1 Token saved\");",
+                  "  console.log(\"⏳ Status: PENDING VERIFICATION\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3️⃣ Register Doctor #2 (Chat Partner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor2@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Second Doctor\",\n  \"role\": \"doctor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Doctor #2 (để chat tư vấn)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"other_user_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"doctor2_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Doctor #2 (other_user_id): \" + jsonData.user.id);",
+                  "  console.log(\"✅ Doctor #2 Token saved\");",
+                  "  console.log(\"⏳ Status: PENDING VERIFICATION\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4️⃣ Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Admin\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Admin"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"admin_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"admin_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Admin ID: \" + jsonData.user.id);",
+                  "  console.log(\"✅ Admin Token saved\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 BƯỚC 1: VERIFICATION - Admin Duyệt Doctors",
+      "description": "Admin verify cả 2 doctors",
+      "item": [
+        {
+          "name": "✅ Admin Verify Doctor #1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationNotes\": \"Doctor verified for testing - can create sessions\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/doctors/{{doctor_id}}/verify",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "doctors", "{{doctor_id}}", "verify"]
+            },
+            "description": "Verify Doctor #1 - Giờ có thể tạo sessions"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  console.log(\"✅ Doctor #1 Verified: \" + jsonData.verified);",
+                  "  console.log(\"✅ Now can create sessions\");",
+                  "} else {",
+                  "  console.log(\"❌ Verify failed: \" + pm.response.code);",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "✅ Admin Verify Doctor #2 (Chat Partner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationNotes\": \"Doctor #2 verified for testing - can chat with patients\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/doctors/{{other_user_id}}/verify",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "doctors", "{{other_user_id}}", "verify"]
+            },
+            "description": "Verify Doctor #2 - Giờ có thể chat tư vấn"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  console.log(\"✅ Doctor #2 Verified: \" + jsonData.verified);",
+                  "  console.log(\"✅ Ready for consultation chat\");",
+                  "} else {",
+                  "  console.log(\"❌ Verify failed: \" + pm.response.code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👤 BƯỚC 2: PROFILE - Tạo Patient Profile",
+      "description": "Tạo profile bệnh nhân",
+      "item": [
+        {
+          "name": "Patient Create Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dateOfBirth\": \"1990-01-15\",\n  \"bloodType\": \"O+\",\n  \"allergies\": \"Penicillin\",\n  \"medicalHistory\": \"No major medical conditions\",\n  \"emergencyContactPhone\": \"+84912345678\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Tạo profile cho bệnh nhân"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  console.log(\"✅ Patient Profile Created\");",
+                  "  var jsonData = pm.response.json();",
+                  "  console.log(\"Blood Type: \" + jsonData.bloodType);",
+                  "  console.log(\"Date of Birth: \" + jsonData.dateOfBirth);",
+                  "} else {",
+                  "  console.log(\"❌ Profile creation failed: \" + pm.response.code);",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📅 BƯỚC 3: SESSION - Tạo Cuộc Hẹn",
+      "description": "Patient tạo appointment với Doctor verified",
+      "item": [
+        {
+          "name": "Patient Create Session (với Doctor #1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"type\": \"consultation\",\n  \"title\": \"Initial Health Consultation\",\n  \"description\": \"Patient needs general health consultation and advice\",\n  \"scheduledAt\": \"2026-03-20T10:00:00Z\",\n  \"duration\": 30,\n  \"note\": \"First time visiting doctor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/sessions",
+              "host": ["{{base_url}}"],
+              "path": ["sessions"]
+            },
+            "description": "Tạo appointment - Phải là verified doctor"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"session_id\", jsonData.id);",
+                  "  console.log(\"✅ Session Created: \" + jsonData.id);",
+                  "  console.log(\"✅ Status: \" + jsonData.status);",
+                  "  console.log(\"✅ session_id saved to environment\");",
+                  "} else {",
+                  "  console.log(\"❌ Session creation failed: \" + pm.response.code);",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Doctor Accept Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/sessions/{{session_id}}/start",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", "{{session_id}}", "start"]
+            },
+            "description": "Doctor bắt đầu session (POST /sessions/:id/start)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "console.log(\"🔑 TOKEN DEBUG:\");",
+                  "console.log(\"  doctor_id: \" + pm.environment.get(\"doctor_id\"));",
+                  "console.log(\"  doctor_token: \" + (pm.environment.get(\"doctor_token\") ? pm.environment.get(\"doctor_token\").substring(0, 20) + \"...\" : \"MISSING\"));",
+                  "console.log(\"  session_id: \" + pm.environment.get(\"session_id\"));",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  console.log(\"✅ Session Started\");",
+                  "  var jsonData = pm.response.json();",
+                  "  console.log(\"Status: \" + jsonData.status);",
+                  "} else {",
+                  "  console.log(\"❌ Failed: \" + pm.response.code);",
+                  "  console.log(\"Response: \" + pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "💬 BƯỚC 4: CHAT - Tư Vấn Giữa Patient & Doctor",
+      "description": "Patient chat với Doctor #2 để tư vấn",
+      "item": [
+        {
+          "name": "Patient Send Message (Chat)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverId\": \"{{other_user_id}}\",\n  \"senderType\": \"patient\",\n  \"content\": \"Hello Doctor, I need consultation about my health condition\",\n  \"type\": \"text\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/send",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "send"]
+            },
+            "description": "Patient gửi tin nhắn cho Doctor #2"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  console.log(\"✅ Message sent to Doctor #2\");",
+                  "  console.log(\"Message: \" + jsonData.content);",
+                  "} else {",
+                  "  console.log(\"❌ Send failed: \" + pm.response.code);",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Doctor Reply Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor2_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverId\": \"{{patient_id}}\",\n  \"senderType\": \"doctor\",\n  \"content\": \"Hello! I'm here to help. Can you describe your symptoms in detail?\",\n  \"type\": \"text\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/send",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "send"]
+            },
+            "description": "Doctor #2 trả lời bệnh nhân"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  console.log(\"✅ Doctor reply sent\");",
+                  "} else {",
+                  "  console.log(\"❌ Reply failed: \" + pm.response.code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/chat/conversation/{{other_user_id}}?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "conversation", "{{other_user_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Lấy toàn bộ conversation giữa Patient và Doctor"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📚 BƯỚC 5: AI - Tạo Knowledge Base",
+      "description": "Admin tạo documents cho AI",
+      "item": [
+        {
+          "name": "Admin Create AI Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Medical Guidelines for General Practice\",\n  \"description\": \"Comprehensive guidelines for doctors and healthcare professionals\",\n  \"fileName\": \"medical_guidelines.pdf\",\n  \"documentType\": \"medical_guideline\",\n  \"fileUrl\": \"https://example.com/medical_guidelines.pdf\",\n  \"fileSize\": 2048576,\n  \"mimeType\": \"application/pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-documents",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents"]
+            },
+            "description": "Admin tạo tài liệu cho AI knowledge base"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"document_id\", jsonData.id);",
+                  "  console.log(\"✅ Document Created: \" + jsonData.id);",
+                  "  console.log(\"Title: \" + jsonData.title);",
+                  "  console.log(\"✅ document_id saved to environment\");",
+                  "} else {",
+                  "  console.log(\"❌ Document creation failed: \" + pm.response.code);",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patient Start AI Consultation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"initialQuestion\": \"I have been experiencing persistent headaches and fever for the past 3 days. What should I do?\",\n  \"type\": \"health_inquiry\",\n  \"tags\": [\"headache\", \"fever\", \"health_concern\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/start",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", "start"]
+            },
+            "description": "Patient bắt đầu cuộc tư vấn AI"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"ai_conversation_id\", jsonData.id);",
+                  "  console.log(\"✅ AI Conversation Started: \" + jsonData.id);",
+                  "} else {",
+                  "  console.log(\"❌ AI consultation failed: \" + pm.response.code);",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patient Send Message to AI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"What should I do if I have persistent headaches and fever?\",\n  \"conversationType\": \"symptom_analysis\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/{{ai_conversation_id}}/message",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", "{{ai_conversation_id}}", "message"]
+            },
+            "description": "Gửi câu hỏi cho AI"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  console.log(\"✅ AI Response received\");",
+                  "  console.log(\"AI Reply: \" + jsonData.aiMessage);",
+                  "} else {",
+                  "  console.log(\"❌ AI message failed: \" + pm.response.code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "✅ BƯỚC 6: VERIFY - Kiểm Tra Setup",
+      "description": "Verify tất cả environment variables đã setup xong",
+      "item": [
+        {
+          "name": "Check All IDs in Environment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Check current user info - để verify token hoạt động"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "console.log(\"\\n═══════════════════════════════════════════\");",
+                  "console.log(\"✅ ENVIRONMENT SETUP VERIFICATION\");",
+                  "console.log(\"═══════════════════════════════════════════\");",
+                  "console.log(\"📋 Danh sách IDs:\");",
+                  "console.log(\"  patient_id: \" + pm.environment.get(\"patient_id\"));",
+                  "console.log(\"  doctor_id: \" + pm.environment.get(\"doctor_id\"));",
+                  "console.log(\"  other_user_id: \" + pm.environment.get(\"other_user_id\"));",
+                  "console.log(\"  admin_id: \" + pm.environment.get(\"admin_id\"));",
+                  "console.log(\"  session_id: \" + pm.environment.get(\"session_id\"));",
+                  "console.log(\"  document_id: \" + pm.environment.get(\"document_id\"));",
+                  "console.log(\"\");",
+                  "console.log(\"🔐 Danh sách Tokens:\");",
+                  "console.log(\"  patient_token: \" + (pm.environment.get(\"patient_token\") ? \"✅ SET\" : \"❌ MISSING\"));",
+                  "console.log(\"  doctor_token: \" + (pm.environment.get(\"doctor_token\") ? \"✅ SET\" : \"❌ MISSING\"));",
+                  "console.log(\"  doctor2_token: \" + (pm.environment.get(\"doctor2_token\") ? \"✅ SET\" : \"❌ MISSING\"));",
+                  "console.log(\"  admin_token: \" + (pm.environment.get(\"admin_token\") ? \"✅ SET\" : \"❌ MISSING\"));",
+                  "console.log(\"\");",
+                  "console.log(\"═══════════════════════════════════════════\");",
+                  "console.log(\"✅ Setup đã hoàn thành! Bạn có thể:\");",
+                  "console.log(\"  1. Dùng Healthcare-API-Complete.postman_collection.json\");",
+                  "console.log(\"  2. Chọn Environment: Healthcare-Dev-Complete\");",
+                  "console.log(\"  3. Bắt đầu testing toàn bộ hệ thống!\");",
+                  "console.log(\"═══════════════════════════════════════════\\n\");",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "{{patient_token}}",
+      "type": "string"
+    },
+    {
+      "key": "patient_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "doctor_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "doctor2_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "patient_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "doctor_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "other_user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "document_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ai_conversation_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

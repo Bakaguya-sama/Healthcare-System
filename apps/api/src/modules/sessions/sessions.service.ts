@@ -23,6 +23,17 @@ export class SessionsService {
   ) {}
 
   /**
+   * ✅ HELPER: So sánh ObjectId với string userId
+   */
+  private isUserMatch(objectId: Types.ObjectId, userId: string): boolean {
+    try {
+      return objectId.equals(new Types.ObjectId(userId));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * 📝 TẠO SESSION MỚI
    */
   async create(patientId: string, dto: CreateSessionDto) {
@@ -149,8 +160,8 @@ export class SessionsService {
 
     // Check authorization
     if (
-      session.patientId.toString() !== userId &&
-      session.doctorId.toString() !== userId
+      !this.isUserMatch(session.patientId, userId) &&
+      !this.isUserMatch(session.doctorId, userId)
     ) {
       throw new ForbiddenException('You are not authorized to view this session');
     }
@@ -178,8 +189,8 @@ export class SessionsService {
 
     // Only patient or doctor can update
     if (
-      session.patientId.toString() !== userId &&
-      session.doctorId.toString() !== userId
+      !this.isUserMatch(session.patientId, userId) &&
+      !this.isUserMatch(session.doctorId, userId)
     ) {
       throw new ForbiddenException('You are not authorized to update this session');
     }
@@ -219,7 +230,7 @@ export class SessionsService {
     }
 
     // Only doctor can confirm
-    if (session.doctorId.toString() !== userId) {
+    if (!this.isUserMatch(session.doctorId, userId)) {
       throw new ForbiddenException('Only doctor can confirm session');
     }
 
@@ -251,13 +262,14 @@ export class SessionsService {
       throw new NotFoundException('Session not found');
     }
 
-    // Only doctor can start
-    if (session.doctorId.toString() !== userId) {
+    // Only doctor can start - Use helper method for proper ObjectId comparison
+    if (!this.isUserMatch(session.doctorId, userId)) {
       throw new ForbiddenException('Only doctor can start session');
     }
 
-    if (session.status !== SessionStatus.CONFIRMED) {
-      throw new BadRequestException('Session is not confirmed');
+    // Accept PENDING or CONFIRMED status
+    if (session.status !== SessionStatus.PENDING && session.status !== SessionStatus.CONFIRMED) {
+      throw new BadRequestException('Session is not available for starting');
     }
 
     session.status = SessionStatus.IN_PROGRESS;
@@ -286,7 +298,7 @@ export class SessionsService {
     }
 
     // Only doctor can complete
-    if (session.doctorId.toString() !== userId) {
+    if (!this.isUserMatch(session.doctorId, userId)) {
       throw new ForbiddenException('Only doctor can complete session');
     }
 
@@ -323,8 +335,8 @@ export class SessionsService {
 
     // Both patient and doctor can cancel
     if (
-      session.patientId.toString() !== userId &&
-      session.doctorId.toString() !== userId
+      !this.isUserMatch(session.patientId, userId) &&
+      !this.isUserMatch(session.doctorId, userId)
     ) {
       throw new ForbiddenException('You are not authorized to cancel this session');
     }
@@ -361,8 +373,8 @@ export class SessionsService {
 
     // Both can request reschedule
     if (
-      session.patientId.toString() !== userId &&
-      session.doctorId.toString() !== userId
+      !this.isUserMatch(session.patientId, userId) &&
+      !this.isUserMatch(session.doctorId, userId)
     ) {
       throw new ForbiddenException('You are not authorized to reschedule this session');
     }
@@ -408,7 +420,7 @@ export class SessionsService {
     }
 
     // Only patient can delete (and only pending sessions)
-    if (session.patientId.toString() !== userId) {
+    if (!this.isUserMatch(session.patientId, userId)) {
       throw new ForbiddenException('Only patient can delete session');
     }
 

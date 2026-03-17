@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { UserEntity, UserDocument, DoctorVerificationStatus, AccountStatus, LockRecord } from '../users/entities/user.entity';
+import { User, UserDocument, AccountStatus, LockRecord } from '../auth/entities/user.schema';
+import { Doctor, DoctorDocument, DoctorVerificationStatus } from '../users/entities/doctor.schema';
 import { UserRole } from '../users/enums/user-role.enum';
 import {
   ViolationReport,
@@ -29,7 +30,8 @@ import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
 @Injectable()
 export class AdminService {
   constructor(
-    @InjectModel(UserEntity.name) private userModel: Model<UserDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(ViolationReport.name)
     private violationReportModel: Model<ViolationReportDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
@@ -44,12 +46,11 @@ export class AdminService {
    * Admin xem danh sách bác sĩ chờ duyệt
    */
   async getPendingDoctors() {
-    return this.userModel
+    return this.doctorModel
       .find({
-        role: UserRole.DOCTOR,
-        doctorVerificationStatus: DoctorVerificationStatus.PENDING,
+        verificationStatus: DoctorVerificationStatus.PENDING,
       })
-      .select('-password -refreshToken')
+      .populate('userId', '-password -refreshToken')
       .sort({ createdAt: -1 });
   }
 
@@ -58,34 +59,42 @@ export class AdminService {
    * Admin duyệt tài khoản bác sĩ
    */
   async verifyDoctor(
-    doctorId: string,
+    doctorUserId: string,
     adminId: string,
     dto: VerifyDoctorDto,
   ) {
+    console.log('🔍 VERIFY DOCTOR - Searching by userId:', doctorUserId);
+
     // Kiểm tra người duyệt là admin
     const admin = await this.userModel.findById(adminId);
     if (!admin || admin.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only admin can verify doctors');
     }
 
-    // Kiểm tra bác sĩ tồn tại
-    const doctor = await this.userModel.findById(doctorId);
-    if (!doctor || doctor.role !== UserRole.DOCTOR) {
+    // Kiểm tra bác sĩ tồn tại (tìm bằng userId, không phải _id)
+    const doctor = await this.doctorModel.findOne({
+      userId: new Types.ObjectId(doctorUserId),
+    });
+
+    console.log('📋 DOCTOR FOUND:', doctor ? `Yes (${doctor._id})` : 'NO');
+
+    if (!doctor) {
       throw new NotFoundException('Doctor not found');
     }
 
-    if (doctor.doctorVerificationStatus !== DoctorVerificationStatus.PENDING) {
+    if (doctor.verificationStatus !== DoctorVerificationStatus.PENDING) {
       throw new BadRequestException('Doctor is not in pending status');
     }
 
     // Cập nhật trạng thái
-    doctor.doctorVerificationStatus = DoctorVerificationStatus.APPROVED;
+    doctor.verificationStatus = DoctorVerificationStatus.APPROVED;
     doctor.verifiedBy = new Types.ObjectId(adminId);
     doctor.verifiedAt = new Date();
     doctor.verificationNotes = dto.verificationNotes;
 
     const updated = await doctor.save();
-    return updated.toObject({ versionKey: false });
+    console.log('✅ DOCTOR VERIFIED:', updated._id);
+    return (await updated.populate('userId')).toObject({ versionKey: false });
   }
 
   /**
@@ -93,7 +102,7 @@ export class AdminService {
    * Admin từ chối tài khoản bác sĩ
    */
   async rejectDoctor(
-    doctorId: string,
+    doctorUserId: string,
     adminId: string,
     dto: RejectDoctorDto,
   ) {
@@ -103,24 +112,26 @@ export class AdminService {
       throw new ForbiddenException('Only admin can reject doctors');
     }
 
-    // Kiểm tra bác sĩ tồn tại
-    const doctor = await this.userModel.findById(doctorId);
-    if (!doctor || doctor.role !== UserRole.DOCTOR) {
+    // Kiểm tra bác sĩ tồn tại (tìm bằng userId, không phải _id)
+    const doctor = await this.doctorModel.findOne({
+      userId: new Types.ObjectId(doctorUserId),
+    });
+    if (!doctor) {
       throw new NotFoundException('Doctor not found');
     }
 
-    if (doctor.doctorVerificationStatus !== DoctorVerificationStatus.PENDING) {
+    if (doctor.verificationStatus !== DoctorVerificationStatus.PENDING) {
       throw new BadRequestException('Doctor is not in pending status');
     }
 
     // Cập nhật trạng thái
-    doctor.doctorVerificationStatus = DoctorVerificationStatus.REJECTED;
+    doctor.verificationStatus = DoctorVerificationStatus.REJECTED;
     doctor.verifiedBy = new Types.ObjectId(adminId);
     doctor.verifiedAt = new Date();
     doctor.verificationNotes = dto.reason;
 
     const updated = await doctor.save();
-    return updated.toObject({ versionKey: false });
+    return (await updated.populate('userId')).toObject({ versionKey: false });
   }
 
   // ============================================
@@ -155,6 +166,9 @@ export class AdminService {
       reason: dto.reason,
     };
 
+    if (!user.lockHistory) {
+      user.lockHistory = [];
+    }
     user.lockHistory.push(lockRecord);
     user.accountStatus = AccountStatus.BANNED;
 
@@ -184,7 +198,7 @@ export class AdminService {
     }
 
     // Cập nhật lock history - lần khóa gần nhất
-    if (user.lockHistory.length > 0) {
+    if (user.lockHistory && user.lockHistory.length > 0) {
       user.lockHistory[user.lockHistory.length - 1].unlockedAt = new Date();
       user.lockHistory[user.lockHistory.length - 1].unlockedBy = new Types.ObjectId(adminId);
     }
@@ -460,10 +474,9 @@ export class AdminService {
       bannedAccounts,
     ] = await Promise.all([
       this.userModel.countDocuments(),
-      this.userModel.countDocuments({ role: UserRole.DOCTOR }),
-      this.userModel.countDocuments({
-        role: UserRole.DOCTOR,
-        doctorVerificationStatus: DoctorVerificationStatus.PENDING,
+      this.doctorModel.countDocuments(),
+      this.doctorModel.countDocuments({
+        verificationStatus: DoctorVerificationStatus.PENDING,
       }),
       this.sessionModel.countDocuments(),
       this.violationReportModel.countDocuments({

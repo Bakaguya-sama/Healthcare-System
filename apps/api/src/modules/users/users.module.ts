@@ -2,12 +2,16 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
-import { UserEntity, UserEntitySchema } from './entities/user.entity';
+import { User, UserSchema } from '../auth/entities/user.schema';
+import { Patient, PatientSchema } from './entities/patient.schema';
+import { Doctor, DoctorSchema } from './entities/doctor.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: UserEntity.name, schema: UserEntitySchema },
+      { name: User.name, schema: UserSchema },
+      { name: Patient.name, schema: PatientSchema },
+      { name: Doctor.name, schema: DoctorSchema },
     ]),
   ],
   controllers: [UsersController],

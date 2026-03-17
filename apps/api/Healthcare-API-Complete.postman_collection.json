@@ -1,0 +1,2511 @@
+{
+  "info": {
+    "_postman_id": "healthcare-system-complete",
+    "name": "Healthcare System API - COMPLETE Collection",
+    "description": "Comprehensive test collection for Healthcare System backend API with ALL endpoints (100+ APIs) across ALL 18 modules",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "12345",
+    "version": "2.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1️⃣ AUTH - Authentication (8 endpoints)",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Patient\",\n  \"role\": \"patient\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register new user (patient, doctor, or admin)"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email and password. Returns JWT token"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh JWT token"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Get current authenticated user info"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"Password123!\",\n  \"newPassword\": \"NewPassword123!\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Change password for current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"patient@test.com\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "description": "Request password reset via email"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"ResetPassword123!\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/confirm-otp",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "confirm-otp"]
+            },
+            "description": "Confirm OTP and reset password"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2️⃣ USERS - User Management (6 endpoints)",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["users"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get paginated list of all users (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Doctors",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/doctors?verified=true&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["users", "doctors"],
+              "query": [{"key": "verified", "value": "true"}, {"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get list of verified doctors with optional filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Get current user's full profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/:id",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":id"]
+            },
+            "description": "Get user by ID (Admin or own profile)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"phoneNumber\": \"0987654321\",\n  \"avatarUrl\": \"https://example.com/avatar.jpg\",\n  \"address\": {\"street\": \"123 Main St\", \"city\": \"Ho Chi Minh\", \"country\": \"Vietnam\"}\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Update current user's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User Account",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/:id",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":id"]
+            },
+            "description": "Delete user account (Admin or own account)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3️⃣ PATIENTS - Patient Management (5 endpoints)",
+      "item": [
+        {
+          "name": "Create Patient Profile",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"fullName\": \"John Patient\",\n  \"dateOfBirth\": \"1990-01-15\",\n  \"gender\": \"male\",\n  \"bloodType\": \"O\",\n  \"allergies\": [\"Penicillin\", \"Shellfish\"],\n  \"medicalHistory\": \"Hypertension\",\n  \"status\": \"active\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/patients",
+              "host": ["{{base_url}}"],
+              "path": ["patients"]
+            },
+            "description": "Create new patient profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patient Profile",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/patients/profile",
+              "host": ["{{base_url}}"],
+              "path": ["patients", "profile"]
+            },
+            "description": "Get current patient's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Patients",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/patients?page=1&limit=10&status=active",
+              "host": ["{{base_url}}"],
+              "path": ["patients"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
+            },
+            "description": "Get paginated list of all patients (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Patient Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"bloodType\": \"AB\",\n  \"allergies\": [\"Peanuts\"],\n  \"medicalHistory\": \"Updated history\",\n  \"status\": \"active\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/patients/profile",
+              "host": ["{{base_url}}"],
+              "path": ["patients", "profile"]
+            },
+            "description": "Update current patient's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Patient Profile",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/patients/profile",
+              "host": ["{{base_url}}"],
+              "path": ["patients", "profile"]
+            },
+            "description": "Delete patient profile"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4️⃣ ADMINS - Admin Management (4 endpoints)",
+      "item": [
+        {
+          "name": "Create Admin",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"fullName\": \"Admin User\",\n  \"adminRole\": \"user_manager\",\n  \"department\": \"User Management\",\n  \"permissions\": [\"verify_doctors\", \"lock_users\"],\n  \"isActive\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admins",
+              "host": ["{{base_url}}"],
+              "path": ["admins"]
+            },
+            "description": "Create new admin user (SUPER_ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Admins",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admins?page=1&limit=10&isActive=true",
+              "host": ["{{base_url}}"],
+              "path": ["admins"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "isActive", "value": "true"}]
+            },
+            "description": "Get paginated list of all admins (SUPER_ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Admin",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Updated Admin\",\n  \"adminRole\": \"ai_manager\",\n  \"department\": \"AI Management\",\n  \"isActive\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admins/:id",
+              "host": ["{{base_url}}"],
+              "path": ["admins", ":id"]
+            },
+            "description": "Update admin details (SUPER_ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Admin",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admins/:id",
+              "host": ["{{base_url}}"],
+              "path": ["admins", ":id"]
+            },
+            "description": "Delete admin user (SUPER_ADMIN only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5️⃣ NOTIFICATIONS - Notification Management (7 endpoints)",
+      "item": [
+        {
+          "name": "Create Notification",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"type\": \"SESSION_REMINDER\",\n  \"title\": \"Upcoming Session\",\n  \"message\": \"Your appointment is in 1 hour\",\n  \"data\": {\"sessionId\": \"123456\", \"doctorName\": \"Dr. Smith\"},\n  \"expiresIn\": 86400\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"]
+            },
+            "description": "Create new notification for user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Notifications List",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/notifications?page=1&limit=20&status=unread",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}, {"key": "status", "value": "unread"}]
+            },
+            "description": "Get paginated list of user's notifications"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Notification Detail",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/notifications/:id",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", ":id"]
+            },
+            "description": "Get notification detail (auto marks as read)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Notification",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"read\",\n  \"title\": \"Updated Title\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/:id",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", ":id"]
+            },
+            "description": "Update notification status or content"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark All As Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/notifications/mark-all-as-read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "mark-all-as-read"]
+            },
+            "description": "Mark all user notifications as read"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/notifications/:id",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", ":id"]
+            },
+            "description": "Delete notification"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/notifications/unread/count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "unread", "count"]
+            },
+            "description": "Get count of unread notifications"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6️⃣ CHAT - Real-time Messaging (7 endpoints)",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverId\": \"{{other_user_id}}\",\n  \"content\": \"Hello! How are you?\",\n  \"messageType\": \"text\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/send",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "send"]
+            },
+            "description": "Send new message to another user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/conversation/:otherId?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "conversation", ":otherId"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]
+            },
+            "description": "Get conversation history with specific user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Messages",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/messages?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all messages with filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Message",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/messages/:id",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages", ":id"]
+            },
+            "description": "Get specific message details"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Message",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated message content\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/messages/:id",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages", ":id"]
+            },
+            "description": "Update message content"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Message",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/messages/:id",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages", ":id"]
+            },
+            "description": "Delete message"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark As Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/messages/:id/read",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages", ":id", "read"]
+            },
+            "description": "Mark message as read"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7️⃣ SESSIONS - Consultation Sessions (9 endpoints)",
+      "item": [
+        {
+          "name": "Create Session",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"patientId\": \"{{patient_id}}\",\n  \"scheduledTime\": \"2024-03-20T10:00:00Z\",\n  \"type\": \"online\",\n  \"reason\": \"General consultation\",\n  \"duration\": 30\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/sessions",
+              "host": ["{{base_url}}"],
+              "path": ["sessions"]
+            },
+            "description": "Create new consultation session"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sessions List",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/sessions?page=1&limit=10&status=active",
+              "host": ["{{base_url}}"],
+              "path": ["sessions"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
+            },
+            "description": "Get sessions with filters and pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Upcoming Sessions",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/sessions/upcoming?days=7",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", "upcoming"],
+              "query": [{"key": "days", "value": "7"}]
+            },
+            "description": "Get upcoming sessions for next N days"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/sessions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id"]
+            },
+            "description": "Get specific session details"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledTime\": \"2024-03-21T11:00:00Z\",\n  \"reason\": \"Updated reason\",\n  \"status\": \"active\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/sessions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id"]
+            },
+            "description": "Update session details"
+          },
+          "response": []
+        },
+        {
+          "name": "Start Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/sessions/:id/start",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id", "start"]
+            },
+            "description": "Start active session"
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Session completed successfully\",\n  \"prescription\": \"Take prescribed medication\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/sessions/:id/complete",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id", "complete"]
+            },
+            "description": "Mark session as completed"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Schedule conflict\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/sessions/:id/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id", "cancel"]
+            },
+            "description": "Cancel scheduled session"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Session",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/sessions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id"]
+            },
+            "description": "Delete session record"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8️⃣ REVIEWS - Doctor Reviews & Ratings (8 endpoints)",
+      "item": [
+        {
+          "name": "Create Review",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"sessionId\": \"{{session_id}}\",\n  \"rating\": 5,\n  \"title\": \"Excellent doctor\",\n  \"comment\": \"Very professional and caring\",\n  \"categories\": {\"communication\": 5, \"professionalism\": 5, \"helpfulness\": 5}\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["reviews"]
+            },
+            "description": "Create new review for doctor"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Reviews",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/reviews?page=1&limit=10&rating=5",
+              "host": ["{{base_url}}"],
+              "path": ["reviews"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "rating", "value": "5"}]
+            },
+            "description": "Get all reviews with filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doctor Rating",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/reviews/doctor/:doctorId/rating",
+              "host": ["{{base_url}}"],
+              "path": ["reviews", "doctor", ":doctorId", "rating"]
+            },
+            "description": "Get average rating and stats for specific doctor"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Reviews by Doctor",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/reviews/doctor/:doctorId?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["reviews", "doctor", ":doctorId"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all reviews for specific doctor"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Reviews",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/reviews/my-reviews?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["reviews", "my-reviews"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get current patient's reviews"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Updated review comment\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/reviews/:id",
+              "host": ["{{base_url}}"],
+              "path": ["reviews", ":id"]
+            },
+            "description": "Update existing review"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/reviews/:id",
+              "host": ["{{base_url}}"],
+              "path": ["reviews", ":id"]
+            },
+            "description": "Delete review"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Review Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/reviews/stats?doctorId={{doctor_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["reviews", "stats"],
+              "query": [{"key": "doctorId", "value": "{{doctor_id}}"}]
+            },
+            "description": "Get review statistics for doctor"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9️⃣ HEALTH-METRICS - Health Data Tracking (8 endpoints)",
+      "item": [
+        {
+          "name": "Create Health Metric",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metricType\": \"blood_pressure\",\n  \"value\": 120,\n  \"unit\": \"mmHg\",\n  \"recordedAt\": \"2024-03-17T10:00:00Z\",\n  \"notes\": \"Measured at home\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/health-metrics",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics"]
+            },
+            "description": "Record new health metric"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Health Metrics",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/health-metrics?page=1&limit=20&metricType=blood_pressure",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}, {"key": "metricType", "value": "blood_pressure"}]
+            },
+            "description": "Get health metrics with filters and pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/health-metrics/statistics/:type",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics", "statistics", ":type"]
+            },
+            "description": "Get statistics for specific metric type"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Alerts",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/health-metrics/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics", "alerts"]
+            },
+            "description": "Get health alerts based on metrics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Metric By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/health-metrics/:id",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics", ":id"]
+            },
+            "description": "Get specific health metric"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Metric",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 125,\n  \"notes\": \"Updated measurement\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/health-metrics/:id",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics", ":id"]
+            },
+            "description": "Update health metric"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Metric",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/health-metrics/:id",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics", ":id"]
+            },
+            "description": "Delete health metric record"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Latest Metrics",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/health-metrics/latest?limit=5",
+              "host": ["{{base_url}}"],
+              "path": ["health-metrics", "latest"],
+              "query": [{"key": "limit", "value": "5"}]
+            },
+            "description": "Get latest health metrics"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔟 AI-ASSISTANT - AI Consultation (12 endpoints)",
+      "item": [
+        {
+          "name": "Start Conversation",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"General health inquiry\",\n  \"description\": \"I need advice about symptoms\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/start",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", "start"]
+            },
+            "description": "Start new AI consultation conversation"
+          },
+          "response": []
+        },
+        {
+          "name": "Send Message to AI",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"I have a persistent cough for 3 days\",\n  \"attachments\": []\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:conversationId/message",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":conversationId", "message"]
+            },
+            "description": "Send message to AI in conversation"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Conversations",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/my-conversations?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "my-conversations"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get user's AI conversations"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Conversations",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all conversations (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation Detail",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":id"]
+            },
+            "description": "Get specific conversation with all messages"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Conversation",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"Updated topic\",\n  \"notes\": \"Additional notes\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":id"]
+            },
+            "description": "Update conversation details"
+          },
+          "response": []
+        },
+        {
+          "name": "Rate Conversation",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"feedback\": \"Very helpful AI response\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:id/rate",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":id", "rate"]
+            },
+            "description": "Rate AI conversation quality"
+          },
+          "response": []
+        },
+        {
+          "name": "Archive Conversation",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:id/archive",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":id", "archive"]
+            },
+            "description": "Archive conversation"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Conversation",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":id"]
+            },
+            "description": "Delete conversation and history"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation Stats",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:id/stats",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":id", "stats"]
+            },
+            "description": "Get conversation statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Export Conversation",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-assistant/conversations/:id/export",
+              "host": ["{{base_url}}"],
+              "path": ["ai-assistant", "conversations", ":id", "export"]
+            },
+            "description": "Export conversation as PDF/JSON"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣1️⃣ ADMIN (Phase 1) - Admin Control (14 endpoints)",
+      "item": [
+        {
+          "name": "Get Pending Doctors",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/doctors/pending",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "doctors", "pending"]
+            },
+            "description": "Get list of pending doctor approvals"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Doctor",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationNotes\": \"License verified\",\n  \"specializations\": [\"General Practice\", \"Internal Medicine\"]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/doctors/:id/verify",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "doctors", ":id", "verify"]
+            },
+            "description": "Approve doctor account"
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Doctor",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Invalid credentials\",\n  \"message\": \"Your license verification failed\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/doctors/:id/reject",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "doctors", ":id", "reject"]
+            },
+            "description": "Reject doctor account"
+          },
+          "response": []
+        },
+        {
+          "name": "Lock User Account",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Suspicious activity\",\n  \"lockDuration\": 86400\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/:id/lock",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", ":id", "lock"]
+            },
+            "description": "Lock user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Unlock User Account",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/users/:id/unlock",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", ":id", "unlock"]
+            },
+            "description": "Unlock user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Violation",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"violationType\": \"inappropriate_content\",\n  \"description\": \"User sent inappropriate message\",\n  \"severity\": \"high\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/violations",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "violations"]
+            },
+            "description": "Create user violation record"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Violations",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/violations?page=1&limit=10&status=active",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "violations"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
+            },
+            "description": "Get violation records"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Violation Detail",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/violations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "violations", ":id"]
+            },
+            "description": "Get specific violation details"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Violation Note",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"User warned about behavior\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/violations/:id/note",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "violations", ":id", "note"]
+            },
+            "description": "Add note to violation"
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve Violation",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolution\": \"User apologized and behavior corrected\",\n  \"action\": \"warning\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/violations/:id/resolve",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "violations", ":id", "resolve"]
+            },
+            "description": "Resolve violation"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sessions Admin View",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/sessions?page=1&limit=20&status=completed",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "sessions"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}, {"key": "status", "value": "completed"}]
+            },
+            "description": "Get all sessions admin view"
+          },
+          "response": []
+        },
+        {
+          "name": "Get System Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/statistics",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "statistics"]
+            },
+            "description": "Get system statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Activity Logs",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/activity-logs?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "activity-logs"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]
+            },
+            "description": "Get user activity logs"
+          },
+          "response": []
+        },
+        {
+          "name": "Export System Report",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/admin/report/export?format=csv&period=month",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "report", "export"],
+              "query": [{"key": "format", "value": "csv"}, {"key": "period", "value": "month"}]
+            },
+            "description": "Export system report"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣2️⃣ AI_SESSIONS - AI Session Management (8 endpoints)",
+      "item": [
+        {
+          "name": "Create AI Session",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"sessionType\": \"consultation\",\n  \"topic\": \"General health checkup\",\n  \"description\": \"Need advice about symptoms\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-sessions",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions"]
+            },
+            "description": "Start new AI session"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My AI Sessions",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-sessions/my-sessions?page=1&limit=10&status=active",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions", "my-sessions"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
+            },
+            "description": "Get current user's AI sessions"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All AI Sessions",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-sessions?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all AI sessions (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-sessions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions", ":id"]
+            },
+            "description": "Get specific AI session"
+          },
+          "response": []
+        },
+        {
+          "name": "Update AI Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"Updated topic\",\n  \"keyFindings\": \"Patient shows symptoms\",\n  \"recommendations\": \"Recommend doctor consultation\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-sessions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions", ":id"]
+            },
+            "description": "Update AI session"
+          },
+          "response": []
+        },
+        {
+          "name": "Complete AI Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keyFindings\": \"Final findings\",\n  \"recommendations\": \"Recommended next steps\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-sessions/:id/complete",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions", ":id", "complete"]
+            },
+            "description": "Mark AI session as completed"
+          },
+          "response": []
+        },
+        {
+          "name": "Archive AI Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-sessions/:id/archive",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions", ":id", "archive"]
+            },
+            "description": "Archive completed AI session"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete AI Session",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-sessions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-sessions", ":id"]
+            },
+            "description": "Delete AI session"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣3️⃣ AI_MESSAGES - AI Message Management (9 endpoints)",
+      "item": [
+        {
+          "name": "Create AI Message",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{session_id}}\",\n  \"role\": \"user\",\n  \"content\": \"I have a headache for 3 days\",\n  \"tokenCount\": 8\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-messages",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages"]
+            },
+            "description": "Create new AI message"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Messages by Session",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-messages/session/:sessionId?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages", "session", ":sessionId"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]
+            },
+            "description": "Get messages in AI session"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Messages",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-messages/my-messages?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages", "my-messages"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get current user's AI messages"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Messages",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-messages?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all AI messages (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Message By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-messages/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages", ":id"]
+            },
+            "description": "Get AI message details"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Message",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated message content\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-messages/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages", ":id"]
+            },
+            "description": "Update AI message"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Feedback to Message",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"feedbackType\": \"helpful\",\n  \"feedbackText\": \"Very helpful\",\n  \"rating\": 5\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-messages/:id/feedback",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages", ":id", "feedback"]
+            },
+            "description": "Add feedback to AI message"
+          },
+          "response": []
+        },
+        {
+          "name": "Flag Message",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Inappropriate content\",\n  \"description\": \"Message contains inappropriate language\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-messages/:id/flag",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages", ":id", "flag"]
+            },
+            "description": "Flag AI message"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Message",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-messages/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-messages", ":id"]
+            },
+            "description": "Delete AI message"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣4️⃣ AI_FEEDBACKS - AI Feedback Management (9 endpoints)",
+      "item": [
+        {
+          "name": "Create Feedback",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{session_id}}\",\n  \"userId\": \"{{user_id}}\",\n  \"feedbackType\": \"suggestion\",\n  \"rating\": 4,\n  \"text\": \"Good advice but need more details\",\n  \"verified\": false\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks"]
+            },
+            "description": "Create AI feedback"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Feedbacks",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks/my-feedbacks?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks", "my-feedbacks"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get user's AI feedbacks"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Feedbacks by Session",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks/session/:sessionId?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks", "session", ":sessionId"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]
+            },
+            "description": "Get session AI feedbacks"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session Stats",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks/session/:sessionId/stats",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks", "session", ":sessionId", "stats"]
+            },
+            "description": "Get AI feedback statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Feedbacks",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all AI feedbacks"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Feedback By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks", ":id"]
+            },
+            "description": "Get AI feedback detail"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"text\": \"Updated feedback\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks", ":id"]
+            },
+            "description": "Update AI feedback"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark As Helpful",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks/:id/helpful",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks", ":id", "helpful"]
+            },
+            "description": "Mark feedback as helpful"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verified\": true,\n  \"verificationNote\": \"Verified by admin\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-feedbacks/:id/verify",
+              "host": ["{{base_url}}"],
+              "path": ["ai-feedbacks", ":id", "verify"]
+            },
+            "description": "Verify AI feedback (ADMIN)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣5️⃣ AI_DOCUMENTS - Document Management (7 endpoints)",
+      "item": [
+        {
+          "name": "Create Document",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"documentType\": \"guideline\",\n  \"fileUrl\": \"https://example.com/guideline.pdf\",\n  \"description\": \"Latest medical guidelines\",\n  \"uploadedBy\": \"{{user_id}}\",\n  \"status\": \"draft\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-documents",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents"]
+            },
+            "description": "Create knowledge base document"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Documents",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-documents?page=1&limit=10&status=indexed",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "indexed"}]
+            },
+            "description": "Get documents with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Documents",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-documents/search/:query?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents", "search", ":query"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Search documents by keyword"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Document By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-documents/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents", ":id"]
+            },
+            "description": "Get document detail"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Document",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Title\",\n  \"description\": \"Updated description\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-documents/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents", ":id"]
+            },
+            "description": "Update document"
+          },
+          "response": []
+        },
+        {
+          "name": "Index Document",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-documents/:id/index",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents", ":id", "index"]
+            },
+            "description": "Mark document as indexed"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-documents/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-documents", ":id"]
+            },
+            "description": "Delete document"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣6️⃣ AI_DOCUMENT_CHUNKS - RAG Chunks (8 endpoints)",
+      "item": [
+        {
+          "name": "Create Chunk",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentId\": \"{{document_id}}\",\n  \"content\": \"Chunk content here\",\n  \"chunkIndex\": 1,\n  \"charCount\": 50,\n  \"tokenCount\": 12,\n  \"embedding\": [0.1, 0.2, 0.3]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks"]
+            },
+            "description": "Create document chunk"
+          },
+          "response": []
+        },
+        {
+          "name": "Batch Create Chunks",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"documentId\": \"{{document_id}}\",\n    \"content\": \"Chunk 1\",\n    \"chunkIndex\": 1,\n    \"charCount\": 20,\n    \"tokenCount\": 5\n  },\n  {\n    \"documentId\": \"{{document_id}}\",\n    \"content\": \"Chunk 2\",\n    \"chunkIndex\": 2,\n    \"charCount\": 20,\n    \"tokenCount\": 5\n  }\n]",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks/batch",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks", "batch"]
+            },
+            "description": "Batch create chunks"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Chunks by Document",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks/document/:documentId?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks", "document", ":documentId"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]
+            },
+            "description": "Get chunks for document"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Chunks",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks/search/:query?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks", "search", ":query"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Search chunks by content"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Chunks",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all chunks"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Chunk By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks", ":id"]
+            },
+            "description": "Get chunk detail"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Chunk",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated content\",\n  \"embedding\": [0.15, 0.25, 0.35]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks", ":id"]
+            },
+            "description": "Update chunk"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Chunk",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-document-chunks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-document-chunks", ":id"]
+            },
+            "description": "Delete chunk"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣7️⃣ BLACKLIST_KEYWORDS - Content Filtering (7 endpoints)",
+      "item": [
+        {
+          "name": "Create Keyword",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keyword\": \"badword\",\n  \"pattern\": \"^(badword|variant)$\",\n  \"category\": \"inappropriate\",\n  \"severity\": \"high\",\n  \"isActive\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/blacklist-keywords",
+              "host": ["{{base_url}}"],
+              "path": ["blacklist-keywords"]
+            },
+            "description": "Create blacklist keyword"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Keywords",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/blacklist-keywords?page=1&limit=10&isActive=true",
+              "host": ["{{base_url}}"],
+              "path": ["blacklist-keywords"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "isActive", "value": "true"}]
+            },
+            "description": "Get keywords with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Content",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This is content to check\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/blacklist-keywords/check",
+              "host": ["{{base_url}}"],
+              "path": ["blacklist-keywords", "check"]
+            },
+            "description": "Check content against blacklist"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Keyword By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/blacklist-keywords/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blacklist-keywords", ":id"]
+            },
+            "description": "Get keyword detail"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Keyword",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pattern\": \"^(updated|variant)$\",\n  \"severity\": \"medium\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/blacklist-keywords/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blacklist-keywords", ":id"]
+            },
+            "description": "Update keyword"
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate Keyword",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/blacklist-keywords/:id/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["blacklist-keywords", ":id", "deactivate"]
+            },
+            "description": "Deactivate keyword"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Keyword",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/blacklist-keywords/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blacklist-keywords", ":id"]
+            },
+            "description": "Delete keyword"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1️⃣8️⃣ AI_HEALTH_INSIGHTS - Health Insights (12 endpoints)",
+      "item": [
+        {
+          "name": "Create Health Insight",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"insightType\": \"trend\",\n  \"metricType\": \"heart_rate\",\n  \"title\": \"Elevated Heart Rate Trend\",\n  \"description\": \"Your heart rate is elevated\",\n  \"analysisData\": {\"averageHR\": 85, \"trend\": \"increasing\"},\n  \"confidenceLevel\": \"high\",\n  \"recommendedAction\": \"Consult doctor\",\n  \"periodStart\": \"2024-03-10\",\n  \"periodEnd\": \"2024-03-17\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights"]
+            },
+            "description": "Create health insight"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Insights",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/my-insights?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", "my-insights"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get user's health insights"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pending Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/pending-notifications",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", "pending-notifications"]
+            },
+            "description": "Get unnotified insights"
+          },
+          "response": []
+        },
+        {
+          "name": "Search by Type",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/by-type/trend?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", "by-type", "trend"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Search insights by type"
+          },
+          "response": []
+        },
+        {
+          "name": "Search by Confidence",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/by-confidence/high?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", "by-confidence", "high"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Search insights by confidence"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/stats",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", "stats"]
+            },
+            "description": "Get health insights statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Insights",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights"],
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
+            },
+            "description": "Get all insights"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Insight By ID",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", ":id"]
+            },
+            "description": "Get insight detail"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Insight",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated title\",\n  \"description\": \"Updated analysis\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", ":id"]
+            },
+            "description": "Update insight"
+          },
+          "response": []
+        },
+        {
+          "name": "Acknowledge Insight",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/:id/acknowledge",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", ":id", "acknowledge"]
+            },
+            "description": "Mark insight as acknowledged"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark As Notified",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/:id/notify",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", ":id", "notify"]
+            },
+            "description": "Mark insight as notified"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Insight",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/ai-health-insights/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-health-insights", ":id"]
+            },
+            "description": "Delete insight"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "user_object_id",
+      "type": "string"
+    },
+    {
+      "key": "session_id",
+      "value": "session_object_id",
+      "type": "string"
+    },
+    {
+      "key": "document_id",
+      "value": "document_object_id",
+      "type": "string"
+    },
+    {
+      "key": "doctor_id",
+      "value": "doctor_object_id",
+      "type": "string"
+    },
+    {
+      "key": "patient_id",
+      "value": "patient_object_id",
+      "type": "string"
+    },
+    {
+      "key": "other_user_id",
+      "value": "other_user_object_id",
+      "type": "string"
+    }
+  ]
+}

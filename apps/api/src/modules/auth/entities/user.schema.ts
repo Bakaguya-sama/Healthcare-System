@@ -1,12 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 import { UserRole } from '../../users/enums/user-role.enum';
+import { ApiProperty } from '@nestjs/swagger';
 
 export type UserDocument = HydratedDocument<User>;
 
 export enum AccountStatus {
   ACTIVE = 'active',
   BANNED = 'banned',
+}
+
+export interface LockRecord {
+  lockedAt: Date;
+  lockedBy: Types.ObjectId;
+  reason: string;
+  unlockedAt?: Date;
+  unlockedBy?: Types.ObjectId;
 }
 
 @Schema({ timestamps: true })
@@ -64,6 +73,10 @@ export class User {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  // Account lock history
+  @Prop({ type: [Object], default: [] })
+  lockHistory?: LockRecord[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
