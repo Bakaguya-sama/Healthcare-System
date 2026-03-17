@@ -1,4 +1,4 @@
-import { AuthenticationHeader } from "@/components/ui/auth-header";
+import { AuthenticationHeader } from "@repo/ui/components/auth-header";
 import {
   FieldSet,
   FieldGroup,
@@ -6,16 +6,20 @@ import {
   FieldLabel,
   FieldControl,
   FieldError,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from "@repo/ui/components/field";
+import { Input } from "@repo/ui/components/input";
+import { Button } from "@repo/ui/components/button";
 import { FormEvent, useState } from "react";
 import { Mail } from "lucide-react";
+import { Spinner } from "@repo/ui/components/spinner";
+import { showToast } from "@repo/ui/components/toasts";
+import { toast } from "react-toastify";
 
 interface ForgetPasswordProps {
-  onSubmit: (email: string) => void | Promise<void>;
+  onSubmit?: (email: string) => void | Promise<void>;
   isLoading?: boolean;
   error?: string;
+  submitLabel?: string;
 }
 
 interface ForgetPasswordErrors {
@@ -26,10 +30,17 @@ export function ForgetPassword({
   onSubmit,
   isLoading = false,
   error,
+  submitLabel = "Verify email",
 }: ForgetPasswordProps) {
   const [email, setEmail] = useState("");
+  const [internalLoading, setInternalLoading] = useState(false);
   const [touched, setTouched] = useState({ email: false });
   const [localErrors, setLocalErrors] = useState<ForgetPasswordErrors>({});
+
+  async function handleForgetPassword(values: { email: string }) {
+    // Placeholder: thay phần này bằng call API quên mật khẩu khi backend sẵn sàng.
+    console.log("[TODO] Forget password payload", values);
+  }
 
   function validate(values: { email: string }): ForgetPasswordErrors {
     const nextErrors: ForgetPasswordErrors = {};
@@ -48,7 +59,7 @@ export function ForgetPassword({
     setLocalErrors(validate({ email }));
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
     const nextErrors = validate({ email });
@@ -59,10 +70,20 @@ export function ForgetPassword({
       return;
     }
 
-    onSubmit(email.trim());
+    const submitHandler =
+      onSubmit ??
+      ((nextEmail: string) => handleForgetPassword({ email: nextEmail }));
+
+    try {
+      setInternalLoading(true);
+      await submitHandler(email.trim());
+    } finally {
+      setInternalLoading(false);
+    }
   }
 
   const emailError = touched.email ? localErrors.email : undefined;
+  const submitting = isLoading || internalLoading;
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
       <AuthenticationHeader />
@@ -101,7 +122,7 @@ export function ForgetPassword({
                     onChange={(e) => setEmail(e.target.value)}
                     onBlur={handleBlur}
                     placeholder="Re-enter your email account"
-                    disabled={isLoading}
+                    disabled={submitting}
                     className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
                   />
                 </FieldControl>
@@ -112,9 +133,9 @@ export function ForgetPassword({
                 <Button
                   type="submit"
                   className="h-12 w-full rounded-2xl text-base"
-                  disabled={isLoading}
+                  disabled={submitting}
                 >
-                  {isLoading ? "Loading..." : "Verify email"}
+                  {submitting ? <Spinner className="size-6" /> : submitLabel}
                 </Button>
               </Field>
             </FieldGroup>

@@ -1,4 +1,3 @@
-import { AuthenticationHeader } from "@repo/ui/components/auth-header";
 import {
   FieldSet,
   FieldGroup,
@@ -14,6 +13,7 @@ import { Mail } from "lucide-react";
 import { Spinner } from "@repo/ui/components/spinner";
 import { showToast } from "@repo/ui/components/toasts";
 import { toast } from "react-toastify";
+import { Header } from "@/components/ui/authen_header";
 
 interface ConfirmOTPProps {
   onSubmit?: (otp: string) => void | Promise<void>;
@@ -83,7 +83,7 @@ export function ConfirmOTP({
   const submitting = isLoading || internalLoading;
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
-      <AuthenticationHeader />
+      <Header />
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6">
           <p className="text-center text-5xl font-bold text-[#313A34] mb-2">

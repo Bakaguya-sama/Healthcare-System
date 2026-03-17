@@ -48,7 +48,7 @@ const menuItems = {
     { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/" },
     {
       id: "consultations",
-      label: "consultations",
+      label: "Consultations",
       icon: MessageSquare,
       path: "/consultations",
     },

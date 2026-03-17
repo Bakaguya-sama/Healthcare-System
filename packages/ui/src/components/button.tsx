@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 /*
 <button className="px-6 py-2 rounded-xl border border-gray-300 font-semibold text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer">

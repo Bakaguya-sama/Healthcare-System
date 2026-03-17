@@ -1,7 +1,18 @@
 import * as React from "react";
 import { Cross } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function Header() {
+  const navigate = useNavigate();
+
+  const handleLogIn = () => {
+    navigate("/login");
+  };
+
+  const handleSignUp = () => {
+    navigate("/signup");
+  };
+
   return (
     <header className="flex items-center justify-between px-10 h-[10vh] bg-white border-b border-[#EEEFF1]">
       {/* Logo */}
@@ -34,10 +45,16 @@ export function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <button className="px-6 py-2 rounded-xl border border-gray-300 font-semibold text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer">
+        <button
+          onClick={() => handleLogIn()}
+          className="px-6 py-2 rounded-xl border border-gray-300 font-semibold text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer"
+        >
           Log in
         </button>
-        <button className="px-6 py-2 rounded-xl bg-brand text-white font-semibold hover:bg-brand-hover transition-colors cursor-pointer">
+        <button
+          onClick={() => handleSignUp()}
+          className="px-6 py-2 rounded-xl bg-brand text-white font-semibold hover:bg-brand-hover transition-colors cursor-pointer"
+        >
           Sign up
         </button>
       </div>

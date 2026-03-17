@@ -31,6 +31,20 @@
   "include": [
     "src",
     "../../packages/ui/src/layouts/sidebar.tsx",
-    "../../packages/ui/src/layouts/top-header.tsx"
+    "../../packages/ui/src/layouts/top-header.tsx",
+    "../../packages/ui/src/components/auth-header.tsx",
+    "../../packages/ui/src/components/avatar.tsx",
+    "../../packages/ui/src/components/badge.tsx",
+    "../../packages/ui/src/components/button.tsx",
+    "../../packages/ui/src/components/calendar.tsx",
+    "../../packages/ui/src/components/ConfirmationForm.tsx",
+    "../../packages/ui/src/components/field.tsx",
+    "../../packages/ui/src/components/input.tsx",
+    "../../packages/ui/src/components/label.tsx",
+    "../../packages/ui/src/components/pagination.tsx",
+    "../../packages/ui/src/components/progress.tsx",
+    "../../packages/ui/src/components/separator.tsx",
+    "../../packages/ui/src/components/spinner.tsx",
+    "../../packages/ui/src/components/toasts.tsx"
   ]
 }

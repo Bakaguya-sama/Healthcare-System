@@ -1,4 +1,4 @@
-import { AuthenticationHeader } from "@repo/ui/components/auth-header";
+import { Header } from "@/components/ui/authen_header";
 import {
   FieldSet,
   FieldGroup,
@@ -15,83 +15,86 @@ import { Spinner } from "@repo/ui/components/spinner";
 import { showToast } from "@repo/ui/components/toasts";
 import { toast } from "react-toastify";
 
-interface ConfirmOTPProps {
-  onSubmit?: (otp: string) => void | Promise<void>;
+interface ForgetPasswordProps {
+  onSubmit?: (email: string) => void | Promise<void>;
   isLoading?: boolean;
   error?: string;
   submitLabel?: string;
 }
 
-interface ConfirmOTPErrors {
-  otp?: string;
+interface ForgetPasswordErrors {
+  email?: string;
 }
 
-export function ConfirmOTP({
+export function ForgetPassword({
   onSubmit,
   isLoading = false,
   error,
-  submitLabel = "Verify OTP",
-}: ConfirmOTPProps) {
-  const [otp, setOTP] = useState("");
+  submitLabel = "Verify email",
+}: ForgetPasswordProps) {
+  const [email, setEmail] = useState("");
   const [internalLoading, setInternalLoading] = useState(false);
-  const [touched, setTouched] = useState({ otp: false });
-  const [localErrors, setLocalErrors] = useState<ConfirmOTPErrors>({});
+  const [touched, setTouched] = useState({ email: false });
+  const [localErrors, setLocalErrors] = useState<ForgetPasswordErrors>({});
 
-  async function handleConfirmOtp(values: { otp: string }) {
-    // Placeholder: thay phần này bằng call API xác thực OTP khi backend sẵn sàng.
-    console.log("[TODO] Confirm OTP payload", values);
+  async function handleForgetPassword(values: { email: string }) {
+    // Placeholder: thay phần này bằng call API quên mật khẩu khi backend sẵn sàng.
+    console.log("[TODO] Forget password payload", values);
   }
 
-  function validate(values: { otp: string }): ConfirmOTPErrors {
-    const nextErrors: ConfirmOTPErrors = {};
-    if (!values.otp.trim()) {
-      nextErrors.otp = "Please enter the OTP.";
-    } else if (!/^\d{4,8}$/.test(values.otp.trim())) {
-      nextErrors.otp = "OTP must be 4–8 digits.";
+  function validate(values: { email: string }): ForgetPasswordErrors {
+    const nextErrors: ForgetPasswordErrors = {};
+
+    if (!values.email.trim()) {
+      nextErrors.email = "Please enter your email.";
+    } else if (!/^\S+@\S+\.\S+$/.test(values.email)) {
+      nextErrors.email = "Invalid email.";
     }
+
     return nextErrors;
   }
 
   function handleBlur() {
-    setTouched({ otp: true });
-    setLocalErrors(validate({ otp }));
+    setTouched({ email: true });
+    setLocalErrors(validate({ email }));
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    const nextErrors = validate({ otp });
+    const nextErrors = validate({ email });
     setLocalErrors(nextErrors);
-    setTouched({ otp: true });
+    setTouched({ email: true });
 
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
     const submitHandler =
-      onSubmit ?? ((nextOtp: string) => handleConfirmOtp({ otp: nextOtp }));
+      onSubmit ??
+      ((nextEmail: string) => handleForgetPassword({ email: nextEmail }));
 
     try {
       setInternalLoading(true);
-      await submitHandler(otp.trim());
+      await submitHandler(email.trim());
     } finally {
       setInternalLoading(false);
     }
   }
 
-  const otpError = touched.otp ? localErrors.otp : undefined;
+  const emailError = touched.email ? localErrors.email : undefined;
   const submitting = isLoading || internalLoading;
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
-      <AuthenticationHeader />
+      <Header />
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6">
           <p className="text-center text-5xl font-bold text-[#313A34] mb-2">
-            Verify OTP
+            Enter your email
           </p>
 
           <p className="text-center text-lg text-black font-light ">
-            Enter the code from our email sent to you.
+            Enter your email to receive OTP.
           </p>
 
           {error && (
@@ -104,27 +107,26 @@ export function ConfirmOTP({
             <FieldGroup>
               <Field className="gap-2">
                 <FieldLabel
-                  htmlFor="otp"
+                  htmlFor="email"
                   className="text-lg font-medium text-[#1E1E1E]"
                 >
-                  OTP
+                  Email
                 </FieldLabel>
-                <FieldControl invalid={Boolean(otpError)}>
+                <FieldControl invalid={Boolean(emailError)}>
                   <Mail className="h-5 w-5 shrink-0 text-muted-foreground" />
                   <Input
-                    id="otp"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={8}
-                    value={otp}
-                    onChange={(e) => setOTP(e.target.value)}
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     onBlur={handleBlur}
-                    placeholder="Enter your OTP"
+                    placeholder="Re-enter your email account"
                     disabled={submitting}
                     className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
                   />
                 </FieldControl>
-                <FieldError>{otpError}</FieldError>
+                <FieldError>{emailError}</FieldError>
               </Field>
 
               <Field>
