@@ -1,0 +1,12 @@
+# Use this workspace to collaborate
+workspace:
+  id: ""
+
+localResources:
+  collections:
+    - ..\Healthcare-Auth-API.postman_collection.json
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+cloudResources:
+  collections:
+    ..\postman\collections\Healthcare System - Auth API: 9600f355-75da-4665-afa4-cfa02147fa71

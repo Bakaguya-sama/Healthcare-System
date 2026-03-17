@@ -1,0 +1,422 @@
+{
+  "info": {
+    "_postman_id": "94f80b8c-c404-4f8d-a558-3caf8106b1d0",
+    "name": "Healthcare System - Auth API",
+    "description": "Complete Auth API Collection with all endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "AUTH ENDPOINTS",
+      "item": [
+        {
+          "name": "1. Register",
+          "id": "25eb05ee-cc21-458f-9ca2-63f9dd5ba173",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Test123456!\",\n  \"name\": \"Nguyen Van A\",\n  \"gender\": \"male\",\n  \"phoneNumber\": \"+84912345678\",\n  \"role\": \"patient\",\n  \"address\": {\n    \"street\": \"123 Nguyen Hue\",\n    \"ward\": \"Ward 1\",\n    \"district\": \"District 1\",\n    \"city\": \"Ho Chi Minh\",\n    \"country\": \"Vietnam\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Login",
+          "id": "08ca188d-7f3d-486b-b311-239be8ab5a7c",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Test123456!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Profile (ME)",
+          "id": "e09f64a4-5812-4136-a43a-dd7eb9fceb60",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/me",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Change Password",
+          "id": "63afb30e-3334-4293-b71f-7440222c5b84",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"Test123456!\",\n  \"newPassword\": \"NewTest789!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/change-password",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "change-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Forgot Password (Send OTP)",
+          "id": "b1ad9374-5e07-4dad-942f-9bde627a1907",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/forgot-password",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Confirm OTP (Reset Password)",
+          "id": "cc09b7fa-3bf3-4b55-aaa7-3a4c30fe5bec",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"otpCode\": \"123456\",\n  \"newPassword\": \"FinalPass789!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/confirm-otp",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "confirm-otp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "7. Refresh Token",
+          "id": "cadf2a15-cf31-4751-b6f8-8ced75a3612d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"PASTE_USER_ID_HERE\",\n  \"refreshToken\": \"PASTE_REFRESH_TOKEN_HERE\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/refresh",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8. Logout",
+          "id": "885f04fd-e3db-4ee1-8159-f3681e371087",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/logout",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9. Register Admin",
+          "id": "a9f1e3d2-5c7b-4a8f-9e6d-1b3c5a7f8e2d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"AdminPass123!\",\n  \"name\": \"System Administrator\",\n  \"role\": \"admin\",\n  \"gender\": \"male\",\n  \"phoneNumber\": \"+84912345678\",\n  \"address\": {\n    \"street\": \"789 Ton Duc Thang\",\n    \"ward\": \"Ward 1\",\n    \"district\": \"District 1\",\n    \"city\": \"Ho Chi Minh\",\n    \"country\": \"Vietnam\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10. Login Admin",
+          "id": "b1c2d3e4-5f6a-4b8c-9d7e-2f3g4h5i6j7k",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"AdminPass123!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11. Register Doctor",
+          "id": "d7e2f5a1-8c9e-4d2b-9f1c-5a7b6c3d8e9f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor@example.com\",\n  \"password\": \"Doctor123!\",\n  \"name\": \"Dr. Tran Thi Doctor\",\n  \"role\": \"doctor\",\n  \"gender\": \"female\",\n  \"phoneNumber\": \"+84987654321\",\n  \"address\": {\n    \"street\": \"456 Le Loi\",\n    \"ward\": \"Ward 2\",\n    \"district\": \"District 1\",\n    \"city\": \"Ho Chi Minh\",\n    \"country\": \"Vietnam\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "12. Login Doctor",
+          "id": "f3a4b2c1-9d8e-4c7b-6a5f-3e2d1c9b8a7f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor@example.com\",\n  \"password\": \"Doctor123!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "b05337c5-fe17-44b3-bdf3-d9f27be17a1e"
+    }
+  ],
+  "variable": [
+    {
+      "id": "e224bb71-c607-4945-a5da-c99d413165db",
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "id": "ddaf7b4c-c458-4b07-a2a0-fa88224b3a4e",
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "id": "25022877-67db-4fe0-8fae-5e267865a74a",
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "id": "328c30a8-649d-478c-ac5b-b0bd83025191",
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

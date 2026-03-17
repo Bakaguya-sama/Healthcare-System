@@ -9,6 +9,9 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { SendMessageDto } from './dto/send-message.dto';
+import { QueryMessageDto } from './dto/query-message.dto';
+import { MessageType } from './entities/message.entity';
 
 interface AuthSocket extends Socket {
   userId?: string;
@@ -43,16 +46,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send_message')
   async handleMessage(
     @ConnectedSocket() client: AuthSocket,
-    @MessageBody() data: { receiverId: string; content: string },
+    @MessageBody() data: { receiverId: string; content: string; senderType?: string },
   ) {
     const senderId = client.userId;
     if (!senderId) return;
 
-    const message = await this.chatService.saveMessage(
-      senderId,
-      data.receiverId,
-      data.content,
-    );
+    // Default senderType to patient if not provided
+    const senderType = data.senderType || 'patient';
+
+    const dto: SendMessageDto = {
+      receiverId: data.receiverId,
+      content: data.content,
+      type: MessageType.TEXT,
+      senderType: senderType as any,
+    };
+
+    const result = await this.chatService.sendMessage(senderId, dto);
+    const message = result.data;
 
     // Emit to receiver if online
     const receiverSocketId = this.connectedUsers.get(data.receiverId);
@@ -72,12 +82,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = client.userId;
     if (!userId) return;
 
-    const messages = await this.chatService.getConversation(
-      userId,
-      data.otherId,
-    );
-    client.emit('conversation', messages);
+    const query: QueryMessageDto = {
+      page: 1,
+      limit: 50,
+      sortBy: 'createdAt',
+      sortOrder: -1,
+    };
 
-    await this.chatService.markAsRead(data.otherId, userId);
+    const result = await this.chatService.getConversation(userId, data.otherId, query);
+    client.emit('conversation', result.data);
+
+    await this.chatService.markConversationAsRead(userId, data.otherId);
   }
 }

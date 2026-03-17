@@ -1,0 +1,356 @@
+{
+  "info": {
+    "name": "Healthcare Chat API",
+    "description": "Complete Chat Module API testing collection for Healthcare System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Send Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"receiverId\": \"{{receiverId}}\",\n  \"content\": \"Hello, how are you doing today?\",\n  \"type\": \"text\",\n  \"reactions\": []\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/chat/send",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "send"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Get Conversation",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/conversation/{{receiverId}}?page=1&limit=20&sortBy=createdAt&sortOrder=-1",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "conversation", "{{receiverId}}"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "sortBy",
+              "value": "createdAt"
+            },
+            {
+              "key": "sortOrder",
+              "value": "-1"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get All Messages (with filters)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/messages?page=1&limit=20&userId=&type=&status=&sortBy=createdAt&sortOrder=-1",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "messages"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "userId",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "type",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "status",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "sortBy",
+              "value": "createdAt"
+            },
+            {
+              "key": "sortOrder",
+              "value": "-1"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Single Message",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/messages/{{messageId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "messages", "{{messageId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. Update Message (edit content)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Hello, how are you doing? (edited)\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/chat/messages/{{messageId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "messages", "{{messageId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. Mark Message as Read",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/messages/{{messageId}}/read",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "messages", "{{messageId}}", "read"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. Pin Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/messages/{{messageId}}/pin",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "messages", "{{messageId}}", "pin"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "8. Unpin Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/messages/{{messageId}}/unpin",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "messages", "{{messageId}}", "unpin"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "9. Delete Message",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/messages/{{messageId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "messages", "{{messageId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "10. Get Unread Count (all)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/unread-count",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "unread-count"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "11. Get Unread Count (specific user)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/unread-count?otherId={{receiverId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "unread-count"],
+          "query": [
+            {
+              "key": "otherId",
+              "value": "{{receiverId}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "12. Get Pinned Messages",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/conversation/{{receiverId}}/pinned",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "conversation", "{{receiverId}}", "pinned"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "13. Mark Conversation as Read",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/conversation/{{receiverId}}/mark-read",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "conversation", "{{receiverId}}", "mark-read"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "14. Get Conversation Stats",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chat/conversation/{{receiverId}}/stats",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "conversation", "{{receiverId}}", "stats"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "receiverId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "messageId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

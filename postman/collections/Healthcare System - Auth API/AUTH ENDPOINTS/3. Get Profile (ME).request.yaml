@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:3000/api/v1/auth/me
+method: GET
+headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+order: 3000
