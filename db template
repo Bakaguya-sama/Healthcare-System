@@ -1,0 +1,240 @@
+// ==========================================
+// 1. BẢNG GỐC: QUẢN LÝ TÀI KHOẢN CHUNG
+// ==========================================
+Table Users {
+  id ObjectID [pk]
+  email varchar [unique]
+  password_hash varchar
+  gender varchar
+  role varchar
+  phone_number varchar
+  avatar_url varchar [note: "Ảnh đại diện chung cho Bác sĩ, Bệnh nhân, Admin"]
+  account_status varchar [note: "Enum: active, banned"] 
+  otp_code varchar 
+  otp_expires_at datetime 
+  created_at datetime
+  address object [note: "Gồm: street, ward, district, city, country"]
+}
+
+// ==========================================
+// 2. CÁC BẢNG CHI TIẾT THEO ROLE (Liên kết 1-1 với Users)
+// ==========================================
+Table Patients {
+  user_id ObjectID [pk] // Khóa chính đồng thời là khóa ngoại nối tới Users.id
+  full_name varchar
+  date_of_birth date
+}
+
+Table Doctors {
+  user_id ObjectID [pk] 
+  full_name varchar
+  date_of_birth date
+  specialization varchar 
+  workplace varchar
+  verification_documents json [note: "Mảng JSON lưu link các file PDF/Ảnh bằng cấp, chứng chỉ hành nghề"]
+  experience_years int
+  average_rating float
+  is_online boolean
+  verified_at date
+  
+  // ĐỔI TÊN ĐỂ PHÂN BIỆT VỚI ACCOUNT_STATUS
+  verification_status varchar [note: "Enum: pending, approved, rejected (Dùng để duyệt bằng cấp)"]
+}
+
+Table Admins {
+  user_id ObjectID [pk] // Nối tới Users.id
+  full_name varchar
+  
+  // BẢN NÂNG CẤP: Tách bạch rõ ràng trách nhiệm
+  admin_role varchar [note: "Enum: super_admin (Toàn quyền), user_manager (Chỉ duyệt/khóa User), ai_manager (Chỉ quản lý Knowledge Base & Blacklist)"]
+  
+}
+
+// ==========================================
+// 3. BẢNG QUẢN LÝ HỒ SƠ SỨC KHỎE
+// ==========================================
+Table Health_Metrics {
+  id ObjectID [pk]
+  patient_id ObjectID
+  
+  metric_type varchar [note: "Enum: blood_pressure, heart_rate, bmi, weight, height, water_intake, activity_level"]
+  
+  values json [note: "Lưu trữ linh hoạt dưới dạng Object. VD: {systolic: 120, diastolic: 80} hoặc {amount: 250}"]
+  
+  unit varchar [note: "Đơn vị đo: mmHg, bpm, kg, cm, ml, times"]
+  recorded_at datetime 
+}
+
+// ==========================================
+// 4. LUỒNG TƯ VẤN VỚI AI (ĐỘC LẬP)
+// ==========================================
+Table AI_Sessions {
+  id ObjectID [pk]
+  patient_id ObjectID
+  status varchar [note: "Enum: active, completed"]
+  started_at datetime
+  ended_at datetime
+}
+
+Table AI_Messages {
+  id ObjectID [pk]
+  ai_session_id ObjectID
+  sender_type varchar [note: "Enum: patient, ai"]
+  content text
+  attachments json [note: "Mảng JSON hỗ trợ gửi nhiều ảnh, kết quả xét nghiệm PDF/Word cùng lúc"]
+  sent_at datetime
+}
+
+Table AI_Feedbacks {
+  id ObjectID [pk]
+  patient_id ObjectID
+  ai_session_id ObjectID
+  content text [note: "Người dùng nhận xét AI trả lời sai/tốt"]
+  created_at datetime
+}
+
+// ==========================================
+// 5. LUỒNG TƯ VẤN VỚI BÁC SĨ (ĐỘC LẬP)
+// ==========================================
+Table Doctor_Sessions {
+  id ObjectID [pk]
+  patient_id ObjectID
+  doctor_id ObjectID 
+  status varchar [note: "Enum: active, completed, pending, rejected, canceled"]
+  doctor_notes text [note: "Lời khuyên y tế của bác sĩ khi kết thúc tư vấn"]
+  patient_notes text [note: "Tiêu đề, ghi chú của bệnh nhân khi bắt đầu buổi tư vấn"]
+  started_at datetime
+  ended_at datetime
+}
+
+Table Doctor_Messages {
+  id ObjectID [pk]
+  doctor_session_id ObjectID
+  sender_id ObjectID [note: "Nối tới Users.id"]
+  sender_type varchar [note: "Enum: patient, doctor"]
+  content text
+  attachments json [note: "Mảng JSON hỗ trợ gửi nhiều ảnh, kết quả xét nghiệm PDF/Word cùng lúc"]
+  sent_at datetime
+}
+
+Table Reviews {
+  id ObjectID [pk]
+  doctor_session_id ObjectID
+  patient_id ObjectID
+  doctor_id ObjectID
+  rating int 
+  comment text
+  created_at datetime
+}
+
+Table Violation_Reports {
+  id ObjectID [pk]
+  
+  // Nối thẳng về Users.id vì ai cũng có thể là người gửi/người bị báo cáo
+  reporter_id ObjectID [note: "Người gửi báo cáo (Null nếu là do Hệ thống AI tự động quét và phát hiện)"]
+  reported_user_id ObjectID [note: "Người bị báo cáo (Có thể là Bệnh nhân hoặc Bác sĩ). Null nếu đối tượng bị báo cáo là AI"]
+  
+  // Dùng trường này để phân loại luồng vi phạm
+  report_type varchar [note: "Enum: harassment, spam, misinformation, inappropriate_content, impersonation, fraud, ai_hallucination (AI nói bậy/sai kiến thức)"]
+  
+  reason text [note: "Lý do: 'Bác sĩ trễ giờ', 'Bệnh nhân chửi bới', hoặc đoạn log spam của AI"]
+  status varchar [note: "Enum: pending (chờ xử lý), resolved (đã khóa nick)"]
+  
+  created_at datetime
+}
+
+// ==========================================
+// 6. CÁC BẢNG HỆ THỐNG & AI CORE
+// ==========================================
+Table Blacklist_Keywords {
+  id ObjectID [pk]
+  word_list "varchar[]"
+  created_at datetime
+}
+
+// BẢNG 1: LƯU THÔNG TIN FILE ADMIN TẢI LÊN
+Table AI_Documents {
+  id ObjectID [pk]
+  title varchar [note: "Tên tài liệu hiển thị cho Admin. VD: Phác đồ điều trị 2026"]
+  file_url varchar [note: "Link gốc tải file (PDF, DOCX) lưu trên Cloud"]
+  file_type varchar [note: "Định dạng: pdf, docx, txt..."]
+  
+  // Trạng thái cực kỳ quan trọng vì quá trình cắt file gọi AI sẽ tốn thời gian
+  status varchar [note: "Enum: processing (đang xử lý), active (hoàn tất), error (lỗi), inactive (tạm ngừng)"]
+  
+  uploaded_by ObjectID [note: "Nối tới Admins.user_id để biết ai up"]
+  created_at datetime
+}
+
+// BẢNG 2: LƯU CÁC ĐOẠN TEXT & VECTOR CHO GEMINI TÌM KIẾM
+Table AI_Document_Chunks {
+  id ObjectID [pk]
+  document_id ObjectID [note: "Nối tới AI_Documents.id"]
+  
+  chunk_index int [note: "Số thứ tự của đoạn cắt (Giúp ghép lại văn bản nếu cần)"]
+  content text [note: "Đoạn text nhỏ (VD: 500 từ)"]
+  embedding vector [note: "Vector cho RAG"]
+  is_active bool [note: "Chỉ được dùng khi tài liệu active"]
+}
+
+Table Notifications {
+  id ObjectID [pk]
+  user_id ObjectID [note: "ID của Patient"]
+  title varchar
+  message text [note: "Nội dung cảnh báo huyết áp/nhịp tim"]
+  is_read boolean [default: false]
+  created_at datetime
+}
+
+Table AI_Health_Insights {
+  id ObjectID [pk]
+  patient_id ObjectID [note: "Bệnh nhân nhận được đánh giá"]
+  
+  // 1. Dữ liệu đầu vào (Nguyên nhân)
+  analyzed_metrics json [note: "Lưu mảng các chỉ số AI đã dùng để phân tích. VD: {blood_pressure: '150/90', heart_rate: 100}"]
+  
+  // 2. Dữ liệu đầu ra (Kết quả AI trả về)
+  risk_level varchar [note: "Enum: normal, warning, danger. Giúp Frontend đổi màu icon Xanh/Vàng/Đỏ"]
+  advice text [note: "Lời khuyên chi tiết từ AI"]
+  
+  created_at datetime [note: "Thời điểm AI đưa ra đánh giá"]
+}
+
+// ==========================================
+// ĐỊNH NGHĨA CÁC MỐI QUAN HỆ (RELATIONSHIPS)
+// ==========================================
+
+// Kế thừa 1-1 (User Profile)
+Ref: Patients.user_id - Users.id
+Ref: Doctors.user_id - Users.id
+Ref: Admins.user_id - Users.id
+
+// Quan hệ hồ sơ y tế
+Ref: Health_Metrics.patient_id > Patients.user_id
+
+// Quan hệ luồng tư vấn AI
+Ref: AI_Sessions.patient_id > Patients.user_id
+Ref: AI_Messages.ai_session_id > AI_Sessions.id
+Ref: AI_Feedbacks.patient_id > Patients.user_id
+Ref: AI_Feedbacks.ai_session_id - AI_Sessions.id
+
+// Quan hệ luồng tư vấn Bác sĩ
+Ref: Doctor_Sessions.patient_id > Patients.user_id
+Ref: Doctor_Sessions.doctor_id > Doctors.user_id
+Ref: Doctor_Messages.doctor_session_id > Doctor_Sessions.id
+Ref: Doctor_Messages.sender_id > Users.id 
+Ref: Reviews.doctor_session_id - Doctor_Sessions.id
+Ref: Reviews.patient_id > Patients.user_id
+Ref: Reviews.doctor_id > Doctors.user_id
+
+
+// Quan hệ hệ thống chung
+Ref: Notifications.user_id > Users.id
+
+Ref: AI_Health_Insights.patient_id > Patients.user_id
+
+Ref: AI_Documents.uploaded_by > Admins.user_id
+Ref: AI_Document_Chunks.document_id > AI_Documents.id
+
+Ref: Violation_Reports.reporter_id > Users.id
+Ref: Violation_Reports.reported_user_id > Users.id

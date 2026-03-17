@@ -6,10 +6,13 @@ export type HealthMetricDocument = HydratedDocument<HealthMetric>;
 export enum MetricType {
   BLOOD_PRESSURE = 'blood_pressure',
   HEART_RATE = 'heart_rate',
-  BLOOD_SUGAR = 'blood_sugar',
-  WEIGHT = 'weight',
-  TEMPERATURE = 'temperature',
   BMI = 'bmi',
+  WEIGHT = 'weight',
+  HEIGHT = 'height',
+  WATER_INTAKE = 'water_intake',
+  ACTIVITY_LEVEL = 'activity_level',
+  BLOOD_SUGAR = 'blood_sugar',
+  TEMPERATURE = 'temperature',
   CHOLESTEROL = 'cholesterol',
   OXYGEN_LEVEL = 'oxygen_level',
 }
@@ -28,17 +31,18 @@ export class HealthMetric {
   @Prop({ enum: MetricType, required: true })
   type: MetricType;
 
+  // Linh hoạt: {systolic: 120, diastolic: 80} hoặc {amount: 250}
+  @Prop({ type: Object, required: true })
+  values: {
+    value?: number; // Giá trị đơn lẻ
+    systolic?: number; // Cho blood_pressure
+    diastolic?: number; // Cho blood_pressure
+    amount?: number; // Cho water_intake, activity_level
+    [key: string]: any; // Linh hoạt cho các metric khác
+  };
+
   @Prop({ required: true })
-  value: number;
-
-  @Prop()
-  systolic?: number; // For blood pressure
-
-  @Prop()
-  diastolic?: number; // For blood pressure
-
-  @Prop({ required: true })
-  unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%'
+  unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%', 'ml'
 
   @Prop({ enum: MetricStatus, default: MetricStatus.NORMAL })
   status: MetricStatus;

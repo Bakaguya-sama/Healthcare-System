@@ -46,15 +46,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send_message')
   async handleMessage(
     @ConnectedSocket() client: AuthSocket,
-    @MessageBody() data: { receiverId: string; content: string },
+    @MessageBody() data: { receiverId: string; content: string; senderType?: string },
   ) {
     const senderId = client.userId;
     if (!senderId) return;
+
+    // Default senderType to patient if not provided
+    const senderType = data.senderType || 'patient';
 
     const dto: SendMessageDto = {
       receiverId: data.receiverId,
       content: data.content,
       type: MessageType.TEXT,
+      senderType: senderType as any,
     };
 
     const result = await this.chatService.sendMessage(senderId, dto);

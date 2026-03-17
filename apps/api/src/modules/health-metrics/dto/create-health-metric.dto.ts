@@ -5,20 +5,18 @@ import {
   IsOptional,
   IsDate,
   Min,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { MetricType, MetricStatus } from '../entities/health-metric.entity';
 
-export class CreateHealthMetricDto {
-  @ApiProperty({ enum: MetricType, example: 'blood_pressure' })
-  @IsEnum(MetricType)
-  type: MetricType;
-
-  @ApiProperty({ example: 120 })
+export class ValuesDto {
+  @ApiProperty({ example: 120, required: false })
   @IsNumber()
+  @IsOptional()
   @Min(0)
-  value: number;
+  value?: number;
 
   @ApiProperty({ example: 120, required: false })
   @IsNumber()
@@ -31,6 +29,26 @@ export class CreateHealthMetricDto {
   @IsOptional()
   @Min(0)
   diastolic?: number; // Blood pressure diastolic
+
+  @ApiProperty({ example: 250, required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  amount?: number; // Water intake, activity level
+}
+
+export class CreateHealthMetricDto {
+  @ApiProperty({ enum: MetricType, example: 'blood_pressure' })
+  @IsEnum(MetricType)
+  type: MetricType;
+
+  @ApiProperty({
+    type: ValuesDto,
+    example: { systolic: 120, diastolic: 80 },
+    description: 'Flexible object: {systolic, diastolic} for BP, {amount} for others',
+  })
+  @IsObject()
+  values: Record<string, number>;
 
   @ApiProperty({ example: 'mmHg' })
   @IsString()

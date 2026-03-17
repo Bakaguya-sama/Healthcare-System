@@ -18,6 +18,11 @@ export enum MessageStatus {
   FAILED = 'failed',
 }
 
+export enum SenderType {
+  PATIENT = 'patient',
+  DOCTOR = 'doctor',
+}
+
 @Schema({ timestamps: true })
 export class Message {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
@@ -25,6 +30,9 @@ export class Message {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   receiverId: Types.ObjectId;
+
+  @Prop({ enum: SenderType, required: true })
+  senderType: SenderType; // patient hoặc doctor - rõ ràng loại người gửi
 
   @Prop({ required: true, minlength: 1, maxlength: 5000 })
   content: string;
@@ -34,6 +42,25 @@ export class Message {
 
   @Prop({ enum: MessageStatus, default: MessageStatus.SENT })
   status: MessageStatus;
+
+  // Attachments array - hỗ trợ gửi nhiều ảnh, PDF/Word cùng lúc
+  @Prop({
+    type: [
+      {
+        fileUrl: String,
+        fileName: String,
+        fileSize: Number,
+        mimeType: String,
+      },
+    ],
+    default: [],
+  })
+  attachments?: Array<{
+    fileUrl: string;
+    fileName: string;
+    fileSize?: number;
+    mimeType?: string;
+  }>;
 
   @Prop({ required: false })
   fileUrl?: string;

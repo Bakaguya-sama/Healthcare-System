@@ -262,7 +262,71 @@
           "response": []
         },
         {
-          "name": "9. Register Doctor",
+          "name": "9. Register Admin",
+          "id": "a9f1e3d2-5c7b-4a8f-9e6d-1b3c5a7f8e2d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"AdminPass123!\",\n  \"name\": \"System Administrator\",\n  \"role\": \"admin\",\n  \"gender\": \"male\",\n  \"phoneNumber\": \"+84912345678\",\n  \"address\": {\n    \"street\": \"789 Ton Duc Thang\",\n    \"ward\": \"Ward 1\",\n    \"district\": \"District 1\",\n    \"city\": \"Ho Chi Minh\",\n    \"country\": \"Vietnam\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10. Login Admin",
+          "id": "b1c2d3e4-5f6a-4b8c-9d7e-2f3g4h5i6j7k",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"AdminPass123!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11. Register Doctor",
           "id": "d7e2f5a1-8c9e-4d2b-9f1c-5a7b6c3d8e9f",
           "request": {
             "method": "POST",
@@ -294,7 +358,7 @@
           "response": []
         },
         {
-          "name": "10. Login Doctor",
+          "name": "12. Login Doctor",
           "id": "f3a4b2c1-9d8e-4c7b-6a5f-3e2d1c9b8a7f",
           "request": {
             "method": "POST",

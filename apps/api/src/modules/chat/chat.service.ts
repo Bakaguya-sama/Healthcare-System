@@ -41,13 +41,26 @@ export class ChatService {
       throw new BadRequestException('Invalid reply-to ID');
     }
 
+    // Handle attachments - support both new array format and legacy single file
+    let attachments = dto.attachments || [];
+    if (dto.fileUrl && dto.fileName) {
+      attachments.push({
+        fileUrl: dto.fileUrl,
+        fileName: dto.fileName,
+        fileSize: dto.fileSize,
+        mimeType: dto.mimeType,
+      });
+    }
+
     const message = await this.messageModel.create({
       senderId: new Types.ObjectId(senderId),
       receiverId: new Types.ObjectId(dto.receiverId),
+      senderType: dto.senderType,
       content: dto.content,
       type: dto.type || MessageType.TEXT,
       status: MessageStatus.SENT,
-      fileUrl: dto.fileUrl,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      fileUrl: dto.fileUrl, // Keep for backward compatibility
       fileName: dto.fileName,
       fileSize: dto.fileSize,
       mimeType: dto.mimeType,

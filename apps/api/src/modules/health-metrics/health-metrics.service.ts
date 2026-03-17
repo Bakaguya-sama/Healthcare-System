@@ -32,9 +32,7 @@ export class HealthMetricsService {
     const metric = await this.healthMetricModel.create({
       userId: new Types.ObjectId(userId),
       type: dto.type,
-      value: dto.value,
-      systolic: dto.systolic,
-      diastolic: dto.diastolic,
+      values: dto.values,
       unit: dto.unit,
       status: dto.status || 'normal',
       note: dto.note,
@@ -197,7 +195,25 @@ export class HealthMetricsService {
       throw new NotFoundException('No metrics found for this type');
     }
 
-    const values = metrics.map((m) => m.value);
+    // Extract numeric values from flexible values object
+    const values = metrics
+      .map((m) => {
+        // Get primary numeric value from values object
+        if (m.values.value !== undefined) return m.values.value;
+        if (m.values.systolic !== undefined) return m.values.systolic;
+        if (m.values.amount !== undefined) return m.values.amount;
+        // Fallback to any numeric property
+        for (const [_, v] of Object.entries(m.values)) {
+          if (typeof v === 'number') return v;
+        }
+        return 0;
+      })
+      .filter((v) => v > 0);
+
+    if (values.length === 0) {
+      throw new BadRequestException('No numeric values found in metrics');
+    }
+
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
     const min = Math.min(...values);
     const max = Math.max(...values);
