@@ -1,5 +1,11 @@
 import { Layout } from "@repo/ui/layouts/layout";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { LogIn } from "./pages/auth/login";
+import { ChangePassword } from "./pages/auth/change-password";
+import { ForgetPassword } from "./pages/auth/forget-password";
+import { ConfirmOTP } from "./pages/auth/confirm-otp";
+import { ToastContainer } from "react-toastify";
+import { SignUp } from "./pages/auth/sign-up";
 
 function Page({ title }: { title: string }) {
   return (
@@ -10,36 +16,47 @@ function Page({ title }: { title: string }) {
 }
 
 function App() {
-  const role = "doctor";
+  const role = "patient";
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout userRole="doctor" />}>
-          {role === "doctor" ? (
-            <>
-              <Route index element={<Page title="Overview" />} />
-              <Route
-                path="consultations"
-                element={<Page title="Consultations" />}
-              />
-              <Route path="profile" element={<Page title="Profile" />} />
-            </>
-          ) : (
-            <>
-              <Route index element={<Page title="Overview" />} />
-              <Route path="my_doctors" element={<Page title="My doctors" />} />
-              <Route
-                path="ai_assistant"
-                element={<Page title="AI assistant" />}
-              />
-              <Route path="Messages" element={<Page title="Messages" />} />
-              <Route path="profile" element={<Page title="Profile" />} />
-            </>
-          )}
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <ToastContainer />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LogIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/change-password" element={<ChangePassword />} />
+          <Route path="/forget-password" element={<ForgetPassword />} />
+          <Route path="/confirm-otp" element={<ConfirmOTP />} />
+          <Route element={<Layout userRole={role} />}>
+            {role === "doctor" ? (
+              <>
+                <Route index element={<Page title="Overview" />} />
+                <Route
+                  path="consultations"
+                  element={<Page title="Consultations" />}
+                />
+                <Route path="/profile" element={<Page title="Profile" />} />
+              </>
+            ) : (
+              <>
+                <Route index element={<Page title="Overview" />} />
+                <Route
+                  path="/my_doctors"
+                  element={<Page title="My doctors" />}
+                />
+                <Route
+                  path="/ai_assistant"
+                  element={<Page title="AI assistant" />}
+                />
+                <Route path="/messages" element={<Page title="Messages" />} />
+                <Route path="/profile" element={<Page title="Profile" />} />
+              </>
+            )}
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   );
 }
 

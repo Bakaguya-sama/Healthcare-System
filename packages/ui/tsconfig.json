@@ -4,6 +4,6 @@
     "outDir": "dist",
     "strictNullChecks": true
   },
-  "include": ["src", "../../apps/client/src/components/ui/header.tsx"],
+  "include": ["src", "../../apps/client/src/components/ui/authen_header.tsx"],
   "exclude": ["node_modules", "dist"]
 }

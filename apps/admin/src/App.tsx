@@ -4,6 +4,7 @@ import { LogIn } from "./pages/auth/login";
 import { ForgetPassword } from "./pages/auth/forget-password";
 import { ConfirmOTP } from "./pages/auth/confirm-otp";
 import { ChangePassword } from "./pages/auth/change-password";
+import { ToastContainer } from "react-toastify";
 
 function Page({ title }: { title: string }) {
   return (
@@ -15,34 +16,37 @@ function Page({ title }: { title: string }) {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Authentication */}
-        <Route path="/login" element={<LogIn />} />
-        <Route path="/forget-password" element={<ForgetPassword />} />
-        <Route path="/confirm-otp" element={<ConfirmOTP />} />
-        <Route path="/change-password" element={<ChangePassword />} />
+    <>
+      <ToastContainer />
+      <BrowserRouter>
+        <Routes>
+          {/* Authentication */}
+          <Route path="/login" element={<LogIn />} />
+          <Route path="/forget-password" element={<ForgetPassword />} />
+          <Route path="/confirm-otp" element={<ConfirmOTP />} />
+          <Route path="/change-password" element={<ChangePassword />} />
 
-        <Route element={<Layout userRole="admin" />}>
-          <Route index element={<Page title="Overview" />} />
-          <Route path="users" element={<Page title="User Management" />} />
-          <Route
-            path="doc-verification"
-            element={<Page title="Doc Verification" />}
-          />
-          <Route
-            path="ai-knowledge-base"
-            element={<Page title="AI Knowledge Base" />}
-          />
-          <Route
-            path="violation-reports"
-            element={<Page title="Violation Reports" />}
-          />
-          <Route path="profile" element={<Page title="Profile" />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route element={<Layout userRole="admin" />}>
+            <Route index element={<Page title="Overview" />} />
+            <Route path="users" element={<Page title="User Management" />} />
+            <Route
+              path="doc-verification"
+              element={<Page title="Doc Verification" />}
+            />
+            <Route
+              path="ai-knowledge-base"
+              element={<Page title="AI Knowledge Base" />}
+            />
+            <Route
+              path="violation-reports"
+              element={<Page title="Violation Reports" />}
+            />
+            <Route path="profile" element={<Page title="Profile" />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   );
 }
 
