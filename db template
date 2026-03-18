@@ -184,6 +184,7 @@ Table Notifications {
   message text [note: "Nội dung cảnh báo huyết áp/nhịp tim"]
   is_read boolean [default: false]
   created_at datetime
+  type varchar [note: "Enum: info, success, warning, critical. Giúp Frontend biết cần render màu gì và icon gì"]
 }
 
 Table AI_Health_Insights {

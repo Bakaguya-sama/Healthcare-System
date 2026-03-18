@@ -5,8 +5,6 @@ import { ApiProperty } from '@nestjs/swagger';
 export enum SessionStatus {
   ACTIVE = 'active',
   COMPLETED = 'completed',
-  PAUSED = 'paused',
-  ARCHIVED = 'archived',
 }
 
 export enum SessionType {

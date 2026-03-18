@@ -14,7 +14,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AiHealthInsightsService } from '../services/ai-health-insights.service';
 import { CreateAiHealthInsightDto, UpdateAiHealthInsightDto, QueryAiHealthInsightDto } from '../dto/create-ai-health-insight.dto';
-import { AiHealthInsight, InsightType, ConfidenceLevel } from '../entities/ai-health-insight.entity';
+import { AiHealthInsight, RiskLevel } from '../entities/ai-health-insight.entity';
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../core/guards/roles.guard';
 import { CurrentUser } from '../../../core/decorators/current-user.decorator';
@@ -45,37 +45,7 @@ export class AiHealthInsightsController {
     @CurrentUser() user: UserPayload,
     @Query() query: QueryAiHealthInsightDto,
   ): Promise<AiHealthInsight[]> {
-    return this.insightsService.findByUserId(user.id, query);
-  }
-
-  @Get('pending-notifications')
-  @Roles(UserRole.PATIENT, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get unnotified insights' })
-  @ApiResponse({ status: 200, description: 'Pending notifications retrieved', type: [AiHealthInsight] })
-  async getPendingNotifications(@CurrentUser() user: UserPayload): Promise<AiHealthInsight[]> {
-    return this.insightsService.getPendingNotifications(user.id);
-  }
-
-  @Get('by-type/:type')
-  @Roles(UserRole.DOCTOR, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Search insights by type' })
-  @ApiResponse({ status: 200, description: 'Insights found', type: [AiHealthInsight] })
-  async searchByType(
-    @Param('type') type: InsightType,
-    @Query() query: QueryAiHealthInsightDto,
-  ): Promise<AiHealthInsight[]> {
-    return this.insightsService.searchByType(type, query);
-  }
-
-  @Get('by-confidence/:level')
-  @Roles(UserRole.DOCTOR, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Search insights by confidence level' })
-  @ApiResponse({ status: 200, description: 'Insights found', type: [AiHealthInsight] })
-  async searchByConfidence(
-    @Param('level') level: ConfidenceLevel,
-    @Query() query: QueryAiHealthInsightDto,
-  ): Promise<AiHealthInsight[]> {
-    return this.insightsService.searchByConfidence(level, query);
+    return this.insightsService.findByPatientId(user.id, query);
   }
 
   @Get('stats')
@@ -83,7 +53,7 @@ export class AiHealthInsightsController {
   @ApiOperation({ summary: 'Get user insights statistics' })
   @ApiResponse({ status: 200, description: 'Stats retrieved' })
   async getStats(@CurrentUser() user: UserPayload): Promise<Record<string, any>> {
-    return this.insightsService.getStatsByUser(user.id);
+    return this.insightsService.getStatsByPatient(user.id);
   }
 
   @Get()
@@ -99,7 +69,7 @@ export class AiHealthInsightsController {
   @ApiOperation({ summary: 'Get insight by ID' })
   @ApiResponse({ status: 200, description: 'Insight found', type: AiHealthInsight })
   async findById(@Param('id') id: string, @CurrentUser() user: UserPayload): Promise<AiHealthInsight> {
-    return this.insightsService.findByIdAndUserId(id, user.id);
+    return this.insightsService.findByIdAndPatientId(id, user.id);
   }
 
   @Patch(':id')
@@ -126,7 +96,7 @@ export class AiHealthInsightsController {
   @ApiOperation({ summary: 'Mark insight as notified' })
   @ApiResponse({ status: 200, description: 'Insight marked as notified', type: AiHealthInsight })
   async markAsNotified(@Param('id') id: string): Promise<AiHealthInsight> {
-    return this.insightsService.markAsNotified(id);
+    return this.insightsService.findById(id);
   }
 
   @Delete(':id')

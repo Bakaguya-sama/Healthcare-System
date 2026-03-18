@@ -9,22 +9,10 @@ import { Model, Types } from 'mongoose';
 import { User, UserDocument, AccountStatus, LockRecord } from '../auth/entities/user.schema';
 import { Doctor, DoctorDocument, DoctorVerificationStatus } from '../users/entities/doctor.schema';
 import { UserRole } from '../users/enums/user-role.enum';
-import {
-  ViolationReport,
-  ViolationReportDocument,
-  ViolationType,
-  ViolationStatus,
-} from './entities/violation-report.entity';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
-import {
-  CreateViolationDto,
-  QueryViolationDto,
-  AddViolationNoteDto,
-  ResolveViolationDto,
-} from './dto/violation.dto';
 import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
 
 @Injectable()
@@ -32,8 +20,6 @@ export class AdminService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
-    @InjectModel(ViolationReport.name)
-    private violationReportModel: Model<ViolationReportDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
   ) {}
 
@@ -226,171 +212,6 @@ export class AdminService {
       lockHistory: user.lockHistory,
     };
   }
-
-  // ============================================
-  // VIOLATION MANAGEMENT
-  // ============================================
-
-  /**
-   * 📝 POST /admin/violations
-   * Admin/Hệ thống tạo báo cáo vi phạm
-   */
-  async createViolation(
-    dto: CreateViolationDto,
-    reporterId?: string,
-  ) {
-    // Kiểm tra người bị báo cáo tồn tại
-    const reportedUser = await this.userModel.findById(dto.reportedUserId);
-    if (!reportedUser) {
-      throw new NotFoundException('Reported user not found');
-    }
-
-    // Tạo violation report mới
-    const violation = new this.violationReportModel({
-      reporterId: reporterId ? new Types.ObjectId(reporterId) : undefined,
-      reportedUserId: new Types.ObjectId(dto.reportedUserId),
-      type: dto.type,
-      reason: dto.reason,
-      evidence: dto.evidence,
-      notes: [],
-    });
-
-    return (await violation.save()).toObject({ versionKey: false });
-  }
-
-  /**
-   * 📊 GET /admin/violations
-   * Xem danh sách violations (filter + pagination)
-   */
-  async getViolations(query: QueryViolationDto) {
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Number(query.limit) || 10);
-    const skip = (page - 1) * limit;
-
-    // Build filter
-    const filter: any = {};
-    if (query.status) {
-      filter.status = query.status;
-    }
-    if (query.type) {
-      filter.type = query.type;
-    }
-
-    // Build sort
-    const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
-    const sort: any = {};
-    sort[query.sortBy || 'createdAt'] = sortOrder;
-
-    const [data, total] = await Promise.all([
-      this.violationReportModel
-        .find(filter)
-        .populate('reporterId', 'name email')
-        .populate('reportedUserId', 'name email role')
-        .populate('resolvedBy', 'name email')
-        .populate('notes.addedBy', 'name email')
-        .sort(sort)
-        .limit(limit)
-        .skip(skip),
-      this.violationReportModel.countDocuments(filter),
-    ]);
-
-    return {
-      data: data.map((v) => v.toObject({ versionKey: false })),
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  /**
-   * 🔍 GET /admin/violations/:id
-   * Xem chi tiết vi phạm
-   */
-  async getViolationById(id: string) {
-    const violation = await this.violationReportModel
-      .findById(id)
-      .populate('reporterId', 'name email')
-      .populate('reportedUserId', 'name email role phone')
-      .populate('resolvedBy', 'name email')
-      .populate('notes.addedBy', 'name email');
-
-    if (!violation) {
-      throw new NotFoundException('Violation report not found');
-    }
-
-    return violation.toObject({ versionKey: false });
-  }
-
-  /**
-   * 📝 POST /admin/violations/:id/note
-   * Admin thêm ghi chú cho vi phạm
-   */
-  async addViolationNote(
-    violationId: string,
-    adminId: string,
-    dto: AddViolationNoteDto,
-  ) {
-    // Kiểm tra admin
-    const admin = await this.userModel.findById(adminId);
-    if (!admin || admin.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only admin can add notes');
-    }
-
-    // Kiểm tra violation tồn tại
-    const violation = await this.violationReportModel.findById(violationId);
-    if (!violation) {
-      throw new NotFoundException('Violation report not found');
-    }
-
-    // Thêm ghi chú
-    violation.notes.push({
-      note: dto.note,
-      addedBy: new Types.ObjectId(adminId),
-      addedAt: new Date(),
-    });
-
-    const updated = await violation.save();
-    return updated.toObject({ versionKey: false });
-  }
-
-  /**
-   * ✅ PATCH /admin/violations/:id/resolve
-   * Admin xác nhận xử lý violation
-   */
-  async resolveViolation(
-    violationId: string,
-    adminId: string,
-    dto: ResolveViolationDto,
-  ) {
-    // Kiểm tra admin
-    const admin = await this.userModel.findById(adminId);
-    if (!admin || admin.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only admin can resolve violations');
-    }
-
-    // Kiểm tra violation tồn tại
-    const violation = await this.violationReportModel.findById(violationId);
-    if (!violation) {
-      throw new NotFoundException('Violation report not found');
-    }
-
-    if (violation.status !== ViolationStatus.PENDING) {
-      throw new BadRequestException('Violation is not in pending status');
-    }
-
-    // Cập nhật violation
-    violation.status = ViolationStatus.RESOLVED;
-    violation.resolution = dto.resolution;
-    violation.resolvedAt = new Date();
-    violation.resolvedBy = new Types.ObjectId(adminId);
-
-    const updated = await violation.save();
-    return updated.toObject({ versionKey: false });
-  }
-
   // ============================================
   // SESSIONS ADMIN VIEW
   // ============================================
@@ -465,23 +286,13 @@ export class AdminService {
    * Lấy thống kê hệ thống
    */
   async getDashboardStats() {
-    const [
-      totalUsers,
-      totalDoctors,
-      pendingDoctors,
-      totalSessions,
-      pendingViolations,
-      bannedAccounts,
-    ] = await Promise.all([
+    const [totalUsers, totalDoctors, pendingDoctors, totalSessions, bannedAccounts] = await Promise.all([
       this.userModel.countDocuments(),
       this.doctorModel.countDocuments(),
       this.doctorModel.countDocuments({
         verificationStatus: DoctorVerificationStatus.PENDING,
       }),
       this.sessionModel.countDocuments(),
-      this.violationReportModel.countDocuments({
-        status: ViolationStatus.PENDING,
-      }),
       this.userModel.countDocuments({
         accountStatus: AccountStatus.BANNED,
       }),
@@ -495,9 +306,6 @@ export class AdminService {
       },
       sessions: {
         total: totalSessions,
-      },
-      violations: {
-        pending: pendingViolations,
       },
       security: {
         bannedAccounts,

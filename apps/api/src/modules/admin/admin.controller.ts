@@ -20,12 +20,6 @@ import { UserRole } from '../users/enums/user-role.enum';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
-import {
-  CreateViolationDto,
-  QueryViolationDto,
-  AddViolationNoteDto,
-  ResolveViolationDto,
-} from './dto/violation.dto';
 import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
 
 @ApiTags('admin')
@@ -123,76 +117,6 @@ export class AdminController {
   @ApiOperation({ summary: 'Xem lịch sử khóa tài khoản' })
   async getLockHistory(@Param('id') userId: string) {
     return this.adminService.getLockHistory(userId);
-  }
-
-  // ============================================
-  // VIOLATION MANAGEMENT ENDPOINTS
-  // ============================================
-
-  /**
-   * 📝 POST /admin/violations
-   * Tạo báo cáo vi phạm
-   */
-  @Post('violations')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Tạo báo cáo vi phạm' })
-  async createViolation(
-    @Body() dto: CreateViolationDto,
-    @CurrentUser('sub') adminId: string,
-  ) {
-    return this.adminService.createViolation(dto, adminId);
-  }
-
-  /**
-   * 📊 GET /admin/violations
-   * Lấy danh sách violations
-   */
-  @Get('violations')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy danh sách violations' })
-  async getViolations(@Query() query: QueryViolationDto) {
-    return this.adminService.getViolations(query);
-  }
-
-  /**
-   * 🔍 GET /admin/violations/:id
-   * Lấy chi tiết vi phạm
-   */
-  @Get('violations/:id')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy chi tiết vi phạm' })
-  async getViolationById(@Param('id') id: string) {
-    return this.adminService.getViolationById(id);
-  }
-
-  /**
-   * 📝 POST /admin/violations/:id/note
-   * Thêm ghi chú cho vi phạm
-   */
-  @Post('violations/:id/note')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Thêm ghi chú cho vi phạm' })
-  async addViolationNote(
-    @Param('id') violationId: string,
-    @CurrentUser('sub') adminId: string,
-    @Body() dto: AddViolationNoteDto,
-  ) {
-    return this.adminService.addViolationNote(violationId, adminId, dto);
-  }
-
-  /**
-   * ✅ PATCH /admin/violations/:id/resolve
-   * Xác nhận xử lý violation
-   */
-  @Patch('violations/:id/resolve')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xác nhận xử lý violation' })
-  async resolveViolation(
-    @Param('id') violationId: string,
-    @CurrentUser('sub') adminId: string,
-    @Body() dto: ResolveViolationDto,
-  ) {
-    return this.adminService.resolveViolation(violationId, adminId, dto);
   }
 
   // ============================================

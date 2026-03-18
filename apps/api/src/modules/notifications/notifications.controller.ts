@@ -55,7 +55,31 @@ export class NotificationsController {
   }
 
   /**
-   * 👁️ GET /notifications/:id
+   * � PATCH /notifications/mark-all-as-read
+   * Đánh dấu tất cả là đã đọc
+   */
+  @Patch('mark-all-as-read')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đánh dấu tất cả thông báo là đã đọc' })
+  async markAllAsRead(@CurrentUser('sub') userId: string) {
+    return this.notificationsService.markAllAsRead(userId);
+  }
+
+  /**
+   * � GET /notifications/unread/count
+   * Đếm thông báo chưa đọc
+   */
+  @Get('unread/count')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đếm thông báo chưa đọc' })
+  async countUnread(@CurrentUser('sub') userId: string) {
+    return this.notificationsService.countUnread(userId);
+  }
+
+  /**
+   * �️ GET /notifications/:id
    * Lấy chi tiết thông báo (auto mark as read)
    */
   @Get(':id')
@@ -86,18 +110,6 @@ export class NotificationsController {
   }
 
   /**
-   * 📌 PATCH /notifications/mark-all-as-read
-   * Đánh dấu tất cả là đã đọc
-   */
-  @Patch('/mark-all-as-read')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Đánh dấu tất cả thông báo là đã đọc' })
-  async markAllAsRead(@CurrentUser('sub') userId: string) {
-    return this.notificationsService.markAllAsRead(userId);
-  }
-
-  /**
    * 🗑️ DELETE /notifications/:id
    * Xóa thông báo
    */
@@ -110,17 +122,5 @@ export class NotificationsController {
     @Param('id') notificationId: string,
   ) {
     return this.notificationsService.delete(userId, notificationId);
-  }
-
-  /**
-   * 📊 GET /notifications/unread/count
-   * Đếm thông báo chưa đọc
-   */
-  @Get('unread/count')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Đếm thông báo chưa đọc' })
-  async countUnread(@CurrentUser('sub') userId: string) {
-    return this.notificationsService.countUnread(userId);
   }
 }

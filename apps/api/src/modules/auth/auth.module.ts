@@ -19,7 +19,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
           'JWT_SECRET',
           'default_secret_change_in_production',
         ),
-        signOptions: { expiresIn: '15m' },
+        signOptions: { expiresIn: '30m' },
       }),
       inject: [ConfigService],
     }),

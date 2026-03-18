@@ -4,19 +4,10 @@ import { HydratedDocument, Types } from 'mongoose';
 export type NotificationDocument = HydratedDocument<Notification>;
 
 export enum NotificationType {
-  HEALTH_ALERT = 'health_alert', // Cảnh báo chỉ số sức khỏe
-  SESSION_REMINDER = 'session_reminder', // Nhắc nhở buổi tư vấn
-  DOCTOR_MESSAGE = 'doctor_message', // Tin nhắn từ bác sĩ
-  AI_INSIGHT = 'ai_insight', // Phân tích từ AI
-  SYSTEM = 'system', // Thông báo hệ thống
-  REVIEW_REQUEST = 'review_request', // Yêu cầu đánh giá
-  ACCOUNT = 'account', // Thay đổi tài khoản
-}
-
-export enum NotificationStatus {
-  NEW = 'new',
-  READ = 'read',
-  ARCHIVED = 'archived',
+  INFO = 'info', // Thông tin chung
+  SUCCESS = 'success', // Thành công
+  WARNING = 'warning', // Cảnh báo
+  CRITICAL = 'critical', // Khẩn cấp
 }
 
 @Schema({ timestamps: true })
@@ -36,38 +27,11 @@ export class Notification {
   @Prop({ required: true, maxlength: 1000 })
   message: string;
 
-  @Prop({
-    enum: NotificationStatus,
-    default: NotificationStatus.NEW,
-  })
-  status: NotificationStatus;
-
-  @Prop({ required: false })
-  relatedId?: Types.ObjectId; // Link đến resource liên quan (Session, Review, etc.)
-
-  @Prop({ required: false })
-  relatedType?: string; // Loại resource: 'session', 'review', 'health_metric'
-
-  @Prop({ type: Object, default: {} })
-  data?: Record<string, any>; // JSON data linh hoạt
-
   @Prop({ default: false })
-  read: boolean;
-
-  @Prop()
-  readAt?: Date;
-
-  @Prop({ required: false })
-  expiresAt?: Date; // Thời điểm hết hạn thông báo
-
-  @Prop({ default: true })
-  isActive: boolean;
+  isRead: boolean;
 
   @Prop()
   createdAt?: Date;
-
-  @Prop()
-  updatedAt?: Date;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

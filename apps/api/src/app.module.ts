@@ -19,6 +19,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { ViolationsModule } from './modules/violations/violations.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { AdminModule } from './modules/admin/admin.module';
     ReviewsModule,
     AiAssistantModule,
     AdminModule,
+    ViolationsModule,
   ],
   controllers: [],
   providers: [],

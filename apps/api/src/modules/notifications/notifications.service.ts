@@ -35,12 +35,7 @@ export class NotificationsService {
       type: dto.type,
       title: dto.title,
       message: dto.message,
-      relatedId: dto.relatedId ? new Types.ObjectId(dto.relatedId) : undefined,
-      relatedType: dto.relatedType,
-      data: dto.data,
-      expiresAt: dto.expiresAt,
-      read: false,
-      isActive: true,
+      isRead: false,
     });
 
     return {
@@ -60,19 +55,14 @@ export class NotificationsService {
 
     const filter: any = {
       userId: new Types.ObjectId(userId),
-      isActive: true,
     };
-
-    if (query.status) {
-      filter.status = query.status;
-    }
 
     if (query.type) {
       filter.type = query.type;
     }
 
     if (query.unreadOnly) {
-      filter.read = false;
+      filter.isRead = false;
     }
 
     const skip = (query.page - 1) * query.limit;
@@ -122,9 +112,8 @@ export class NotificationsService {
     }
 
     // Mark as read
-    if (!notification.read) {
-      notification.read = true;
-      notification.readAt = new Date();
+    if (!notification.isRead) {
+      notification.isRead = true;
       await notification.save();
     }
 
@@ -156,19 +145,8 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
-    if (dto.status) {
-      notification.status = dto.status;
-    }
-
     if (dto.read !== undefined) {
-      notification.read = dto.read;
-      if (dto.read && !notification.readAt) {
-        notification.readAt = new Date();
-      }
-    }
-
-    if (dto.isActive !== undefined) {
-      notification.isActive = dto.isActive;
+      notification.isRead = dto.read;
     }
 
     await notification.save();
@@ -191,11 +169,10 @@ export class NotificationsService {
     const result = await this.notificationModel.updateMany(
       {
         userId: new Types.ObjectId(userId),
-        read: false,
+        isRead: false,
       },
       {
-        read: true,
-        readAt: new Date(),
+        isRead: true,
       },
     );
 
@@ -239,8 +216,7 @@ export class NotificationsService {
 
     const count = await this.notificationModel.countDocuments({
       userId: new Types.ObjectId(userId),
-      read: false,
-      isActive: true,
+      isRead: false,
     });
 
     return {

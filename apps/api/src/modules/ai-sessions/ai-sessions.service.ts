@@ -130,7 +130,7 @@ export class AiSessionsService {
   async archiveSession(sessionId: string, userId: string): Promise<AiSession> {
     const session = await this.findByIdAndUserId(sessionId, userId);
 
-    session.status = SessionStatus.ARCHIVED;
+    session.status = SessionStatus.COMPLETED;
     return await session.save();
   }
 

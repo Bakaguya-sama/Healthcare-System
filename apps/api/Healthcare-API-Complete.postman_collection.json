@@ -1,11 +1,11 @@
 {
   "info": {
     "_postman_id": "healthcare-system-complete",
-    "name": "Healthcare System API - COMPLETE Collection",
-    "description": "Comprehensive test collection for Healthcare System backend API with ALL endpoints (100+ APIs) across ALL 18 modules",
+    "name": "Healthcare System API - COMPLETE Collection (CÓ SETUP)",
+    "description": "Comprehensive test collection for Healthcare System backend API - CÓ SETUP đầy đủ tài khoản + tokens (18 modules, 130+ endpoints) ✅",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "12345",
-    "version": "2.0.0"
+    "version": "2.1.0"
   },
   "auth": {
     "type": "bearer",
@@ -18,6 +18,267 @@
     ]
   },
   "item": [
+    {
+      "name": "📋 BƯỚC 0: SETUP - Tạo 4 Tài Khoản",
+      "description": "⭐ PHẢI CHẠY TRƯỚC! Tạo Patient, Doctor, Doctor2, Admin + Setup environment",
+      "item": [
+        {
+          "name": "1️⃣ Register Patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Patient\",\n  \"role\": \"patient\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Patient"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"patient_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"patient_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Patient ID: \" + jsonData.user.id);",
+                  "  console.log(\"✅ Patient Token saved\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2️⃣ Register Doctor #1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Doctor\",\n  \"role\": \"doctor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Doctor #1 (chờ verify)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"doctor_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"doctor_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Doctor #1 ID: \" + jsonData.user.id);",
+                  "  console.log(\"✅ Doctor #1 Token saved\");",
+                  "  console.log(\"⏳ Status: PENDING VERIFICATION\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3️⃣ Register Doctor #2 (Chat Partner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor2@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Second Doctor\",\n  \"role\": \"doctor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Doctor #2 (để chat tư vấn)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"other_user_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"doctor2_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Doctor #2 (other_user_id): \" + jsonData.user.id);",
+                  "  console.log(\"✅ Doctor #2 Token saved\");",
+                  "  console.log(\"⏳ Status: PENDING VERIFICATION\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4️⃣ Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Admin\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Tạo tài khoản Admin"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set(\"admin_id\", jsonData.user.id);",
+                  "  pm.environment.set(\"admin_token\", jsonData.access_token);",
+                  "  console.log(\"✅ Admin ID: \" + jsonData.user.id);",
+                  "  console.log(\"✅ Admin Token saved\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5️⃣ Admin Verify Doctor #1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationNotes\": \"Doctor verified for testing - can create sessions\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/doctors/{{doctor_id}}/verify",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "doctors", "{{doctor_id}}", "verify"]
+            },
+            "description": "Verify Doctor #1 - Giờ có thể tạo sessions"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  console.log(\"✅ Doctor #1 Verified\");",
+                  "} else {",
+                  "  console.log(\"❌ Verify failed: \" + pm.response.code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "6️⃣ Admin Verify Doctor #2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationNotes\": \"Doctor #2 verified for testing - can chat with patients\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/doctors/{{other_user_id}}/verify",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "doctors", "{{other_user_id}}", "verify"]
+            },
+            "description": "Verify Doctor #2 - Giờ có thể chat tư vấn"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  console.log(\"✅ Doctor #2 Verified\");",
+                  "  console.log(\"\\n═══════════════════════════════════════════\");",
+                  "  console.log(\"✅ SETUP HOÀN THÀNH!\");",
+                  "  console.log(\"═══════════════════════════════════════════\");",
+                  "  console.log(\"📋 Tài khoản đã tạo:\");",
+                  "  console.log(\"  • Patient: patient@test.com\");",
+                  "  console.log(\"  • Doctor #1: doctor@test.com ✅ VERIFIED\");",
+                  "  console.log(\"  • Doctor #2: doctor2@test.com ✅ VERIFIED\");",
+                  "  console.log(\"  • Admin: admin@test.com\");",
+                  "  console.log(\"\");",
+                  "  console.log(\"🔐 Tất cả tokens đã saved vào environment\");",
+                  "  console.log(\"═══════════════════════════════════════════\\n\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "1️⃣ AUTH - Authentication (8 endpoints)",
       "item": [
@@ -424,7 +685,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"type\": \"SESSION_REMINDER\",\n  \"title\": \"Upcoming Session\",\n  \"message\": \"Your appointment is in 1 hour\",\n  \"data\": {\"sessionId\": \"123456\", \"doctorName\": \"Dr. Smith\"},\n  \"expiresIn\": 86400\n}",
+              "raw": "{\n  \"type\": \"warning\",\n  \"title\": \"Blood Pressure Alert\",\n  \"message\": \"Your blood pressure is higher than normal: 150/90 mmHg\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -432,7 +693,7 @@
               "host": ["{{base_url}}"],
               "path": ["notifications"]
             },
-            "description": "Create new notification for user"
+            "description": "Create new notification. Types: info, success, warning, critical"
           },
           "response": []
         },
@@ -442,10 +703,14 @@
             "method": "GET",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "url": {
-              "raw": "{{base_url}}/notifications?page=1&limit=20&status=unread",
+              "raw": "{{base_url}}/notifications?page=1&limit=20&unreadOnly=true",
               "host": ["{{base_url}}"],
               "path": ["notifications"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}, {"key": "status", "value": "unread"}]
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"},
+                {"key": "unreadOnly", "value": "true"}
+              ]
             },
             "description": "Get paginated list of user's notifications"
           },
@@ -529,7 +794,7 @@
       ]
     },
     {
-      "name": "6️⃣ CHAT - Real-time Messaging (7 endpoints)",
+      "name": "6️⃣ CHAT - Real-time Messaging (11 endpoints)",
       "item": [
         {
           "name": "Send Message",
@@ -630,21 +895,105 @@
         {
           "name": "Mark As Read",
           "request": {
-            "method": "PATCH",
+            "method": "POST",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "url": {
               "raw": "{{base_url}}/chat/messages/:id/read",
               "host": ["{{base_url}}"],
               "path": ["chat", "messages", ":id", "read"]
             },
-            "description": "Mark message as read"
+            "description": "Mark message as read (POST /chat/messages/:id/read)"
+          },
+          "response": []
+        },
+        {
+          "name": "Pin Message",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/messages/:id/pin",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages", ":id", "pin"]
+            },
+            "description": "Pin message for easy reference"
+          },
+          "response": []
+        },
+        {
+          "name": "Unpin Message",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/messages/:id/unpin",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages", ":id", "unpin"]
+            },
+            "description": "Unpin message"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "unread-count"]
+            },
+            "description": "Get count of unread messages"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pinned Messages",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/conversation/:otherId/pinned",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "conversation", ":otherId", "pinned"]
+            },
+            "description": "Get pinned messages in conversation"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Conversation As Read",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/conversation/:otherId/mark-read",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "conversation", ":otherId", "mark-read"]
+            },
+            "description": "Mark all messages in conversation as read"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation Stats",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/chat/conversation/:otherId/stats",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "conversation", ":otherId", "stats"]
+            },
+            "description": "Get conversation statistics"
           },
           "response": []
         }
       ]
     },
     {
-      "name": "7️⃣ SESSIONS - Consultation Sessions (9 endpoints)",
+      "name": "7️⃣ SESSIONS - Consultation Sessions (11 endpoints)",
       "item": [
         {
           "name": "Create Session",
@@ -653,7 +1002,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"patientId\": \"{{patient_id}}\",\n  \"scheduledTime\": \"2024-03-20T10:00:00Z\",\n  \"type\": \"online\",\n  \"reason\": \"General consultation\",\n  \"duration\": 30\n}",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"type\": \"consultation\",\n  \"title\": \"Initial Health Consultation\",\n  \"description\": \"Patient needs general health consultation and advice\",\n  \"scheduledAt\": \"2026-03-20T10:00:00Z\",\n  \"duration\": 30,\n  \"note\": \"First time visiting doctor\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -716,7 +1065,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"scheduledTime\": \"2024-03-21T11:00:00Z\",\n  \"reason\": \"Updated reason\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"scheduledAt\": \"2026-03-21T11:00:00Z\",\n  \"description\": \"Updated reason\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -724,28 +1073,47 @@
               "host": ["{{base_url}}"],
               "path": ["sessions", ":id"]
             },
-            "description": "Update session details"
+            "description": "Update session details (PATCH /sessions/:id)"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Session",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/sessions/:id/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id", "confirm"]
+            },
+            "description": "Doctor confirm session appointment"
           },
           "response": []
         },
         {
           "name": "Start Session",
           "request": {
-            "method": "PATCH",
+            "method": "POST",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": {
               "raw": "{{base_url}}/sessions/:id/start",
               "host": ["{{base_url}}"],
               "path": ["sessions", ":id", "start"]
             },
-            "description": "Start active session"
+            "description": "Doctor start session (POST /sessions/:id/start)"
           },
           "response": []
         },
         {
           "name": "Complete Session",
           "request": {
-            "method": "PATCH",
+            "method": "POST",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
@@ -757,14 +1125,14 @@
               "host": ["{{base_url}}"],
               "path": ["sessions", ":id", "complete"]
             },
-            "description": "Mark session as completed"
+            "description": "Mark session as completed (POST /sessions/:id/complete)"
           },
           "response": []
         },
         {
           "name": "Cancel Session",
           "request": {
-            "method": "PATCH",
+            "method": "POST",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
@@ -776,7 +1144,26 @@
               "host": ["{{base_url}}"],
               "path": ["sessions", ":id", "cancel"]
             },
-            "description": "Cancel scheduled session"
+            "description": "Cancel scheduled session (POST /sessions/:id/cancel)"
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule Session",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledAt\": \"2026-03-25T14:00:00Z\",\n  \"reason\": \"Rescheduling for convenience\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/sessions/:id/reschedule",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", ":id", "reschedule"]
+            },
+            "description": "Reschedule session to another time (POST /sessions/:id/reschedule)"
           },
           "response": []
         },
@@ -806,7 +1193,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"sessionId\": \"{{session_id}}\",\n  \"rating\": 5,\n  \"title\": \"Excellent doctor\",\n  \"comment\": \"Very professional and caring\",\n  \"categories\": {\"communication\": 5, \"professionalism\": 5, \"helpfulness\": 5}\n}",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"doctorSessionId\": \"{{session_id}}\",\n  \"rating\": 5,\n  \"comment\": \"Very professional and caring\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1261,7 +1648,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"verificationNotes\": \"License verified\",\n  \"specializations\": [\"General Practice\", \"Internal Medicine\"]\n}",
+              "raw": "{\n  \"verificationNotes\": \"Doctor verified for testing - can create sessions\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1280,7 +1667,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Invalid credentials\",\n  \"message\": \"Your license verification failed\"\n}",
+              "raw": "{\n  \"reason\": \"Invalid credentials - license verification failed\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1322,92 +1709,6 @@
               "path": ["admin", "users", ":id", "unlock"]
             },
             "description": "Unlock user account"
-          },
-          "response": []
-        },
-        {
-          "name": "Create Violation",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"violationType\": \"inappropriate_content\",\n  \"description\": \"User sent inappropriate message\",\n  \"severity\": \"high\"\n}",
-              "options": {"raw": {"language": "json"}}
-            },
-            "url": {
-              "raw": "{{base_url}}/admin/violations",
-              "host": ["{{base_url}}"],
-              "path": ["admin", "violations"]
-            },
-            "description": "Create user violation record"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Violations",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/admin/violations?page=1&limit=10&status=active",
-              "host": ["{{base_url}}"],
-              "path": ["admin", "violations"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
-            },
-            "description": "Get violation records"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Violation Detail",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/admin/violations/:id",
-              "host": ["{{base_url}}"],
-              "path": ["admin", "violations", ":id"]
-            },
-            "description": "Get specific violation details"
-          },
-          "response": []
-        },
-        {
-          "name": "Add Violation Note",
-          "request": {
-            "method": "PATCH",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"note\": \"User warned about behavior\"\n}",
-              "options": {"raw": {"language": "json"}}
-            },
-            "url": {
-              "raw": "{{base_url}}/admin/violations/:id/note",
-              "host": ["{{base_url}}"],
-              "path": ["admin", "violations", ":id", "note"]
-            },
-            "description": "Add note to violation"
-          },
-          "response": []
-        },
-        {
-          "name": "Resolve Violation",
-          "request": {
-            "method": "PATCH",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"resolution\": \"User apologized and behavior corrected\",\n  \"action\": \"warning\"\n}",
-              "options": {"raw": {"language": "json"}}
-            },
-            "url": {
-              "raw": "{{base_url}}/admin/violations/:id/resolve",
-              "host": ["{{base_url}}"],
-              "path": ["admin", "violations", ":id", "resolve"]
-            },
-            "description": "Resolve violation"
           },
           "response": []
         },
@@ -1919,7 +2220,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"documentType\": \"guideline\",\n  \"fileUrl\": \"https://example.com/guideline.pdf\",\n  \"description\": \"Latest medical guidelines\",\n  \"uploadedBy\": \"{{user_id}}\",\n  \"status\": \"draft\"\n}",
+              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"documentType\": \"guideline\",\n  \"fileUrl\": \"https://example.com/guideline.pdf\",\n  \"description\": \"Latest medical guidelines\",\n  \"uploadedBy\": \"{{user_id}}\",\n  \"status\": \"processing\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1937,10 +2238,10 @@
             "method": "GET",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "url": {
-              "raw": "{{base_url}}/ai-documents?page=1&limit=10&status=indexed",
+              "raw": "{{base_url}}/ai-documents?page=1&limit=10&status=active",
               "host": ["{{base_url}}"],
               "path": ["ai-documents"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "indexed"}]
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
             },
             "description": "Get documents with pagination"
           },
@@ -2288,7 +2589,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"insightType\": \"trend\",\n  \"metricType\": \"heart_rate\",\n  \"title\": \"Elevated Heart Rate Trend\",\n  \"description\": \"Your heart rate is elevated\",\n  \"analysisData\": {\"averageHR\": 85, \"trend\": \"increasing\"},\n  \"confidenceLevel\": \"high\",\n  \"recommendedAction\": \"Consult doctor\",\n  \"periodStart\": \"2024-03-10\",\n  \"periodEnd\": \"2024-03-17\"\n}",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"relatedMetrics\": {\"heartRate\": 85, \"trend\": \"increasing\"}\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2312,50 +2613,6 @@
               "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
             },
             "description": "Get user's health insights"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Pending Notifications",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-health-insights/pending-notifications",
-              "host": ["{{base_url}}"],
-              "path": ["ai-health-insights", "pending-notifications"]
-            },
-            "description": "Get unnotified insights"
-          },
-          "response": []
-        },
-        {
-          "name": "Search by Type",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-health-insights/by-type/trend?page=1&limit=10",
-              "host": ["{{base_url}}"],
-              "path": ["ai-health-insights", "by-type", "trend"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
-            },
-            "description": "Search insights by type"
-          },
-          "response": []
-        },
-        {
-          "name": "Search by Confidence",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-health-insights/by-confidence/high?page=1&limit=10",
-              "host": ["{{base_url}}"],
-              "path": ["ai-health-insights", "by-confidence", "high"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
-            },
-            "description": "Search insights by confidence"
           },
           "response": []
         },
@@ -2409,7 +2666,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Updated title\",\n  \"description\": \"Updated analysis\"\n}",
+              "raw": "{\n  \"riskLevel\": \"warning\",\n  \"advice\": \"Please consult with a doctor\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2464,6 +2721,147 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "1️⃣9️⃣ VIOLATIONS - Violation Reports (7 endpoints)",
+      "item": [
+        {
+          "name": "Create Violation Report",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reporter_id\": \"{{user_id}}\",\n  \"reported_user_id\": \"{{other_user_id}}\",\n  \"report_type\": \"harassment\",\n  \"reason\": \"User harassed me during consultation\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/violations",
+              "host": ["{{base_url}}"],
+              "path": ["violations"]
+            },
+            "description": "Report user violation (harassment, spam, misinformation, etc.)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Violations",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/violations?page=1&limit=20&status=pending",
+              "host": ["{{base_url}}"],
+              "path": ["violations"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"},
+                {"key": "status", "value": "pending"}
+              ]
+            },
+            "description": "Get all violation reports (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Violation Detail",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/violations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["violations", ":id"]
+            },
+            "description": "Get violation detail (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Violations",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/violations/user/{{user_id}}?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["violations", "user", "{{user_id}}"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"}
+              ]
+            },
+            "description": "Get violations for specific user (reported by or against)"
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve Violation",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolution_note\": \"User has been warned and acknowledged\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/violations/:id/resolve",
+              "host": ["{{base_url}}"],
+              "path": ["violations", ":id", "resolve"]
+            },
+            "description": "Resolve violation report (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Violation",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\",\n  \"resolution_note\": \"Investigation complete - no violation found\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/violations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["violations", ":id"]
+            },
+            "description": "Update violation (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Violation Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/violations/stats/overview",
+              "host": ["{{base_url}}"],
+              "path": ["violations", "stats", "overview"]
+            },
+            "description": "Get violation statistics overview (ADMIN only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Violation",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/violations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["violations", ":id"]
+            },
+            "description": "Delete violation report (ADMIN only)"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -2483,13 +2881,8 @@
       "type": "string"
     },
     {
-      "key": "session_id",
-      "value": "session_object_id",
-      "type": "string"
-    },
-    {
-      "key": "document_id",
-      "value": "document_object_id",
+      "key": "other_user_id",
+      "value": "other_user_object_id",
       "type": "string"
     },
     {
@@ -2498,13 +2891,38 @@
       "type": "string"
     },
     {
+      "key": "doctor_token",
+      "value": "doctor_jwt_token",
+      "type": "string"
+    },
+    {
+      "key": "doctor2_token",
+      "value": "doctor2_jwt_token",
+      "type": "string"
+    },
+    {
+      "key": "admin_id",
+      "value": "admin_object_id",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "admin_jwt_token",
+      "type": "string"
+    },
+    {
       "key": "patient_id",
       "value": "patient_object_id",
       "type": "string"
     },
     {
-      "key": "other_user_id",
-      "value": "other_user_object_id",
+      "key": "session_id",
+      "value": "session_object_id",
+      "type": "string"
+    },
+    {
+      "key": "document_id",
+      "value": "document_object_id",
       "type": "string"
     }
   ]

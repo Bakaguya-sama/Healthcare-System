@@ -3,10 +3,10 @@ import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum DocumentStatus {
-  DRAFT = 'draft',
-  INDEXED = 'indexed',
-  ARCHIVED = 'archived',
-  DELETED = 'deleted',
+  PROCESSING = 'processing',
+  ACTIVE = 'active',
+  ERROR = 'error',
+  INACTIVE = 'inactive',
 }
 
 export enum DocumentType {
@@ -51,7 +51,7 @@ export class AiDocument extends Document {
   @ApiProperty({ description: 'MIME type', example: 'application/pdf' })
   mimeType?: string;
 
-  @Prop({ required: true, enum: Object.values(DocumentStatus), default: DocumentStatus.DRAFT })
+  @Prop({ required: true, enum: Object.values(DocumentStatus), default: DocumentStatus.PROCESSING })
   @ApiProperty({ description: 'Document status', enum: Object.values(DocumentStatus) })
   status: DocumentStatus;
 

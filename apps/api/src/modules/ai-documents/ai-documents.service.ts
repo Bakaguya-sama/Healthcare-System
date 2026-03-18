@@ -16,7 +16,7 @@ export class AiDocumentsService {
         ...createDto,
         uploadedBy: new Types.ObjectId(userId),
         relatedDocuments: createDto.relatedDocuments?.map(id => new Types.ObjectId(id)) || [],
-        status: DocumentStatus.DRAFT,
+        status: DocumentStatus.PROCESSING,
         totalChunks: 0,
         usageCount: 0,
       });
@@ -82,7 +82,7 @@ export class AiDocumentsService {
     const document = await this.aiDocumentModel.findByIdAndUpdate(
       new Types.ObjectId(documentId),
       {
-        status: DocumentStatus.INDEXED,
+        status: DocumentStatus.ACTIVE,
         totalChunks,
         indexedAt: new Date(),
       },
@@ -115,7 +115,7 @@ export class AiDocumentsService {
       throw new ForbiddenException('Only document uploader can archive this document');
     }
 
-    document.status = DocumentStatus.ARCHIVED;
+    document.status = DocumentStatus.INACTIVE;
     return await document.save();
   }
 
@@ -145,7 +145,7 @@ export class AiDocumentsService {
   async search(query: string): Promise<AiDocument[]> {
     return await this.aiDocumentModel
       .find({
-        status: DocumentStatus.INDEXED,
+        status: DocumentStatus.ACTIVE,
         $text: { $search: query },
       })
       .limit(10)

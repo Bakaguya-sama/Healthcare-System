@@ -1,0 +1,1003 @@
+# 📚 HƯỚNG DẪN TEST API - TRÌNH TỰ LOGIC HOÀN CHỈNH
+
+**Ngày:** March 18, 2026  
+**Mục tiêu:** Test toàn bộ 130+ endpoints theo flow logic của hệ thống  
+**Thời gian dự kiến:** 2-3 giờ (full test)
+
+---
+
+## 🎯 NGUYÊN TẮC TEST
+
+1. **Tuần tự lôgic:** Test theo luồng người dùng thực tế
+2. **Phụ thuộc:** Module A xong mới test Module B nếu có dependency
+3. **Role testing:** Kiểm tra PATIENT, DOCTOR, ADMIN roles riêng
+4. **Error cases:** Test invalid input, missing fields, unauthorized access
+5. **Persistence:** Kiểm tra data persists sau mỗi operation
+
+---
+
+## 📋 BƯỚC 0: SETUP - CẮT NGANG MỌI THỨ (BỎ QUA NẾU ĐÃ CÓ DATA)
+
+> ⚠️ **QUAN TRỌNG:** Chạy Setup ĐẦU TIÊN để tạo test accounts
+
+### QUICK-SETUP Collection
+```
+File: QUICK-SETUP-TESTS.postman_collection.json
+Chạy lần lượt:
+  1. Register Patient → Lấy patient_id + jwt_token
+  2. Register Doctor #1 → Lấy doctor_id + doctor_token
+  3. Register Doctor #2 → Lấy other_user_id + doctor2_token
+  4. Register Admin → Lấy admin_id + admin_token
+  5. Admin Verify Doctor #1 → Doctor có thể tạo sessions
+  6. Admin Verify Doctor #2 → Doctor#2 có thể tư vấn
+```
+
+**Environment Variables sau Setup:**
+```
+base_url = localhost:3000/api/v1
+jwt_token = (patient token)
+user_id = (patient id)
+doctor_id = (doctor #1 id)
+other_user_id = (doctor #2 id)
+doctor_token = (doctor #1 token)
+doctor2_token = (doctor #2 token)
+admin_id = (admin id)
+admin_token = (admin token)
+```
+
+---
+
+## 🔑 PHASE 1: AUTHENTICATION & IDENTITY (8 endpoints)
+
+**Mục tiêu:** Kiểm tra auth flow, token generation, user info
+
+### 1️⃣ AUTH - Authentication
+**Collection:** `1️⃣ AUTH - Authentication`
+
+#### Test Cases
+
+| # | Endpoint | Method | Input | Expected | Role | Status |
+|---|----------|--------|-------|----------|------|--------|
+| 1 | POST /auth/register | POST | email, password, name, role | 200 + user + token | Public | ✅ |
+| 2 | POST /auth/login | POST | email, password | 200 + token | Public | ✅ |
+| 3 | POST /auth/logout | POST | (authed) | 200 + message | Auth | ✅ |
+| 4 | GET /auth/me | GET | (authed) | 200 + current user | Auth | ✅ |
+| 5 | POST /auth/refresh | POST | (old token) | 200 + new token | Auth | ✅ |
+| 6 | POST /auth/change-password | POST | oldPwd, newPwd | 200 | Auth | ✅ |
+| 7 | POST /auth/forgot-password | POST | email | 200 + OTP sent | Public | ✅ |
+| 8 | POST /auth/confirm-otp | POST | email, otp, newPwd | 200 | Public | ✅ |
+
+#### Commands
+```bash
+# 1. Register test user
+POST {{base_url}}/auth/register
+Body: {
+  "email": "test@example.com",
+  "password": "Test123!@",
+  "name": "Test User",
+  "role": "patient"
+}
+✅ Expected: 200/201, save jwt_token
+
+# 2. Login
+POST {{base_url}}/auth/login
+Body: {"email": "test@example.com", "password": "Test123!@"}
+✅ Expected: 200, token in response
+
+# 3. Get Current User
+GET {{base_url}}/auth/me
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200, user object with all fields
+
+# 4. Change Password (already authed)
+POST {{base_url}}/auth/change-password
+Body: {"oldPassword": "Test123!@", "newPassword": "New123!@"}
+✅ Expected: 200
+
+# 5-6. Forgot password flow (skip if no email service)
+POST {{base_url}}/auth/forgot-password
+Body: {"email": "test@example.com"}
+✅ Expected: 200 (even if email not sent)
+```
+
+**Checklist:**
+- [ ] Token valid & has claims (sub, email, role)
+- [ ] Refresh token returns new JWT
+- [ ] Password change works
+- [ ] Me endpoint returns correct user
+- [ ] Wrong credentials return 401
+
+---
+
+## 👥 PHASE 2: USER MANAGEMENT (6 endpoints)
+
+**Mục tiêu:** CRUD users, list doctors, manage profiles
+
+### 2️⃣ USERS - User Management
+**Collection:** `2️⃣ USERS - User Management`
+
+#### Test Cases
+
+| # | Endpoint | Method | Query | Expected | Role | Status |
+|---|----------|--------|-------|----------|------|--------|
+| 1 | GET /users | GET | page=1, limit=10 | 200 + paginated users | ADMIN | ✅ |
+| 2 | GET /users/doctors | GET | verified=true | 200 + verified doctors | All | ✅ |
+| 3 | GET /users/me | GET | - | 200 + current user | Auth | ✅ |
+| 4 | GET /users/:id | GET | - | 200 + user detail | Admin/Own | ✅ |
+| 5 | PATCH /users/me | PATCH | name, phone, address | 200 + updated user | Auth | ✅ |
+| 6 | DELETE /users/:id | DELETE | - | 204 + no content | Admin/Own | ✅ |
+
+#### Commands
+```bash
+# 1. Get all users (ADMIN only)
+GET {{base_url}}/users?page=1&limit=10
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200, pagination with users array
+
+# 2. Get verified doctors (public list)
+GET {{base_url}}/users/doctors?verified=true
+✅ Expected: 200, doctors array with avatars
+
+# 3. Update own profile
+PATCH {{base_url}}/users/me
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "name": "Updated Name",
+  "phoneNumber": "0987654321",
+  "address": {
+    "street": "123 Main St",
+    "city": "Ho Chi Minh",
+    "country": "Vietnam"
+  }
+}
+✅ Expected: 200, updated user
+
+# 4. Delete user (self-destruct or admin)
+DELETE {{base_url}}/users/{{user_id}}
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 204
+```
+
+**Checklist:**
+- [ ] Users can only update own profile
+- [ ] Admin can list all users
+- [ ] Doctor list is public (no auth needed)
+- [ ] Deleted user can't login
+- [ ] Pagination works (limit 1-100)
+
+---
+
+## 🏥 PHASE 3: ROLE-SPECIFIC PROFILES (5 + 5 + 4 = 14 endpoints)
+
+**Mục tiêu:** Manage Patient, Doctor, Admin profiles
+
+### 3️⃣ PATIENTS - Patient Management
+**Collection:** `3️⃣ PATIENTS - Patient Management`
+
+#### Test Cases (Patient Role)
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /patients | POST | userId, name, dob | 201 + patient | ✅ |
+| 2 | GET /patients/profile | GET | - | 200 + patient profile | ✅ |
+| 3 | GET /patients | GET | page, status | 200 + all patients (ADMIN) | ✅ |
+| 4 | PATCH /patients/profile | PATCH | dob, blood, allergies | 200 + updated | ✅ |
+| 5 | DELETE /patients/profile | DELETE | - | 204 | ✅ |
+
+#### Commands
+```bash
+# 1. Create patient profile
+POST {{base_url}}/patients
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "userId": "{{user_id}}",
+  "fullName": "John Patient",
+  "dateOfBirth": "1990-05-15",
+  "gender": "male",
+  "bloodType": "O",
+  "allergies": ["Penicillin", "Shellfish"],
+  "medicalHistory": "Hypertension (controlled)",
+  "status": "active"
+}
+✅ Expected: 201, patient created
+
+# 2. Get own patient profile
+GET {{base_url}}/patients/profile
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200, patient object
+
+# 3. Update profile
+PATCH {{base_url}}/patients/profile
+Body: {"bloodType": "AB", "allergies": ["Peanuts"]}
+✅ Expected: 200, updated
+```
+
+**Checklist:**
+- [ ] Patient can create own profile (once)
+- [ ] Blood type from enum (A, B, AB, O)
+- [ ] Allergies is array
+- [ ] Medical history can be empty
+- [ ] Only ADMIN can list all patients
+
+---
+
+### 4️⃣ ADMINS - Admin Management
+**Collection:** `4️⃣ ADMINS - Admin Management`
+
+#### Test Cases (ADMIN Role)
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /admins | POST | userId, adminRole, dept | 201 + admin | ✅ |
+| 2 | GET /admins | GET | page, isActive | 200 + paginated admins | ✅ |
+| 3 | PATCH /admins/:id | PATCH | adminRole, dept | 200 + updated | ✅ |
+| 4 | DELETE /admins/:id | DELETE | - | 204 | ✅ |
+
+#### Commands
+```bash
+# 1. Create admin (SUPER_ADMIN only)
+POST {{base_url}}/admins
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "userId": "{{user_id}}",
+  "fullName": "Admin User",
+  "adminRole": "user_manager",
+  "department": "User Management",
+  "isActive": true
+}
+✅ Expected: 201
+
+# 2. Get all admins
+GET {{base_url}}/admins?page=1&limit=10&isActive=true
+✅ Expected: 200
+```
+
+**Checklist:**
+- [ ] Admin role enum (super_admin, user_manager, ai_manager)
+- [ ] Only SUPER_ADMIN can create admins
+- [ ] Admin list paginated
+
+---
+
+## 📬 PHASE 4: NOTIFICATIONS (7 endpoints)
+
+**Mục tiêu:** Create, read, manage notifications
+
+### 5️⃣ NOTIFICATIONS - Notification Management
+**Collection:** `5️⃣ NOTIFICATIONS - Notification Management`
+
+#### Test Cases
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /notifications | POST | type, title, msg | 201 + notif | ✅ |
+| 2 | GET /notifications | GET | page, unreadOnly | 200 + list | ✅ |
+| 3 | GET /notifications/:id | GET | - | 200 + marks read | ✅ |
+| 4 | PATCH /notifications/:id | PATCH | status | 200 | ✅ |
+| 5 | PATCH /notifications/mark-all-as-read | PATCH | - | 200 | ✅ |
+| 6 | DELETE /notifications/:id | DELETE | - | 204 | ✅ |
+| 7 | GET /notifications/unread/count | GET | - | 200 + count | ✅ |
+
+#### Commands
+```bash
+# 1. Create notification (system/admin)
+POST {{base_url}}/notifications
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "type": "warning",
+  "title": "Blood Pressure Alert",
+  "message": "Your BP is higher than normal: 150/90 mmHg"
+}
+✅ Expected: 201, notification created
+✅ Note: Verify type is one of: info, success, warning, critical
+
+# 2. Get user notifications with unread filter
+GET {{base_url}}/notifications?page=1&limit=20&unreadOnly=true
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200, only unread notifications
+
+# 3. Get notification detail (marks as read)
+GET {{base_url}}/notifications/{{notification_id}}
+✅ Expected: 200, isRead = true after
+
+# 4. Mark all as read
+PATCH {{base_url}}/notifications/mark-all-as-read
+✅ Expected: 200
+
+# 5. Get unread count
+GET {{base_url}}/notifications/unread/count
+✅ Expected: 200, {"count": N}
+```
+
+**Checklist:**
+- [ ] Type enum (info, success, warning, critical)
+- [ ] Each user gets own notifications
+- [ ] Unread count decreases after read
+- [ ] Mark all read works
+- [ ] Pagination works (default 20)
+
+---
+
+## 💬 PHASE 5: CHAT & REAL-TIME (11 endpoints)
+
+**Mục tiêu:** 1-to-1 messaging between users
+
+### 6️⃣ CHAT - Real-time Messaging
+**Collection:** `6️⃣ CHAT - Real-time Messaging`
+
+#### Test Cases
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /chat/send | POST | receiverId, content, type | 201 + message | ✅ |
+| 2 | GET /chat/messages | GET | page, status | 200 + list | ✅ |
+| 3 | GET /chat/conversation/:otherId | GET | page | 200 + history | ✅ |
+| 4 | GET /chat/messages/:id | GET | - | 200 + detail | ✅ |
+| 5 | PATCH /chat/messages/:id | PATCH | content | 200 | ✅ |
+| 6 | DELETE /chat/messages/:id | DELETE | - | 204 | ✅ |
+| 7 | POST /chat/messages/:id/read | POST | - | 200 | ✅ |
+| 8 | POST /chat/messages/:id/pin | POST | - | 200 | ✅ |
+| 9 | POST /chat/messages/:id/unpin | POST | - | 200 | ✅ |
+| 10 | GET /chat/unread-count | GET | - | 200 + count | ✅ |
+| 11 | GET /chat/conversation/:otherId/pinned | GET | - | 200 + pinned | ✅ |
+
+#### Commands
+```bash
+# 1. Send message (Patient → Doctor)
+POST {{base_url}}/chat/send
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "receiverId": "{{doctor_id}}",
+  "content": "Hi Doctor! I have a question",
+  "messageType": "text"
+}
+✅ Expected: 201, message saved
+
+# 2. Get conversation history
+GET {{base_url}}/chat/conversation/{{doctor_id}}?page=1&limit=20
+✅ Expected: 200, messages chronological
+
+# 3. Mark message as read
+POST {{base_url}}/chat/messages/{{message_id}}/read
+✅ Expected: 200
+
+# 4. Pin important message
+POST {{base_url}}/chat/messages/{{message_id}}/pin
+✅ Expected: 200
+
+# 5. Get unread count
+GET {{base_url}}/chat/unread-count
+✅ Expected: 200, {"unread": N}
+```
+
+**Checklist:**
+- [ ] Patient & Doctor both can see conversation
+- [ ] Message type enum (text, image, file, voice, video)
+- [ ] Delete removes message (or soft delete)
+- [ ] Edit updates content
+- [ ] Pin/unpin works
+- [ ] Unread count accurate
+
+---
+
+## 🏥 PHASE 6: DOCTOR SESSIONS & CONSULTATIONS (11 endpoints)
+
+**Mục tiêu:** Book, manage, complete doctor consultations
+
+### 7️⃣ SESSIONS - Consultation Sessions
+**Collection:** `7️⃣ SESSIONS - Consultation Sessions`
+
+#### Test Cases
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /sessions | POST | doctorId, type, datetime | 201 + session | ✅ |
+| 2 | GET /sessions | GET | page, status | 200 + list | ✅ |
+| 3 | GET /sessions/upcoming | GET | days=7 | 200 + upcoming | ✅ |
+| 4 | GET /sessions/:id | GET | - | 200 + detail | ✅ |
+| 5 | PATCH /sessions/:id | PATCH | description | 200 | ✅ |
+| 6 | POST /sessions/:id/confirm | POST | - | 200 | ✅ |
+| 7 | POST /sessions/:id/start | POST | - | 200 | ✅ |
+| 8 | POST /sessions/:id/complete | POST | notes, prescription | 200 | ✅ |
+| 9 | POST /sessions/:id/cancel | POST | reason | 200 | ✅ |
+| 10 | POST /sessions/:id/reschedule | POST | scheduledAt | 200 | ✅ |
+| 11 | DELETE /sessions/:id | DELETE | - | 204 | ✅ |
+
+#### Commands
+```bash
+# 1. Book session with doctor
+POST {{base_url}}/sessions
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "doctorId": "{{doctor_id}}",
+  "type": "consultation",
+  "title": "General Health Checkup",
+  "description": "Patient needs health advice",
+  "scheduledAt": "2026-03-20T10:00:00Z",
+  "duration": 30,
+  "note": "First consultation"
+}
+✅ Expected: 201, session created with status=PENDING
+✅ Save session_id for next tests
+
+# 2. List sessions (patient sees own, admin sees all)
+GET {{base_url}}/sessions?page=1&limit=10&status=PENDING
+✅ Expected: 200
+
+# 3. Get upcoming sessions (next 7 days)
+GET {{base_url}}/sessions/upcoming?days=7
+✅ Expected: 200
+
+# 4. Doctor confirms session (must be verified doctor)
+POST {{base_url}}/sessions/{{session_id}}/confirm
+Header: Authorization: Bearer {{doctor_token}}
+✅ Expected: 200, status=CONFIRMED
+
+# 5. Doctor starts session
+POST {{base_url}}/sessions/{{session_id}}/start
+Header: Authorization: Bearer {{doctor_token}}
+✅ Expected: 200, status=IN_PROGRESS, startedAt=now
+
+# 6. Complete session with notes
+POST {{base_url}}/sessions/{{session_id}}/complete
+Header: Authorization: Bearer {{doctor_token}}
+Body: {
+  "notes": "Patient is healthy, continue current diet",
+  "prescription": "Vitamin D 1000IU daily"
+}
+✅ Expected: 200, status=COMPLETED, endedAt=now
+```
+
+**Checklist:**
+- [ ] Only verified doctor can accept sessions
+- [ ] Status flow: PENDING → CONFIRMED → IN_PROGRESS → COMPLETED
+- [ ] Can cancel with reason
+- [ ] Can reschedule to future time
+- [ ] Doctor notes & patient notes separate
+- [ ] Prescription field visible
+- [ ] Patient can see completed sessions
+
+---
+
+## ⭐ PHASE 7: REVIEWS & RATINGS (8 endpoints)
+
+**Mục tiêu:** Rate doctors after session
+
+### 8️⃣ REVIEWS - Doctor Reviews & Ratings
+**Collection:** `8️⃣ REVIEWS - Doctor Reviews & Ratings`
+
+#### Test Cases
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /reviews | POST | doctorId, sessionId, rating | 201 + review | ✅ |
+| 2 | GET /reviews | GET | page, rating | 200 + all reviews | ✅ |
+| 3 | GET /reviews/doctor/:id/rating | GET | - | 200 + stats | ✅ |
+| 4 | GET /reviews/doctor/:id | GET | page | 200 + doctor's reviews | ✅ |
+| 5 | GET /reviews/my-reviews | GET | page | 200 + patient's reviews | ✅ |
+| 6 | PATCH /reviews/:id | PATCH | rating, comment | 200 | ✅ |
+| 7 | DELETE /reviews/:id | DELETE | - | 204 | ✅ |
+| 8 | GET /reviews/stats | GET | doctorId | 200 + stats | ✅ |
+
+#### Commands
+```bash
+# 1. Create review (only after completed session)
+POST {{base_url}}/reviews
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "doctorId": "{{doctor_id}}",
+  "doctorSessionId": "{{session_id}}",
+  "rating": 5,
+  "comment": "Excellent doctor, very professional and caring!"
+}
+✅ Expected: 201
+✅ Rating must be 1-5 integer
+
+# 2. Get doctor's rating summary
+GET {{base_url}}/reviews/doctor/{{doctor_id}}/rating
+✅ Expected: 200
+{
+  "doctorId": "...",
+  "averageRating": 4.5,
+  "totalReviews": 10,
+  "ratingDistribution": {5: 8, 4: 2, ...}
+}
+
+# 3. List all reviews for doctor
+GET {{base_url}}/reviews/doctor/{{doctor_id}}?page=1&limit=10
+✅ Expected: 200, reviews with patient names
+
+# 4. Get own reviews (patient)
+GET {{base_url}}/reviews/my-reviews?page=1&limit=10
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200
+```
+
+**Checklist:**
+- [ ] Rating 1-5 only
+- [ ] Can only review if completed session
+- [ ] Each session can have max 1 review (no duplicates)
+- [ ] Average rating auto-calculates
+- [ ] Patient can edit own review
+- [ ] Can delete own review
+- [ ] Doctor profile shows average rating
+
+---
+
+## 💚 PHASE 8: HEALTH METRICS (8 endpoints)
+
+**Mục tiêu:** Track personal health data
+
+### 9️⃣ HEALTH-METRICS - Health Data Tracking
+**Collection:** `9️⃣ HEALTH-METRICS - Health Data Tracking`
+
+#### Test Cases
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /health-metrics | POST | type, value, unit | 201 + metric | ✅ |
+| 2 | GET /health-metrics | GET | page, type | 200 + list | ✅ |
+| 3 | GET /health-metrics/statistics/:type | GET | - | 200 + stats | ✅ |
+| 4 | GET /health-metrics/alerts | GET | - | 200 + alerts | ✅ |
+| 5 | GET /health-metrics/:id | GET | - | 200 + detail | ✅ |
+| 6 | PATCH /health-metrics/:id | PATCH | value, notes | 200 | ✅ |
+| 7 | DELETE /health-metrics/:id | DELETE | - | 204 | ✅ |
+| 8 | GET /health-metrics/latest | GET | limit=5 | 200 + latest | ✅ |
+
+#### Commands
+```bash
+# 1. Record blood pressure
+POST {{base_url}}/health-metrics
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "metricType": "blood_pressure",
+  "value": 120,
+  "unit": "mmHg",
+  "recordedAt": "2026-03-18T10:00:00Z",
+  "notes": "Measured at home"
+}
+✅ Expected: 201
+✅ Types: blood_pressure, heart_rate, bmi, weight, height, water_intake, activity_level
+
+# 2. Get metrics (filtered by type)
+GET {{base_url}}/health-metrics?page=1&limit=20&metricType=blood_pressure
+✅ Expected: 200, blood pressure history
+
+# 3. Get statistics for metric type
+GET {{base_url}}/health-metrics/statistics/blood_pressure
+✅ Expected: 200
+{
+  "type": "blood_pressure",
+  "count": 10,
+  "average": 118,
+  "min": 110,
+  "max": 140,
+  "trend": "stable"
+}
+
+# 4. Get health alerts (anomalies detected)
+GET {{base_url}}/health-metrics/alerts
+✅ Expected: 200, array of alert conditions
+
+# 5. Get latest 5 metrics (dashboard)
+GET {{base_url}}/health-metrics/latest?limit=5
+✅ Expected: 200, most recent across types
+```
+
+**Checklist:**
+- [ ] Metric type enum: blood_pressure, heart_rate, bmi, weight, height, water_intake, activity_level
+- [ ] Values flexible (object for blood pressure: {systolic, diastolic})
+- [ ] Unit matches type
+- [ ] Statistics auto-calculate min/max/avg
+- [ ] Alerts for abnormal values (e.g., BP > 160)
+- [ ] Only patient can see own metrics
+- [ ] Doctor can view patient metrics (if authorized)
+
+---
+
+## 🤖 PHASE 9: AI CONSULTATION SERVICES (12 + 8 + 9 + 9 + 7 + 8 = 53 endpoints)
+
+**Mục tiêu:** AI-powered health consultations and analysis
+
+### 🔟 AI-ASSISTANT - AI Consultation
+**Collection:** `🔟 AI-ASSISTANT - AI Consultation`
+
+#### Test Cases (Start Conversation Flow)
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /ai-assistant/conversations/start | POST | topic, desc | 201 + conv | ✅ |
+| 2 | POST /ai-assistant/conversations/:id/message | POST | content | 201 + msg | ✅ |
+| 3 | GET /ai-assistant/my-conversations | GET | page | 200 + list | ✅ |
+| 4 | GET /ai-assistant/conversations | GET | page | 200 + all | ✅ |
+| 5 | GET /ai-assistant/conversations/:id | GET | - | 200 + full | ✅ |
+| 6 | PATCH /ai-assistant/conversations/:id | PATCH | topic | 200 | ✅ |
+| 7 | PATCH /ai-assistant/conversations/:id/rate | PATCH | rating, feedback | 200 | ✅ |
+| 8 | PATCH /ai-assistant/conversations/:id/archive | PATCH | - | 200 | ✅ |
+| 9 | DELETE /ai-assistant/conversations/:id | DELETE | - | 204 | ✅ |
+| 10 | GET /ai-assistant/conversations/:id/stats | GET | - | 200 | ✅ |
+| 11 | GET /ai-assistant/conversations/:id/export | GET | - | 200 | ✅ |
+
+#### Commands
+```bash
+# 1. Start AI consultation
+POST {{base_url}}/ai-assistant/conversations/start
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "topic": "Persistent Headaches",
+  "description": "I've been having headaches for 3 days"
+}
+✅ Expected: 201, conversationId created
+✅ Save conversationId for next commands
+
+# 2. Send message to AI (patient side)
+POST {{base_url}}/ai-assistant/conversations/{{conversationId}}/message
+Body: {
+  "content": "The pain is behind my eyes, worse at night"
+}
+✅ Expected: 201, message saved + AI response generated
+✅ AI should respond with suggestions/advice
+
+# 3. Get conversation (all messages)
+GET {{base_url}}/ai-assistant/conversations/{{conversationId}}
+✅ Expected: 200, message history with AI responses
+
+# 4. Rate AI conversation quality
+PATCH {{base_url}}/ai-assistant/conversations/{{conversationId}}/rate
+Body: {
+  "rating": 4,
+  "feedback": "Helpful but wanted more specific diagnosis"
+}
+✅ Expected: 200
+
+# 5. Export conversation as PDF
+GET {{base_url}}/ai-assistant/conversations/{{conversationId}}/export
+Query: format=pdf
+✅ Expected: 200, PDF file download
+```
+
+**Checklist:**
+- [ ] AI responds to each message within 5 seconds
+- [ ] Conversation history complete
+- [ ] Rating 1-5 scale
+- [ ] Can export to PDF/JSON
+- [ ] Archive marks read-only
+- [ ] Delete removes permanently
+- [ ] Stats show message count, duration, rating
+
+---
+
+### 1️⃣2️⃣ AI_SESSIONS - AI Session Management
+**Collection:** `1️⃣2️⃣ AI_SESSIONS - AI Session Management`
+
+#### Commands
+```bash
+# 1. Create AI session
+POST {{base_url}}/ai-sessions
+Body: {
+  "userId": "{{user_id}}",
+  "sessionType": "consultation",
+  "topic": "General health checkup",
+  "description": "Initial AI assessment needed"
+}
+✅ Expected: 201, session_id created
+
+# 2. Get my AI sessions
+GET {{base_url}}/ai-sessions/my-sessions?page=1&limit=10&status=active
+✅ Expected: 200
+
+# 3. Complete AI session
+PATCH {{base_url}}/ai-sessions/{{session_id}}/complete
+Body: {
+  "keyFindings": "Patient shows signs of vitamin D deficiency",
+  "recommendations": "Recommend blood test and doctor consultation"
+}
+✅ Expected: 200
+```
+
+---
+
+### 1️⃣3️⃣ AI_MESSAGES - AI Message Management
+### 1️⃣4️⃣ AI_FEEDBACKS - AI Feedback Management
+### 1️⃣5️⃣ AI_DOCUMENTS - Knowledge Base Documents
+### 1️⃣6️⃣ AI_DOCUMENT_CHUNKS - RAG Chunks (Optional - skip for basic test)
+
+[Similar patterns - see collection for details]
+
+---
+
+## 🚨 PHASE 10: ADMIN CONTROL & MODERATION (14 endpoints)
+
+**Mục tiêu:** Admin manage users, doctors, violations
+
+### 1️⃣1️⃣ ADMIN - Admin Control
+**Collection:** `1️⃣1️⃣ ADMIN (Phase 1) - Admin Control`
+
+#### Test Cases
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | GET /admin/doctors/pending | GET | - | 200 + pending list | ✅ |
+| 2 | POST /admin/doctors/:id/verify | POST | notes | 200 | ✅ |
+| 3 | POST /admin/doctors/:id/reject | POST | reason | 200 | ✅ |
+| 4 | POST /admin/users/:id/lock | POST | reason, duration | 200 | ✅ |
+| 5 | POST /admin/users/:id/unlock | POST | - | 200 | ✅ |
+| 6 | GET /admin/users/:id/lock-history | GET | - | 200 | ✅ |
+| 7 | POST /admin/violations | POST | reportedId, type, reason | 201 | ✅ |
+| 8 | GET /admin/violations | GET | page, status | 200 | ✅ |
+| 9 | GET /admin/violations/:id | GET | - | 200 | ✅ |
+| 10 | POST /admin/violations/:id/note | POST | note | 200 | ✅ |
+| 11 | PATCH /admin/violations/:id/resolve | PATCH | resolution | 200 | ✅ |
+| 12 | GET /admin/sessions | GET | page, status | 200 | ✅ |
+| 13 | GET /admin/statistics | GET | - | 200 + stats | ✅ |
+| 14 | GET /admin/activity-logs | GET | page | 200 + logs | ✅ |
+
+#### Commands
+```bash
+# 1. Get pending doctors
+GET {{base_url}}/admin/doctors/pending
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200, unverified doctors
+
+# 2. Verify doctor
+POST {{base_url}}/admin/doctors/{{doctor_id}}/verify
+Body: {
+  "verificationNotes": "License verified, credentials checked"
+}
+✅ Expected: 200
+
+# 3. Lock user account (abuse detection)
+POST {{base_url}}/admin/users/{{user_id}}/lock
+Body: {
+  "reason": "Suspicious behavior detected",
+  "lockDuration": 86400
+}
+✅ Expected: 200, locked_until = now + 24h
+
+# 4. Get system statistics
+GET {{base_url}}/admin/statistics
+✅ Expected: 200
+{
+  "totalUsers": 150,
+  "totalDoctors": 25,
+  "totalSessions": 320,
+  "avgRating": 4.5,
+  "totalRevenue": 5000000
+}
+
+# 5. Get activity logs
+GET {{base_url}}/admin/activity-logs?page=1&limit=20
+✅ Expected: 200, user actions log
+```
+
+**Checklist:**
+- [ ] Only SUPER_ADMIN can verify doctors
+- [ ] Lock prevents login
+- [ ] Unlock removes restriction
+- [ ] Statistics aggregated correctly
+- [ ] Activity logs all user actions
+- [ ] Violations tracked and resolvable
+
+---
+
+## 🚫 PHASE 11: VIOLATIONS & CONTENT FILTERING (8 + 7 = 15 endpoints)
+
+**Mục tiêu:** Report violations, manage content safety
+
+### 1️⃣9️⃣ VIOLATIONS - Violation Reports
+**Collection:** `1️⃣9️⃣ VIOLATIONS - Violation Reports`
+
+#### Test Cases
+
+| # | Endpoint | Method | Body | Expected | Status |
+|---|----------|--------|------|----------|--------|
+| 1 | POST /violations | POST | reporter, reported, type, reason | 201 | ✅ |
+| 2 | GET /violations | GET | page, status | 200 + all (ADMIN) | ✅ |
+| 3 | GET /violations/:id | GET | - | 200 + detail (ADMIN) | ✅ |
+| 4 | GET /violations/user/:id | GET | page | 200 + user's violations | ✅ |
+| 5 | PATCH /violations/:id | PATCH | status, note | 200 | ✅ |
+| 6 | POST /violations/:id/resolve | POST | resolution_note | 200 | ✅ |
+| 7 | DELETE /violations/:id | DELETE | - | 204 (ADMIN) | ✅ |
+| 8 | GET /violations/stats/overview | GET | - | 200 + stats | ✅ |
+
+#### Commands
+```bash
+# 1. Report user violation (harassment, spam, fraud, etc)
+POST {{base_url}}/violations
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "reporter_id": "{{user_id}}",
+  "reported_user_id": "{{other_user_id}}",
+  "report_type": "harassment",
+  "reason": "User sent inappropriate messages during chat"
+}
+✅ Expected: 201
+✅ Report types: harassment, spam, misinformation, inappropriate_content, impersonation, fraud, ai_hallucination
+
+# 2. Get all violations (ADMIN only)
+GET {{base_url}}/violations?page=1&limit=20&status=pending
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200
+
+# 3. Get violation statistics
+GET {{base_url}}/violations/stats/overview
+✅ Expected: 200
+{
+  "total": 15,
+  "pending": 10,
+  "resolved": 5,
+  "by_type": {
+    "harassment": 5,
+    "spam": 3,
+    "fraud": 2,
+    ...
+  }
+}
+
+# 4. Resolve violation
+POST {{base_url}}/violations/{{violation_id}}/resolve
+Body: {
+  "resolution_note": "User warned, behavior corrected"
+}
+✅ Expected: 200, status = resolved
+```
+
+**Checklist:**
+- [ ] Report types enum correct (7 types)
+- [ ] Status: pending → resolved
+- [ ] Can view own violation reports (as reporter or reported)
+- [ ] Admin sees all violations
+- [ ] Statistics breakdown by type
+- [ ] Only admin can resolve
+
+---
+
+### 1️⃣7️⃣ BLACKLIST_KEYWORDS - Content Filtering
+**Collection:** `1️⃣7️⃣ BLACKLIST_KEYWORDS - Content Filtering`
+
+#### Commands
+```bash
+# 1. Add blacklist keyword (ADMIN)
+POST {{base_url}}/blacklist-keywords
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "keyword": "badword123",
+  "pattern": "^(badword|variant)$",
+  "category": "inappropriate",
+  "severity": "high",
+  "isActive": true
+}
+✅ Expected: 201
+
+# 2. Check content against blacklist
+POST {{base_url}}/blacklist-keywords/check
+Body: {
+  "content": "This message contains badword123 in it"
+}
+✅ Expected: 200, flagged = true, violations = ["badword123"]
+```
+
+---
+
+## 🧠 PHASE 12: AI HEALTH INSIGHTS (9 endpoints)
+
+**Mục tiêu:** AI analyzes health metrics and provides insights
+
+### 1️⃣8️⃣ AI_HEALTH_INSIGHTS - Health Insights
+**Collection:** `1️⃣8️⃣ AI_HEALTH_INSIGHTS - Health Insights`
+
+#### Commands
+```bash
+# 1. Create health insight (AI generated)
+POST {{base_url}}/ai-health-insights
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "userId": "{{user_id}}",
+  "relatedMetrics": {
+    "heartRate": 85,
+    "bloodPressure": "150/90",
+    "trend": "increasing"
+  }
+}
+✅ Expected: 201, insight_id created
+✅ AI should analyze and provide risk_level + advice
+
+# 2. Get my health insights (patient)
+GET {{base_url}}/ai-health-insights/my-insights?page=1&limit=10
+✅ Expected: 200, list of insights with advice
+
+# 3. Acknowledge insight (read)
+PATCH {{base_url}}/ai-health-insights/{{insight_id}}/acknowledge
+✅ Expected: 200
+
+# 4. Mark as notified
+PATCH {{base_url}}/ai-health-insights/{{insight_id}}/notify
+✅ Expected: 200
+```
+
+**Checklist:**
+- [ ] Risk level enum: normal, warning, danger
+- [ ] Advice is personalized
+- [ ] Can acknowledge (read)
+- [ ] Statistics show by risk level
+- [ ] Only patient sees own insights
+
+---
+
+## ✅ FINAL VERIFICATION CHECKLIST
+
+### Before Going Live
+
+```
+❌ → [ ] Violations: Confirm /violations is primary (not /admin/violations)
+❌ → [ ] Postman: Remove duplicate endpoints if any
+❌ → [ ] DB: All collections created and indexed
+❌ → [ ] Auth: JWT tokens working (30min expiry)
+❌ → [ ] Roles: PATIENT, DOCTOR, ADMIN enforced
+❌ → [ ] Enums: All values match template
+❌ → [ ] Timestamps: created_at, updated_at on all docs
+❌ → [ ] Errors: 400 bad request, 401 unauthorized, 404 not found, 500 server error
+❌ → [ ] Logging: All operations logged
+❌ → [ ] Rate limiting: Endpoints rate limited
+❌ → [ ] Pagination: All list endpoints paginated (default 20, max 100)
+❌ → [ ] Validation: All input validated
+❌ → [ ] Response format: Consistent JSON structure
+❌ → [ ] CORS: Configured correctly
+```
+
+---
+
+## 🎬 QUICK EXECUTION SCRIPT (if running tests in batch)
+
+```bash
+# Terminal 1: Start API server
+cd c:\SE121\Healthcare-System
+npm run start:dev
+
+# Terminal 2: Import Postman collections
+# 1. Import QUICK-SETUP-TESTS.postman_collection.json
+# 2. Run "Register Patient" through "Verify Doctor #2"
+# 3. Save environment
+# 4. Import Healthcare-API-Complete.postman_collection.json
+# 5. Run collections in order (use Postman Collection Runner):
+#    - 1️⃣ AUTH
+#    - 2️⃣ USERS
+#    - 3️⃣ PATIENTS
+#    - ...
+#    - 1️⃣9️⃣ VIOLATIONS
+```
+
+---
+
+## 📊 EXPECTED RESULTS
+
+| Test | Pass | Fail | Status |
+|------|------|------|--------|
+| Auth & Registration | 8/8 | 0 | ✅ |
+| User Management | 6/6 | 0 | ✅ |
+| Patient Profiles | 5/5 | 0 | ✅ |
+| Admin Management | 4/4 | 0 | ✅ |
+| Notifications | 7/7 | 0 | ✅ |
+| Chat | 11/11 | 0 | ✅ |
+| Sessions | 11/11 | 0 | ✅ |
+| Reviews | 8/8 | 0 | ✅ |
+| Health Metrics | 8/8 | 0 | ✅ |
+| AI Assistant | 12/12 | 0 | ✅ |
+| Admin Panel | 14/14 | 0 | ✅ |
+| AI Sessions | 8/8 | 0 | ✅ |
+| AI Messages | 9/9 | 0 | ✅ |
+| AI Feedbacks | 9/9 | 0 | ✅ |
+| AI Documents | 7/7 | 0 | ✅ |
+| AI Chunks | 8/8 | 0 | ✅ |
+| Blacklist Keywords | 7/7 | 0 | ✅ |
+| AI Health Insights | 9/9 | 0 | ✅ |
+| **Violations** | **8/8** | **0** | **✅** |
+| **TOTAL** | **130+** | **0** | **✅** |
+
+---
+
+**Test Date:** March 18, 2026  
+**Prepared By:** API Audit  
+**Status:** Ready for Postman Testing
+
+🚀 **LÊN POSTMAN TEST ĐI!**

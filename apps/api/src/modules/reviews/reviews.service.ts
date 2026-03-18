@@ -44,7 +44,7 @@ export class ReviewsService {
     const review = await this.reviewModel.create({
       patientId: new Types.ObjectId(patientId),
       doctorId: new Types.ObjectId(dto.doctorId),
-      sessionId: dto.sessionId ? new Types.ObjectId(dto.sessionId) : undefined,
+      doctorSessionId: dto.sessionId ? new Types.ObjectId(dto.sessionId) : undefined,
       rating: dto.rating,
       comment: dto.comment,
       status: ReviewStatus.ACTIVE,

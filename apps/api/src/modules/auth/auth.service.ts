@@ -192,7 +192,7 @@ export class AuthService {
       role: user.role,
     };
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '30m' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     // Hash refresh token trước khi lưu

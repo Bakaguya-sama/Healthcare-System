@@ -18,82 +18,36 @@ export enum ConfidenceLevel {
   VERY_HIGH = 'very_high',
 }
 
+export enum RiskLevel {
+  NORMAL = 'normal',
+  WARNING = 'warning',
+  DANGER = 'danger',
+}
+
 @Schema({ timestamps: true })
 export class AiHealthInsight extends Document {
   @ApiProperty({ description: 'Insight ID' })
   declare _id: Types.ObjectId;
 
   @Prop({ required: true, type: Types.ObjectId })
-  @ApiProperty({ description: 'Patient/User ID' })
-  userId: Types.ObjectId;
-
-  @Prop({ required: true, enum: Object.values(InsightType) })
-  @ApiProperty({ description: 'Type of insight', enum: Object.values(InsightType) })
-  insightType: InsightType;
-
-  @Prop({ required: true })
-  @ApiProperty({ description: 'Metric being analyzed (heart_rate, blood_pressure, etc)' })
-  metricType: string;
-
-  @Prop({ required: true })
-  @ApiProperty({ description: 'Title/summary of insight' })
-  title: string;
-
-  @Prop({ required: true })
-  @ApiProperty({ description: 'Detailed description' })
-  description: string;
+  @ApiProperty({ description: 'Patient ID' })
+  patientId: Types.ObjectId;
 
   @Prop({ type: Object, required: true })
-  @ApiProperty({ description: 'Analysis data' })
-  analysisData: Record<string, any>;
+  @ApiProperty({ description: 'Analyzed metrics data' })
+  analyzedMetrics: Record<string, any>;
 
-  @Prop({ required: true, enum: Object.values(ConfidenceLevel) })
-  @ApiProperty({ description: 'Confidence level', enum: Object.values(ConfidenceLevel) })
-  confidenceLevel: ConfidenceLevel;
+  @Prop({ required: true, enum: Object.values(RiskLevel) })
+  @ApiProperty({ description: 'Risk level', enum: Object.values(RiskLevel) })
+  riskLevel: RiskLevel;
 
-  @Prop()
-  @ApiProperty({ description: 'Recommended action', required: false })
-  recommendedAction?: string;
-
-  @Prop({ type: Array, default: [] })
-  @ApiProperty({ description: 'Related metric IDs', type: [String] })
-  relatedMetrics: Types.ObjectId[];
-
-  @Prop({ type: Array, default: [] })
-  @ApiProperty({ description: 'Related health condition keywords', type: [String] })
-  healthConditions: string[];
-
-  @Prop()
-  @ApiProperty({ description: 'When insight period started' })
-  periodStart: Date;
-
-  @Prop()
-  @ApiProperty({ description: 'When insight period ended' })
-  periodEnd: Date;
-
-  @Prop({ default: false })
-  @ApiProperty({ description: 'Whether user was notified' })
-  notified: boolean;
-
-  @Prop({ default: false })
-  @ApiProperty({ description: 'Whether user acknowledged this insight' })
-  acknowledged: boolean;
-
-  @Prop()
-  @ApiProperty({ description: 'When user acknowledged', required: false })
-  acknowledgedAt?: Date;
-
-  @Prop({ type: Object, default: {} })
-  @ApiProperty({ description: 'Additional metadata' })
-  metadata: Record<string, any>;
+  @Prop({ required: true })
+  @ApiProperty({ description: 'Advice from AI' })
+  advice: string;
 
   @Prop({ default: Date.now })
   @ApiProperty({ description: 'Created timestamp' })
   createdAt: Date;
-
-  @Prop({ default: Date.now })
-  @ApiProperty({ description: 'Updated timestamp' })
-  updatedAt: Date;
 }
 
 export const AiHealthInsightSchema = SchemaFactory.createForClass(AiHealthInsight);

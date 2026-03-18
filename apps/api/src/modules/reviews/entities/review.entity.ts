@@ -26,7 +26,7 @@ export class Review {
   doctorId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Session', required: false })
-  sessionId?: Types.ObjectId;
+  doctorSessionId?: Types.ObjectId;
 
   @Prop({ required: true, enum: ReviewRating, min: 1, max: 5 })
   rating: number;
