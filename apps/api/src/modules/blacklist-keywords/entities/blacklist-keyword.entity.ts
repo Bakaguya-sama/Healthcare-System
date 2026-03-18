@@ -36,46 +36,6 @@ export class BlacklistKeyword extends Document {
   @Prop({ required: true, enum: Object.values(KeywordSeverity), default: KeywordSeverity.MEDIUM })
   @ApiProperty({ description: 'Severity level', enum: Object.values(KeywordSeverity) })
   severity: KeywordSeverity;
-
-  @Prop()
-  @ApiProperty({ description: 'Reason for blocking', required: false })
-  reason?: string;
-
-  @Prop({ default: false })
-  @ApiProperty({ description: 'Exact match only (not regex)' })
-  exactMatch: boolean;
-
-  @Prop({ default: false })
-  @ApiProperty({ description: 'Case insensitive matching' })
-  caseInsensitive: boolean;
-
-  @Prop({ type: Array, default: [] })
-  @ApiProperty({ description: 'Regex patterns for flexible matching', type: [String] })
-  patterns: string[];
-
-  @Prop({ default: 0 })
-  @ApiProperty({ description: 'Number of times this keyword was detected' })
-  detectionCount: number;
-
-  @Prop({ default: true })
-  @ApiProperty({ description: 'Whether this keyword is active' })
-  isActive: boolean;
-
-  @Prop({ type: Types.ObjectId })
-  @ApiProperty({ description: 'Admin who added/updated this keyword', required: false })
-  addedBy?: Types.ObjectId;
-
-  @Prop()
-  @ApiProperty({ description: 'When this keyword was last triggered', required: false })
-  lastDetectedAt?: Date;
-
-  @Prop({ default: Date.now })
-  @ApiProperty({ description: 'Created timestamp' })
-  createdAt: Date;
-
-  @Prop({ default: Date.now })
-  @ApiProperty({ description: 'Updated timestamp' })
-  updatedAt: Date;
 }
 
 export const BlacklistKeywordSchema = SchemaFactory.createForClass(BlacklistKeyword);

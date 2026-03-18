@@ -33,7 +33,7 @@ export class AiFeedbacksController {
 
   @Get('my-feedbacks')
   async getMyFeedbacks(@CurrentUser() user: UserPayload, @Query() query: QueryAiFeedbackDto) {
-    return this.aiFeedbacksService.findByUserId(user.id, query);
+    return this.aiFeedbacksService.findByPatientId(user.id, query);
   }
 
   @Get('session/:sessionId')

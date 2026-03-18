@@ -29,13 +29,11 @@ export class AiSessionsService {
   }
 
   async findByUserId(userId: string, query: QueryAiSessionDto): Promise<{ data: AiSession[]; total: number }> {
-    const { page = 1, limit = 10, status, sessionType, search, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = -1 } = query;
 
-    const filter: any = { userId: new Types.ObjectId(userId) };
+    const filter: any = { patientId: new Types.ObjectId(userId) };
 
     if (status) filter.status = status;
-    if (sessionType) filter.sessionType = sessionType;
-    if (search) filter.title = { $regex: search, $options: 'i' };
 
     const skip = (page - 1) * limit;
     const data = await this.aiSessionModel
@@ -51,13 +49,11 @@ export class AiSessionsService {
   }
 
   async findAll(query: QueryAiSessionDto): Promise<{ data: AiSession[]; total: number }> {
-    const { page = 1, limit = 10, status, sessionType, search, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = -1 } = query;
 
     const filter: any = {};
 
     if (status) filter.status = status;
-    if (sessionType) filter.sessionType = sessionType;
-    if (search) filter.title = { $regex: search, $options: 'i' };
 
     const skip = (page - 1) * limit;
     const data = await this.aiSessionModel
@@ -84,7 +80,7 @@ export class AiSessionsService {
     const session = await this.aiSessionModel
       .findOne({
         _id: new Types.ObjectId(sessionId),
-        userId: new Types.ObjectId(userId),
+        patientId: new Types.ObjectId(userId),
       })
       .exec();
 
@@ -117,12 +113,11 @@ export class AiSessionsService {
     return session;
   }
 
-  async completeSession(sessionId: string, userId: string, summary?: string): Promise<AiSession> {
+  async completeSession(sessionId: string, userId: string): Promise<AiSession> {
     const session = await this.findByIdAndUserId(sessionId, userId);
 
     session.status = SessionStatus.COMPLETED;
-    session.completedAt = new Date();
-    if (summary) session.summary = summary;
+    session.endedAt = new Date();
 
     return await session.save();
   }

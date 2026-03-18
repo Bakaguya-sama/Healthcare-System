@@ -100,10 +100,6 @@ export class AiDocumentChunksService {
       updateDto.relatedChunks = updateDto.relatedChunks.map(id => new Types.ObjectId(id) as any);
     }
 
-    if (updateDto.content) {
-      chunk.charCount = updateDto.content.length;
-    }
-
     Object.assign(chunk, updateDto);
     return await chunk.save();
   }

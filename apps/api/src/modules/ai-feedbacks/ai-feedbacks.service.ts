@@ -10,15 +10,12 @@ export class AiFeedbacksService {
     @InjectModel(AiFeedback.name) private aiFeedbackModel: Model<AiFeedbackDocument>,
   ) {}
 
-  async create(userId: string, createDto: CreateAiFeedbackDto): Promise<AiFeedback> {
+  async create(patientId: string, createDto: CreateAiFeedbackDto): Promise<AiFeedback> {
     try {
       const feedback = new this.aiFeedbackModel({
         ...createDto,
-        sessionId: new Types.ObjectId(createDto.sessionId),
-        messageId: createDto.messageId ? new Types.ObjectId(createDto.messageId) : undefined,
-        userId: new Types.ObjectId(userId),
-        isVerified: false,
-        helpfulCount: 0,
+        patientId: new Types.ObjectId(patientId),
+        aiSessionId: new Types.ObjectId(createDto.aiSessionId),
       });
       return await feedback.save();
     } catch (error) {
@@ -26,20 +23,12 @@ export class AiFeedbacksService {
     }
   }
 
-  async findByUserId(userId: string, query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
-    const { page = 1, limit = 10, sessionId, feedbackType, minRating, maxRating, isVerified, sortBy = 'createdAt', sortOrder = -1 } = query;
+  async findByPatientId(patientId: string, query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
+    const { page = 1, limit = 10, aiSessionId, sortBy = 'createdAt', sortOrder = -1 } = query;
 
-    const filter: any = { userId: new Types.ObjectId(userId) };
+    const filter: any = { patientId: new Types.ObjectId(patientId) };
 
-    if (sessionId) filter.sessionId = new Types.ObjectId(sessionId);
-    if (feedbackType) filter.feedbackType = feedbackType;
-    if (isVerified !== undefined) filter.isVerified = isVerified;
-
-    if (minRating !== undefined || maxRating !== undefined) {
-      filter.rating = {};
-      if (minRating !== undefined) filter.rating.$gte = minRating;
-      if (maxRating !== undefined) filter.rating.$lte = maxRating;
-    }
+    if (aiSessionId) filter.aiSessionId = new Types.ObjectId(aiSessionId);
 
     const skip = (page - 1) * limit;
     const data = await this.aiFeedbackModel
@@ -54,19 +43,10 @@ export class AiFeedbacksService {
     return { data, total };
   }
 
-  async findBySessionId(sessionId: string, query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
-    const { page = 1, limit = 10, feedbackType, minRating, maxRating, isVerified, sortBy = 'createdAt', sortOrder = -1 } = query;
+  async findBySessionId(aiSessionId: string, query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = -1 } = query;
 
-    const filter: any = { sessionId: new Types.ObjectId(sessionId) };
-
-    if (feedbackType) filter.feedbackType = feedbackType;
-    if (isVerified !== undefined) filter.isVerified = isVerified;
-
-    if (minRating !== undefined || maxRating !== undefined) {
-      filter.rating = {};
-      if (minRating !== undefined) filter.rating.$gte = minRating;
-      if (maxRating !== undefined) filter.rating.$lte = maxRating;
-    }
+    const filter: any = { aiSessionId: new Types.ObjectId(aiSessionId) };
 
     const skip = (page - 1) * limit;
     const data = await this.aiFeedbackModel
@@ -82,18 +62,9 @@ export class AiFeedbacksService {
   }
 
   async findAll(query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
-    const { page = 1, limit = 10, feedbackType, minRating, maxRating, isVerified, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = -1 } = query;
 
     const filter: any = {};
-
-    if (feedbackType) filter.feedbackType = feedbackType;
-    if (isVerified !== undefined) filter.isVerified = isVerified;
-
-    if (minRating !== undefined || maxRating !== undefined) {
-      filter.rating = {};
-      if (minRating !== undefined) filter.rating.$gte = minRating;
-      if (maxRating !== undefined) filter.rating.$lte = maxRating;
-    }
 
     const skip = (page - 1) * limit;
     const data = await this.aiFeedbackModel
@@ -167,19 +138,16 @@ export class AiFeedbacksService {
     return feedback;
   }
 
-  async getAverageRating(sessionId: string): Promise<{ averageRating: number; totalFeedbacks: number }> {
+  async getAverageRating(sessionId: string): Promise<{ totalFeedbacks: number }> {
     const feedbacks = await this.aiFeedbackModel
-      .find({ sessionId: new Types.ObjectId(sessionId) })
+      .find({ aiSessionId: new Types.ObjectId(sessionId) })
       .exec();
 
     if (feedbacks.length === 0) {
-      return { averageRating: 0, totalFeedbacks: 0 };
+      return { totalFeedbacks: 0 };
     }
 
-    const averageRating = feedbacks.reduce((sum, fb) => sum + fb.rating, 0) / feedbacks.length;
-
     return {
-      averageRating: Math.round(averageRating * 100) / 100,
       totalFeedbacks: feedbacks.length,
     };
   }

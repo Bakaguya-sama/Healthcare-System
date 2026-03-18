@@ -84,41 +84,13 @@ export class BlacklistKeywordsService {
     const activeKeywords = await this.keywordModel.find({ isActive: true }).exec();
 
     const flaggedKeywords: BlacklistKeyword[] = [];
-    const lowerContent = content.toLowerCase();
 
     for (const kw of activeKeywords) {
-      let found = false;
-
-      if (kw.exactMatch) {
-        const keywordLower = kw.caseInsensitive ? kw.keyword : kw.keyword;
-        const searchText = kw.caseInsensitive ? lowerContent : content;
-        found = searchText.includes(keywordLower);
-      }
-
-      if (!found && kw.patterns && kw.patterns.length > 0) {
-        for (const pattern of kw.patterns) {
-          try {
-            const regex = new RegExp(pattern, kw.caseInsensitive ? 'i' : '');
-            if (regex.test(content)) {
-              found = true;
-              break;
-            }
-          } catch (e) {
-            // Invalid regex pattern, skip
-          }
-        }
-      }
-
-      if (found) {
+      const lowerContent = content.toLowerCase();
+      const lowerKeyword = kw.keyword.toLowerCase();
+      
+      if (lowerContent.includes(lowerKeyword)) {
         flaggedKeywords.push(kw);
-        // Update detection count
-        await this.keywordModel.updateOne(
-          { _id: kw._id },
-          {
-            $inc: { detectionCount: 1 },
-            lastDetectedAt: new Date(),
-          },
-        );
       }
     }
 

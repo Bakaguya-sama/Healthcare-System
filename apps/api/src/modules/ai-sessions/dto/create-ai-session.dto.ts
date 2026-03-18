@@ -3,53 +3,28 @@ import {
   IsNotEmpty,
   IsOptional,
   IsEnum,
-  IsArray,
-  IsNumber,
-  Min,
-  IsObject,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { SessionStatus, SessionType } from '../entities/ai-session.entity';
-import { Types } from 'mongoose';
+import { SessionStatus } from '../entities/ai-session.entity';
 
 export class CreateAiSessionDto {
-  @ApiProperty({ description: 'Session type', enum: Object.values(SessionType) })
-  @IsNotEmpty()
-  @IsEnum(SessionType)
-  sessionType: SessionType;
+  @ApiProperty({ description: 'Session status', enum: Object.values(SessionStatus), default: SessionStatus.ACTIVE })
+  @IsOptional()
+  @IsEnum(SessionStatus)
+  status?: SessionStatus;
 
-  @ApiProperty({ description: 'Session title', example: 'Diabetes consultation' })
-  @IsNotEmpty()
-  @IsString()
-  title: string;
-
-  @ApiProperty({ description: 'Session description', required: false })
+  @ApiProperty({ description: 'Session start time' })
   @IsOptional()
   @IsString()
-  description?: string;
+  startedAt?: string;
 
-  @ApiProperty({ description: 'Initial problem statement' })
-  @IsNotEmpty()
+  @ApiProperty({ description: 'Session end time', required: false })
+  @IsOptional()
   @IsString()
-  initialProblem: string;
+  endedAt?: string;
 }
 
 export class UpdateAiSessionDto {
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  title?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  summary?: string;
-
   @ApiProperty({ required: false })
   @IsOptional()
   @IsEnum(SessionStatus)
@@ -57,13 +32,13 @@ export class UpdateAiSessionDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsObject()
-  keyFindings?: Record<string, any>;
+  @IsString()
+  startedAt?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsObject()
-  recommendations?: Record<string, any>;
+  @IsString()
+  endedAt?: string;
 }
 
 export class QueryAiSessionDto {
@@ -83,21 +58,9 @@ export class QueryAiSessionDto {
   @IsOptional()
   status?: SessionStatus;
 
-  @ApiProperty({
-    required: false,
-    enum: Object.values(SessionType),
-    description: 'Filter by session type',
-  })
-  @IsOptional()
-  sessionType?: SessionType;
-
-  @ApiProperty({ required: false, description: 'Search by title' })
-  @IsOptional()
-  search?: string;
-
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()
-  sortBy?: string;
+  sortBy?: string = 'createdAt';
 
   @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
   @IsOptional()

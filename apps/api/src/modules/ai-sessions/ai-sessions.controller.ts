@@ -56,9 +56,8 @@ export class AiSessionsController {
   async completeSession(
     @CurrentUser() user: UserPayload,
     @Param('id') sessionId: string,
-    @Body() body: { summary?: string },
   ) {
-    return this.aiSessionsService.completeSession(sessionId, user.id, body.summary);
+    return this.aiSessionsService.completeSession(sessionId, user.id);
   }
 
   @Patch(':id/archive')

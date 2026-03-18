@@ -2,22 +2,6 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 
-export enum InsightType {
-  TREND = 'trend',
-  ANOMALY = 'anomaly',
-  PREDICTION = 'prediction',
-  RECOMMENDATION = 'recommendation',
-  ALERT = 'alert',
-  CORRELATION = 'correlation',
-}
-
-export enum ConfidenceLevel {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  VERY_HIGH = 'very_high',
-}
-
 export enum RiskLevel {
   NORMAL = 'normal',
   WARNING = 'warning',
@@ -44,10 +28,6 @@ export class AiHealthInsight extends Document {
   @Prop({ required: true })
   @ApiProperty({ description: 'Advice from AI' })
   advice: string;
-
-  @Prop({ default: Date.now })
-  @ApiProperty({ description: 'Created timestamp' })
-  createdAt: Date;
 }
 
 export const AiHealthInsightSchema = SchemaFactory.createForClass(AiHealthInsight);
@@ -55,7 +35,6 @@ export const AiHealthInsightSchema = SchemaFactory.createForClass(AiHealthInsigh
 export type AiHealthInsightDocument = AiHealthInsight & Document;
 
 // Create indexes
-AiHealthInsightSchema.index({ userId: 1, insightType: 1, createdAt: -1 });
-AiHealthInsightSchema.index({ userId: 1, notified: 1 });
-AiHealthInsightSchema.index({ metricType: 1, confidenceLevel: 1 });
-AiHealthInsightSchema.index({ insightType: 1, createdAt: -1 });
+AiHealthInsightSchema.index({ patientId: 1, createdAt: -1 });
+AiHealthInsightSchema.index({ patientId: 1, riskLevel: 1 });
+
