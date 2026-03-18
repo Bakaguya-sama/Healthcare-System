@@ -108,17 +108,6 @@ export class AdminController {
     return this.adminService.unlockAccount(userId, adminId);
   }
 
-  /**
-   * 📋 GET /admin/users/:id/lock-history
-   * Xem lịch sử khóa tài khoản
-   */
-  @Get('users/:id/lock-history')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xem lịch sử khóa tài khoản' })
-  async getLockHistory(@Param('id') userId: string) {
-    return this.adminService.getLockHistory(userId);
-  }
-
   // ============================================
   // SESSIONS MANAGEMENT ENDPOINTS
   // ============================================

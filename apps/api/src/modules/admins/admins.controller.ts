@@ -34,9 +34,9 @@ export class AdminsController {
   @ApiOperation({ summary: 'Tạo hồ sơ admin mới (SUPER_ADMIN)' })
   async create(
     @CurrentUser('sub') userId: string,
-    @Body() dto: CreateAdminDto,
+    @Body() dto: CreateAdminDto & { userId: string },
   ) {
-    return this.adminsService.create(userId, dto);
+    return this.adminsService.create(userId, dto.userId, dto);
   }
 
   /**

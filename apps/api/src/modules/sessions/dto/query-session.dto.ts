@@ -8,18 +8,13 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { SessionStatus, SessionType } from '../entities/session.entity';
+import { SessionStatus } from '../entities/session.entity';
 
 export class QuerySessionDto {
   @ApiProperty({ enum: SessionStatus, required: false })
   @IsEnum(SessionStatus)
   @IsOptional()
   status?: SessionStatus;
-
-  @ApiProperty({ enum: SessionType, required: false })
-  @IsEnum(SessionType)
-  @IsOptional()
-  type?: SessionType;
 
   @ApiProperty({ example: '65e456def789abc012345678', required: false })
   @IsOptional()

@@ -1,13 +1,11 @@
 import {
   IsOptional,
   IsNumber,
-  IsEnum,
   Min,
   Max,
   IsMongoId,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { ReviewStatus, ReviewRating } from '../entities/review.entity';
 import { Type } from 'class-transformer';
 
 export class QueryReviewDto {
@@ -20,14 +18,6 @@ export class QueryReviewDto {
   @IsOptional()
   @IsMongoId()
   doctorId?: string;
-
-  @ApiProperty({
-    enum: ReviewStatus,
-    required: false,
-  })
-  @IsOptional()
-  @IsEnum(ReviewStatus)
-  status?: ReviewStatus;
 
   @ApiProperty({ example: 5, required: false })
   @IsOptional()

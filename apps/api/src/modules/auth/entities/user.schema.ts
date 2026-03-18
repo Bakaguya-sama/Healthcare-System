@@ -67,16 +67,6 @@ export class User {
 
   @Prop({ required: false })
   otpExpiresAt?: Date;
-
-  @Prop({ required: false })
-  refreshToken?: string;
-
-  @Prop({ default: true })
-  isActive: boolean;
-
-  // Account lock history
-  @Prop({ type: [Object], default: [] })
-  lockHistory?: LockRecord[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

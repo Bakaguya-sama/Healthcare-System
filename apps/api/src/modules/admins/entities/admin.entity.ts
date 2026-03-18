@@ -23,24 +23,6 @@ export class Admin {
   })
   adminRole: AdminRole;
 
-  @Prop({ default: false })
-  isActive: boolean;
-
-  @Prop({ required: false })
-  department?: string; // Phòng/bộ phận
-
-  @Prop({ required: false })
-  permissions?: string[]; // Additional fine-grained permissions
-
-  @Prop()
-  lastLoginAt?: Date;
-
-  @Prop({ default: 0 })
-  totalActionsPerformed: number; // Track admin actions
-
-  @Prop({ type: [String], default: [] })
-  activityLog?: string[]; // Log of important actions
-
   @Prop()
   createdAt?: Date;
 

@@ -41,10 +41,6 @@ export class PatientsService {
       userId: new Types.ObjectId(userId),
       fullName: dto.fullName,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-      gender: dto.gender,
-      bloodType: dto.bloodType,
-      allergies: dto.allergies || [],
-      medicalHistory: dto.medicalHistory,
       status: 'active',
       totalSessions: 0,
       totalReviews: 0,
@@ -137,10 +133,6 @@ export class PatientsService {
       {
         fullName: dto.fullName,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-        gender: dto.gender,
-        bloodType: dto.bloodType,
-        allergies: dto.allergies,
-        medicalHistory: dto.medicalHistory,
       },
       { new: true, runValidators: true },
     );

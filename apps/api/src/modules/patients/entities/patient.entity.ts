@@ -14,18 +14,6 @@ export class Patient {
   @Prop()
   dateOfBirth?: Date;
 
-  @Prop({ type: String, enum: ['male', 'female', 'other'] })
-  gender?: string;
-
-  @Prop({ required: false })
-  bloodType?: string; // A, B, AB, O
-
-  @Prop({ required: false })
-  allergies?: string[]; // Array of allergy names
-
-  @Prop({ required: false })
-  medicalHistory?: string; // Text description
-
   @Prop({ default: 0 })
   totalSessions: number;
 

@@ -20,7 +20,7 @@ export class CreateReviewDto {
   @ApiProperty({ example: '65f789ghi012jkl345678901', required: false })
   @IsOptional()
   @IsMongoId()
-  sessionId?: string;
+  doctorSessionId?: string;
 
   @ApiProperty({ example: 5, minimum: 1, maximum: 5 })
   @IsNumber()

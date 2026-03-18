@@ -6,10 +6,8 @@ import {
   IsNumber,
   Min,
   Max,
-  IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { ReviewStatus } from '../entities/review.entity';
 
 export class UpdateReviewDto extends PartialType(CreateReviewDto) {
   @ApiProperty({ example: 5, minimum: 1, maximum: 5, required: false })
@@ -23,12 +21,4 @@ export class UpdateReviewDto extends PartialType(CreateReviewDto) {
   @IsOptional()
   @IsString()
   comment?: string;
-
-  @ApiProperty({
-    enum: ReviewStatus,
-    required: false,
-  })
-  @IsOptional()
-  @IsEnum(ReviewStatus)
-  status?: ReviewStatus;
 }

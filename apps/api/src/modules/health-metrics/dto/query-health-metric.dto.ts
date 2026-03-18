@@ -1,18 +1,13 @@
 import { IsEnum, IsOptional, IsDateString, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { MetricType, MetricStatus } from '../entities/health-metric.entity';
+import { MetricType } from '../entities/health-metric.entity';
 
 export class QueryHealthMetricDto {
   @ApiProperty({ enum: MetricType, required: false })
   @IsEnum(MetricType)
   @IsOptional()
   type?: MetricType;
-
-  @ApiProperty({ enum: MetricStatus, required: false })
-  @IsEnum(MetricStatus)
-  @IsOptional()
-  status?: MetricStatus;
 
   @ApiProperty({ example: '2026-01-01T00:00:00Z', required: false })
   @IsDateString()

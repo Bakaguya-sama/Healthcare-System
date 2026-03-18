@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserDocument, AccountStatus, LockRecord } from '../auth/entities/user.schema';
+import { User, UserDocument, AccountStatus } from '../auth/entities/user.schema';
 import { Doctor, DoctorDocument, DoctorVerificationStatus } from '../users/entities/doctor.schema';
 import { UserRole } from '../users/enums/user-role.enum';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
@@ -145,17 +145,6 @@ export class AdminService {
       throw new BadRequestException('Account is already banned');
     }
 
-    // Thêm vào lock history
-    const lockRecord: LockRecord = {
-      lockedAt: new Date(),
-      lockedBy: new Types.ObjectId(adminId),
-      reason: dto.reason,
-    };
-
-    if (!user.lockHistory) {
-      user.lockHistory = [];
-    }
-    user.lockHistory.push(lockRecord);
     user.accountStatus = AccountStatus.BANNED;
 
     const updated = await user.save();
@@ -183,35 +172,12 @@ export class AdminService {
       throw new BadRequestException('Account is not banned');
     }
 
-    // Cập nhật lock history - lần khóa gần nhất
-    if (user.lockHistory && user.lockHistory.length > 0) {
-      user.lockHistory[user.lockHistory.length - 1].unlockedAt = new Date();
-      user.lockHistory[user.lockHistory.length - 1].unlockedBy = new Types.ObjectId(adminId);
-    }
-
     user.accountStatus = AccountStatus.ACTIVE;
 
     const updated = await user.save();
     return updated.toObject({ versionKey: false });
   }
 
-  /**
-   * 📋 GET /admin/users/:id/lock-history
-   * Xem lịch sử khóa tài khoản
-   */
-  async getLockHistory(userId: string) {
-    const user = await this.userModel.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return {
-      userId: user._id,
-      name: user.name,
-      accountStatus: user.accountStatus,
-      lockHistory: user.lockHistory,
-    };
-  }
   // ============================================
   // SESSIONS ADMIN VIEW
   // ============================================

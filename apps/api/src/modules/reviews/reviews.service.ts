@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Review, ReviewDocument, ReviewStatus } from './entities/review.entity';
+import { Review, ReviewDocument } from './entities/review.entity';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { QueryReviewDto } from './dto/query-review.dto';
@@ -27,7 +27,7 @@ export class ReviewsService {
     if (!Types.ObjectId.isValid(dto.doctorId)) {
       throw new BadRequestException('Invalid doctor ID');
     }
-    if (dto.sessionId && !Types.ObjectId.isValid(dto.sessionId)) {
+    if (dto.doctorSessionId && !Types.ObjectId.isValid(dto.doctorSessionId)) {
       throw new BadRequestException('Invalid session ID');
     }
 
@@ -44,15 +44,10 @@ export class ReviewsService {
     const review = await this.reviewModel.create({
       patientId: new Types.ObjectId(patientId),
       doctorId: new Types.ObjectId(dto.doctorId),
-      doctorSessionId: dto.sessionId ? new Types.ObjectId(dto.sessionId) : undefined,
+      doctorSessionId: dto.doctorSessionId ? new Types.ObjectId(dto.doctorSessionId) : undefined,
       rating: dto.rating,
       comment: dto.comment,
-      status: ReviewStatus.ACTIVE,
-      isVerifiedPurchase: !!dto.sessionId,
     });
-
-    await review.populate('patientId', 'name email avatarUrl');
-    await review.populate('doctorId', 'name specialization avatarUrl');
 
     return {
       statusCode: 201,
@@ -80,10 +75,6 @@ export class ReviewsService {
         throw new BadRequestException('Invalid patient ID');
       }
       filter.patientId = new Types.ObjectId(query.patientId);
-    }
-
-    if (query.status) {
-      filter.status = query.status;
     }
 
     if (query.rating) {
@@ -137,7 +128,6 @@ export class ReviewsService {
       this.reviewModel
         .find({
           doctorId: new Types.ObjectId(doctorId),
-          status: ReviewStatus.ACTIVE,
         })
         .populate('patientId', 'name avatarUrl')
         .sort({ createdAt: -1 })
@@ -145,7 +135,6 @@ export class ReviewsService {
         .limit(limitNum),
       this.reviewModel.countDocuments({
         doctorId: new Types.ObjectId(doctorId),
-        status: ReviewStatus.ACTIVE,
       }),
     ]);
 
@@ -174,7 +163,6 @@ export class ReviewsService {
       {
         $match: {
           doctorId: new Types.ObjectId(doctorId),
-          status: ReviewStatus.ACTIVE,
         },
       },
       {
@@ -277,7 +265,6 @@ export class ReviewsService {
     // Update fields
     if (dto.rating !== undefined) review.rating = dto.rating;
     if (dto.comment !== undefined) review.comment = dto.comment;
-    if (dto.status !== undefined) review.status = dto.status;
 
     await review.save();
 
@@ -302,23 +289,10 @@ export class ReviewsService {
       throw new NotFoundException('Review not found');
     }
 
-    const userObjectId = new Types.ObjectId(userId);
-
-    // Check if already marked as helpful
-    if (review.helpfulBy.includes(userObjectId)) {
-      throw new BadRequestException('You have already marked this as helpful');
-    }
-
-    review.helpfulBy.push(userObjectId);
-    review.helpfulCount = review.helpfulBy.length;
-    await review.save();
-
     return {
       statusCode: 200,
       message: 'Review marked as helpful',
-      data: {
-        helpfulCount: review.helpfulCount,
-      },
+      data: review,
     };
   }
 
@@ -336,26 +310,10 @@ export class ReviewsService {
       throw new NotFoundException('Review not found');
     }
 
-    const userObjectId = new Types.ObjectId(userId);
-
-    // Check if marked as helpful
-    const index = review.helpfulBy.indexOf(userObjectId);
-    if (index === -1) {
-      throw new BadRequestException(
-        'You have not marked this as helpful yet',
-      );
-    }
-
-    review.helpfulBy.splice(index, 1);
-    review.helpfulCount = review.helpfulBy.length;
-    await review.save();
-
     return {
       statusCode: 200,
       message: 'Review unmarked as helpful',
-      data: {
-        helpfulCount: review.helpfulCount,
-      },
+      data: review,
     };
   }
 
@@ -402,10 +360,6 @@ export class ReviewsService {
       throw new NotFoundException('Review not found');
     }
 
-    review.status = ReviewStatus.FLAGGED;
-    review.adminNotes = adminNotes;
-    await review.save();
-
     return {
       statusCode: 200,
       message: 'Review flagged successfully',
@@ -418,9 +372,6 @@ export class ReviewsService {
    */
   async getTopDoctors(limit: number = 10) {
     const topDoctors = await this.reviewModel.aggregate([
-      {
-        $match: { status: ReviewStatus.ACTIVE },
-      },
       {
         $group: {
           _id: '$doctorId',

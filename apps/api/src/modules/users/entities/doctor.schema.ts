@@ -15,6 +15,12 @@ export class Doctor {
   @Prop({ required: true, unique: true, ref: 'User' })
   userId: Types.ObjectId;
 
+  @Prop({ required: true })
+  fullName: string;
+
+  @Prop()
+  dateOfBirth?: Date;
+
   @Prop({ required: false })
   specialization?: string;
 
@@ -35,9 +41,6 @@ export class Doctor {
 
   @Prop({ default: false })
   isOnline?: boolean;
-
-  @Prop({ type: [String], default: [] })
-  availableSlots?: string[];
 
   // Doctor verification fields
   @Prop({

@@ -10,7 +10,6 @@ import {
   Session,
   SessionDocument,
   SessionStatus,
-  SessionType,
 } from './entities/session.entity';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
@@ -53,13 +52,8 @@ export class SessionsService {
     const session = await this.sessionModel.create({
       patientId: new Types.ObjectId(patientId),
       doctorId: new Types.ObjectId(dto.doctorId),
-      type: dto.type,
-      title: dto.title,
-      description: dto.description,
       scheduledAt: scheduledTime,
-      duration: dto.duration || 30,
-      note: dto.note,
-      attachments: dto.attachments,
+      patientNotes: dto.patientNotes,
       status: SessionStatus.PENDING,
     });
 
@@ -90,9 +84,6 @@ export class SessionsService {
     // Apply filters
     if (query.status) {
       filter.status = query.status;
-    }
-    if (query.type) {
-      filter.type = query.type;
     }
     if (query.doctorId && userRole !== 'doctor') {
       filter.doctorId = new Types.ObjectId(query.doctorId);
@@ -238,7 +229,7 @@ export class SessionsService {
       throw new BadRequestException('Session is not pending');
     }
 
-    session.status = SessionStatus.CONFIRMED;
+    session.status = SessionStatus.ACTIVE;
     await session.save();
 
     return {
@@ -267,12 +258,12 @@ export class SessionsService {
       throw new ForbiddenException('Only doctor can start session');
     }
 
-    // Accept PENDING or CONFIRMED status
-    if (session.status !== SessionStatus.PENDING && session.status !== SessionStatus.CONFIRMED) {
+    // Accept PENDING or ACTIVE status
+    if (session.status !== SessionStatus.PENDING && session.status !== SessionStatus.ACTIVE) {
       throw new BadRequestException('Session is not available for starting');
     }
 
-    session.status = SessionStatus.IN_PROGRESS;
+    session.status = SessionStatus.ACTIVE;
     session.startedAt = new Date();
     await session.save();
 
@@ -302,14 +293,12 @@ export class SessionsService {
       throw new ForbiddenException('Only doctor can complete session');
     }
 
-    if (session.status !== SessionStatus.IN_PROGRESS) {
+    if (session.status !== SessionStatus.ACTIVE) {
       throw new BadRequestException('Session is not in progress');
     }
 
     session.status = SessionStatus.COMPLETED;
     session.endedAt = new Date();
-    if (dto.diagnosis) session.diagnosis = dto.diagnosis;
-    if (dto.prescription) session.prescription = dto.prescription;
     await session.save();
 
     return {
@@ -346,8 +335,6 @@ export class SessionsService {
     }
 
     session.status = SessionStatus.CANCELLED;
-    session.cancelReason = dto.cancelReason;
-    session.cancelledBy = new Types.ObjectId(userId);
     await session.save();
 
     return {
@@ -395,7 +382,6 @@ export class SessionsService {
     }
 
     session.status = SessionStatus.PENDING;
-    session.cancelReason = undefined;
     await session.save();
 
     return {
@@ -455,7 +441,7 @@ export class SessionsService {
       $gte: new Date(),
       $lte: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
     };
-    filter.status = { $in: [SessionStatus.PENDING, SessionStatus.CONFIRMED] };
+    filter.status = { $in: [SessionStatus.PENDING, SessionStatus.ACTIVE] };
 
     const sessions = await this.sessionModel
       .find(filter)

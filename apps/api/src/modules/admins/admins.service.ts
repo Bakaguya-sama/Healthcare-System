@@ -20,7 +20,7 @@ export class AdminsService {
   /**
    * 📝 TẠO HỒSƠ ADMIN MỚI (SUPER_ADMIN ONLY)
    */
-  async create(currentAdminUserId: string, dto: CreateAdminDto) {
+  async create(currentAdminUserId: string, newAdminUserId: string, dto: CreateAdminDto) {
     // Check if current user is super admin
     const currentAdmin = await this.adminModel.findOne({
       userId: new Types.ObjectId(currentAdminUserId),
@@ -41,12 +41,9 @@ export class AdminsService {
     }
 
     const admin = await this.adminModel.create({
+      userId: new Types.ObjectId(newAdminUserId),
       fullName: dto.fullName,
-      adminRole: dto.adminRole,
-      department: dto.department,
-      permissions: dto.permissions || [],
-      isActive: true,
-      totalActionsPerformed: 0,
+      adminRole: dto.adminRole || AdminRole.USER_MANAGER,
     });
 
     return {
@@ -101,10 +98,6 @@ export class AdminsService {
 
     if (query.adminRole) {
       filter.adminRole = query.adminRole;
-    }
-
-    if (query.isActive !== undefined) {
-      filter.isActive = query.isActive;
     }
 
     const skip = (query.page - 1) * query.limit;
@@ -167,9 +160,6 @@ export class AdminsService {
       {
         fullName: dto.fullName,
         adminRole: dto.adminRole,
-        isActive: dto.isActive,
-        department: dto.department,
-        permissions: dto.permissions,
       },
       { new: true, runValidators: true },
     );
@@ -201,14 +191,7 @@ export class AdminsService {
       return; // Skip if not an admin
     }
 
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${action}`;
-
-    await this.adminModel.findByIdAndUpdate(admin._id, {
-      activityLog: [...(admin.activityLog || []), logEntry].slice(-100), // Keep last 100 logs
-      totalActionsPerformed: admin.totalActionsPerformed + 1,
-      lastLoginAt: new Date(),
-    });
+    // Activity logging removed - not in template
   }
 
   /**

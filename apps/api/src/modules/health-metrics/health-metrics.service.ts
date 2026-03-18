@@ -30,14 +30,11 @@ export class HealthMetricsService {
     }
 
     const metric = await this.healthMetricModel.create({
-      userId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(userId),
       type: dto.type,
       values: dto.values,
       unit: dto.unit,
-      status: dto.status || 'normal',
-      note: dto.note,
       recordedAt: dto.recordedAt || new Date(),
-      doctor: dto.doctor,
     });
 
     return {
@@ -55,14 +52,11 @@ export class HealthMetricsService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const filter: any = { userId: new Types.ObjectId(userId) };
+    const filter: any = { patientId: new Types.ObjectId(userId) };
 
     // Apply filters
     if (query.type) {
       filter.type = query.type;
-    }
-    if (query.status) {
-      filter.status = query.status;
     }
     if (query.startDate || query.endDate) {
       filter.recordedAt = {};
@@ -109,7 +103,7 @@ export class HealthMetricsService {
 
     const metric = await this.healthMetricModel.findOne({
       _id: new Types.ObjectId(id),
-      userId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(userId),
     });
 
     if (!metric) {
@@ -137,7 +131,7 @@ export class HealthMetricsService {
 
     const metric = await this.healthMetricModel.findOne({
       _id: new Types.ObjectId(id),
-      userId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(userId),
     });
 
     if (!metric) {
@@ -165,7 +159,7 @@ export class HealthMetricsService {
 
     const result = await this.healthMetricModel.findOneAndDelete({
       _id: new Types.ObjectId(id),
-      userId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(userId),
     });
 
     if (!result) {
@@ -187,7 +181,7 @@ export class HealthMetricsService {
     }
 
     const metrics = await this.healthMetricModel.find({
-      userId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(userId),
       type,
     });
 
@@ -243,8 +237,7 @@ export class HealthMetricsService {
 
     const alerts = await this.healthMetricModel
       .find({
-        userId: new Types.ObjectId(userId),
-        isAlert: true,
+        patientId: new Types.ObjectId(userId),
       })
       .sort({ recordedAt: -1 })
       .limit(20);
@@ -268,9 +261,9 @@ export class HealthMetricsService {
     const metric = await this.healthMetricModel.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
-        userId: new Types.ObjectId(userId),
+        patientId: new Types.ObjectId(userId),
       },
-      { isAlert: false },
+      {},
       { new: true },
     );
 

@@ -78,12 +78,9 @@ export class AuthService {
    */
   async refreshToken(userId: string, refreshToken: string) {
     const user = await this.userModel.findById(userId);
-    if (!user || !user.refreshToken)
-      throw new UnauthorizedException('Access denied');
+    if (!user) throw new UnauthorizedException('Access denied');
 
-    const isMatch = await bcrypt.compare(refreshToken, user.refreshToken);
-    if (!isMatch) throw new UnauthorizedException('Access denied');
-
+    // RefreshToken validation removed - not in template
     return this.generateTokensResponse(user);
   }
 
@@ -91,7 +88,7 @@ export class AuthService {
    * 🚪 ĐĂNG XUẤT
    */
   async logout(userId: string) {
-    await this.userModel.findByIdAndUpdate(userId, { refreshToken: null });
+    // Logout logic simplified - refreshToken removed from schema
     return { message: 'Logged out successfully' };
   }
 

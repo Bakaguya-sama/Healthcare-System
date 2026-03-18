@@ -25,43 +25,6 @@ export class CreatePatientDto {
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
-
-  @ApiProperty({
-    description: 'Gender',
-    enum: ['male', 'female', 'other'],
-    required: false,
-  })
-  @IsOptional()
-  @IsEnum(['male', 'female', 'other'])
-  gender?: string;
-
-  @ApiProperty({
-    description: 'Blood type: A, B, AB, O',
-    example: 'O',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  bloodType?: string;
-
-  @ApiProperty({
-    description: 'Array of allergies',
-    example: ['Penicillin', 'Peanuts'],
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  allergies?: string[];
-
-  @ApiProperty({
-    description: 'Medical history notes',
-    example: 'Diabetes type 2, hypertension',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  medicalHistory?: string;
 }
 
 export class UpdatePatientDto {
@@ -74,27 +37,6 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsEnum(['male', 'female', 'other'])
-  gender?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  bloodType?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  allergies?: string[];
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  medicalHistory?: string;
 }
 
 export class QueryPatientDto {

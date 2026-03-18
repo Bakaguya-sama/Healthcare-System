@@ -3,8 +3,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsEnum,
-  IsBoolean,
-  IsArray,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AdminRole } from '../entities/admin.entity';
@@ -26,25 +24,6 @@ export class CreateAdminDto {
   @IsOptional()
   @IsEnum(AdminRole)
   adminRole?: AdminRole;
-
-  @ApiProperty({
-    description: 'Department/division',
-    example: 'User Management',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  department?: string;
-
-  @ApiProperty({
-    description: 'Additional fine-grained permissions',
-    example: ['can_ban_users', 'can_approve_doctors'],
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  permissions?: string[];
 }
 
 export class UpdateAdminDto {
@@ -60,22 +39,6 @@ export class UpdateAdminDto {
   @IsOptional()
   @IsEnum(AdminRole)
   adminRole?: AdminRole;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  department?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  permissions?: string[];
 }
 
 export class QueryAdminDto {
@@ -94,13 +57,6 @@ export class QueryAdminDto {
   })
   @IsOptional()
   adminRole?: AdminRole;
-
-  @ApiProperty({
-    required: false,
-    description: 'Filter by active status',
-  })
-  @IsOptional()
-  isActive?: boolean;
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()

@@ -11,22 +11,12 @@ export enum MetricType {
   HEIGHT = 'height',
   WATER_INTAKE = 'water_intake',
   ACTIVITY_LEVEL = 'activity_level',
-  BLOOD_SUGAR = 'blood_sugar',
-  TEMPERATURE = 'temperature',
-  CHOLESTEROL = 'cholesterol',
-  OXYGEN_LEVEL = 'oxygen_level',
-}
-
-export enum MetricStatus {
-  NORMAL = 'normal',
-  WARNING = 'warning',
-  CRITICAL = 'critical',
 }
 
 @Schema({ timestamps: true })
 export class HealthMetric {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  userId: Types.ObjectId;
+  patientId: Types.ObjectId;
 
   @Prop({ enum: MetricType, required: true })
   type: MetricType;
@@ -44,24 +34,12 @@ export class HealthMetric {
   @Prop({ required: true })
   unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%', 'ml'
 
-  @Prop({ enum: MetricStatus, default: MetricStatus.NORMAL })
-  status: MetricStatus;
-
-  @Prop()
-  note?: string;
-
   @Prop({ type: Date, default: () => new Date() })
   recordedAt: Date;
-
-  @Prop({ default: false })
-  isAlert: boolean;
-
-  @Prop()
-  doctor?: string; // Doctor notes
 }
 
 export const HealthMetricSchema = SchemaFactory.createForClass(HealthMetric);
 
 // Index for better query performance
-HealthMetricSchema.index({ userId: 1, recordedAt: -1 });
-HealthMetricSchema.index({ userId: 1, type: 1, recordedAt: -1 });
+HealthMetricSchema.index({ patientId: 1, recordedAt: -1 });
+HealthMetricSchema.index({ patientId: 1, type: 1, recordedAt: -1 });

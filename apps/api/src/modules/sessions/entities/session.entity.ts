@@ -5,18 +5,10 @@ export type SessionDocument = HydratedDocument<Session>;
 
 export enum SessionStatus {
   PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  IN_PROGRESS = 'in_progress',
+  ACTIVE = 'active',
   COMPLETED = 'completed',
+  REJECTED = 'rejected',
   CANCELLED = 'cancelled',
-  RESCHEDULED = 'rescheduled',
-}
-
-export enum SessionType {
-  CONSULTATION = 'consultation',
-  FOLLOW_UP = 'follow_up',
-  EMERGENCY = 'emergency',
-  ROUTINE_CHECKUP = 'routine_checkup',
 }
 
 @Schema({ timestamps: true })
@@ -27,20 +19,8 @@ export class Session {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   doctorId: Types.ObjectId;
 
-  @Prop({ enum: SessionType, default: SessionType.CONSULTATION })
-  type: SessionType;
-
-  @Prop({ required: true })
-  title: string;
-
-  @Prop({ required: true })
-  description: string;
-
   @Prop({ required: true })
   scheduledAt: Date;
-
-  @Prop({ required: true, default: 30 })
-  duration: number; // minutes
 
   @Prop()
   startedAt?: Date;
@@ -56,30 +36,6 @@ export class Session {
 
   @Prop()
   doctorNotes?: string; // Lời khuyên y tế của bác sĩ khi kết thúc tư vấn
-
-  @Prop()
-  note?: string;
-
-  @Prop()
-  meetingUrl?: string;
-
-  @Prop()
-  diagnosis?: string;
-
-  @Prop()
-  prescription?: string;
-
-  @Prop([String])
-  attachments?: string[]; // URLs of medical documents
-
-  @Prop({ default: false })
-  isReminderSent: boolean;
-
-  @Prop()
-  cancelReason?: string;
-
-  @Prop()
-  cancelledBy?: Types.ObjectId; // User who cancelled
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);

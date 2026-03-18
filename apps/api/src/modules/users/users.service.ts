@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../auth/entities/user.schema';
-import { Patient, PatientDocument } from './entities/patient.schema';
+import { Patient, PatientDocument } from '../patients/entities/patient.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
 import { UserRole } from './enums/user-role.enum';
