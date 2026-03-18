@@ -74,9 +74,7 @@ export class AdminService {
 
     // Cập nhật trạng thái
     doctor.verificationStatus = DoctorVerificationStatus.APPROVED;
-    doctor.verifiedBy = new Types.ObjectId(adminId);
     doctor.verifiedAt = new Date();
-    doctor.verificationNotes = dto.verificationNotes;
 
     const updated = await doctor.save();
     console.log('✅ DOCTOR VERIFIED:', updated._id);
@@ -112,9 +110,7 @@ export class AdminService {
 
     // Cập nhật trạng thái
     doctor.verificationStatus = DoctorVerificationStatus.REJECTED;
-    doctor.verifiedBy = new Types.ObjectId(adminId);
     doctor.verifiedAt = new Date();
-    doctor.verificationNotes = dto.reason;
 
     const updated = await doctor.save();
     return (await updated.populate('userId')).toObject({ versionKey: false });

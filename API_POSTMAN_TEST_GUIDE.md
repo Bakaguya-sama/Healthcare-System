@@ -167,9 +167,9 @@ Header: Authorization: Bearer {{admin_token}}
 
 ---
 
-## 🏥 PHASE 3: ROLE-SPECIFIC PROFILES (5 + 5 + 4 = 14 endpoints)
+## 🏥 PHASE 3: ROLE-SPECIFIC PROFILES (5 + 4 = 9 endpoints)
 
-**Mục tiêu:** Manage Patient, Doctor, Admin profiles
+**Mục tiêu:** Manage Patient and Admin profiles
 
 ### 3️⃣ PATIENTS - Patient Management
 **Collection:** `3️⃣ PATIENTS - Patient Management`
@@ -192,32 +192,26 @@ Header: Authorization: Bearer {{jwt_token}}
 Body: {
   "userId": "{{user_id}}",
   "fullName": "John Patient",
-  "dateOfBirth": "1990-05-15",
-  "gender": "male",
-  "bloodType": "O",
-  "allergies": ["Penicillin", "Shellfish"],
-  "medicalHistory": "Hypertension (controlled)",
-  "status": "active"
+  "dateOfBirth": "1990-05-15"
 }
 ✅ Expected: 201, patient created
 
 # 2. Get own patient profile
 GET {{base_url}}/patients/profile
 Header: Authorization: Bearer {{jwt_token}}
-✅ Expected: 200, patient object
+✅ Expected: 200, patient object with: userId, fullName, dateOfBirth, timestamps
 
 # 3. Update profile
 PATCH {{base_url}}/patients/profile
-Body: {"bloodType": "AB", "allergies": ["Peanuts"]}
+Body: {"fullName": "John Updated", "dateOfBirth": "1990-05-20"}
 ✅ Expected: 200, updated
 ```
 
 **Checklist:**
 - [ ] Patient can create own profile (once)
-- [ ] Blood type from enum (A, B, AB, O)
-- [ ] Allergies is array
-- [ ] Medical history can be empty
+- [ ] Only template fields: userId, fullName, dateOfBirth
 - [ ] Only ADMIN can list all patients
+- [ ] Timestamps auto-generated (createdAt, updatedAt)
 
 ---
 
@@ -228,9 +222,9 @@ Body: {"bloodType": "AB", "allergies": ["Peanuts"]}
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /admins | POST | userId, adminRole, dept | 201 + admin | ✅ |
-| 2 | GET /admins | GET | page, isActive | 200 + paginated admins | ✅ |
-| 3 | PATCH /admins/:id | PATCH | adminRole, dept | 200 + updated | ✅ |
+| 1 | POST /admins | POST | userId, fullName, adminRole | 201 + admin | ✅ |
+| 2 | GET /admins | GET | page | 200 + paginated admins | ✅ |
+| 3 | PATCH /admins/:id | PATCH | fullName, adminRole | 200 + updated | ✅ |
 | 4 | DELETE /admins/:id | DELETE | - | 204 | ✅ |
 
 #### Commands
@@ -241,14 +235,12 @@ Header: Authorization: Bearer {{admin_token}}
 Body: {
   "userId": "{{user_id}}",
   "fullName": "Admin User",
-  "adminRole": "user_manager",
-  "department": "User Management",
-  "isActive": true
+  "adminRole": "user_manager"
 }
 ✅ Expected: 201
 
 # 2. Get all admins
-GET {{base_url}}/admins?page=1&limit=10&isActive=true
+GET {{base_url}}/admins?page=1&limit=10
 ✅ Expected: 200
 ```
 
@@ -256,10 +248,12 @@ GET {{base_url}}/admins?page=1&limit=10&isActive=true
 - [ ] Admin role enum (super_admin, user_manager, ai_manager)
 - [ ] Only SUPER_ADMIN can create admins
 - [ ] Admin list paginated
+- [ ] Only template fields: userId, fullName, adminRole
+- [ ] Timestamps auto-generated (createdAt, updatedAt)
 
 ---
 
-## 📬 PHASE 4: NOTIFICATIONS (7 endpoints)
+## 📬 PHASE 4: NOTIFICATIONS (5 endpoints)
 
 **Mục tiêu:** Create, read, manage notifications
 
@@ -270,113 +264,151 @@ GET {{base_url}}/admins?page=1&limit=10&isActive=true
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /notifications | POST | type, title, msg | 201 + notif | ✅ |
-| 2 | GET /notifications | GET | page, unreadOnly | 200 + list | ✅ |
-| 3 | GET /notifications/:id | GET | - | 200 + marks read | ✅ |
-| 4 | PATCH /notifications/:id | PATCH | status | 200 | ✅ |
-| 5 | PATCH /notifications/mark-all-as-read | PATCH | - | 200 | ✅ |
-| 6 | DELETE /notifications/:id | DELETE | - | 204 | ✅ |
-| 7 | GET /notifications/unread/count | GET | - | 200 + count | ✅ |
+| 1 | POST /notifications | POST | type, title, message | 201 + notif | ✅ |
+| 2 | GET /notifications | GET | page | 200 + list | ✅ |
+| 3 | GET /notifications/:id | GET | - | 200 + detail | ✅ |
+| 4 | PATCH /notifications/mark-all-as-read | PATCH | - | 200 | ✅ |
+| 5 | DELETE /notifications/:id | DELETE | - | 204 | ✅ |
+
+#### Notification Structure (Template Fields Only)
+```json
+{
+  "_id": "notification_id",
+  "userId": "user_id",
+  "type": "info|success|warning|critical",
+  "title": "Notification Title",
+  "message": "Detailed message content",
+  "isRead": false,
+  "createdAt": "2026-03-20T10:30:00Z",
+  "updatedAt": "2026-03-20T10:30:00Z"
+}
+```
 
 #### Commands
 ```bash
-# 1. Create notification (system/admin)
+# 1. Create notification (system/admin only)
 POST {{base_url}}/notifications
 Header: Authorization: Bearer {{admin_token}}
 Body: {
+  "userId": "{{user_id}}",
   "type": "warning",
   "title": "Blood Pressure Alert",
   "message": "Your BP is higher than normal: 150/90 mmHg"
 }
-✅ Expected: 201, notification created
-✅ Note: Verify type is one of: info, success, warning, critical
+✅ Expected: 201, notification created with:
+  - userId: recipient user
+  - type: one of [info, success, warning, critical]
+  - isRead: false by default
+  - createdAt: current timestamp
 
-# 2. Get user notifications with unread filter
-GET {{base_url}}/notifications?page=1&limit=20&unreadOnly=true
+# 2. Get user notifications
+GET {{base_url}}/notifications?page=1&limit=20
 Header: Authorization: Bearer {{jwt_token}}
-✅ Expected: 200, only unread notifications
+✅ Expected: 200, all notifications for current user
 
-# 3. Get notification detail (marks as read)
+# 3. Get notification detail
 GET {{base_url}}/notifications/{{notification_id}}
-✅ Expected: 200, isRead = true after
+✅ Expected: 200, notification detail (isRead auto-updates to true)
 
 # 4. Mark all as read
 PATCH {{base_url}}/notifications/mark-all-as-read
-✅ Expected: 200
+✅ Expected: 200, all notifications marked as read
 
-# 5. Get unread count
-GET {{base_url}}/notifications/unread/count
-✅ Expected: 200, {"count": N}
+# 5. Delete notification
+DELETE {{base_url}}/notifications/{{notification_id}}
+✅ Expected: 204
 ```
 
 **Checklist:**
-- [ ] Type enum (info, success, warning, critical)
-- [ ] Each user gets own notifications
-- [ ] Unread count decreases after read
-- [ ] Mark all read works
-- [ ] Pagination works (default 20)
+- [ ] Type enum has 4 values: info, success, warning, critical
+- [ ] Each user sees only own notifications
+- [ ] isRead status updates correctly
+- [ ] Mark all read works properly
+- [ ] Pagination works (default 20 per page)
+- [ ] Delete removes notification permanently
 
 ---
 
-## 💬 PHASE 5: CHAT & REAL-TIME (11 endpoints)
+## 💬 PHASE 5: CHAT & REAL-TIME (6 endpoints)
 
-**Mục tiêu:** 1-to-1 messaging between users
+**Mục tiêu:** Session-based messaging in doctor consultations
 
-### 6️⃣ CHAT - Real-time Messaging
-**Collection:** `6️⃣ CHAT - Real-time Messaging`
+### 6️⃣ CHAT - Session-based Messaging
+**Collection:** `6️⃣ CHAT - Session-based Messaging`
 
 #### Test Cases
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /chat/send | POST | receiverId, content, type | 201 + message | ✅ |
-| 2 | GET /chat/messages | GET | page, status | 200 + list | ✅ |
-| 3 | GET /chat/conversation/:otherId | GET | page | 200 + history | ✅ |
-| 4 | GET /chat/messages/:id | GET | - | 200 + detail | ✅ |
-| 5 | PATCH /chat/messages/:id | PATCH | content | 200 | ✅ |
-| 6 | DELETE /chat/messages/:id | DELETE | - | 204 | ✅ |
-| 7 | POST /chat/messages/:id/read | POST | - | 200 | ✅ |
-| 8 | POST /chat/messages/:id/pin | POST | - | 200 | ✅ |
-| 9 | POST /chat/messages/:id/unpin | POST | - | 200 | ✅ |
-| 10 | GET /chat/unread-count | GET | - | 200 + count | ✅ |
-| 11 | GET /chat/conversation/:otherId/pinned | GET | - | 200 + pinned | ✅ |
+| 1 | POST /chat/send | POST | doctorSessionId, content | 201 + message | ✅ |
+| 2 | GET /chat/session/:sessionId | GET | page | 200 + messages | ✅ |
+| 3 | GET /chat | GET | page | 200 + all messages | ✅ |
+| 4 | GET /chat/:id | GET | - | 200 + detail | ✅ |
+| 5 | PATCH /chat/:id | PATCH | content | 200 | ✅ |
+| 6 | DELETE /chat/:id | DELETE | - | 204 | ✅ |
+
+#### Message Structure (Template Fields Only)
+```json
+{
+  "_id": "message_id",
+  "doctorSessionId": "session_id",
+  "senderId": "user_id",
+  "senderType": "patient|doctor|admin",
+  "content": "message text",
+  "attachments": ["url1", "url2"],
+  "sentAt": "2026-03-20T10:30:00Z",
+  "createdAt": "2026-03-20T10:30:00Z",
+  "updatedAt": "2026-03-20T10:30:00Z"
+}
+```
 
 #### Commands
 ```bash
-# 1. Send message (Patient → Doctor)
+# 1. Send message to session (Patient or Doctor)
 POST {{base_url}}/chat/send
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
-  "receiverId": "{{doctor_id}}",
-  "content": "Hi Doctor! I have a question",
-  "messageType": "text"
+  "doctorSessionId": "{{session_id}}",
+  "content": "Hi Doctor, how are my test results?"
 }
-✅ Expected: 201, message saved
+✅ Expected: 201, message created with:
+  - doctorSessionId: {{session_id}}
+  - senderId: current user
+  - senderType: patient|doctor
+  - content: message text
+  - sentAt: current timestamp
 
-# 2. Get conversation history
-GET {{base_url}}/chat/conversation/{{doctor_id}}?page=1&limit=20
-✅ Expected: 200, messages chronological
+# 2. Get session messages
+GET {{base_url}}/chat/session/{{session_id}}?page=1&limit=20
+✅ Expected: 200, messages ordered by sentAt descending
 
-# 3. Mark message as read
-POST {{base_url}}/chat/messages/{{message_id}}/read
+# 3. Get all session messages (paginated)
+GET {{base_url}}/chat?page=1&limit=20
+✅ Expected: 200, all messages for current user
+
+# 4. Get single message
+GET {{base_url}}/chat/{{message_id}}
+✅ Expected: 200, message detail
+
+# 5. Edit message
+PATCH {{base_url}}/chat/{{message_id}}
+Body: {
+  "content": "Updated message text"
+}
 ✅ Expected: 200
 
-# 4. Pin important message
-POST {{base_url}}/chat/messages/{{message_id}}/pin
-✅ Expected: 200
-
-# 5. Get unread count
-GET {{base_url}}/chat/unread-count
-✅ Expected: 200, {"unread": N}
+# 6. Delete message
+DELETE {{base_url}}/chat/{{message_id}}
+✅ Expected: 204
 ```
 
 **Checklist:**
-- [ ] Patient & Doctor both can see conversation
-- [ ] Message type enum (text, image, file, voice, video)
-- [ ] Delete removes message (or soft delete)
-- [ ] Edit updates content
-- [ ] Pin/unpin works
-- [ ] Unread count accurate
+- [ ] Message linked to doctorSessionId (not user-to-user)
+- [ ] senderType correctly set (patient, doctor, or admin)
+- [ ] Attachments array support for file URLs
+- [ ] Messages ordered by sentAt descending
+- [ ] Only session participants can see messages
+- [ ] Only message sender can edit/delete own messages
 
 ---
 
@@ -470,7 +502,7 @@ Body: {
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /reviews | POST | doctorId, sessionId, rating | 201 + review | ✅ |
+| 1 | POST /reviews | POST | doctorId, doctorSessionId, rating | 201 + review | ✅ |
 | 2 | GET /reviews | GET | page, rating | 200 + all reviews | ✅ |
 | 3 | GET /reviews/doctor/:id/rating | GET | - | 200 + stats | ✅ |
 | 4 | GET /reviews/doctor/:id | GET | page | 200 + doctor's reviews | ✅ |
@@ -698,11 +730,146 @@ Body: {
 ---
 
 ### 1️⃣3️⃣ AI_MESSAGES - AI Message Management
+**Collection:** `1️⃣3️⃣ AI_MESSAGES - AI Message Management`
+
+#### AI Message Structure (Template Fields Only)
+```json
+{
+  "_id": "message_id",
+  "aiSessionId": "session_id",
+  "senderType": "user|assistant|system",
+  "content": "message content text",
+  "attachments": ["url1", "url2"],
+  "sentAt": "2026-03-20T10:30:00Z",
+  "createdAt": "2026-03-20T10:30:00Z",
+  "updatedAt": "2026-03-20T10:30:00Z"
+}
+```
+
+#### Commands
+```bash
+# 1. Send message in AI session
+POST {{base_url}}/ai-messages
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "aiSessionId": "{{ai_session_id}}",
+  "senderType": "user",
+  "content": "I've been experiencing fatigue lately"
+}
+✅ Expected: 201, message created
+✅ senderType: user, assistant, or system
+
+# 2. Get messages in AI session
+GET {{base_url}}/ai-messages?aiSessionId={{ai_session_id}}&page=1&limit=20
+✅ Expected: 200, messages ordered by sentAt
+
+# 3. Get all AI messages
+GET {{base_url}}/ai-messages?page=1&limit=20
+✅ Expected: 200, paginated list
+
+# 4. Get message detail
+GET {{base_url}}/ai-messages/{{message_id}}
+✅ Expected: 200, message with all fields
+
+# 5. Update message
+PATCH {{base_url}}/ai-messages/{{message_id}}
+Body: {
+  "content": "Updated message content"
+}
+✅ Expected: 200
+
+# 6. Delete message
+DELETE {{base_url}}/ai-messages/{{message_id}}
+✅ Expected: 204
+```
+
+**Checklist:**
+- [ ] senderType enum has 3 values: user, assistant, system
+- [ ] Attachments array can store file URLs
+- [ ] Messages ordered by sentAt descending
+- [ ] Only session participants can view messages
+- [ ] Timestamps auto-managed (createdAt, updatedAt)
+
+---
+
 ### 1️⃣4️⃣ AI_FEEDBACKS - AI Feedback Management
+
+[Feedback endpoints similar pattern - see collection for details]
+
+---
+
 ### 1️⃣5️⃣ AI_DOCUMENTS - Knowledge Base Documents
+**Collection:** `1️⃣5️⃣ AI_DOCUMENTS - Knowledge Base Documents`
+
+#### AI Document Structure (Template Fields Only)
+```json
+{
+  "_id": "document_id",
+  "title": "Document Title",
+  "fileUrl": "https://example.com/file.pdf",
+  "fileType": "pdf|doc|txt|json",
+  "status": "active|inactive|archived",
+  "uploadedBy": "user_id",
+  "createdAt": "2026-03-20T10:30:00Z",
+  "updatedAt": "2026-03-20T10:30:00Z"
+}
+```
+
+#### Commands
+```bash
+# 1. Upload AI document
+POST {{base_url}}/ai-documents
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "title": "Medical Guidelines 2026",
+  "fileUrl": "https://example.com/guidelines.pdf",
+  "fileType": "pdf"
+}
+✅ Expected: 201, document created with:
+  - status: active by default
+  - uploadedBy: current user
+  - fileType: pdf, doc, txt, or json
+
+# 2. Get all documents
+GET {{base_url}}/ai-documents?page=1&limit=20
+✅ Expected: 200, active documents
+
+# 3. Search documents
+GET {{base_url}}/ai-documents/search?q=guideline&page=1&limit=20
+✅ Expected: 200, matching documents
+
+# 4. Get document detail
+GET {{base_url}}/ai-documents/{{document_id}}
+✅ Expected: 200, document with all fields
+
+# 5. Update document
+PATCH {{base_url}}/ai-documents/{{document_id}}
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "title": "Updated Title",
+  "status": "archived"
+}
+✅ Expected: 200
+
+# 6. Delete document
+DELETE {{base_url}}/ai-documents/{{document_id}}
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 204
+```
+
+**Checklist:**
+- [ ] fileType enum: pdf, doc, txt, json
+- [ ] status enum: active, inactive, archived
+- [ ] Only admin can upload/delete documents
+- [ ] fileUrl must be valid URL
+- [ ] Pagination works (default 20 per page)
+- [ ] Search queries title and content
+
+---
+
 ### 1️⃣6️⃣ AI_DOCUMENT_CHUNKS - RAG Chunks (Optional - skip for basic test)
 
-[Similar patterns - see collection for details]
+[Document chunk endpoints - advanced RAG features]
 
 ---
 
@@ -780,7 +947,7 @@ GET {{base_url}}/admin/activity-logs?page=1&limit=20
 
 ---
 
-## 🚫 PHASE 11: VIOLATIONS & CONTENT FILTERING (8 + 7 = 15 endpoints)
+## 🚫 PHASE 11: VIOLATIONS & CONTENT FILTERING (5 endpoints)
 
 **Mục tiêu:** Report violations, manage content safety
 
@@ -791,64 +958,72 @@ GET {{base_url}}/admin/activity-logs?page=1&limit=20
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /violations | POST | reporter, reported, type, reason | 201 | ✅ |
-| 2 | GET /violations | GET | page, status | 200 + all (ADMIN) | ✅ |
+| 1 | POST /violations | POST | reporterId, reportedUserId, reportType, reason | 201 | ✅ |
+| 2 | GET /violations | GET | page | 200 + all (ADMIN) | ✅ |
 | 3 | GET /violations/:id | GET | - | 200 + detail (ADMIN) | ✅ |
-| 4 | GET /violations/user/:id | GET | page | 200 + user's violations | ✅ |
-| 5 | PATCH /violations/:id | PATCH | status, note | 200 | ✅ |
-| 6 | POST /violations/:id/resolve | POST | resolution_note | 200 | ✅ |
-| 7 | DELETE /violations/:id | DELETE | - | 204 (ADMIN) | ✅ |
-| 8 | GET /violations/stats/overview | GET | - | 200 + stats | ✅ |
+| 4 | PATCH /violations/:id | PATCH | status | 200 | ✅ |
+| 5 | DELETE /violations/:id | DELETE | - | 204 (ADMIN) | ✅ |
+
+#### Violation Structure (Template Fields Only)
+```json
+{
+  "_id": "violation_id",
+  "reporterId": "user_id",
+  "reportedUserId": "reported_user_id",
+  "reportType": "harassment|spam|misinformation|inappropriate_content|impersonation|fraud|ai_hallucination",
+  "reason": "Detailed reason for report",
+  "status": "pending|resolved|dismissed",
+  "createdAt": "2026-03-20T10:30:00Z",
+  "updatedAt": "2026-03-20T10:30:00Z"
+}
+```
 
 #### Commands
 ```bash
-# 1. Report user violation (harassment, spam, fraud, etc)
+# 1. Report user violation
 POST {{base_url}}/violations
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
-  "reporter_id": "{{user_id}}",
-  "reported_user_id": "{{other_user_id}}",
-  "report_type": "harassment",
+  "reporterId": "{{user_id}}",
+  "reportedUserId": "{{other_user_id}}",
+  "reportType": "harassment",
   "reason": "User sent inappropriate messages during chat"
 }
 ✅ Expected: 201
-✅ Report types: harassment, spam, misinformation, inappropriate_content, impersonation, fraud, ai_hallucination
+✅ Valid reportTypes: harassment, spam, misinformation, inappropriate_content, impersonation, fraud, ai_hallucination
+✅ Status always starts as "pending"
 
 # 2. Get all violations (ADMIN only)
-GET {{base_url}}/violations?page=1&limit=20&status=pending
+GET {{base_url}}/violations?page=1&limit=20
 Header: Authorization: Bearer {{admin_token}}
-✅ Expected: 200
+✅ Expected: 200, all violation reports
 
-# 3. Get violation statistics
-GET {{base_url}}/violations/stats/overview
-✅ Expected: 200
-{
-  "total": 15,
-  "pending": 10,
-  "resolved": 5,
-  "by_type": {
-    "harassment": 5,
-    "spam": 3,
-    "fraud": 2,
-    ...
-  }
-}
+# 3. Get violation detail (ADMIN only)
+GET {{base_url}}/violations/{{violation_id}}
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200, violation with all fields
 
-# 4. Resolve violation
-POST {{base_url}}/violations/{{violation_id}}/resolve
+# 4. Update violation status (ADMIN only)
+PATCH {{base_url}}/violations/{{violation_id}}
+Header: Authorization: Bearer {{admin_token}}
 Body: {
-  "resolution_note": "User warned, behavior corrected"
+  "status": "resolved"
 }
-✅ Expected: 200, status = resolved
+✅ Expected: 200, status updated to resolved or dismissed
+
+# 5. Delete violation (ADMIN only)
+DELETE {{base_url}}/violations/{{violation_id}}
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 204
 ```
 
 **Checklist:**
 - [ ] Report types enum correct (7 types)
-- [ ] Status: pending → resolved
-- [ ] Can view own violation reports (as reporter or reported)
+- [ ] Status: pending → resolved or dismissed
+- [ ] Only reporter can view own reports
 - [ ] Admin sees all violations
-- [ ] Statistics breakdown by type
-- [ ] Only admin can resolve
+- [ ] reportType field contains correct enum value
+- [ ] Only admin can update status or delete
 
 ---
 

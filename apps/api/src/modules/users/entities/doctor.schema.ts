@@ -25,9 +25,6 @@ export class Doctor {
   specialization?: string;
 
   @Prop({ required: false })
-  licenseNumber?: string;
-
-  @Prop({ required: false })
   workplace?: string;
 
   @Prop({ type: [String], default: [] })
@@ -50,19 +47,7 @@ export class Doctor {
   verificationStatus: DoctorVerificationStatus;
 
   @Prop()
-  verificationNotes?: string;
-
-  @Prop({ type: Types.ObjectId, ref: 'User' })
-  verifiedBy?: Types.ObjectId;
-
-  @Prop()
   verifiedAt?: Date;
-
-  @Prop()
-  createdAt?: Date;
-
-  @Prop()
-  updatedAt?: Date;
 }
 
 export const DoctorSchema = SchemaFactory.createForClass(Doctor);

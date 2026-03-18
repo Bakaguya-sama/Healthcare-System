@@ -22,17 +22,10 @@ export class Admin {
     default: AdminRole.USER_MANAGER,
   })
   adminRole: AdminRole;
-
-  @Prop()
-  createdAt?: Date;
-
-  @Prop()
-  updatedAt?: Date;
 }
 
 export const AdminSchema = SchemaFactory.createForClass(Admin);
 
 // Indexes for better query performance
-// userId already has index from unique: true, so only add other indexes
 AdminSchema.index({ adminRole: 1 });
-AdminSchema.index({ isActive: 1, createdAt: -1 });
+AdminSchema.index({ createdAt: -1 });

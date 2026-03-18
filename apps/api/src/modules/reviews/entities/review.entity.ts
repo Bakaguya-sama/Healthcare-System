@@ -26,5 +26,4 @@ export const ReviewSchema = SchemaFactory.createForClass(Review);
 // Add indexes for performance
 ReviewSchema.index({ doctorId: 1, createdAt: -1 });
 ReviewSchema.index({ patientId: 1, createdAt: -1 });
-ReviewSchema.index({ status: 1, createdAt: -1 });
 ReviewSchema.index({ rating: 1 });

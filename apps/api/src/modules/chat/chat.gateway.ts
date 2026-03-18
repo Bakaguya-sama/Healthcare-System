@@ -10,8 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
-import { QueryMessageDto } from './dto/query-message.dto';
-import { MessageType } from './entities/message.entity';
+import { SenderType } from './entities/message.entity';
 
 interface AuthSocket extends Socket {
   userId?: string;
@@ -46,52 +45,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send_message')
   async handleMessage(
     @ConnectedSocket() client: AuthSocket,
-    @MessageBody() data: { receiverId: string; content: string; senderType?: string },
+    @MessageBody() data: any,
   ) {
     const senderId = client.userId;
     if (!senderId) return;
 
-    // Default senderType to patient if not provided
-    const senderType = data.senderType || 'patient';
+    // Map string to SenderType enum
+    const senderType = data.senderType === 'doctor' ? SenderType.DOCTOR : SenderType.PATIENT;
 
     const dto: SendMessageDto = {
-      receiverId: data.receiverId,
+      doctorSessionId: data.doctorSessionId,
+      senderType,
       content: data.content,
-      type: MessageType.TEXT,
-      senderType: senderType as any,
     };
 
     const result = await this.chatService.sendMessage(senderId, dto);
-    const message = result.data;
+    const message = result.data || result;
 
-    // Emit to receiver if online
-    const receiverSocketId = this.connectedUsers.get(data.receiverId);
-    if (receiverSocketId) {
-      this.server.to(receiverSocketId).emit('new_message', message);
-    }
+    // Broadcast to all connected clients in session room
+    this.server.emit('new_message', message);
 
     // Emit back to sender for confirmation
     client.emit('message_sent', message);
   }
 
-  @SubscribeMessage('get_conversation')
-  async handleGetConversation(
+  @SubscribeMessage('get_session_messages')
+  async handleGetSessionMessages(
     @ConnectedSocket() client: AuthSocket,
-    @MessageBody() data: { otherId: string },
+    @MessageBody() data: any,
   ) {
-    const userId = client.userId;
-    if (!userId) return;
+    if (!client.userId) return;
 
-    const query: QueryMessageDto = {
+    const result = await this.chatService.getSessionMessages(data.doctorSessionId, {
       page: 1,
       limit: 50,
-      sortBy: 'createdAt',
-      sortOrder: -1,
-    };
-
-    const result = await this.chatService.getConversation(userId, data.otherId, query);
-    client.emit('conversation', result.data);
-
-    await this.chatService.markConversationAsRead(userId, data.otherId);
+      sortBy: 'sentAt',
+      sortOrder: -1 as 1 | -1,
+    });
+    client.emit('session_messages', result);
   }
 }

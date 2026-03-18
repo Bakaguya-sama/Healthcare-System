@@ -15,10 +15,7 @@ export class AiDocumentsService {
       const document = new this.aiDocumentModel({
         ...createDto,
         uploadedBy: new Types.ObjectId(userId),
-        relatedDocuments: createDto.relatedDocuments?.map(id => new Types.ObjectId(id)) || [],
         status: DocumentStatus.PROCESSING,
-        totalChunks: 0,
-        usageCount: 0,
       });
       return await document.save();
     } catch (error) {
@@ -27,17 +24,14 @@ export class AiDocumentsService {
   }
 
   async findAll(query: QueryAiDocumentDto): Promise<{ data: AiDocument[]; total: number }> {
-    const { page = 1, limit = 10, documentType, status, search, tag, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = -1 } = query;
 
     const filter: any = {};
 
-    if (documentType) filter.documentType = documentType;
     if (status) filter.status = status;
-    if (tag) filter.tags = { $in: [tag] };
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
       ];
     }
 
@@ -70,10 +64,6 @@ export class AiDocumentsService {
       throw new ForbiddenException('Only document uploader can update this document');
     }
 
-    if (updateDto.relatedDocuments) {
-      updateDto.relatedDocuments = updateDto.relatedDocuments.map(id => new Types.ObjectId(id) as any);
-    }
-
     Object.assign(document, updateDto);
     return await document.save();
   }
@@ -83,8 +73,6 @@ export class AiDocumentsService {
       new Types.ObjectId(documentId),
       {
         status: DocumentStatus.ACTIVE,
-        totalChunks,
-        indexedAt: new Date(),
       },
       { new: true },
     );
@@ -98,7 +86,7 @@ export class AiDocumentsService {
   async incrementUsageCount(documentId: string): Promise<AiDocument> {
     const document = await this.aiDocumentModel.findByIdAndUpdate(
       new Types.ObjectId(documentId),
-      { $inc: { usageCount: 1 } },
+      {},
       { new: true },
     );
 

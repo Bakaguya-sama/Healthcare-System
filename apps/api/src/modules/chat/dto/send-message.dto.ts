@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { MessageType, SenderType } from '../entities/message.entity';
+import { SenderType } from '../entities/message.entity';
 import { Type } from 'class-transformer';
 
 export class AttachmentDto {
@@ -40,7 +40,7 @@ export class SendMessageDto {
   @ApiProperty({ example: '65e456def789abc012345678' })
   @IsNotEmpty()
   @IsMongoId()
-  receiverId: string;
+  doctorSessionId: string;
 
   @ApiProperty({
     enum: SenderType,
@@ -63,15 +63,6 @@ export class SendMessageDto {
   content: string;
 
   @ApiProperty({
-    enum: MessageType,
-    default: MessageType.TEXT,
-    required: false,
-  })
-  @IsOptional()
-  @IsEnum(MessageType)
-  type?: MessageType;
-
-  @ApiProperty({
     type: [AttachmentDto],
     description: 'Mảng attachments hỗ trợ gửi nhiều file',
     required: false,
@@ -81,45 +72,4 @@ export class SendMessageDto {
   @ValidateNested({ each: true })
   @Type(() => AttachmentDto)
   attachments?: AttachmentDto[];
-
-  @ApiProperty({
-    example: 'https://example.com/file.pdf',
-    required: false,
-    deprecated: true,
-    description: 'Deprecated - use attachments array instead',
-  })
-  @IsOptional()
-  @IsString()
-  fileUrl?: string;
-
-  @ApiProperty({ example: 'document.pdf', required: false })
-  @IsOptional()
-  @IsString()
-  fileName?: string;
-
-  @ApiProperty({ example: 1024, required: false })
-  @IsOptional()
-  @IsNumber()
-  fileSize?: number;
-
-  @ApiProperty({
-    example: 'application/pdf',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  mimeType?: string;
-
-  @ApiProperty({
-    example: '65e789ghi012jkl345678901',
-    required: false,
-  })
-  @IsOptional()
-  @IsMongoId()
-  replyToId?: string;
-
-  @ApiProperty({ example: ['👍', '❤️'], required: false })
-  @IsOptional()
-  @IsArray()
-  reactions?: string[];
 }

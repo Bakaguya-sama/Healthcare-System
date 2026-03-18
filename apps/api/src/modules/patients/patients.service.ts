@@ -41,10 +41,6 @@ export class PatientsService {
       userId: new Types.ObjectId(userId),
       fullName: dto.fullName,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-      status: 'active',
-      totalSessions: 0,
-      totalReviews: 0,
-      averageSessionRating: 0,
     });
 
     return {
@@ -82,10 +78,6 @@ export class PatientsService {
    */
   async findAll(query: QueryPatientDto) {
     const filter: any = {};
-
-    if (query.status) {
-      filter.status = query.status;
-    }
 
     if (query.search) {
       filter.fullName = { $regex: query.search, $options: 'i' };
@@ -149,49 +141,7 @@ export class PatientsService {
   }
 
   /**
-   * 📈 CẬP NHẬT THỐNG KÊ SESSION
-   */
-  async updateSessionStats(
-    userId: string,
-    sessionCount: number,
-    rating: number,
-  ) {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new BadRequestException('Invalid user ID');
-    }
-
-    const patient = await this.patientModel.findOne({
-      userId: new Types.ObjectId(userId),
-    });
-
-    if (!patient) {
-      throw new NotFoundException('Patient profile not found');
-    }
-
-    const newTotalSessions = patient.totalSessions + sessionCount;
-    const newTotalRating = patient.averageSessionRating * patient.totalReviews;
-    const newAverageRating = (newTotalRating + rating) / newTotalSessions;
-
-    const updated = await this.patientModel.findOneAndUpdate(
-      { userId: new Types.ObjectId(userId) },
-      {
-        totalSessions: newTotalSessions,
-        totalReviews: newTotalSessions,
-        averageSessionRating: Math.round(newAverageRating * 100) / 100,
-        lastVisitAt: new Date(),
-      },
-      { new: true },
-    );
-
-    return {
-      statusCode: 200,
-      message: 'Patient session stats updated',
-      data: updated,
-    };
-  }
-
-  /**
-   * 🗑️ XÓA HỒ SƠ BỆNH NHÂN
+   * ️ XÓA HỒ SƠ BỆNH NHÂN
    */
   async delete(userId: string) {
     if (!Types.ObjectId.isValid(userId)) {

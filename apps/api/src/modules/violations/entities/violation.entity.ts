@@ -19,31 +19,19 @@ export enum ViolationStatus {
 @Schema({ timestamps: true })
 export class Violation extends Document {
   @Prop({ type: Types.ObjectId, ref: 'User', default: null })
-  reporter_id: Types.ObjectId | null; // Người gửi báo cáo (Null nếu AI tự phát hiện)
+  reporterId: Types.ObjectId | null;
 
   @Prop({ type: Types.ObjectId, ref: 'User', default: null })
-  reported_user_id: Types.ObjectId | null; // Người bị báo cáo (Null nếu đối tượng là AI)
+  reportedUserId: Types.ObjectId | null;
 
   @Prop({ type: String, enum: ReportType, required: true })
-  report_type: ReportType;
+  reportType: ReportType;
 
   @Prop({ required: true, maxlength: 1000 })
   reason: string;
 
   @Prop({ type: String, enum: ViolationStatus, default: ViolationStatus.PENDING })
   status: ViolationStatus;
-
-  @Prop({ type: String, default: null })
-  resolution_note: string | null; // Ghi chú giải quyết
-
-  @Prop({ type: Date, default: null })
-  resolved_at: Date | null;
-
-  @Prop({ type: Date, default: () => new Date() })
-  created_at: Date;
-
-  @Prop({ type: Date, default: () => new Date() })
-  updated_at: Date;
 }
 
 export const ViolationSchema = SchemaFactory.createForClass(Violation);

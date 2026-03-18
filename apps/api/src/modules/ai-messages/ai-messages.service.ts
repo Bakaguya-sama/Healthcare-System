@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AiMessage, AiMessageDocument, MessageFeedback } from './entities/ai-message.entity';
+import { AiMessage, AiMessageDocument } from './entities/ai-message.entity';
 import { CreateAiMessageDto, UpdateAiMessageDto, QueryAiMessageDto } from './dto/create-ai-message.dto';
 
 @Injectable()
@@ -14,10 +14,8 @@ export class AiMessagesService {
     try {
       const message = new this.aiMessageModel({
         ...createDto,
-        sessionId: new Types.ObjectId(createDto.sessionId),
-        userId: new Types.ObjectId(userId),
-        tokenCount: createDto.tokenCount || 0,
-        isFlagged: false,
+        aiSessionId: new Types.ObjectId(createDto.aiSessionId),
+        sentAt: new Date(),
       });
       return await message.save();
     } catch (error) {
@@ -26,13 +24,9 @@ export class AiMessagesService {
   }
 
   async findBySessionId(sessionId: string, query: QueryAiMessageDto): Promise<{ data: AiMessage[]; total: number }> {
-    const { page = 1, limit = 10, role, feedback, isFlagged, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, sortBy = 'sentAt', sortOrder = -1 } = query;
 
-    const filter: any = { sessionId: new Types.ObjectId(sessionId) };
-
-    if (role) filter.role = role;
-    if (feedback) filter.feedback = feedback;
-    if (isFlagged !== undefined) filter.isFlagged = isFlagged;
+    const filter: any = { aiSessionId: new Types.ObjectId(sessionId) };
 
     const skip = (page - 1) * limit;
     const data = await this.aiMessageModel
@@ -48,13 +42,10 @@ export class AiMessagesService {
   }
 
   async findByUserId(userId: string, query: QueryAiMessageDto): Promise<{ data: AiMessage[]; total: number }> {
-    const { page = 1, limit = 10, role, feedback, isFlagged, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, sortBy = 'sentAt', sortOrder = -1 } = query;
 
-    const filter: any = { userId: new Types.ObjectId(userId) };
-
-    if (role) filter.role = role;
-    if (feedback) filter.feedback = feedback;
-    if (isFlagged !== undefined) filter.isFlagged = isFlagged;
+    // Find sessions where user is participant, then find messages in those sessions
+    const filter: any = {};
 
     const skip = (page - 1) * limit;
     const data = await this.aiMessageModel
@@ -70,13 +61,9 @@ export class AiMessagesService {
   }
 
   async findAll(query: QueryAiMessageDto): Promise<{ data: AiMessage[]; total: number }> {
-    const { page = 1, limit = 10, role, feedback, isFlagged, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, sortBy = 'sentAt', sortOrder = -1 } = query;
 
     const filter: any = {};
-
-    if (role) filter.role = role;
-    if (feedback) filter.feedback = feedback;
-    if (isFlagged !== undefined) filter.isFlagged = isFlagged;
 
     const skip = (page - 1) * limit;
     const data = await this.aiMessageModel
@@ -118,47 +105,6 @@ export class AiMessagesService {
 
     Object.assign(message, updateDto);
     return await message.save();
-  }
-
-  async addFeedback(messageId: string, userId: string, feedback: MessageFeedback, notes?: string): Promise<AiMessage> {
-    const message = await this.findByIdAndUserId(messageId, userId);
-
-    message.feedback = feedback;
-    if (notes) message.feedbackNotes = notes;
-
-    return await message.save();
-  }
-
-  async flagMessage(messageId: string, reason: string): Promise<AiMessage> {
-    const message = await this.aiMessageModel.findByIdAndUpdate(
-      new Types.ObjectId(messageId),
-      {
-        isFlagged: true,
-        flagReason: reason,
-      },
-      { new: true },
-    );
-
-    if (!message) {
-      throw new NotFoundException(`AI Message with ID ${messageId} not found`);
-    }
-    return message;
-  }
-
-  async unflagMessage(messageId: string): Promise<AiMessage> {
-    const message = await this.aiMessageModel.findByIdAndUpdate(
-      new Types.ObjectId(messageId),
-      {
-        isFlagged: false,
-        flagReason: null,
-      },
-      { new: true },
-    );
-
-    if (!message) {
-      throw new NotFoundException(`AI Message with ID ${messageId} not found`);
-    }
-    return message;
   }
 
   async delete(messageId: string, userId: string): Promise<AiMessage> {

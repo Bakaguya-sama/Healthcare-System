@@ -16,12 +16,10 @@ import {
   ApiOperation,
   ApiBearerAuth,
   ApiParam,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
-import { QueryMessageDto } from './dto/query-message.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 
@@ -46,34 +44,41 @@ export class ChatController {
   }
 
   /**
-   * API 2: Get Conversation
+   * API 2: Get Session Messages
    */
-  @Get('conversation/:otherId')
+  @Get('session/:sessionId')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy lịch sử hội thoại với một người dùng' })
-  @ApiParam({ name: 'otherId', description: 'ID của người dùng khác' })
-  async getConversation(
-    @CurrentUser('sub') userId: string,
-    @Param('otherId') otherId: string,
-    @Query() query: QueryMessageDto,
+  @ApiOperation({ summary: 'Lấy tin nhắn trong phiên tư vấn' })
+  @ApiParam({ name: 'sessionId', description: 'ID của phiên tư vấn' })
+  async getSessionMessages(
+    @Param('sessionId') sessionId: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+    @Query('sortBy') sortBy: string = 'sentAt',
+    @Query('sortOrder') sortOrder: 1 | -1 = -1,
   ) {
-    return this.chatService.getConversation(userId, otherId, query);
+    return this.chatService.getSessionMessages(sessionId, { page, limit, sortBy, sortOrder });
   }
 
   /**
-   * API 3: Get All Messages (with filters)
+   * API 3: Get All Messages
    */
-  @Get('messages')
+  @Get()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy tất cả tin nhắn với bộ lọc' })
-  async findAll(@Query() query: QueryMessageDto) {
-    return this.chatService.findAll(query);
+  @ApiOperation({ summary: 'Lấy tất cả tin nhắn' })
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+    @Query('sortBy') sortBy: string = 'sentAt',
+    @Query('sortOrder') sortOrder: 1 | -1 = -1,
+  ) {
+    return this.chatService.findAll({ page, limit, sortBy, sortOrder });
   }
 
   /**
    * API 4: Get Single Message
    */
-  @Get('messages/:id')
+  @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lấy chi tiết một tin nhắn' })
   @ApiParam({ name: 'id', description: 'ID của tin nhắn' })
@@ -84,11 +89,9 @@ export class ChatController {
   /**
    * API 5: Update Message
    */
-  @Patch('messages/:id')
+  @Patch(':id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Cập nhật tin nhắn (chỉnh sửa nội dung, reactions, trạng thái)',
-  })
+  @ApiOperation({ summary: 'Cập nhật tin nhắn' })
   @ApiParam({ name: 'id', description: 'ID của tin nhắn' })
   async updateMessage(
     @CurrentUser('sub') userId: string,
@@ -99,118 +102,16 @@ export class ChatController {
   }
 
   /**
-   * API 6: Mark as Read
+   * API 6: Delete Message
    */
-  @Post('messages/:id/read')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đánh dấu tin nhắn là đã đọc' })
-  @ApiParam({ name: 'id', description: 'ID của tin nhắn' })
-  async markAsRead(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
-    return this.chatService.markAsRead(userId, id);
-  }
-
-  /**
-   * API 7: Pin Message
-   */
-  @Post('messages/:id/pin')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Ghim tin nhắn' })
-  @ApiParam({ name: 'id', description: 'ID của tin nhắn' })
-  async pinMessage(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
-    return this.chatService.pinMessage(userId, id);
-  }
-
-  /**
-   * API 8: Unpin Message
-   */
-  @Post('messages/:id/unpin')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Bỏ ghim tin nhắn' })
-  @ApiParam({ name: 'id', description: 'ID của tin nhắn' })
-  async unpinMessage(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
-    return this.chatService.unpinMessage(userId, id);
-  }
-
-  /**
-   * API 9: Delete Message
-   */
-  @Delete('messages/:id')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xóa tin nhắn (soft delete)' })
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Xóa tin nhắn' })
   @ApiParam({ name: 'id', description: 'ID của tin nhắn' })
   async removeMessage(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
   ) {
     return this.chatService.remove(userId, id);
-  }
-
-  /**
-   * API 10: Get Unread Count
-   */
-  @Get('unread-count')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy số tin nhắn chưa đọc' })
-  @ApiQuery({
-    name: 'otherId',
-    description: 'ID người dùng (tùy chọn, nếu không có lấy tất cả)',
-    required: false,
-  })
-  async getUnreadCount(
-    @CurrentUser('sub') userId: string,
-    @Query('otherId') otherId?: string,
-  ) {
-    return this.chatService.getUnreadCount(userId, otherId);
-  }
-
-  /**
-   * API 11: Get Pinned Messages
-   */
-  @Get('conversation/:otherId/pinned')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy các tin nhắn đã ghim trong hội thoại' })
-  @ApiParam({ name: 'otherId', description: 'ID của người dùng khác' })
-  async getPinnedMessages(
-    @CurrentUser('sub') userId: string,
-    @Param('otherId') otherId: string,
-  ) {
-    return this.chatService.getPinnedMessages(userId, otherId);
-  }
-
-  /**
-   * API 12: Mark Conversation as Read
-   */
-  @Post('conversation/:otherId/mark-read')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đánh dấu toàn bộ hội thoại là đã đọc' })
-  @ApiParam({ name: 'otherId', description: 'ID của người dùng khác' })
-  async markConversationAsRead(
-    @CurrentUser('sub') userId: string,
-    @Param('otherId') otherId: string,
-  ) {
-    return this.chatService.markConversationAsRead(userId, otherId);
-  }
-
-  /**
-   * API 13: Get Conversation Stats
-   */
-  @Get('conversation/:otherId/stats')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy thống kê hội thoại' })
-  @ApiParam({ name: 'otherId', description: 'ID của người dùng khác' })
-  async getConversationStats(
-    @CurrentUser('sub') userId: string,
-    @Param('otherId') otherId: string,
-  ) {
-    return this.chatService.getConversationStats(userId, otherId);
   }
 }

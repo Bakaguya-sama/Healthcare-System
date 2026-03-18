@@ -61,27 +61,6 @@ export class AiMessagesController {
     return this.aiMessagesService.update(messageId, user.id, updateDto);
   }
 
-  @Patch(':id/feedback')
-  async addFeedback(
-    @CurrentUser() user: UserPayload,
-    @Param('id') messageId: string,
-    @Body() body: { feedback: string; notes?: string },
-  ) {
-    return this.aiMessagesService.addFeedback(messageId, user.id, body.feedback as any, body.notes);
-  }
-
-  @Patch(':id/flag')
-  @Roles(UserRole.ADMIN)
-  async flagMessage(@Param('id') messageId: string, @Body() body: { reason: string }) {
-    return this.aiMessagesService.flagMessage(messageId, body.reason);
-  }
-
-  @Patch(':id/unflag')
-  @Roles(UserRole.ADMIN)
-  async unflagMessage(@Param('id') messageId: string) {
-    return this.aiMessagesService.unflagMessage(messageId);
-  }
-
   @Delete(':id')
   async deleteMessage(@CurrentUser() user: UserPayload, @Param('id') messageId: string) {
     return this.aiMessagesService.delete(messageId, user.id);

@@ -29,15 +29,10 @@ export class Notification {
 
   @Prop({ default: false })
   isRead: boolean;
-
-  @Prop()
-  createdAt?: Date;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
 
 // Indexes for better query performance
 NotificationSchema.index({ userId: 1, createdAt: -1 });
-NotificationSchema.index({ userId: 1, status: 1, createdAt: -1 });
-NotificationSchema.index({ userId: 1, read: 1 });
-NotificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
+NotificationSchema.index({ userId: 1, isRead: 1 });
