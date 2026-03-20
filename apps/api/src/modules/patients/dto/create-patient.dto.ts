@@ -2,7 +2,6 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsDateString,
   IsArray,
   IsEnum,
   IsNumber,
@@ -12,21 +11,11 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePatientDto {
-  @ApiProperty({
-    description: 'Date of birth',
-    example: '1990-01-15',
-    required: false,
-  })
-  @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  // Empty - Patient only has userId from auth, no additional fields needed
 }
 
 export class UpdatePatientDto {
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  // Empty - Patient profile is read-only in template
 }
 
 export class QueryPatientDto {

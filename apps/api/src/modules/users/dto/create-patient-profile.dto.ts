@@ -1,29 +1,13 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-
+/**
+ * CreatePatientProfileDto
+ * 
+ * Patient profile is template-aligned with ONLY userId field.
+ * Patient profile is created automatically when a user registers with 'patient' role.
+ * No additional fields can be set during creation - userId is auto-set from auth context.
+ * 
+ * DB Template Spec (Patients table):
+ * - user_id ObjectID [pk] // Only field (no other attributes)
+ */
 export class CreatePatientProfileDto {
-  @ApiProperty({ description: 'Date of birth', example: '1990-01-01', required: false })
-  @IsDateString()
-  @IsOptional()
-  dateOfBirth?: string;
-
-  @ApiProperty({ description: 'Blood type', example: 'O+', required: false })
-  @IsString()
-  @IsOptional()
-  bloodType?: string;
-
-  @ApiProperty({ description: 'Allergies', example: 'Penicillin', required: false })
-  @IsString()
-  @IsOptional()
-  allergies?: string;
-
-  @ApiProperty({ description: 'Medical history notes', required: false })
-  @IsString()
-  @IsOptional()
-  medicalHistory?: string;
-
-  @ApiProperty({ description: 'Emergency contact phone', required: false })
-  @IsString()
-  @IsOptional()
-  emergencyContactPhone?: string;
+  // Empty - Patient only has userId from auth, no additional fields needed per template
 }

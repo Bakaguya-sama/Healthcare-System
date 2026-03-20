@@ -300,7 +300,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dateOfBirth\": \"1990-01-15\",\n  \"bloodType\": \"O+\",\n  \"allergies\": \"Penicillin\",\n  \"medicalHistory\": \"No major medical conditions\",\n  \"emergencyContactPhone\": \"+84912345678\"\n}"
+              "raw": "{}"
             },
             "url": {
               "raw": "{{base_url}}/users/profile",
@@ -318,8 +318,7 @@
                   "if (pm.response.code === 200 || pm.response.code === 201) {",
                   "  console.log(\"✅ Patient Profile Created\");",
                   "  var jsonData = pm.response.json();",
-                  "  console.log(\"Blood Type: \" + jsonData.bloodType);",
-                  "  console.log(\"Date of Birth: \" + jsonData.dateOfBirth);",
+                  "  console.log(\"User ID: \" + jsonData.userId);",
                   "} else {",
                   "  console.log(\"❌ Profile creation failed: \" + pm.response.code);",
                   "  console.log(pm.response.text());",

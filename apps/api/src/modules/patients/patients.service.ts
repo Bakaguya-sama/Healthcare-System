@@ -39,7 +39,6 @@ export class PatientsService {
 
     const patient = await this.patientModel.create({
       userId: new Types.ObjectId(userId),
-      dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
     });
 
     return {
@@ -120,9 +119,7 @@ export class PatientsService {
 
     const patient = await this.patientModel.findOneAndUpdate(
       { userId: new Types.ObjectId(userId) },
-      {
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-      },
+      {},
       { new: true, runValidators: true },
     );
 

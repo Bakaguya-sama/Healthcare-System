@@ -233,8 +233,8 @@ export class AdminService {
   async getSessionById(id: string) {
     const session = await this.sessionModel
       .findById(id)
-      .populate('patientId', 'name email phone dateOfBirth')
-      .populate('doctorId', 'name email specialization licenseNumber');
+      .populate('patientId', 'fullName email phoneNumber')
+      .populate('doctorId', 'fullName email specialty licenseNumber');
 
     if (!session) {
       throw new NotFoundException('Session not found');

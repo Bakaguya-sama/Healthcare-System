@@ -7,9 +7,6 @@ export type PatientDocument = HydratedDocument<Patient>;
 export class Patient {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, unique: true })
   userId: Types.ObjectId;
-
-  @Prop()
-  dateOfBirth?: Date;
 }
 
 export const PatientSchema = SchemaFactory.createForClass(Patient);

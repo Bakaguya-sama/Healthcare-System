@@ -527,7 +527,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dateOfBirth\": \"1990-01-15\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -535,7 +535,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients"]
             },
-            "description": "Create new patient profile"
+            "description": "Create new patient profile (no additional fields needed - only uses userId from auth)"
           },
           "response": []
         },
@@ -575,7 +575,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dateOfBirth\": \"1990-02-20\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -583,7 +583,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients", "profile"]
             },
-            "description": "Update current patient's profile"
+            "description": "Update current patient's profile (read-only in template - no fields can be updated)"
           },
           "response": []
         },

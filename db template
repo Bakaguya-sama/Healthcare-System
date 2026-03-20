@@ -22,7 +22,6 @@ Table Users {
 // ==========================================
 Table Patients {
   user_id ObjectID [pk] // Khóa chính đồng thời là khóa ngoại nối tới Users.id
-  date_of_birth date
 }
 
 Table Doctors {

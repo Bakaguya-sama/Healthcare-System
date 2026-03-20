@@ -26,13 +26,14 @@
 |----------|-------|-----|----------|
 | User Profile Name | `name` ❌ | `fullName` ✅ | Auth Register, User Update, Populate |
 | Doctor Specialty | `specialization` ❌ | `specialty` ✅ | Doctors List, Reviews, Sessions |
-| Patient Profile | Có `fullName` ❌ | Chỉ `dateOfBirth` ✅ | Patient Create/Update |
+| Patient Profile | Có `dateOfBirth` ❌ | Chỉ `userId` ✅ | Patient Create/Update |
 | Admin Profile | Có `fullName` ❌ | Chỉ `adminRole` ✅ | Admin Create/Update |
 
 **TRƯỜNG HỢP CẤM (NO LONGER EXIST):**
 - ❌ `"name"` - Thay thế bằng `"fullName"` ở Users
 - ❌ `"specialization"` - Thay thế bằng `"specialty"` ở Doctors
-- ❌ Patient `"fullName"` - Patient CHỈ có `userId` + `dateOfBirth`
+- ❌ Patient `"fullName"` - Patient CHỈ có `userId`
+- ❌ Patient `"dateOfBirth"` - Đã xoá khỏi Patient profile
 - ❌ Admin `"fullName"` - Admin CHỈ có `userId` + `adminRole`
 - ❌ Doctor `"fullName"` & `"dateOfBirth"` ở Doctor profile - được lấy từ User
 
@@ -40,7 +41,7 @@
 
 **Core 4 (Profile Management):**
 1. **Users** → id, **fullName**✅, email, password_hash, gender, role, phone_number, avatar_url, account_status, otp_code, otp_expires_at, address, createdAt, updatedAt
-2. **Patients** → user_id, date_of_birth (LẤY fullName TỪ Users)
+2. **Patients** → user_id ONLY ✅ (LẤY fullName TỪ Users)
 3. **Doctors** → user_id, **specialty**✅, workplace, verification_documents, experience_years, average_rating, is_online, verified_at, verification_status (LẤY fullName TỪ Users)
 4. **Admins** → user_id, admin_role (LẤY fullName TỪ Users)
 
@@ -71,6 +72,7 @@
 
 **PATIENT PROFILE LẤY GÌ TỪ USERS:**
 - Patient ← Users: `fullName`, `email`, `phoneNumber`, `avatarUrl` (khi populate userId)
+- Patient profile là **READ-ONLY** - Chỉ có `userId` được auto-set từ auth context
 
 **DOCTOR PROFILE LẤY GÌ TỪ USERS:**
 - Doctor ← Users: `fullName`, `email`, `phoneNumber`, `avatarUrl`, `specialty` (khi populate userId)
@@ -325,38 +327,64 @@ Header: Authorization: Bearer {{admin_token}}
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /patients | POST | userId, dateOfBirth | 201 + patient | ✅ |
+| 1 | POST /patients | POST | {} (no fields) | 201 + patient | ✅ |
 | 2 | GET /patients/profile | GET | - | 200 + patient profile | ✅ |
 | 3 | GET /patients | GET | page, status | 200 + all patients (ADMIN) | ✅ |
-| 4 | PATCH /patients/profile | PATCH | dateOfBirth | 200 + updated | ✅ |
+| 4 | PATCH /patients/profile | PATCH | {} (no fields) | 200 + updated | ✅ |
 | 5 | DELETE /patients/profile | DELETE | - | 204 | ✅ |
 
 #### Commands
 ```bash
-# 1. Create patient profile
+# 1. Create patient profile (empty body - only userId from auth)
 POST {{base_url}}/patients
 Header: Authorization: Bearer {{jwt_token}}
-Body: {
-  "dateOfBirth": "1990-05-15"
-}
+Body: {}
 ✅ Expected: 201, patient created with userId auto-populated from auth
+Response: {
+  "_id": "patient_id",
+  "userId": "{{user_id}}",
+  "createdAt": "2026-03-20T10:00:00Z",
+  "updatedAt": "2026-03-20T10:00:00Z"
+}
 
 # 2. Get own patient profile
 GET {{base_url}}/patients/profile
 Header: Authorization: Bearer {{jwt_token}}
-✅ Expected: 200, patient object with: userId, dateOfBirth, timestamps
+✅ Expected: 200, patient object with ONLY: userId, timestamps
+Response: {
+  "_id": "patient_id",
+  "userId": {
+    "_id": "{{user_id}}",
+    "fullName": "Nguyen Van A",  ← Populated from User
+    "email": "patient@example.com",
+    "phoneNumber": "0987654321",
+    "avatarUrl": "...",
+    ...
+  },
+  "createdAt": "2026-03-20T10:00:00Z",
+  "updatedAt": "2026-03-20T10:00:00Z"
+}
 
-# 3. Update profile
+# 3. Update profile (no fields to update - read-only)
 PATCH {{base_url}}/patients/profile
-Body: {"dateOfBirth": "1990-05-20"}
-✅ Expected: 200, updated
+Header: Authorization: Bearer {{jwt_token}}
+Body: {}
+✅ Expected: 200, no changes possible (template-aligned)
+
+# 4. Get all patients (ADMIN only)
+GET {{base_url}}/patients?page=1&limit=10
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200, paginated list of patients with userId populated
 ```
 
 **Checklist:**
 - [ ] Patient can create own profile (once)
-- [ ] Only template fields: userId, dateOfBirth (NO fullName)
+- [ ] Only template field: userId (NO dateOfBirth, NO fullName)
+- [ ] Request bodies for Create/Update are EMPTY: `{}`
+- [ ] Patient profile is **READ-ONLY** in template
 - [ ] Only ADMIN can list all patients
 - [ ] Timestamps auto-generated (createdAt, updatedAt)
+- [ ] User.fullName obtained via populate on userId
 
 ---
 
