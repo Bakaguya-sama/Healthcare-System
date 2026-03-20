@@ -22,7 +22,7 @@ const menuItems = {
       id: "user_management",
       label: "User Management",
       icon: Users,
-      path: "/users",
+      path: "/user-management",
     },
     {
       id: "doc_verification",

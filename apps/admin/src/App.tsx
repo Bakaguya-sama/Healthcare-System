@@ -5,6 +5,13 @@ import { ForgetPassword } from "./pages/auth/forget-password";
 import { ConfirmOTP } from "./pages/auth/confirm-otp";
 import { ChangePassword } from "./pages/auth/change-password";
 import { ToastContainer } from "react-toastify";
+import { ErrorPage } from "@repo/ui/pages/page-not-found";
+import { Overview } from "./pages/overview/overview";
+import { UserManagement } from "./pages/user-management/user-management";
+import { DocumentVerification } from "./pages/doc-verification/doc-verification";
+import { ViolationReport } from "./pages/violation-report/violation-report";
+import { AIManagement } from "./pages/ai_management/ai_management";
+import { Profile } from "@repo/ui/pages/profile";
 
 function Page({ title }: { title: string }) {
   return (
@@ -27,23 +34,18 @@ function App() {
           <Route path="/change-password" element={<ChangePassword />} />
 
           <Route element={<Layout userRole="admin" />}>
-            <Route index element={<Page title="Overview" />} />
-            <Route path="users" element={<Page title="User Management" />} />
+            <Route index element={<Overview />} />
+            <Route path="/user-management" element={<UserManagement />} />
             <Route
-              path="doc-verification"
-              element={<Page title="Doc Verification" />}
+              path="/doc-verification"
+              element={<DocumentVerification />}
             />
-            <Route
-              path="ai-knowledge-base"
-              element={<Page title="AI Knowledge Base" />}
-            />
-            <Route
-              path="violation-reports"
-              element={<Page title="Violation Reports" />}
-            />
-            <Route path="profile" element={<Page title="Profile" />} />
+            <Route path="/ai-knowledge-base" element={<AIManagement />} />
+            <Route path="/violation-reports" element={<ViolationReport />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/page-not-found" element={<ErrorPage />} />
+          <Route path="*" element={<Navigate to="/page-not-found" replace />} />
         </Routes>
       </BrowserRouter>
     </>

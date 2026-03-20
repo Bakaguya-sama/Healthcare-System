@@ -12,7 +12,9 @@ export function Layout({ userRole }: LayoutProps) {
       <Sidebar userRole={userRole} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopHeader />
-        <Outlet />
+        <main className="flex-1 overflow-y-auto pt-2">
+          <Outlet />
+        </main>
       </div>
     </div>
   );
