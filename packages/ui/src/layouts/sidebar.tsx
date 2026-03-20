@@ -86,6 +86,7 @@ type SidebarProps = {
 
 export function Sidebar({ userRole }: SidebarProps) {
   const roleItems = menuItems[userRole] ?? [];
+  const onLogOut = () => {};
   return (
     <aside className="w-64 bg-white shadow-lg flex flex-col h-screen shrink-0">
       {/* Logo */}
@@ -154,7 +155,10 @@ export function Sidebar({ userRole }: SidebarProps) {
           </p>
           <p className="text-xs text-gray-400 truncate">admin@medi.com</p>
         </div>
-        <button className="text-gray-400 hover:text-gray-700 shrink-0">
+        <button
+          onClick={onLogOut}
+          className="text-gray-400 hover:text-gray-700 shrink-0"
+        >
           <LogOut className="w-4 h-4" />
         </button>
       </div>

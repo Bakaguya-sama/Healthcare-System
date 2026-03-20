@@ -1,14 +1,14 @@
 import { useMemo, useRef, useState } from "react";
-import { Badge } from "@repo/ui/components/badge";
-import { Button } from "@repo/ui/components/button";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import {
   Field,
   FieldControl,
   FieldGroup,
   FieldLabel,
   FieldSet,
-} from "@repo/ui/components/field";
-import { Input } from "@repo/ui/components/input";
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
 import {
   Camera,
   FileText,
@@ -101,12 +101,12 @@ function SectionTitle({
 function AdminRoleSection({ assignedRole }: { assignedRole: string }) {
   return (
     <>
-      <SectionTitle title="System Role" />
+      <SectionTitle title="System role" />
       <div className="rounded-xl border border-violet-100 bg-violet-50/50 ">
-        <div className="rounded-xl border border-violet-200 bg-white px-4 py-3 mt-3 ">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Assigned Admin Role
-          </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 p-2">
+          Assigned Admin Role
+        </p>
+        <div className="rounded-xl border border-violet-200 bg-white px-4 py-3">
           <p className="mt-1 text-sm font-semibold text-violet-700">
             {assignedRole}
           </p>

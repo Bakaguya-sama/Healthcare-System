@@ -1,16 +1,16 @@
 import { Layout } from "@repo/ui/layouts/layout";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { LogIn } from "./pages/auth/login";
-import { ForgetPassword } from "./pages/auth/forget-password";
-import { ConfirmOTP } from "./pages/auth/confirm-otp";
-import { ChangePassword } from "./pages/auth/change-password";
+import { LogIn } from "./features/auth/pages/login";
+import { ForgetPassword } from "./features/auth/pages/forget-password";
+import { ConfirmOTP } from "./features/auth/pages/confirm-otp";
+import { ChangePassword } from "./features/auth/pages/change-password";
 import { ToastContainer } from "react-toastify";
 import { ErrorPage } from "@repo/ui/pages/page-not-found";
-import { Overview } from "./pages/overview/overview";
-import { UserManagement } from "./pages/user-management/user-management";
-import { DocumentVerification } from "./pages/doc-verification/doc-verification";
-import { ViolationReport } from "./pages/violation-report/violation-report";
-import { AIManagement } from "./pages/ai_management/ai_management";
+import { Overview } from "./features/overview/pages/overview";
+import { UserManagement } from "./features/user-management/pages/user-management";
+import { DocumentVerification } from "./features/doc-verification/pages/doc-verification";
+import { ViolationReport } from "./features/violation-report/pages/violation-report";
+import { AIManagement } from "./features/ai_management/pages/ai_management";
 import { Profile } from "@repo/ui/pages/profile";
 
 function Page({ title }: { title: string }) {
