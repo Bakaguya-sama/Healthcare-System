@@ -12,11 +12,6 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePatientDto {
-  @ApiProperty({ description: 'Patient full name', example: 'Nguyen Van A' })
-  @IsNotEmpty()
-  @IsString()
-  fullName: string;
-
   @ApiProperty({
     description: 'Date of birth',
     example: '1990-01-15',
@@ -28,11 +23,6 @@ export class CreatePatientDto {
 }
 
 export class UpdatePatientDto {
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  fullName?: string;
-
   @ApiProperty({ required: false })
   @IsOptional()
   @IsDateString()

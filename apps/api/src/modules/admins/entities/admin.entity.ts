@@ -14,9 +14,6 @@ export class Admin {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, unique: true })
   userId: Types.ObjectId; // 1-1 relationship with Users table
 
-  @Prop({ required: true })
-  fullName: string;
-
   @Prop({
     enum: AdminRole,
     default: AdminRole.USER_MANAGER,

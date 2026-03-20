@@ -1,8 +1,10 @@
 # 📚 HƯỚNG DẪN TEST API - TRÌNH TỰ LOGIC HOÀN CHỈNH
 
-**Ngày:** March 18, 2026  
+**Ngày:** March 20, 2026  
+**Bản:** Session 10 - Full DB Template Alignment  
 **Mục tiêu:** Test toàn bộ 130+ endpoints theo flow logic của hệ thống  
-**Thời gian dự kiến:** 2-3 giờ (full test)
+**Thời gian dự kiến:** 2-3 giờ (full test)  
+**Lần cập nhật cuối:** Sau khi align 17 bảng DB template + cập nhật tất cả field names (fullName, specialty)
 
 ---
 
@@ -13,6 +15,89 @@
 3. **Role testing:** Kiểm tra PATIENT, DOCTOR, ADMIN roles riêng
 4. **Error cases:** Test invalid input, missing fields, unauthorized access
 5. **Persistence:** Kiểm tra data persists sau mỗi operation
+
+---
+
+## ⚠️ QUAN TRỌNG: THAY ĐỔI DB TEMPLATE (Session 10)
+
+**CẬP NHẬT TRƯỜNG DỮ LIỆU (Phải tuân thủ chính xác):**
+
+| Thay Đổi | Trước | Sau | Ảnh Hưởng |
+|----------|-------|-----|----------|
+| User Profile Name | `name` ❌ | `fullName` ✅ | Auth Register, User Update, Populate |
+| Doctor Specialty | `specialization` ❌ | `specialty` ✅ | Doctors List, Reviews, Sessions |
+| Patient Profile | Có `fullName` ❌ | Chỉ `dateOfBirth` ✅ | Patient Create/Update |
+| Admin Profile | Có `fullName` ❌ | Chỉ `adminRole` ✅ | Admin Create/Update |
+
+**TRƯỜNG HỢP CẤM (NO LONGER EXIST):**
+- ❌ `"name"` - Thay thế bằng `"fullName"` ở Users
+- ❌ `"specialization"` - Thay thế bằng `"specialty"` ở Doctors
+- ❌ Patient `"fullName"` - Patient CHỈ có `userId` + `dateOfBirth`
+- ❌ Admin `"fullName"` - Admin CHỈ có `userId` + `adminRole`
+- ❌ Doctor `"fullName"` & `"dateOfBirth"` ở Doctor profile - được lấy từ User
+
+**TÁCH BẠCH RÕ RÀNG (17 Bảng):**
+
+**Core 4 (Profile Management):**
+1. **Users** → id, **fullName**✅, email, password_hash, gender, role, phone_number, avatar_url, account_status, otp_code, otp_expires_at, address, createdAt, updatedAt
+2. **Patients** → user_id, date_of_birth (LẤY fullName TỪ Users)
+3. **Doctors** → user_id, **specialty**✅, workplace, verification_documents, experience_years, average_rating, is_online, verified_at, verification_status (LẤY fullName TỪ Users)
+4. **Admins** → user_id, admin_role (LẤY fullName TỪ Users)
+
+**Messaging (5 Bảng):**
+5. **AI_Sessions** → id, patient_id, status, started_at, ended_at
+6. **AI_Messages** → id, ai_session_id, sender_type, content, attachments, sent_at
+7. **Doctor_Sessions** → id, patient_id, doctor_id, status, doctor_notes, patient_notes, started_at, ended_at
+8. **Doctor_Messages** → id, doctor_session_id, sender_id, sender_type, content, attachments, sent_at
+9. **AI_Feedbacks** → id, patient_id, ai_session_id, content
+
+**Health & Reviews (3 Bảng):**
+10. **Health_Metrics** → id, patient_id, metric_type, values, unit, recorded_at
+11. **Reviews** → id, doctor_session_id, patient_id, doctor_id, rating, comment
+12. **Violation_Reports** → id, reporter_id, reported_user_id, report_type, reason, status
+
+**Knowledge Base (4 Bảng):**
+13. **Blacklist_Keywords** → id, keyword, category, severity
+14. **AI_Documents** → id, title, file_url, file_type, status, uploaded_by
+15. **AI_Document_Chunks** → id, document_id, chunk_index, content, embedding, is_active
+16. **Notifications** → id, user_id, title, message, is_read, type
+
+**AI Insights (1 Bảng):**
+17. **AI_Health_Insights** → id, patient_id, analyzed_metrics, risk_level, advice
+
+---
+
+## 🔗 POPULATE FIELDS - CÓ GÌ ĐƯỢC POPULATE (Session 10 Alignment)
+
+**PATIENT PROFILE LẤY GÌ TỪ USERS:**
+- Patient ← Users: `fullName`, `email`, `phoneNumber`, `avatarUrl` (khi populate userId)
+
+**DOCTOR PROFILE LẤY GÌ TỪ USERS:**
+- Doctor ← Users: `fullName`, `email`, `phoneNumber`, `avatarUrl`, `specialty` (khi populate userId)
+- ❌ Doctor KHÔNG có riêng fullName/dateOfBirth - LẤY TỪ User
+
+**ADMIN PROFILE LẤY GÌ TỪ USERS:**
+- Admin ← Users: `fullName`, `email`, `phoneNumber`, `avatarUrl` (khi populate userId)
+- ❌ Admin KHÔNG có riêng fullName - LẤY TỪ User
+
+**SESSIONS KHI POPULATE DOCTOR:**
+- Session.doctorId được populate với Doctor fields:
+  - `fullName` (từ User.fullName)
+  - `specialty` ✅ (từ Doctor.specialty, NOT specialization)
+  - `email`, `avatarUrl` (từ User)
+  - `averageRating`, `isOnline` (từ Doctor)
+
+**REVIEWS KHI POPULATE DOCTOR:**
+- Review.doctorId được populate với Doctor fields:
+  - `fullName` (từ User.fullName)
+  - `specialty` ✅ (từ Doctor.specialty, NOT specialization)
+  - `averageRating`, `email`, `avatarUrl`
+
+**CÁC TRƯ.NG KHÔNG ĐƯỢC POPULATE:**
+- ❌ Doctor.fullName - Không có field này
+- ❌ Doctor.dateOfBirth - Không có field này
+- ❌ "specialization" - Đã đổi thành "specialty"
+- ❌ "name" - Đã thay thế bằng "fullName"
 
 ---
 
@@ -58,7 +143,7 @@ admin_token = (admin token)
 
 | # | Endpoint | Method | Input | Expected | Role | Status |
 |---|----------|--------|-------|----------|------|--------|
-| 1 | POST /auth/register | POST | email, password, name, role | 200 + user + token | Public | ✅ |
+| 1 | POST /auth/register | POST | email, password, fullName, role | 200 + user + token | Public | ✅ |
 | 2 | POST /auth/login | POST | email, password | 200 + token | Public | ✅ |
 | 3 | POST /auth/logout | POST | (authed) | 200 + message | Auth | ✅ |
 | 4 | GET /auth/me | GET | (authed) | 200 + current user | Auth | ✅ |
@@ -72,31 +157,67 @@ admin_token = (admin token)
 # 1. Register test user
 POST {{base_url}}/auth/register
 Body: {
-  "email": "test@example.com",
+  "email": "patient@example.com",
   "password": "Test123!@",
-  "name": "Test User",
+  "fullName": "Nguyen Van A",
   "role": "patient"
 }
-✅ Expected: 200/201, save jwt_token
+✅ Expected: 201, response includes:
+{
+  "user": {
+    "_id": "{{user_id}}",
+    "email": "patient@example.com",
+    "fullName": "Nguyen Van A",
+    "role": "patient",
+    "gender": "not_specified",
+    "phoneNumber": "",
+    "avatarUrl": "",
+    "accountStatus": "active",
+    "address": {},
+    "createdAt": "2026-03-20T10:00:00Z",
+    "updatedAt": "2026-03-20T10:00:00Z"
+  },
+  "access_token": "eyJhbGc...",
+  "refresh_token": "eyJhbGc..."
+}
+✅ Save jwt_token = access_token, user_id = user._id
 
-# 2. Login
+# 2. Register doctor (for later use)
+POST {{base_url}}/auth/register
+Body: {
+  "email": "doctor@example.com",
+  "password": "Test123!@",
+  "fullName": "Dr. Tran Thi B",
+  "role": "doctor",
+  "specialty": "Cardiology"
+}
+✅ Expected: 201, save doctor_token
+
+# 3. Login
 POST {{base_url}}/auth/login
-Body: {"email": "test@example.com", "password": "Test123!@"}
-✅ Expected: 200, token in response
+Body: {"email": "patient@example.com", "password": "Test123!@"}
+✅ Expected: 200, returns access_token + refresh_token
 
-# 3. Get Current User
+# 4. Get Current User (Verify fullName exists)
 GET {{base_url}}/auth/me
 Header: Authorization: Bearer {{jwt_token}}
-✅ Expected: 200, user object with all fields
+✅ Expected: 200, response includes:
+{
+  "_id": "{{user_id}}",
+  "email": "patient@example.com",
+  "fullName": "Nguyen Van A",  ✅ NOT "name"
+  "role": "patient",
+  ...
+}
 
-# 4. Change Password (already authed)
+# 5. Change Password (already authed)
 POST {{base_url}}/auth/change-password
 Body: {"oldPassword": "Test123!@", "newPassword": "New123!@"}
 ✅ Expected: 200
 
-# 5-6. Forgot password flow (skip if no email service)
+# 6. Forgot password flow (skip if no email service)
 POST {{base_url}}/auth/forgot-password
-Body: {"email": "test@example.com"}
+Body: {"email": "patient@example.com"}
 ✅ Expected: 200 (even if email not sent)
 ```
 
@@ -104,8 +225,9 @@ Body: {"email": "test@example.com"}
 - [ ] Token valid & has claims (sub, email, role)
 - [ ] Refresh token returns new JWT
 - [ ] Password change works
-- [ ] Me endpoint returns correct user
+- [ ] Me endpoint returns **fullName** (not "name")
 - [ ] Wrong credentials return 401
+- [ ] User object has all 14 template fields: id, fullName, email, gender, role, phoneNumber, avatarUrl, accountStatus, otpCode, otpExpiresAt, address, createdAt, updatedAt
 
 ---
 
@@ -121,10 +243,10 @@ Body: {"email": "test@example.com"}
 | # | Endpoint | Method | Query | Expected | Role | Status |
 |---|----------|--------|-------|----------|------|--------|
 | 1 | GET /users | GET | page=1, limit=10 | 200 + paginated users | ADMIN | ✅ |
-| 2 | GET /users/doctors | GET | verified=true | 200 + verified doctors | All | ✅ |
+| 2 | GET /users/doctors | GET | verified=true, specialty | 200 + verified doctors | All | ✅ |
 | 3 | GET /users/me | GET | - | 200 + current user | Auth | ✅ |
 | 4 | GET /users/:id | GET | - | 200 + user detail | Admin/Own | ✅ |
-| 5 | PATCH /users/me | PATCH | name, phone, address | 200 + updated user | Auth | ✅ |
+| 5 | PATCH /users/me | PATCH | fullName, phoneNumber, address, specialty | 200 + updated user | Auth | ✅ |
 | 6 | DELETE /users/:id | DELETE | - | 204 + no content | Admin/Own | ✅ |
 
 #### Commands
@@ -136,13 +258,26 @@ Header: Authorization: Bearer {{admin_token}}
 
 # 2. Get verified doctors (public list)
 GET {{base_url}}/users/doctors?verified=true
-✅ Expected: 200, doctors array with avatars
+✅ Expected: 200, doctors array with:
+[
+  {
+    "_id": "doctor_id",
+    "fullName": "Dr. Tran Thi B",  ✅ NOT "name"
+    "email": "doctor@example.com",
+    "specialty": "Cardiology",  ✅ NOT "specialization"
+    "workplace": "Central Hospital",
+    "avatarUrl": "...",
+    "isOnline": false,
+    "averageRating": 4.5,
+    "verificationStatus": "approved"
+  }
+]
 
-# 3. Update own profile
+# 3. Update own profile (Patient or Doctor)
 PATCH {{base_url}}/users/me
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
-  "name": "Updated Name",
+  "fullName": "Updated Patient Name",
   "phoneNumber": "0987654321",
   "address": {
     "street": "123 Main St",
@@ -150,7 +285,17 @@ Body: {
     "country": "Vietnam"
   }
 }
-✅ Expected: 200, updated user
+✅ Expected: 200, updated user with fullName
+
+# 3b. Update doctor profile (add specialty if doctor)
+PATCH {{base_url}}/users/me
+Header: Authorization: Bearer {{doctor_token}}
+Body: {
+  "fullName": "Dr. Updated Name",
+  "specialty": "Pediatrics",  ✅ NOT "specialization"
+  "phoneNumber": "0987654321"
+}
+✅ Expected: 200
 
 # 4. Delete user (self-destruct or admin)
 DELETE {{base_url}}/users/{{user_id}}
@@ -162,6 +307,8 @@ Header: Authorization: Bearer {{admin_token}}
 - [ ] Users can only update own profile
 - [ ] Admin can list all users
 - [ ] Doctor list is public (no auth needed)
+- [ ] Doctor list shows **specialty** (not "specialization")
+- [ ] User response includes **fullName** (not "name")
 - [ ] Deleted user can't login
 - [ ] Pagination works (limit 1-100)
 
@@ -178,10 +325,10 @@ Header: Authorization: Bearer {{admin_token}}
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /patients | POST | userId, name, dob | 201 + patient | ✅ |
+| 1 | POST /patients | POST | userId, dateOfBirth | 201 + patient | ✅ |
 | 2 | GET /patients/profile | GET | - | 200 + patient profile | ✅ |
 | 3 | GET /patients | GET | page, status | 200 + all patients (ADMIN) | ✅ |
-| 4 | PATCH /patients/profile | PATCH | dob, blood, allergies | 200 + updated | ✅ |
+| 4 | PATCH /patients/profile | PATCH | dateOfBirth | 200 + updated | ✅ |
 | 5 | DELETE /patients/profile | DELETE | - | 204 | ✅ |
 
 #### Commands
@@ -190,26 +337,24 @@ Header: Authorization: Bearer {{admin_token}}
 POST {{base_url}}/patients
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
-  "userId": "{{user_id}}",
-  "fullName": "John Patient",
   "dateOfBirth": "1990-05-15"
 }
-✅ Expected: 201, patient created
+✅ Expected: 201, patient created with userId auto-populated from auth
 
 # 2. Get own patient profile
 GET {{base_url}}/patients/profile
 Header: Authorization: Bearer {{jwt_token}}
-✅ Expected: 200, patient object with: userId, fullName, dateOfBirth, timestamps
+✅ Expected: 200, patient object with: userId, dateOfBirth, timestamps
 
 # 3. Update profile
 PATCH {{base_url}}/patients/profile
-Body: {"fullName": "John Updated", "dateOfBirth": "1990-05-20"}
+Body: {"dateOfBirth": "1990-05-20"}
 ✅ Expected: 200, updated
 ```
 
 **Checklist:**
 - [ ] Patient can create own profile (once)
-- [ ] Only template fields: userId, fullName, dateOfBirth
+- [ ] Only template fields: userId, dateOfBirth (NO fullName)
 - [ ] Only ADMIN can list all patients
 - [ ] Timestamps auto-generated (createdAt, updatedAt)
 
@@ -222,9 +367,9 @@ Body: {"fullName": "John Updated", "dateOfBirth": "1990-05-20"}
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /admins | POST | userId, fullName, adminRole | 201 + admin | ✅ |
+| 1 | POST /admins | POST | userId, adminRole | 201 + admin | ✅ |
 | 2 | GET /admins | GET | page | 200 + paginated admins | ✅ |
-| 3 | PATCH /admins/:id | PATCH | fullName, adminRole | 200 + updated | ✅ |
+| 3 | PATCH /admins/:id | PATCH | adminRole | 200 + updated | ✅ |
 | 4 | DELETE /admins/:id | DELETE | - | 204 | ✅ |
 
 #### Commands
@@ -234,7 +379,6 @@ POST {{base_url}}/admins
 Header: Authorization: Bearer {{admin_token}}
 Body: {
   "userId": "{{user_id}}",
-  "fullName": "Admin User",
   "adminRole": "user_manager"
 }
 ✅ Expected: 201
@@ -248,7 +392,7 @@ GET {{base_url}}/admins?page=1&limit=10
 - [ ] Admin role enum (super_admin, user_manager, ai_manager)
 - [ ] Only SUPER_ADMIN can create admins
 - [ ] Admin list paginated
-- [ ] Only template fields: userId, fullName, adminRole
+- [ ] Only template fields: userId, adminRole (NO fullName)
 - [ ] Timestamps auto-generated (createdAt, updatedAt)
 
 ---
@@ -442,19 +586,30 @@ POST {{base_url}}/sessions
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
   "doctorId": "{{doctor_id}}",
-  "type": "consultation",
   "title": "General Health Checkup",
   "description": "Patient needs health advice",
-  "scheduledAt": "2026-03-20T10:00:00Z",
-  "duration": 30,
-  "note": "First consultation"
+  "scheduledAt": "2026-03-25T10:00:00Z"
 }
 ✅ Expected: 201, session created with status=PENDING
+✅ Response includes doctor info:
+{
+  "_id": "session_id",
+  "patientId": "{{user_id}}",
+  "doctorId": {
+    "_id": "{{doctor_id}}",
+    "fullName": "Dr. Tran Thi B",  ✅ NOT "name"
+    "specialty": "Cardiology",  ✅ NOT "specialization"
+    "email": "doctor@example.com",
+    "avatarUrl": "..."
+  },
+  "scheduledAt": "2026-03-25T10:00:00Z",
+  "status": "PENDING"
+}
 ✅ Save session_id for next tests
 
 # 2. List sessions (patient sees own, admin sees all)
 GET {{base_url}}/sessions?page=1&limit=10&status=PENDING
-✅ Expected: 200
+✅ Expected: 200, doctor info populated with specialty
 
 # 3. Get upcoming sessions (next 7 days)
 GET {{base_url}}/sessions/upcoming?days=7
@@ -485,6 +640,8 @@ Body: {
 - [ ] Status flow: PENDING → CONFIRMED → IN_PROGRESS → COMPLETED
 - [ ] Can cancel with reason
 - [ ] Can reschedule to future time
+- [ ] Doctor info populated with **specialty** (not "specialization")
+- [ ] Doctor info includes **fullName** (not "name")
 - [ ] Doctor notes & patient notes separate
 - [ ] Prescription field visible
 - [ ] Patient can see completed sessions
@@ -522,7 +679,22 @@ Body: {
   "rating": 5,
   "comment": "Excellent doctor, very professional and caring!"
 }
-✅ Expected: 201
+✅ Expected: 201, review created
+✅ Response includes doctor info with specialty:
+{
+  "_id": "review_id",
+  "doctorId": {
+    "_id": "{{doctor_id}}",
+    "fullName": "Dr. Tran Thi B",  ✅ NOT "name"
+    "specialty": "Cardiology",  ✅ NOT "specialization"
+    "email": "doctor@example.com",
+    "avatarUrl": "..."
+  },
+  "patientId": "{{user_id}}",
+  "rating": 5,
+  "comment": "Excellent doctor...",
+  "createdAt": "2026-03-20T10:30:00Z"
+}
 ✅ Rating must be 1-5 integer
 
 # 2. Get doctor's rating summary
@@ -530,19 +702,22 @@ GET {{base_url}}/reviews/doctor/{{doctor_id}}/rating
 ✅ Expected: 200
 {
   "doctorId": "...",
+  "doctorName": "Dr. Tran Thi B",  ✅ Populated from User.fullName
+  "specialty": "Cardiology",  ✅ NOT "specialization"
+  "avatarUrl": "...",
   "averageRating": 4.5,
   "totalReviews": 10,
   "ratingDistribution": {5: 8, 4: 2, ...}
 }
 
-# 3. List all reviews for doctor
+# 3. List all reviews for doctor (doctor info includes specialty)
 GET {{base_url}}/reviews/doctor/{{doctor_id}}?page=1&limit=10
-✅ Expected: 200, reviews with patient names
+✅ Expected: 200, reviews with doctor name and specialty
 
 # 4. Get own reviews (patient)
 GET {{base_url}}/reviews/my-reviews?page=1&limit=10
 Header: Authorization: Bearer {{jwt_token}}
-✅ Expected: 200
+✅ Expected: 200, patient's reviews with doctor info
 ```
 
 **Checklist:**
@@ -550,6 +725,8 @@ Header: Authorization: Bearer {{jwt_token}}
 - [ ] Can only review if completed session
 - [ ] Each session can have max 1 review (no duplicates)
 - [ ] Average rating auto-calculates
+- [ ] Doctor info shows **specialty** (not "specialization")
+- [ ] Doctor info shows **fullName** (not "name")
 - [ ] Patient can edit own review
 - [ ] Can delete own review
 - [ ] Doctor profile shows average rating

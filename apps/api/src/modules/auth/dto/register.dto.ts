@@ -52,7 +52,7 @@ export class RegisterDto {
   @ApiProperty({ example: 'Nguyen Van A' })
   @IsNotEmpty()
   @IsString()
-  name: string;
+  fullName: string;
 
   @ApiProperty({ enum: UserRole, default: UserRole.PATIENT, required: false })
   @IsOptional()

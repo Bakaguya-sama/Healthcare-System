@@ -15,16 +15,10 @@ export class Doctor {
   @Prop({ required: true, unique: true, ref: 'User' })
   userId: Types.ObjectId;
 
-  @Prop({ required: true })
-  fullName: string;
+  @Prop()
+  specialty?: string;
 
   @Prop()
-  dateOfBirth?: Date;
-
-  @Prop({ required: false })
-  specialization?: string;
-
-  @Prop({ required: false })
   workplace?: string;
 
   @Prop({ type: [String], default: [] })
@@ -39,15 +33,15 @@ export class Doctor {
   @Prop({ default: false })
   isOnline?: boolean;
 
+  @Prop()
+  verifiedAt?: Date;
+
   // Doctor verification fields
   @Prop({
     enum: DoctorVerificationStatus,
     default: DoctorVerificationStatus.PENDING,
   })
   verificationStatus: DoctorVerificationStatus;
-
-  @Prop()
-  verifiedAt?: Date;
 }
 
 export const DoctorSchema = SchemaFactory.createForClass(Doctor);

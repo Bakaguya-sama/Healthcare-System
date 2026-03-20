@@ -3,6 +3,7 @@
 // ==========================================
 Table Users {
   id ObjectID [pk]
+  full_name varchar
   email varchar [unique]
   password_hash varchar
   gender varchar
@@ -21,15 +22,12 @@ Table Users {
 // ==========================================
 Table Patients {
   user_id ObjectID [pk] // Khóa chính đồng thời là khóa ngoại nối tới Users.id
-  full_name varchar
   date_of_birth date
 }
 
 Table Doctors {
   user_id ObjectID [pk] 
-  full_name varchar
-  date_of_birth date
-  specialization varchar 
+  specialty varchar 
   workplace varchar
   verification_documents json [note: "Mảng JSON lưu link các file PDF/Ảnh bằng cấp, chứng chỉ hành nghề"]
   experience_years int
@@ -43,7 +41,6 @@ Table Doctors {
 
 Table Admins {
   user_id ObjectID [pk] // Nối tới Users.id
-  full_name varchar
   
   // BẢN NÂNG CẤP: Tách bạch rõ ràng trách nhiệm
   admin_role varchar [note: "Enum: super_admin (Toàn quyền), user_manager (Chỉ duyệt/khóa User), ai_manager (Chỉ quản lý Knowledge Base & Blacklist)"]

@@ -92,7 +92,7 @@ export class ReviewsService {
       this.reviewModel
         .find(filter)
         .populate('patientId', 'name email avatarUrl')
-        .populate('doctorId', 'name email specialization avatarUrl')
+        .populate('doctorId', 'fullName email specialty avatarUrl')
         .sort(sort)
         .skip(skip)
         .limit(query.limit),
@@ -227,8 +227,8 @@ export class ReviewsService {
 
     const review = await this.reviewModel
       .findById(new Types.ObjectId(id))
-      .populate('patientId', 'name email avatarUrl')
-      .populate('doctorId', 'name email specialization avatarUrl');
+      .populate('patientId', 'fullName email avatarUrl')
+      .populate('doctorId', 'fullName email specialty avatarUrl');
 
     if (!review) {
       throw new NotFoundException('Review not found');
@@ -400,8 +400,8 @@ export class ReviewsService {
         $project: {
           _id: 0,
           doctorId: '$_id',
-          doctorName: '$doctorInfo.name',
-          specialization: '$doctorInfo.specialization',
+          doctorName: '$doctorInfo.fullName',
+          specialty: '$doctorInfo.specialty',
           avatarUrl: '$doctorInfo.avatarUrl',
           averageRating: 1,
           totalReviews: 1,

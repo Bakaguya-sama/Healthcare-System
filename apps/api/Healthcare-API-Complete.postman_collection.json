@@ -34,7 +34,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Patient\",\n  \"role\": \"patient\"\n}"
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Patient\",\n  \"role\": \"patient\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -74,7 +74,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"doctor@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Doctor\",\n  \"role\": \"doctor\"\n}"
+              "raw": "{\n  \"email\": \"doctor@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Doctor\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Cardiology\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -115,7 +115,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"doctor2@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Second Doctor\",\n  \"role\": \"doctor\"\n}"
+              "raw": "{\n  \"email\": \"doctor2@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Second Doctor\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Pediatrics\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -156,7 +156,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Admin\",\n  \"role\": \"admin\"\n}"
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Admin\",\n  \"role\": \"admin\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -200,7 +200,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"verificationNotes\": \"Doctor verified for testing - can create sessions\"\n}"
+              "raw": "{}"
             },
             "url": {
               "raw": "{{base_url}}/admin/doctors/{{doctor_id}}/verify",
@@ -242,7 +242,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"verificationNotes\": \"Doctor #2 verified for testing - can chat with patients\"\n}"
+              "raw": "{}"
             },
             "url": {
               "raw": "{{base_url}}/admin/doctors/{{other_user_id}}/verify",
@@ -289,7 +289,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Test Patient\",\n  \"role\": \"patient\"\n}",
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Patient\",\n  \"role\": \"patient\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -489,7 +489,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Name\",\n  \"phoneNumber\": \"0987654321\",\n  \"avatarUrl\": \"https://example.com/avatar.jpg\",\n  \"address\": {\"street\": \"123 Main St\", \"city\": \"Ho Chi Minh\", \"country\": \"Vietnam\"}\n}",
+              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"phoneNumber\": \"0987654321\",\n  \"avatarUrl\": \"https://example.com/avatar.jpg\",\n  \"address\": {\"street\": \"123 Main St\", \"city\": \"Ho Chi Minh\", \"country\": \"Vietnam\"}\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -527,7 +527,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"fullName\": \"John Patient\",\n  \"dateOfBirth\": \"1990-01-15\",\n  \"gender\": \"male\",\n  \"bloodType\": \"O\",\n  \"allergies\": [\"Penicillin\", \"Shellfish\"],\n  \"medicalHistory\": \"Hypertension\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"dateOfBirth\": \"1990-01-15\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -575,7 +575,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"bloodType\": \"AB\",\n  \"allergies\": [\"Peanuts\"],\n  \"medicalHistory\": \"Updated history\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"dateOfBirth\": \"1990-02-20\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -613,7 +613,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"fullName\": \"Admin User\",\n  \"adminRole\": \"user_manager\",\n  \"department\": \"User Management\",\n  \"permissions\": [\"verify_doctors\", \"lock_users\"],\n  \"isActive\": true\n}",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"adminRole\": \"user_manager\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -647,7 +647,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Updated Admin\",\n  \"adminRole\": \"ai_manager\",\n  \"department\": \"AI Management\",\n  \"isActive\": true\n}",
+              "raw": "{\n  \"adminRole\": \"ai_manager\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -737,7 +737,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"read\",\n  \"title\": \"Updated Title\"\n}",
+              "raw": "{\n  \"isRead\": true\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1002,7 +1002,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"type\": \"consultation\",\n  \"title\": \"Initial Health Consultation\",\n  \"description\": \"Patient needs general health consultation and advice\",\n  \"scheduledAt\": \"2026-03-20T10:00:00Z\",\n  \"duration\": 30,\n  \"note\": \"First time visiting doctor\"\n}",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"scheduledAt\": \"2026-03-20T10:00:00Z\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1065,7 +1065,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"scheduledAt\": \"2026-03-21T11:00:00Z\",\n  \"description\": \"Updated reason\"\n}",
+              "raw": "{\n  \"scheduledAt\": \"2026-03-21T11:00:00Z\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1117,7 +1117,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"notes\": \"Session completed successfully\",\n  \"prescription\": \"Take prescribed medication\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1136,7 +1136,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Schedule conflict\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1155,7 +1155,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"scheduledAt\": \"2026-03-25T14:00:00Z\",\n  \"reason\": \"Rescheduling for convenience\"\n}",
+              "raw": "{\n  \"scheduledAt\": \"2026-03-25T14:00:00Z\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1324,7 +1324,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"metricType\": \"blood_pressure\",\n  \"value\": 120,\n  \"unit\": \"mmHg\",\n  \"recordedAt\": \"2024-03-17T10:00:00Z\",\n  \"notes\": \"Measured at home\"\n}",
+              "raw": "{\n  \"metricType\": \"blood_pressure\",\n  \"values\": {\"systolic\": 120, \"diastolic\": 80},\n  \"unit\": \"mmHg\",\n  \"recordedAt\": \"2024-03-17T10:00:00Z\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1400,7 +1400,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"value\": 125,\n  \"notes\": \"Updated measurement\"\n}",
+              "raw": "{\n  \"values\": {\"systolic\": 125, \"diastolic\": 85}\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1453,7 +1453,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"topic\": \"General health inquiry\",\n  \"description\": \"I need advice about symptoms\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1535,7 +1535,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"topic\": \"Updated topic\",\n  \"notes\": \"Additional notes\"\n}",
+              "raw": "{\n  \"status\": \"active\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1554,7 +1554,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rating\": 5,\n  \"feedback\": \"Very helpful AI response\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1648,7 +1648,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"verificationNotes\": \"Doctor verified for testing - can create sessions\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1667,7 +1667,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Invalid credentials - license verification failed\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1686,7 +1686,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Suspicious activity\",\n  \"lockDuration\": 86400\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1783,7 +1783,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"sessionType\": \"consultation\",\n  \"topic\": \"General health checkup\",\n  \"description\": \"Need advice about symptoms\"\n}",
+              "raw": "{\n  \"status\": \"active\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1791,7 +1791,7 @@
               "host": ["{{base_url}}"],
               "path": ["ai-sessions"]
             },
-            "description": "Start new AI session"
+            "description": "Start new AI session (patient_id auto from auth)"
           },
           "response": []
         },
@@ -1846,7 +1846,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"topic\": \"Updated topic\",\n  \"keyFindings\": \"Patient shows symptoms\",\n  \"recommendations\": \"Recommend doctor consultation\"\n}",
+              "raw": "{\n  \"status\": \"active\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1865,7 +1865,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"keyFindings\": \"Final findings\",\n  \"recommendations\": \"Recommended next steps\"\n}",
+              "raw": "{\n  \"status\": \"completed\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1917,7 +1917,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sessionId\": \"{{session_id}}\",\n  \"role\": \"user\",\n  \"content\": \"I have a headache for 3 days\",\n  \"tokenCount\": 8\n}",
+              "raw": "{\n  \"aiSessionId\": \"{{ai_session_id}}\",\n  \"senderType\": \"patient\",\n  \"content\": \"I have a headache for 3 days\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1935,10 +1935,10 @@
             "method": "GET",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "url": {
-              "raw": "{{base_url}}/ai-messages/session/:sessionId?page=1&limit=20",
+              "raw": "{{base_url}}/ai-messages?aiSessionId={{ai_session_id}}&page=1&limit=20",
               "host": ["{{base_url}}"],
-              "path": ["ai-messages", "session", ":sessionId"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]
+              "path": ["ai-messages"],
+              "query": [{"key": "aiSessionId", "value": "{{ai_session_id}}"}, {"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]
             },
             "description": "Get messages in AI session"
           },
@@ -2014,7 +2014,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"feedbackType\": \"helpful\",\n  \"feedbackText\": \"Very helpful\",\n  \"rating\": 5\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2033,7 +2033,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Inappropriate content\",\n  \"description\": \"Message contains inappropriate language\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2071,7 +2071,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sessionId\": \"{{session_id}}\",\n  \"userId\": \"{{user_id}}\",\n  \"feedbackType\": \"suggestion\",\n  \"rating\": 4,\n  \"text\": \"Good advice but need more details\",\n  \"verified\": false\n}",
+              "raw": "{\n  \"aiSessionId\": \"{{ai_session_id}}\",\n  \"content\": \"Feedback about the AI session\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2163,7 +2163,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rating\": 5,\n  \"text\": \"Updated feedback\"\n}",
+              "raw": "{\n  \"content\": \"Updated feedback content\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2220,7 +2220,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"documentType\": \"guideline\",\n  \"fileUrl\": \"https://example.com/guideline.pdf\",\n  \"description\": \"Latest medical guidelines\",\n  \"uploadedBy\": \"{{user_id}}\",\n  \"status\": \"processing\"\n}",
+              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"fileUrl\": \"https://example.com/guideline.pdf\",\n  \"fileType\": \"pdf\",\n  \"status\": \"processing\",\n  \"uploadedBy\": \"{{user_id}}\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2283,7 +2283,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Updated Title\",\n  \"description\": \"Updated description\"\n}",
+              "raw": "{\n  \"title\": \"Updated Title\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2335,7 +2335,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"documentId\": \"{{document_id}}\",\n  \"content\": \"Chunk content here\",\n  \"chunkIndex\": 1,\n  \"charCount\": 50,\n  \"tokenCount\": 12,\n  \"embedding\": [0.1, 0.2, 0.3]\n}",
+              "raw": "{\n  \"documentId\": \"{{document_id}}\",\n  \"content\": \"Chunk content here\",\n  \"chunkIndex\": 1,\n  \"embedding\": [0.1, 0.2, 0.3],\n  \"isActive\": true\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2354,7 +2354,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "[\n  {\n    \"documentId\": \"{{document_id}}\",\n    \"content\": \"Chunk 1\",\n    \"chunkIndex\": 1,\n    \"charCount\": 20,\n    \"tokenCount\": 5\n  },\n  {\n    \"documentId\": \"{{document_id}}\",\n    \"content\": \"Chunk 2\",\n    \"chunkIndex\": 2,\n    \"charCount\": 20,\n    \"tokenCount\": 5\n  }\n]",
+              "raw": "[\n  {\n    \"documentId\": \"{{document_id}}\",\n    \"content\": \"Chunk 1\",\n    \"chunkIndex\": 1,\n    \"embedding\": [0.1, 0.2, 0.3],\n    \"isActive\": true\n  },\n  {\n    \"documentId\": \"{{document_id}}\",\n    \"content\": \"Chunk 2\",\n    \"chunkIndex\": 2,\n    \"embedding\": [0.4, 0.5, 0.6],\n    \"isActive\": true\n  }\n]",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2470,7 +2470,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"keyword\": \"badword\",\n  \"pattern\": \"^(badword|variant)$\",\n  \"category\": \"inappropriate\",\n  \"severity\": \"high\",\n  \"isActive\": true\n}",
+              "raw": "{\n  \"keyword\": \"badword\",\n  \"category\": \"inappropriate\",\n  \"severity\": \"high\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2537,7 +2537,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pattern\": \"^(updated|variant)$\",\n  \"severity\": \"medium\"\n}",
+              "raw": "{\n  \"severity\": \"medium\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2589,7 +2589,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"relatedMetrics\": {\"heartRate\": 85, \"trend\": \"increasing\"}\n}",
+              "raw": "{\n  \"analyzedMetrics\": \"heartRate, bloodPressure\",\n  \"riskLevel\": \"medium\",\n  \"advice\": \"Consult doctor for more details\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2802,7 +2802,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"resolution_note\": \"User has been warned and acknowledged\"\n}",
+              "raw": "{}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2821,7 +2821,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"resolved\",\n  \"resolution_note\": \"Investigation complete - no violation found\"\n}",
+              "raw": "{\n  \"status\": \"resolved\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {

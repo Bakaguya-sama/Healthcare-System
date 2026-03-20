@@ -16,7 +16,7 @@ export class UpdateUserDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  name?: string;
+  fullName?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -26,17 +26,17 @@ export class UpdateUserDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  phone?: string;
+  phoneNumber?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  @IsString()
+  gender?: string;
 
-  @ApiProperty({ required: false, description: 'Doctor only: specialization' })
+  @ApiProperty({ required: false, description: 'Doctor only: specialty' })
   @IsOptional()
   @IsString()
-  specialization?: string;
+  specialty?: string;
 
   @ApiProperty({
     required: false,

@@ -42,7 +42,6 @@ export class AdminsService {
 
     const admin = await this.adminModel.create({
       userId: new Types.ObjectId(newAdminUserId),
-      fullName: dto.fullName,
       adminRole: dto.adminRole || AdminRole.USER_MANAGER,
     });
 
@@ -61,9 +60,11 @@ export class AdminsService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const admin = await this.adminModel.findOne({
-      userId: new Types.ObjectId(userId),
-    });
+    const admin = await this.adminModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+      })
+      .populate('userId', 'fullName email');
 
     if (!admin) {
       throw new NotFoundException('Admin profile not found');
@@ -107,6 +108,7 @@ export class AdminsService {
     const [data, total] = await Promise.all([
       this.adminModel
         .find(filter)
+        .populate('userId', 'fullName email')
         .sort(sort)
         .skip(skip)
         .limit(query.limit)
@@ -158,7 +160,6 @@ export class AdminsService {
     const admin = await this.adminModel.findByIdAndUpdate(
       new Types.ObjectId(adminId),
       {
-        fullName: dto.fullName,
         adminRole: dto.adminRole,
       },
       { new: true, runValidators: true },

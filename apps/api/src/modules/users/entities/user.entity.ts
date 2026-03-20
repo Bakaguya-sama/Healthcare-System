@@ -17,6 +17,9 @@ export class UserEntity {
   @Prop({ required: true })
   password: string;
 
+  @Prop({ required: true })
+  fullName: string;
+
   @Prop()
   gender?: string;
 

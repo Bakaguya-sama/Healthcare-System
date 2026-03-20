@@ -112,7 +112,7 @@ export class SessionsService {
       this.sessionModel
         .find(filter)
         .populate('patientId', 'name email phoneNumber avatarUrl')
-        .populate('doctorId', 'name email specialization avatarUrl')
+        .populate('doctorId', 'fullName email specialty avatarUrl')
         .sort(sort)
         .skip(skip)
         .limit(query.limit),
@@ -142,8 +142,8 @@ export class SessionsService {
 
     const session = await this.sessionModel
       .findById(new Types.ObjectId(id))
-      .populate('patientId', 'name email phoneNumber avatarUrl')
-      .populate('doctorId', 'name email specialization avatarUrl');
+      .populate('patientId', 'fullName email phoneNumber avatarUrl')
+      .populate('doctorId', 'fullName email specialty avatarUrl');
 
     if (!session) {
       throw new NotFoundException('Session not found');
@@ -445,8 +445,8 @@ export class SessionsService {
 
     const sessions = await this.sessionModel
       .find(filter)
-      .populate('patientId', 'name email phoneNumber avatarUrl')
-      .populate('doctorId', 'name email specialization avatarUrl')
+      .populate('patientId', 'fullName email phoneNumber avatarUrl')
+      .populate('doctorId', 'fullName email specialty avatarUrl')
       .sort({ scheduledAt: 1 });
 
     return {

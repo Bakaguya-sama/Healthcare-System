@@ -207,8 +207,8 @@ export class AdminService {
     const [data, total] = await Promise.all([
       this.sessionModel
         .find(filter)
-        .populate('patientId', 'name email phone')
-        .populate('doctorId', 'name email specialization')
+        .populate('patientId', 'fullName email phoneNumber')
+        .populate('doctorId', 'fullName email specialty')
         .sort(sort)
         .limit(limit)
         .skip(skip),

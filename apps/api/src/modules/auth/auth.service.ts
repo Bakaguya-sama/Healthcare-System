@@ -38,7 +38,7 @@ export class AuthService {
     const user = await this.userModel.create({
       email: dto.email,
       password: hashedPassword,
-      name: dto.name,
+      fullName: dto.fullName,
       role: dto.role,
       gender: dto.gender,
       phoneNumber: dto.phoneNumber,
@@ -204,7 +204,7 @@ export class AuthService {
       user: {
         id: user._id,
         email: user.email,
-        name: user.name,
+        fullName: user.fullName,
         role: user.role,
         avatarUrl: user.avatarUrl,
       },

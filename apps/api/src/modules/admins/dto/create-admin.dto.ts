@@ -9,14 +9,6 @@ import { AdminRole } from '../entities/admin.entity';
 
 export class CreateAdminDto {
   @ApiProperty({
-    description: 'Admin full name',
-    example: 'Tran Thi Admin',
-  })
-  @IsNotEmpty()
-  @IsString()
-  fullName: string;
-
-  @ApiProperty({
     enum: AdminRole,
     default: AdminRole.USER_MANAGER,
     description: 'Admin role/permission level',
@@ -27,11 +19,6 @@ export class CreateAdminDto {
 }
 
 export class UpdateAdminDto {
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  fullName?: string;
-
   @ApiProperty({
     enum: AdminRole,
     required: false,

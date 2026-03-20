@@ -39,7 +39,6 @@ export class PatientsService {
 
     const patient = await this.patientModel.create({
       userId: new Types.ObjectId(userId),
-      fullName: dto.fullName,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
     });
 
@@ -58,9 +57,11 @@ export class PatientsService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const patient = await this.patientModel.findOne({
-      userId: new Types.ObjectId(userId),
-    });
+    const patient = await this.patientModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+      })
+      .populate('userId', 'fullName email phoneNumber avatarUrl');
 
     if (!patient) {
       throw new NotFoundException('Patient profile not found');
@@ -79,10 +80,6 @@ export class PatientsService {
   async findAll(query: QueryPatientDto) {
     const filter: any = {};
 
-    if (query.search) {
-      filter.fullName = { $regex: query.search, $options: 'i' };
-    }
-
     const skip = (query.page - 1) * query.limit;
     const sort: any = {};
     sort[query.sortBy || 'createdAt'] = query.sortOrder || -1;
@@ -90,6 +87,7 @@ export class PatientsService {
     const [data, total] = await Promise.all([
       this.patientModel
         .find(filter)
+        .populate('userId', 'fullName email')
         .sort(sort)
         .skip(skip)
         .limit(query.limit)
@@ -123,7 +121,6 @@ export class PatientsService {
     const patient = await this.patientModel.findOneAndUpdate(
       { userId: new Types.ObjectId(userId) },
       {
-        fullName: dto.fullName,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
       },
       { new: true, runValidators: true },
