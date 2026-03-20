@@ -4,7 +4,7 @@ import {
   NotificationDetailCard,
   type NotificationType,
   notificationTypeMap,
-} from "@repo/ui/components/noti-detail-card";
+} from "../components/ui/noti-detail-card";
 
 type NotificationItem = {
   id: number;

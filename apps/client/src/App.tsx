@@ -1,11 +1,11 @@
 import { Layout } from "@repo/ui/layouts/layout";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { LogIn } from "./pages/auth/login";
-import { ChangePassword } from "./pages/auth/change-password";
-import { ForgetPassword } from "./pages/auth/forget-password";
-import { ConfirmOTP } from "./pages/auth/confirm-otp";
+import { LogIn } from "./features/auth/pages/login";
+import { ChangePassword } from "./features/auth/pages/change-password";
+import { ForgetPassword } from "./features/auth/pages/forget-password";
+import { ConfirmOTP } from "./features/auth/pages/confirm-otp";
 import { ToastContainer } from "react-toastify";
-import { SignUp } from "./pages/auth/sign-up";
+import { SignUp } from "./features/auth/pages/sign-up";
 
 function Page({ title }: { title: string }) {
   return (
