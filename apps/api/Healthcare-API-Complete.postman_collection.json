@@ -1444,187 +1444,6 @@
       ]
     },
     {
-      "name": "🔟 AI-ASSISTANT - AI Consultation (12 endpoints)",
-      "item": [
-        {
-          "name": "Start Conversation",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {"raw": {"language": "json"}}
-            },
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/start",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", "start"]
-            },
-            "description": "Start new AI consultation conversation"
-          },
-          "response": []
-        },
-        {
-          "name": "Send Message to AI",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"content\": \"I have a persistent cough for 3 days\",\n  \"attachments\": []\n}",
-              "options": {"raw": {"language": "json"}}
-            },
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:conversationId/message",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":conversationId", "message"]
-            },
-            "description": "Send message to AI in conversation"
-          },
-          "response": []
-        },
-        {
-          "name": "Get My Conversations",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/my-conversations?page=1&limit=10",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "my-conversations"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
-            },
-            "description": "Get user's AI conversations"
-          },
-          "response": []
-        },
-        {
-          "name": "Get All Conversations",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations?page=1&limit=10",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
-            },
-            "description": "Get all conversations (ADMIN only)"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Conversation Detail",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:id",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":id"]
-            },
-            "description": "Get specific conversation with all messages"
-          },
-          "response": []
-        },
-        {
-          "name": "Update Conversation",
-          "request": {
-            "method": "PATCH",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"active\"\n}",
-              "options": {"raw": {"language": "json"}}
-            },
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:id",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":id"]
-            },
-            "description": "Update conversation details"
-          },
-          "response": []
-        },
-        {
-          "name": "Rate Conversation",
-          "request": {
-            "method": "PATCH",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {"raw": {"language": "json"}}
-            },
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:id/rate",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":id", "rate"]
-            },
-            "description": "Rate AI conversation quality"
-          },
-          "response": []
-        },
-        {
-          "name": "Archive Conversation",
-          "request": {
-            "method": "PATCH",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:id/archive",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":id", "archive"]
-            },
-            "description": "Archive conversation"
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Conversation",
-          "request": {
-            "method": "DELETE",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:id",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":id"]
-            },
-            "description": "Delete conversation and history"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Conversation Stats",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:id/stats",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":id", "stats"]
-            },
-            "description": "Get conversation statistics"
-          },
-          "response": []
-        },
-        {
-          "name": "Export Conversation",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/ai-assistant/conversations/:id/export",
-              "host": ["{{base_url}}"],
-              "path": ["ai-assistant", "conversations", ":id", "export"]
-            },
-            "description": "Export conversation as PDF/JSON"
-          },
-          "response": []
-        }
-      ]
-    },
-    {
       "name": "1️⃣1️⃣ ADMIN (Phase 1) - Admin Control (14 endpoints)",
       "item": [
         {
@@ -2461,16 +2280,16 @@
       ]
     },
     {
-      "name": "1️⃣7️⃣ BLACKLIST_KEYWORDS - Content Filtering (7 endpoints)",
+      "name": "1️⃣7️⃣ BLACKLIST_KEYWORDS - Content Filtering (5 endpoints)",
       "item": [
         {
-          "name": "Create Keyword",
+          "name": "Create Blacklist",
           "request": {
             "method": "POST",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"keyword\": \"badword\",\n  \"category\": \"inappropriate\",\n  \"severity\": \"high\"\n}",
+              "raw": "{\n  \"word_list\": [\"badword\", \"offensive\", \"spam\"]\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2478,22 +2297,22 @@
               "host": ["{{base_url}}"],
               "path": ["blacklist-keywords"]
             },
-            "description": "Create blacklist keyword"
+            "description": "Create blacklist with word list"
           },
           "response": []
         },
         {
-          "name": "Get All Keywords",
+          "name": "Get All Blacklists",
           "request": {
             "method": "GET",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "url": {
-              "raw": "{{base_url}}/blacklist-keywords?page=1&limit=10&isActive=true",
+              "raw": "{{base_url}}/blacklist-keywords?page=1&limit=10",
               "host": ["{{base_url}}"],
               "path": ["blacklist-keywords"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "isActive", "value": "true"}]
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]
             },
-            "description": "Get keywords with pagination"
+            "description": "Get blacklists with pagination"
           },
           "response": []
         },
@@ -2517,27 +2336,13 @@
           "response": []
         },
         {
-          "name": "Get Keyword By ID",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/blacklist-keywords/:id",
-              "host": ["{{base_url}}"],
-              "path": ["blacklist-keywords", ":id"]
-            },
-            "description": "Get keyword detail"
-          },
-          "response": []
-        },
-        {
-          "name": "Update Keyword",
+          "name": "Update Blacklist",
           "request": {
             "method": "PATCH",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"severity\": \"medium\"\n}",
+              "raw": "{\n  \"word_list\": [\"badword\", \"offensive\", \"spam\", \"newoffensive\"]\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2545,26 +2350,12 @@
               "host": ["{{base_url}}"],
               "path": ["blacklist-keywords", ":id"]
             },
-            "description": "Update keyword"
+            "description": "Update blacklist word list"
           },
           "response": []
         },
         {
-          "name": "Deactivate Keyword",
-          "request": {
-            "method": "PATCH",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
-            "url": {
-              "raw": "{{base_url}}/blacklist-keywords/:id/deactivate",
-              "host": ["{{base_url}}"],
-              "path": ["blacklist-keywords", ":id", "deactivate"]
-            },
-            "description": "Deactivate keyword"
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Keyword",
+          "name": "Delete Blacklist",
           "request": {
             "method": "DELETE",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
@@ -2573,7 +2364,7 @@
               "host": ["{{base_url}}"],
               "path": ["blacklist-keywords", ":id"]
             },
-            "description": "Delete keyword"
+            "description": "Delete blacklist"
           },
           "response": []
         }

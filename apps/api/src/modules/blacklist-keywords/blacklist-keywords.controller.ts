@@ -13,10 +13,8 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { BlacklistKeywordsService } from './blacklist-keywords.service';
 import { CreateBlacklistKeywordDto, UpdateBlacklistKeywordDto, QueryBlacklistKeywordDto } from './dto/create-blacklist-keyword.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { RolesGuard } from '../../core/guards/roles.guard';
-import type { UserPayload } from '../auth/auth.payload';
 import { UserRole } from '../users/enums/user-role.enum';
 
 @ApiTags('Blacklist Keywords')
@@ -28,8 +26,8 @@ export class BlacklistKeywordsController {
 
   @Post()
   @Roles(UserRole.ADMIN)
-  async create(@CurrentUser() user: UserPayload, @Body() createDto: CreateBlacklistKeywordDto) {
-    return this.service.create(user.id, createDto);
+  async create(@Body() createDto: CreateBlacklistKeywordDto) {
+    return this.service.create(createDto);
   }
 
   @Get()
@@ -45,31 +43,19 @@ export class BlacklistKeywordsController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN)
-  async getKeyword(@Param('id') keywordId: string) {
-    return this.service.findById(keywordId);
+  async getKeyword(@Param('id') id: string) {
+    return this.service.findById(id);
   }
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  async updateKeyword(@Param('id') keywordId: string, @Body() updateDto: UpdateBlacklistKeywordDto) {
-    return this.service.update(keywordId, updateDto);
-  }
-
-  @Patch(':id/deactivate')
-  @Roles(UserRole.ADMIN)
-  async deactivateKeyword(@Param('id') keywordId: string) {
-    return this.service.deactivate(keywordId);
-  }
-
-  @Patch(':id/activate')
-  @Roles(UserRole.ADMIN)
-  async activateKeyword(@Param('id') keywordId: string) {
-    return this.service.activate(keywordId);
+  async updateKeyword(@Param('id') id: string, @Body() updateDto: UpdateBlacklistKeywordDto) {
+    return this.service.update(id, updateDto);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  async deleteKeyword(@Param('id') keywordId: string) {
-    return this.service.delete(keywordId);
+  async deleteKeyword(@Param('id') id: string) {
+    return this.service.delete(id);
   }
 }

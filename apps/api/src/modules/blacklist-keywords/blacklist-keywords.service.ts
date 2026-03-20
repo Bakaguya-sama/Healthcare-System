@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BlacklistKeyword, BlacklistKeywordDocument } from './entities/blacklist-keyword.entity';
@@ -10,42 +10,24 @@ export class BlacklistKeywordsService {
     @InjectModel(BlacklistKeyword.name) private keywordModel: Model<BlacklistKeywordDocument>,
   ) {}
 
-  async create(userId: string, createDto: CreateBlacklistKeywordDto): Promise<BlacklistKeyword> {
+  async create(createDto: CreateBlacklistKeywordDto): Promise<BlacklistKeyword> {
     try {
-      // Check if keyword already exists
-      const existing = await this.keywordModel.findOne({ keyword: createDto.keyword.toLowerCase() });
-      if (existing) {
-        throw new ConflictException('This keyword is already blacklisted');
-      }
-
-      const keyword = new this.keywordModel({
-        ...createDto,
-        keyword: createDto.keyword.toLowerCase(),
-        addedBy: new Types.ObjectId(userId),
-        severity: createDto.severity || 'medium',
-        exactMatch: createDto.exactMatch ?? true,
-        caseInsensitive: createDto.caseInsensitive ?? true,
-        isActive: true,
+      const blacklist = new this.keywordModel({
+        word_list: createDto.word_list.map(w => w.toLowerCase()),
       });
-      return await keyword.save();
+      return await blacklist.save();
     } catch (error) {
-      if (error.code === 11000) {
-        throw new ConflictException('This keyword is already blacklisted');
-      }
-      throw new BadRequestException(`Failed to create blacklist keyword: ${error.message}`);
+      throw new BadRequestException(`Failed to create blacklist: ${error.message}`);
     }
   }
 
   async findAll(query: QueryBlacklistKeywordDto): Promise<{ data: BlacklistKeyword[]; total: number }> {
-    const { page = 1, limit = 10, category, severity, isActive, search, sortBy = 'createdAt', sortOrder = -1 } = query;
+    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = -1 } = query;
 
     const filter: any = {};
 
-    if (category) filter.category = category;
-    if (severity) filter.severity = severity;
-    if (isActive !== undefined) filter.isActive = isActive;
     if (search) {
-      filter.keyword = { $regex: search, $options: 'i' };
+      filter.word_list = { $regex: search, $options: 'i' };
     }
 
     const skip = (page - 1) * limit;
@@ -61,77 +43,50 @@ export class BlacklistKeywordsService {
     return { data, total };
   }
 
-  async findById(keywordId: string): Promise<BlacklistKeyword> {
-    const keyword = await this.keywordModel.findById(new Types.ObjectId(keywordId)).exec();
-    if (!keyword) {
-      throw new NotFoundException(`Blacklist keyword with ID ${keywordId} not found`);
+  async findById(id: string): Promise<BlacklistKeyword> {
+    const blacklist = await this.keywordModel.findById(new Types.ObjectId(id)).exec();
+    if (!blacklist) {
+      throw new NotFoundException(`Blacklist with ID ${id} not found`);
     }
-    return keyword;
+    return blacklist;
   }
 
-  async findByKeyword(keyword: string): Promise<BlacklistKeyword | null> {
-    return await this.keywordModel.findOne({ keyword: keyword.toLowerCase(), isActive: true }).exec();
+  async update(id: string, updateDto: UpdateBlacklistKeywordDto): Promise<BlacklistKeyword> {
+    const blacklist = await this.findById(id);
+
+    if (updateDto.word_list) {
+      blacklist.word_list = updateDto.word_list.map(w => w.toLowerCase());
+    }
+
+    return await blacklist.save();
   }
 
-  async update(keywordId: string, updateDto: UpdateBlacklistKeywordDto): Promise<BlacklistKeyword> {
-    const keyword = await this.findById(keywordId);
+  async checkContent(content: string): Promise<{ flagged: boolean; flaggedWords: string[] }> {
+    const blacklists = await this.keywordModel.find().exec();
 
-    Object.assign(keyword, updateDto);
-    return await keyword.save();
-  }
+    const flaggedWords: Set<string> = new Set();
+    const lowerContent = content.toLowerCase();
 
-  async checkContent(content: string): Promise<{ flagged: boolean; flaggedKeywords: BlacklistKeyword[] }> {
-    const activeKeywords = await this.keywordModel.find({ isActive: true }).exec();
-
-    const flaggedKeywords: BlacklistKeyword[] = [];
-
-    for (const kw of activeKeywords) {
-      const lowerContent = content.toLowerCase();
-      const lowerKeyword = kw.keyword.toLowerCase();
-      
-      if (lowerContent.includes(lowerKeyword)) {
-        flaggedKeywords.push(kw);
+    for (const blacklist of blacklists) {
+      for (const word of blacklist.word_list) {
+        if (lowerContent.includes(word.toLowerCase())) {
+          flaggedWords.add(word);
+        }
       }
     }
 
     return {
-      flagged: flaggedKeywords.length > 0,
-      flaggedKeywords,
+      flagged: flaggedWords.size > 0,
+      flaggedWords: Array.from(flaggedWords),
     };
   }
 
-  async delete(keywordId: string): Promise<BlacklistKeyword> {
-    const keyword = await this.keywordModel.findByIdAndDelete(new Types.ObjectId(keywordId));
+  async delete(id: string): Promise<BlacklistKeyword> {
+    const blacklist = await this.keywordModel.findByIdAndDelete(new Types.ObjectId(id));
 
-    if (!keyword) {
-      throw new NotFoundException(`Blacklist keyword with ID ${keywordId} not found`);
+    if (!blacklist) {
+      throw new NotFoundException(`Blacklist with ID ${id} not found`);
     }
-    return keyword;
-  }
-
-  async deactivate(keywordId: string): Promise<BlacklistKeyword> {
-    const keyword = await this.keywordModel.findByIdAndUpdate(
-      new Types.ObjectId(keywordId),
-      { isActive: false },
-      { new: true },
-    );
-
-    if (!keyword) {
-      throw new NotFoundException(`Blacklist keyword with ID ${keywordId} not found`);
-    }
-    return keyword;
-  }
-
-  async activate(keywordId: string): Promise<BlacklistKeyword> {
-    const keyword = await this.keywordModel.findByIdAndUpdate(
-      new Types.ObjectId(keywordId),
-      { isActive: true },
-      { new: true },
-    );
-
-    if (!keyword) {
-      throw new NotFoundException(`Blacklist keyword with ID ${keywordId} not found`);
-    }
-    return keyword;
+    return blacklist;
   }
 }

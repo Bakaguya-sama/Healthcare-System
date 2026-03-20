@@ -17,7 +17,6 @@ import { HealthMetricsModule } from './modules/health-metrics/health-metrics.mod
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
-import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ViolationsModule } from './modules/violations/violations.module';
 
@@ -50,7 +49,6 @@ import { ViolationsModule } from './modules/violations/violations.module';
     SessionsModule,
     ChatModule,
     ReviewsModule,
-    AiAssistantModule,
     AdminModule,
     ViolationsModule,
   ],

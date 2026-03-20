@@ -57,7 +57,7 @@
 12. **Violation_Reports** → id, reporter_id, reported_user_id, report_type, reason, status
 
 **Knowledge Base (4 Bảng):**
-13. **Blacklist_Keywords** → id, keyword, category, severity
+13. **Blacklist_Keywords** → id, word_list
 14. **AI_Documents** → id, title, file_url, file_type, status, uploaded_by
 15. **AI_Document_Chunks** → id, document_id, chunk_index, content, embedding, is_active
 16. **Notifications** → id, user_id, title, message, is_read, type
@@ -866,34 +866,244 @@ Query: format=pdf
 ```
 
 **Checklist:**
-- [ ] AI responds to each message within 5 seconds
-- [ ] Conversation history complete
-- [ ] Rating 1-5 scale
-- [ ] Can export to PDF/JSON
-- [ ] Archive marks read-only
-- [ ] Delete removes permanently
-- [ ] Stats show message count, duration, rating
+- [ ] Can create AI sessions
+- [ ] Messages tracked properly
+- [ ] Feedbacks saved correctly
+- [ ] Status changes work (active → completed)
+- [ ] Timestamps auto-generated
 
 ---
 
-### 1️⃣2️⃣ AI_SESSIONS - AI Session Management
-**Collection:** `1️⃣2️⃣ AI_SESSIONS - AI Session Management`
+### 1️⃣0️⃣ AI_SESSIONS - AI Session Management
+**Collection:** `1️⃣0️⃣ AI_SESSIONS - AI Session Management`
 
 #### Commands
 ```bash
 # 1. Create AI session
 POST {{base_url}}/ai-sessions
+Header: Authorization: Bearer {{jwt_token}}
 Body: {
-  "userId": "{{user_id}}",
-  "sessionType": "consultation",
-  "topic": "General health checkup",
-  "description": "Initial AI assessment needed"
+  "status": "active"
 }
 ✅ Expected: 201, session_id created
 
 # 2. Get my AI sessions
 GET {{base_url}}/ai-sessions/my-sessions?page=1&limit=10&status=active
+✅ Expected: 200, patient's AI sessions
+
+# 3. Complete AI session
+PATCH {{base_url}}/ai-sessions/{{session_id}}/complete
+Body: {
+  "status": "completed"
+}
 ✅ Expected: 200
+```
+
+---
+
+### 1️⃣1️⃣ AI_MESSAGES - Message Management
+**Collection:** `1️⃣1️⃣ AI_MESSAGES - Message Management`
+
+#### Commands
+```bash
+# 1. Send message to AI
+POST {{base_url}}/ai-messages
+Body: {
+  "aiSessionId": "{{session_id}}",
+  "senderType": "patient",
+  "content": "I have a persistent cough"
+}
+✅ Expected: 201
+
+# 2. Get messages in session
+GET {{base_url}}/ai-messages/session/{{session_id}}
+✅ Expected: 200, all messages in session
+```
+
+---
+
+### 1️⃣2️⃣ AI_FEEDBACKS - AI Feedback Management
+**Collection:** `1️⃣2️⃣ AI_FEEDBACKS - AI Feedback Management`
+
+#### Commands
+```bash
+# 1. Create feedback for AI session
+POST {{base_url}}/ai-feedbacks
+Body: {
+  "aiSessionId": "{{session_id}}",
+  "content": "AI response was helpful"
+}
+✅ Expected: 201
+
+# 2. Update feedback
+PATCH {{base_url}}/ai-feedbacks/{{feedback_id}}
+Body: {
+  "content": "Updated feedback"
+}
+✅ Expected: 200
+```
+
+---
+
+### 1️⃣3️⃣ AI_DOCUMENTS - Document Management
+**Collection:** `1️⃣3️⃣ AI_DOCUMENTS - Document Management`
+
+#### Commands
+```bash
+# 1. Upload document (ADMIN)
+POST {{base_url}}/ai-documents
+Body: {
+  "title": "Treatment Guidelines 2026",
+  "fileUrl": "s3://docs/guidelines.pdf",
+  "fileType": "pdf",
+  "status": "processing",
+  "uploadedBy": "{{admin_id}}"
+}
+✅ Expected: 201, document queued for processing
+
+# 2. Get all documents
+GET {{base_url}}/ai-documents?page=1&limit=10&status=active
+✅ Expected: 200, active documents
+```
+
+---
+
+### 1️⃣4️⃣ AI_DOCUMENT_CHUNKS - RAG Chunks
+**Collection:** `1️⃣4️⃣ AI_DOCUMENT_CHUNKS - RAG Chunks`
+
+#### Commands
+```bash
+# 1. Create chunk (auto-generated from document)
+POST {{base_url}}/ai-document-chunks
+Body: {
+  "documentId": "{{document_id}}",
+  "chunkIndex": 1,
+  "content": "Section 1 text...",
+  "embedding": [...],
+  "isActive": true
+}
+✅ Expected: 201
+
+# 2. Get chunks for document
+GET {{base_url}}/ai-document-chunks/document/{{document_id}}
+✅ Expected: 200, all chunks
+```
+
+---
+
+### 1️⃣5️⃣ BLACKLIST_KEYWORDS - Content Filtering
+**Collection:** `1️⃣5️⃣ BLACKLIST_KEYWORDS - Content Filtering`
+
+#### Commands
+```bash
+# 1. Create blacklist word list (ADMIN)
+POST {{base_url}}/blacklist-keywords
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "word_list": ["badword", "offensive", "spam"]
+}
+✅ Expected: 201
+
+# 2. Check content against blacklist
+POST {{base_url}}/blacklist-keywords/check
+Body: {
+  "content": "This message contains badword in it"
+}
+✅ Expected: 200, flagged = true, flaggedWords = ["badword"]
+
+# 3. Update blacklist word list (ADMIN)
+PATCH {{base_url}}/blacklist-keywords/:id
+Body: {
+  "word_list": ["badword", "offensive", "spam", "newoffensive"]
+}
+✅ Expected: 200
+
+# 4. Delete blacklist (ADMIN)
+DELETE {{base_url}}/blacklist-keywords/:id
+✅ Expected: 200
+```
+
+---
+
+### 1️⃣6️⃣ AI_HEALTH_INSIGHTS - Health Insights
+**Collection:** `1️⃣6️⃣ AI_HEALTH_INSIGHTS - Health Insights`
+
+#### Commands
+```bash
+# 1. Create health insight (AI-generated)
+POST {{base_url}}/ai-health-insights
+Body: {
+  "patientId": "{{patient_id}}",
+  "analyzedMetrics": {"blood_pressure": "150/90", "heart_rate": 100},
+  "riskLevel": "warning",
+  "advice": "Consult doctor immediately"
+}
+✅ Expected: 201
+
+# 2. Get patient insights
+GET {{base_url}}/ai-health-insights/patient/{{patient_id}}
+✅ Expected: 200, all insights for patient
+```
+
+---
+
+## 🧠 PHASE 12: VIOLATIONS & CLEANUP (8 endpoints)
+
+**Mục tiêu:** AI Health insights từ metrics
+
+### 1️⃣7️⃣ VIOLATIONS - Violation Reports
+**Collection:** `1️⃣7️⃣ VIOLATIONS - Violation Reports`
+
+#### Commands
+```bash
+# 1. Report a violation
+POST {{base_url}}/violations
+Body: {
+  "reporterId": "{{user_id}}",
+  "reportedUserId": "{{doctor_id}}",
+  "reportType": "harassment",
+  "reason": "Doctor was rude to patient",
+  "status": "pending"
+}
+✅ Expected: 201
+
+# 2. Get pending violations (ADMIN)
+GET {{base_url}}/violations?page=1&limit=10&status=pending
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200, pending violations
+
+# 3. Resolve violation (ADMIN)
+PATCH {{base_url}}/violations/{{violation_id}}
+Body: {
+  "status": "resolved"
+}
+✅ Expected: 200
+```
+
+---
+
+## ✅ FINAL VERIFICATION
+
+**All 17 tables template-aligned:**
+1. ✅ Users
+2. ✅ Patients
+3. ✅ Doctors
+4. ✅ Admins
+5. ✅ Health_Metrics
+6. ✅ AI_Sessions
+7. ✅ AI_Messages
+8. ✅ AI_Feedbacks
+9. ✅ Doctor_Sessions (Sessions)
+10. ✅ Doctor_Messages (Chat)
+11. ✅ Reviews
+12. ✅ Violation_Reports (Violations)
+13. ✅ Notifications
+14. ✅ AI_Documents
+15. ✅ AI_Document_Chunks
+16. ✅ Blacklist_Keywords
+17. ✅ AI_Health_Insights
+
+**No surplus modules or fields. Ready for production!**
 
 # 3. Complete AI session
 PATCH {{base_url}}/ai-sessions/{{session_id}}/complete
@@ -1209,24 +1419,31 @@ Header: Authorization: Bearer {{admin_token}}
 
 #### Commands
 ```bash
-# 1. Add blacklist keyword (ADMIN)
+# 1. Create blacklist word list (ADMIN)
 POST {{base_url}}/blacklist-keywords
 Header: Authorization: Bearer {{admin_token}}
 Body: {
-  "keyword": "badword123",
-  "pattern": "^(badword|variant)$",
-  "category": "inappropriate",
-  "severity": "high",
-  "isActive": true
+  "word_list": ["badword", "offensive", "spam"]
 }
 ✅ Expected: 201
 
 # 2. Check content against blacklist
 POST {{base_url}}/blacklist-keywords/check
 Body: {
-  "content": "This message contains badword123 in it"
+  "content": "This message contains badword in it"
 }
-✅ Expected: 200, flagged = true, violations = ["badword123"]
+✅ Expected: 200, flagged = true, flaggedWords = ["badword"]
+
+# 3. Update blacklist word list (ADMIN)
+PATCH {{base_url}}/blacklist-keywords/:id
+Body: {
+  "word_list": ["badword", "offensive", "spam", "newoffensive"]
+}
+✅ Expected: 200
+
+# 4. Delete blacklist (ADMIN)
+DELETE {{base_url}}/blacklist-keywords/:id
+✅ Expected: 200
 ```
 
 ---

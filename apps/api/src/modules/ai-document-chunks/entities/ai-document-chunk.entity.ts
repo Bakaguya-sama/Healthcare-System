@@ -35,4 +35,4 @@ export type AiDocumentChunkDocument = AiDocumentChunk & Document;
 // Create indexes
 AiDocumentChunkSchema.index({ documentId: 1, chunkIndex: 1 });
 AiDocumentChunkSchema.index({ content: 'text' });
-AiDocumentChunkSchema.index({ documentId: 1, usageCount: -1 });
+AiDocumentChunkSchema.index({ documentId: 1, isActive: 1 });
