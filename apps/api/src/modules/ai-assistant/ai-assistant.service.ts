@@ -151,14 +151,22 @@ export class AiAssistantService {
 
     // Get AI response
     const model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_PROMPT,
     });
 
-    const chatHistory = conversation.messages.map((m) => ({
-      role: m.role,
-      parts: [{ text: m.content }],
-    }));
+    // Chuyển đổi role cho phù hợp với yêu cầu của Gemini API
+    const chatHistory = conversation.messages.map((m) => {
+      let mappedRole = m.role.toString();
+      // Nếu role trong DB là 'assistant', chuyển thành 'model' cho Gemini
+      if (mappedRole === 'assistant' || mappedRole === MessageRole.ASSISTANT) {
+        mappedRole = 'model';
+      }
+      return {
+        role: mappedRole,
+        parts: [{ text: m.content }],
+      };
+    });
 
     const chat = model.startChat({ history: chatHistory.slice(0, -1) });
 
