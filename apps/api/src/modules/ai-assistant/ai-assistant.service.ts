@@ -1,3 +1,8 @@
+import { FaissStore } from '@langchain/community/vectorstores/faiss';
+import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   Injectable,
   BadRequestException,
@@ -41,20 +46,36 @@ Quy tắc bắt buộc:
 export class AiAssistantService {
   private genAI: GoogleGenerativeAI;
 
+  // RAG
+  private vectorStore: FaissStore;
+  private readonly vectorStorePath = path.join(process.cwd(), 'vector_db');
+  private embeddings: GoogleGenerativeAIEmbeddings;
+
   constructor(
     @InjectModel(AiConversation.name)
     private aiConversationModel: Model<AiConversationDocument>,
     private configService: ConfigService,
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-    console.log('[AI Assistant] GEMINI_API_KEY loaded:', apiKey ? '✅ Key exists' : '❌ Key missing');
-    
+    console.log(
+      '[AI Assistant] GEMINI_API_KEY loaded:',
+      apiKey ? '✅ Key exists' : '❌ Key missing',
+    );
+
     if (!apiKey || apiKey === 'dev_key_placeholder') {
-      console.warn('[AI Assistant] WARNING: GEMINI_API_KEY is not properly configured');
+      console.warn(
+        '[AI Assistant] WARNING: GEMINI_API_KEY is not properly configured',
+      );
     }
-    
+
     try {
       this.genAI = new GoogleGenerativeAI(apiKey || '');
+
+      // Initializing embedding for FAISS
+      this.embeddings = new GoogleGenerativeAIEmbeddings({
+        apiKey: apiKey || '',
+        modelName: 'text-embedding-004',
+      });
     } catch (error) {
       console.error('[AI Assistant] Failed to initialize Gemini AI:', error);
     }
@@ -154,7 +175,8 @@ export class AiAssistantService {
 
       conversation.messageCount = conversation.messages.length;
       conversation.lastMessageAt = new Date();
-      conversation.totalTokensUsed += Math.ceil(dto.message.length / 4) + Math.ceil(aiResponse.length / 4);
+      conversation.totalTokensUsed +=
+        Math.ceil(dto.message.length / 4) + Math.ceil(aiResponse.length / 4);
 
       await conversation.save();
 
@@ -170,35 +192,42 @@ export class AiAssistantService {
       };
     } catch (error) {
       console.error('[AI Assistant] Gemini API Error:', error);
-      
+
       const apiKey = this.configService.get<string>('GEMINI_API_KEY');
       console.log('[AI Assistant] Current API Key status:', {
         exists: !!apiKey,
         isPlaceholder: apiKey === 'dev_key_placeholder',
         keyLength: apiKey?.length || 0,
       });
-      
+
       if (!apiKey || apiKey === 'dev_key_placeholder') {
         throw new BadRequestException(
           'Gemini API Key not configured. Please set GEMINI_API_KEY in .env file and restart the server.',
         );
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+
       // If quota exceeded, use mock response for development
-      if (errorMessage.includes('429') || errorMessage.includes('Quota exceeded')) {
-        console.warn('[AI Assistant] Gemini API quota exceeded. Using mock response for development.');
-        
+      if (
+        errorMessage.includes('429') ||
+        errorMessage.includes('Quota exceeded')
+      ) {
+        console.warn(
+          '[AI Assistant] Gemini API quota exceeded. Using mock response for development.',
+        );
+
         const mockResponses = [
           'Dựa vào triệu chứng bạn mô tả, tôi khuyến nghị bạn nên: 1) Ghi chép lại các triệu chứng chi tiết, 2) Đo nhiệt độ và huyết áp, 3) Liên hệ với bác sĩ để được tư vấn chuyên môn. Các triệu chứng này cần được kiểm tra kỹ lưỡng.',
           'Tôi hiểu rằng bạn đang lo lắng về sức khỏe. Để đưa ra lời khuyên tốt nhất, bạn nên: 1) Nêu rõ thêm các triệu chứng, 2) Cho biết thời gian bắt đầu, 3) Nếu có bệnh lý nền. Hãy gặp bác sĩ sớm nhất có thể.',
           'Cảm ơn bạn đã chia sẻ thông tin sức khỏe. Dựa vào lời mô tả, điều quan trọng là: 1) Theo dõi các triệu chứng thêm, 2) Giữ vệ sinh cá nhân tốt, 3) Uống đủ nước, 4) Liên hệ bác sĩ ngay nếu tình trạng xấu đi. Sức khỏe của bạn là ưu tiên hàng đầu.',
           'Tôi chỉ có thể cung cấp thông tin tổng quát. Để được chẩn đoán chính xác, bạn cần gặp bác sĩ chuyên khoa. Trong lúc chờ, hãy: 1) Ghi chép chi tiết triệu chứng, 2) Rước lịch sử y tế cá nhân và gia đình, 3) Chuẩn bị các câu hỏi cho bác sĩ.',
         ];
-        
-        const mockResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-        
+
+        const mockResponse =
+          mockResponses[Math.floor(Math.random() * mockResponses.length)];
+
         // Add mock AI response to history
         conversation.messages.push({
           role: MessageRole.ASSISTANT,
@@ -212,7 +241,8 @@ export class AiAssistantService {
 
         return {
           statusCode: 200,
-          message: 'Message processed successfully (Mock response - API quota exceeded)',
+          message:
+            'Message processed successfully (Mock response - API quota exceeded)',
           data: {
             conversationId: conversation._id,
             userMessage: dto.message,
@@ -465,7 +495,10 @@ export class AiAssistantService {
     return {
       statusCode: 200,
       message: 'Conversation rated successfully',
-      data: { rating: conversation.rating, comment: conversation.ratingComment },
+      data: {
+        rating: conversation.rating,
+        comment: conversation.ratingComment,
+      },
     };
   }
 
@@ -688,6 +721,71 @@ export class AiAssistantService {
         total,
         pages: Math.ceil(total / query.limit),
       },
+    };
+  }
+
+  /**
+   * 📚 RAG BƯỚC 1: NẠP DỮ LIỆU Y KHOA VÀO FAISS (VECTOR DB)
+   */
+  async seedMedicalKnowledgeBase() {
+    console.log('[AI Assistant] Bắt đầu nạp dữ liệu y khoa vào Vector DB...');
+
+    // Dữ liệu mẫu (Sau này bạn có thể gọi từ DB bảng ai_documents ra)
+    const sampleMedicalData = `
+    Bệnh Sốt Xuất Huyết (Dengue Fever):
+    Triệu chứng cơ bản: Sốt cao đột ngột 39-40 độ C, kéo dài 2-7 ngày. Đau đầu dữ dội vùng trán, nhức hai hố mắt. Có chấm xuất huyết ở dưới da, chảy máu chân răng hoặc chảy máu cam.
+    Cách xử lý tại nhà: Uống nhiều nước (Oresol, nước trái cây). Dùng thuốc hạ sốt Paracetamol. Tuyệt đối không dùng Aspirin hay Ibuprofen vì gây chảy máu.
+    
+    Bệnh Cúm A (Influenza A):
+    Triệu chứng: Sốt, ớn lạnh, ho, đau họng, chảy nước mũi, nghẹt mũi, đau nhức cơ bắp và mệt mỏi nghiêm trọng.
+    Cách xử lý: Nghỉ ngơi ngơi nhiều, uống nhiều nước ấm. Có thể sử dụng thuốc giảm ho, thuốc xịt mũi không kê đơn. Nếu khó thở phải đến bệnh viện ngay.
+    `;
+
+    const textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 500,
+      chunkOverlap: 50,
+    });
+
+    const docs = await textSplitter.createDocuments([sampleMedicalData]);
+    console.log(
+      `[AI Assistant] Đã băm tài liệu thành ${docs.length} đoạn nhỏ.`,
+    );
+
+    this.vectorStore = await FaissStore.fromDocuments(docs, this.embeddings);
+
+    if (!fs.existsSync(this.vectorStorePath)) {
+      fs.mkdirSync(this.vectorStorePath);
+    }
+    await this.vectorStore.save(this.vectorStorePath);
+    console.log(
+      `[AI Assistant] Hoàn tất! Đã lưu Database tại: ${this.vectorStorePath}`,
+    );
+
+    return { statusCode: 200, message: 'Đã nạp kiến thức thành công!' };
+  }
+
+  /**
+   * 🔍 RAG BƯỚC 2: TÌM KIẾM KIẾN THỨC THEO CÂU HỎI
+   */
+  async testVectorSearch(query: string) {
+    if (!this.vectorStore) {
+      if (fs.existsSync(this.vectorStorePath)) {
+        this.vectorStore = await FaissStore.load(
+          this.vectorStorePath,
+          this.embeddings,
+        );
+      } else {
+        throw new BadRequestException(
+          'Chưa có Vector DB. Hãy chạy API Seed Data trước.',
+        );
+      }
+    }
+
+    const results = await this.vectorStore.similaritySearch(query, 2);
+    return {
+      statusCode: 200,
+      query: query,
+      results: results.map((r) => r.pageContent),
     };
   }
 }

@@ -70,7 +70,9 @@ export class AiAssistantController {
    */
   @Get('conversations')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy danh sách tất cả cuộc trò chuyện của người dùng' })
+  @ApiOperation({
+    summary: 'Lấy danh sách tất cả cuộc trò chuyện của người dùng',
+  })
   async getConversations(
     @CurrentUser('sub') userId: string,
     @Query() query: QueryConversationDto,
@@ -198,7 +200,9 @@ export class AiAssistantController {
    */
   @Get('summary')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy tổng hợp thông tin cuộc trò chuyện của người dùng' })
+  @ApiOperation({
+    summary: 'Lấy tổng hợp thông tin cuộc trò chuyện của người dùng',
+  })
   async getUserConversationSummary(@CurrentUser('sub') userId: string) {
     return this.aiAssistantService.getUserConversationSummary(userId);
   }
@@ -233,5 +237,29 @@ export class AiAssistantController {
       searchQuery,
       query,
     );
+  }
+
+  /**
+   * RAG API 1: Nạp kiến thức y khoa
+   */
+  @Post('knowledge-base/seed')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Nạp dữ liệu y tế vào Vector DB (FAISS)' })
+  async seedKnowledgeBase() {
+    return this.aiAssistantService.seedMedicalKnowledgeBase();
+  }
+
+  /**
+   * RAG API 2: Test tìm kiếm thông tin
+   */
+  @Get('knowledge-base/test-search')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Test tìm kiếm nội dung y tế trong Vector DB' })
+  @ApiQuery({
+    name: 'q',
+    description: 'Câu hỏi cần tìm kiếm (VD: Làm sao khi bị cúm?)',
+  })
+  async testVectorSearch(@Query('q') query: string) {
+    return this.aiAssistantService.testVectorSearch(query);
   }
 }
