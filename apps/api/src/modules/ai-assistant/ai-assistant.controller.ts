@@ -21,7 +21,7 @@ import {
 import { AiAssistantService } from './ai-assistant.service';
 import {
   StartConversationDto,
-  SendMessageDto,
+  AiSendMessageDto,
   RateConversationDto,
   ArchiveConversationDto,
   UpdateConversationDto,
@@ -60,7 +60,7 @@ export class AiAssistantController {
   async sendMessage(
     @CurrentUser('sub') userId: string,
     @Param('conversationId') conversationId: string,
-    @Body() dto: SendMessageDto,
+    @Body() dto: AiSendMessageDto,
   ) {
     return this.aiAssistantService.sendMessage(userId, conversationId, dto);
   }

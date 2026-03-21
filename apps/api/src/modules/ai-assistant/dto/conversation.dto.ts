@@ -9,10 +9,16 @@ import {
   IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { ConversationType, MessageRole } from '../entities/ai-conversation.entity';
+import {
+  ConversationType,
+  MessageRole,
+} from '../entities/ai-conversation.entity';
 
 export class StartConversationDto {
-  @ApiProperty({ example: 'health_inquiry', description: 'Type of conversation' })
+  @ApiProperty({
+    example: 'health_inquiry',
+    description: 'Type of conversation',
+  })
   @IsOptional()
   @IsEnum(ConversationType)
   type?: ConversationType;
@@ -33,7 +39,7 @@ export class StartConversationDto {
   tags?: string[];
 }
 
-export class SendMessageDto {
+export class AiSendMessageDto {
   @ApiProperty({
     example: 'Huyết áp 140/90 có nguy hiểm không?',
     description: 'Message content to send to AI',
@@ -51,7 +57,12 @@ export class SendMessageDto {
 }
 
 export class RateConversationDto {
-  @ApiProperty({ example: 5, description: 'Rating from 1 to 5', minimum: 1, maximum: 5 })
+  @ApiProperty({
+    example: 5,
+    description: 'Rating from 1 to 5',
+    minimum: 1,
+    maximum: 5,
+  })
   @IsNotEmpty()
   rating: number;
 
@@ -74,7 +85,10 @@ export class UpdateConversationDto {
   @IsString()
   topic?: string;
 
-  @ApiProperty({ example: 'Internal note about this conversation', required: false })
+  @ApiProperty({
+    example: 'Internal note about this conversation',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(1000)

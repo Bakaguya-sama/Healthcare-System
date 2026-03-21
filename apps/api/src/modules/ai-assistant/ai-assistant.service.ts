@@ -22,7 +22,7 @@ import {
 } from './entities/ai-conversation.entity';
 import {
   StartConversationDto,
-  SendMessageDto,
+  AiSendMessageDto,
   RateConversationDto,
   ArchiveConversationDto,
   UpdateConversationDto,
@@ -119,7 +119,7 @@ export class AiAssistantService {
   async sendMessage(
     userId: string,
     conversationId: string,
-    dto: SendMessageDto,
+    dto: AiSendMessageDto,
   ) {
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
