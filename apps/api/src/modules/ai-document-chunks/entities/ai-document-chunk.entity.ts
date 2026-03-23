@@ -20,7 +20,10 @@ export class AiDocumentChunk extends Document {
   content: string;
 
   @Prop()
-  @ApiProperty({ description: 'Embedding vector (for vector search)', required: false })
+  @ApiProperty({
+    description: 'Embedding vector (for vector search)',
+    required: false,
+  })
   embedding?: number[];
 
   @Prop({ default: true })
@@ -28,7 +31,8 @@ export class AiDocumentChunk extends Document {
   isActive: boolean;
 }
 
-export const AiDocumentChunkSchema = SchemaFactory.createForClass(AiDocumentChunk);
+export const AiDocumentChunkSchema =
+  SchemaFactory.createForClass(AiDocumentChunk);
 
 export type AiDocumentChunkDocument = AiDocumentChunk & Document;
 
