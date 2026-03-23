@@ -6,11 +6,16 @@ import {
   AiConversation,
   AiConversationSchema,
 } from './entities/ai-conversation.entity';
+import {
+  AiDocumentChunk,
+  AiDocumentChunkSchema,
+} from '../ai-document-chunks/entities/ai-document-chunk.entity';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: AiConversation.name, schema: AiConversationSchema },
+      { name: AiDocumentChunk.name, schema: AiDocumentChunkSchema },
     ]),
   ],
   controllers: [AiAssistantController],

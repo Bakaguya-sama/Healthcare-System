@@ -2,16 +2,16 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, collection: 'aidocumentchunks' })
 export class AiDocumentChunk extends Document {
   @ApiProperty({ description: 'Chunk ID' })
   declare _id: Types.ObjectId;
 
-  @Prop({ required: true, type: Types.ObjectId })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'AiDocument' })
   @ApiProperty({ description: 'Original document ID' })
   documentId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ default: 0 })
   @ApiProperty({ description: 'Chunk index/sequence' })
   chunkIndex: number;
 
@@ -21,10 +21,11 @@ export class AiDocumentChunk extends Document {
 
   @Prop()
   @ApiProperty({
+    type: [Number],
     description: 'Embedding vector (for vector search)',
-    required: false,
+    required: true,
   })
-  embedding?: number[];
+  embedding: number[];
 
   @Prop({ default: true })
   @ApiProperty({ description: 'Whether chunk is active' })
