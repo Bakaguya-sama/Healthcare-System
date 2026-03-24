@@ -117,9 +117,12 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
+      '@langchain/classic':
+        specifier: ^1.0.24
+        version: 1.0.24(@langchain/core@1.1.34(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3))(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3)
       '@langchain/community':
         specifier: ^1.1.24
-        version: 1.1.24(@browserbasehq/sdk@2.9.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.58.2)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.10(typescript@5.9.3))(@langchain/core@1.1.34(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3))(faiss-node@0.5.1)(ibm-cloud-sdk-core@5.4.9)(ignore@7.0.5)(jsonwebtoken@9.0.3)(lodash@4.17.23)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(playwright@1.58.2)(ws@8.18.3)
+        version: 1.1.24(@browserbasehq/sdk@2.9.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.58.2)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.10(typescript@5.9.3))(@langchain/core@1.1.34(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3))(faiss-node@0.5.1)(ibm-cloud-sdk-core@5.4.9)(ignore@7.0.5)(jsonwebtoken@9.0.3)(lodash@4.17.23)(mongodb@7.1.0)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(playwright@1.58.2)(ws@8.18.3)
       '@langchain/core':
         specifier: ^1.1.34
         version: 1.1.34(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3)
@@ -174,12 +177,12 @@ importers:
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
-      faiss-node:
-        specifier: ^0.5.1
-        version: 0.5.1
       langchain:
         specifier: ^1.2.35
         version: 1.2.35(@langchain/core@1.1.34(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3))(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(ws@8.18.3)(zod-to-json-schema@3.25.1(zod@4.3.6))
+      mongodb:
+        specifier: ^7.1.0
+        version: 7.1.0
       mongoose:
         specifier: ^9.3.0
         version: 9.3.0
@@ -8029,7 +8032,7 @@ snapshots:
       - openai
       - ws
 
-  '@langchain/community@1.1.24(@browserbasehq/sdk@2.9.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.58.2)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.10(typescript@5.9.3))(@langchain/core@1.1.34(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3))(faiss-node@0.5.1)(ibm-cloud-sdk-core@5.4.9)(ignore@7.0.5)(jsonwebtoken@9.0.3)(lodash@4.17.23)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(playwright@1.58.2)(ws@8.18.3)':
+  '@langchain/community@1.1.24(@browserbasehq/sdk@2.9.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.58.2)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.10(typescript@5.9.3))(@langchain/core@1.1.34(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(ws@8.18.3))(faiss-node@0.5.1)(ibm-cloud-sdk-core@5.4.9)(ignore@7.0.5)(jsonwebtoken@9.0.3)(lodash@4.17.23)(mongodb@7.1.0)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(playwright@1.58.2)(ws@8.18.3)':
     dependencies:
       '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.58.2)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.32.0(ws@8.18.3)(zod@4.3.6))(zod@4.3.6)
       '@ibm-cloud/watsonx-ai': 1.7.10(typescript@5.9.3)
@@ -8051,6 +8054,7 @@ snapshots:
       ignore: 7.0.5
       jsonwebtoken: 9.0.3
       lodash: 4.17.23
+      mongodb: 7.1.0
       playwright: 1.58.2
       ws: 8.18.3
     transitivePeerDependencies:
@@ -10877,6 +10881,7 @@ snapshots:
   bindings@1.5.0:
     dependencies:
       file-uri-to-path: 1.0.0
+    optional: true
 
   bl@4.1.0:
     dependencies:
@@ -10998,7 +11003,8 @@ snapshots:
     dependencies:
       readdirp: 4.1.2
 
-  chownr@1.1.4: {}
+  chownr@1.1.4:
+    optional: true
 
   chrome-trace-event@1.0.4: {}
 
@@ -11117,7 +11123,7 @@ snapshots:
   cosmiconfig@8.3.6(typescript@5.9.3):
     dependencies:
       import-fresh: 3.3.1
-      js-yaml: 4.1.0
+      js-yaml: 4.1.1
       parse-json: 5.2.0
       path-type: 4.0.0
     optionalDependencies:
@@ -11179,10 +11185,12 @@ snapshots:
   decompress-response@6.0.0:
     dependencies:
       mimic-response: 3.1.0
+    optional: true
 
   dedent@1.7.2: {}
 
-  deep-extend@0.6.0: {}
+  deep-extend@0.6.0:
+    optional: true
 
   deep-is@0.1.4: {}
 
@@ -11282,6 +11290,7 @@ snapshots:
   end-of-stream@1.4.5:
     dependencies:
       once: 1.4.0
+    optional: true
 
   engine.io-parser@5.2.3: {}
 
@@ -11638,7 +11647,8 @@ snapshots:
 
   exit-x@0.2.2: {}
 
-  expand-template@2.0.3: {}
+  expand-template@2.0.3:
+    optional: true
 
   expect@30.3.0:
     dependencies:
@@ -11694,6 +11704,7 @@ snapshots:
       bindings: 1.5.0
       node-addon-api: 6.1.0
       prebuild-install: 7.1.3
+    optional: true
 
   fast-deep-equal@3.1.3: {}
 
@@ -11766,7 +11777,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  file-uri-to-path@1.0.0: {}
+  file-uri-to-path@1.0.0:
+    optional: true
 
   fill-range@7.1.1:
     dependencies:
@@ -11861,7 +11873,8 @@ snapshots:
 
   fresh@2.0.0: {}
 
-  fs-constants@1.0.0: {}
+  fs-constants@1.0.0:
+    optional: true
 
   fs-extra@10.1.0:
     dependencies:
@@ -11945,7 +11958,8 @@ snapshots:
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
 
-  github-from-package@0.0.0: {}
+  github-from-package@0.0.0:
+    optional: true
 
   glob-parent@5.1.2:
     dependencies:
@@ -12112,7 +12126,8 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  ini@1.3.8: {}
+  ini@1.3.8:
+    optional: true
 
   internal-slot@1.1.0:
     dependencies:
@@ -12951,7 +12966,8 @@ snapshots:
 
   mimic-function@5.0.1: {}
 
-  mimic-response@3.1.0: {}
+  mimic-response@3.1.0:
+    optional: true
 
   minimatch@10.2.4:
     dependencies:
@@ -12969,7 +12985,8 @@ snapshots:
 
   minipass@7.1.3: {}
 
-  mkdirp-classic@0.5.3: {}
+  mkdirp-classic@0.5.3:
+    optional: true
 
   mongodb-connection-string-url@3.0.2:
     dependencies:
@@ -13054,7 +13071,8 @@ snapshots:
 
   nanoid@3.3.11: {}
 
-  napi-build-utils@2.0.0: {}
+  napi-build-utils@2.0.0:
+    optional: true
 
   napi-postinstall@0.3.4: {}
 
@@ -13069,10 +13087,12 @@ snapshots:
   node-abi@3.89.0:
     dependencies:
       semver: 7.7.3
+    optional: true
 
   node-abort-controller@3.1.1: {}
 
-  node-addon-api@6.1.0: {}
+  node-addon-api@6.1.0:
+    optional: true
 
   node-addon-api@8.6.0: {}
 
@@ -13379,6 +13399,7 @@ snapshots:
       simple-get: 4.0.1
       tar-fs: 2.1.4
       tunnel-agent: 0.6.0
+    optional: true
 
   prelude-ls@1.2.1: {}
 
@@ -13424,6 +13445,7 @@ snapshots:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
+    optional: true
 
   punycode@2.3.1: {}
 
@@ -13578,6 +13600,7 @@ snapshots:
       ini: 1.3.8
       minimist: 1.2.8
       strip-json-comments: 2.0.1
+    optional: true
 
   react-chartjs-2@5.3.1(chart.js@4.5.1)(react@19.2.0):
     dependencies:
@@ -13989,13 +14012,15 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-concat@1.0.1: {}
+  simple-concat@1.0.1:
+    optional: true
 
   simple-get@4.0.1:
     dependencies:
       decompress-response: 6.0.0
       once: 1.4.0
       simple-concat: 1.0.1
+    optional: true
 
   simple-wcswidth@1.1.2: {}
 
@@ -14167,7 +14192,8 @@ snapshots:
 
   strip-final-newline@4.0.0: {}
 
-  strip-json-comments@2.0.1: {}
+  strip-json-comments@2.0.1:
+    optional: true
 
   strip-json-comments@3.1.1: {}
 
@@ -14233,6 +14259,7 @@ snapshots:
       mkdirp-classic: 0.5.3
       pump: 3.0.4
       tar-stream: 2.2.0
+    optional: true
 
   tar-stream@2.2.0:
     dependencies:
@@ -14241,6 +14268,7 @@ snapshots:
       fs-constants: 1.0.0
       inherits: 2.0.4
       readable-stream: 3.6.2
+    optional: true
 
   terser-webpack-plugin@5.4.0(webpack@5.104.1):
     dependencies:
@@ -14406,6 +14434,7 @@ snapshots:
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
+    optional: true
 
   turbo-darwin-64@2.8.16:
     optional: true

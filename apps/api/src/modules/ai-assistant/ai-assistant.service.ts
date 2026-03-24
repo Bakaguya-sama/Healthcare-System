@@ -44,7 +44,12 @@ Quy tắc bắt buộc:
 - KHÔNG kê đơn thuốc hoặc liều dùng.
 - KHÔNG cung cấp thông tin sai lệch về y tế.
 - Luôn khuyến khích tham khảo ý kiến bác sĩ cho các vấn đề nghiêm trọng.
+- Nếu có ngữ cảnh kiến thức được cung cấp, ưu tiên sử dụng ngữ cảnh đó trước khi trả lời.
 - Trả lời bằng tiếng Việt, ngắn gọn và dễ hiểu.`;
+
+const EMBEDDING_MODEL = 'gemini-embedding-001';
+const MEDICAL_KNOWLEDGE_GAP_RESPONSE =
+  'Hiện tại tôi chưa có đủ kiến thức từ nguồn dữ liệu đã được xác thực để trả lời chính xác câu hỏi này. Bạn nên tham khảo bác sĩ hoặc cơ sở y tế để được tư vấn chuyên môn.';
 
 @Injectable()
 export class AiAssistantService implements OnModuleInit {
@@ -80,7 +85,7 @@ export class AiAssistantService implements OnModuleInit {
       // Initializing embedding for FAISS
       this.embeddings = new GoogleGenerativeAIEmbeddings({
         apiKey: apiKey || '',
-        modelName: 'text-embedding-004',
+        modelName: EMBEDDING_MODEL,
       });
 
       // Vector store se duoc khoi tao trong onModuleInit sau khi ket noi DB on dinh.
@@ -89,56 +94,273 @@ export class AiAssistantService implements OnModuleInit {
     }
   }
 
-  private tryInitializeVectorStore(): boolean {
+  // private tryInitializeVectorStore(): boolean {
+  //   if (this.vectorStore) {
+  //     return true;
+  //   }
+
+  //   const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+  //   if (!apiKey || apiKey === 'dev_key_placeholder') {
+  //     this.logger.warn(
+  //       '⚠️ GEMINI_API_KEY is missing. Vector Store will not be initialized.',
+  //     );
+  //     return false;
+  //   }
+
+  //   if (!this.embeddings) {
+  //     this.embeddings = new GoogleGenerativeAIEmbeddings({
+  //       apiKey,
+  //       modelName: 'text-embedding-004',
+  //     });
+  //   }
+
+  //   const nativeDb = this.aiDocumentChunkModel.db?.db;
+  //   if (!nativeDb) {
+  //     this.logger.warn(
+  //       'MongoDB native db is not ready yet. Deferring Vector Store init.',
+  //     );
+  //     return false;
+  //   }
+
+  //   const nativeCollection = nativeDb.collection(
+  //     this.aiDocumentChunkModel.collection.name,
+  //   );
+
+  //   this.vectorStore = new MongoDBAtlasVectorSearch(this.embeddings, {
+  //     collection: nativeCollection as any,
+  //     indexName: 'vector_index',
+  //     textKey: 'content',
+  //     embeddingKey: 'embedding',
+  //   });
+
+  //   this.logger.log('✅ MongoDB Vector Store initialized successfully');
+  //   return true;
+  // }
+
+  private tryInitializeAtlasVectorStore(): boolean {
     if (this.vectorStore) {
       return true;
     }
 
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-    if (!apiKey || apiKey === 'dev_key_placeholder') {
+    if (!this.embeddings) {
       this.logger.warn(
-        '⚠️ GEMINI_API_KEY is missing. Vector Store will not be initialized.',
+        '⚠️ GEMINI_API_KEY bị thiếu. Không thể khởi tạo Vector Store.',
       );
       return false;
-    }
-
-    if (!this.embeddings) {
-      this.embeddings = new GoogleGenerativeAIEmbeddings({
-        apiKey,
-        modelName: 'text-embedding-004',
-      });
     }
 
     const nativeDb = this.aiDocumentChunkModel.db?.db;
-    if (!nativeDb) {
+    const collectionName = this.aiDocumentChunkModel.collection?.name;
+
+    if (!nativeDb || !collectionName) {
       this.logger.warn(
-        'MongoDB native db is not ready yet. Deferring Vector Store init.',
+        '⚠️ MongoDB native collection chưa sẵn sàng. Sẽ thử lại khi gọi API.',
       );
       return false;
     }
 
-    const nativeCollection = nativeDb.collection(
-      this.aiDocumentChunkModel.collection.name,
+    try {
+      const nativeCollection = nativeDb.collection(collectionName);
+      this.logger.log(
+        `[AI Assistant] Atlas target: db=${nativeDb.databaseName}, collection=${collectionName}`,
+      );
+
+      this.vectorStore = new MongoDBAtlasVectorSearch(this.embeddings, {
+        collection: nativeCollection as unknown as any,
+        indexName: 'vector_index',
+        textKey: 'content',
+        embeddingKey: 'embedding',
+      });
+
+      this.logger.log(
+        '✅ MongoDBAtlasVectorSearch đã khởi tạo thành công với native collection.',
+      );
+      return true;
+    } catch (error) {
+      this.logger.error('❌ Lỗi khởi tạo MongoDBAtlasVectorSearch:', error);
+      return false;
+    }
+  }
+
+  private isValidEmbeddingVector(vector: unknown): vector is number[] {
+    return (
+      Array.isArray(vector) &&
+      vector.length > 0 &&
+      vector.every((n) => typeof n === 'number' && !Number.isNaN(n))
+    );
+  }
+
+  private async generateEmbeddings(texts: string[]): Promise<number[][]> {
+    // Try LangChain embeddings first.
+    const vectors = await this.embeddings.embedDocuments(texts);
+    const invalidVectorIndex = vectors.findIndex(
+      (v) => !this.isValidEmbeddingVector(v),
     );
 
-    this.vectorStore = new MongoDBAtlasVectorSearch(this.embeddings, {
-      collection: nativeCollection as any,
-      indexName: 'vector_index',
-      textKey: 'content',
-      embeddingKey: 'embedding',
+    if (invalidVectorIndex === -1 && vectors.length === texts.length) {
+      return vectors;
+    }
+
+    this.logger.warn(
+      '[AI Assistant] LangChain embeddings trả về rỗng/không hợp lệ, chuyển sang Google embedContent trực tiếp.',
+    );
+
+    const embeddingModel = this.genAI.getGenerativeModel({
+      model: EMBEDDING_MODEL,
     });
 
-    this.logger.log('✅ MongoDB Vector Store initialized successfully');
-    return true;
+    const fallbackVectors = await Promise.all(
+      texts.map(async (text, index) => {
+        const response = await embeddingModel.embedContent(text);
+        const values = response.embedding?.values;
+
+        if (!this.isValidEmbeddingVector(values)) {
+          throw new BadRequestException(
+            `Embedding trả về rỗng/không hợp lệ tại chunk index ${index}.`,
+          );
+        }
+
+        return values;
+      }),
+    );
+
+    return fallbackVectors;
+  }
+
+  private isMedicalQuery(query: string): boolean {
+    const lowerQuery = query.toLowerCase();
+    const medicalKeywords = [
+      'benh',
+      'bệnh',
+      'trieu chung',
+      'triệu chứng',
+      'sot',
+      'sốt',
+      'ho',
+      'dau',
+      'đau',
+      'kho tho',
+      'khó thở',
+      'chay mau',
+      'chảy máu',
+      'xuat huyet',
+      'xuất huyết',
+      'cum',
+      'cúm',
+      'dengue',
+      'influenza',
+      'fever',
+      'symptom',
+      'disease',
+      'ran',
+      'răng',
+      'nha',
+      'nha khoa',
+      'ran lung',
+      'rang lung',
+      'ho',
+      'sore throat',
+      'viêm',
+      'nhek',
+      'nhức',
+      'chảy máu',
+      'máu',
+      'bệnh tật',
+      'vết thương',
+      'cơn đau',
+      'chóng mặt',
+      'buồn nôn',
+      'nôn',
+      'tiêu chảy',
+      'táo bón',
+      'ghế',
+      'tiểu tiện',
+      'tiểu',
+      'tinh trùng',
+      'mất ngủ',
+      'mất ngủ',
+    ];
+
+    return medicalKeywords.some((keyword) => lowerQuery.includes(keyword));
+  }
+
+  private async buildRagContext(query: string): Promise<{
+    context: string | null;
+    hasRelevantSource: boolean;
+  }> {
+    if (!this.vectorStore && !this.tryInitializeAtlasVectorStore()) {
+      this.logger.warn(
+        '[AI Assistant] Vector Store chưa sẵn sàng, bỏ qua RAG cho lượt trả lời này.',
+      );
+      return { context: null, hasRelevantSource: false };
+    }
+
+    try {
+      const vectorStoreWithScore = this.vectorStore as unknown as {
+        similaritySearchWithScore?: (
+          queryText: string,
+          k?: number,
+        ) => Promise<Array<[any, number]>>;
+      };
+
+      let results: any[] = [];
+
+      // 🎯 Ưu tiên sử dụng similaritySearchWithScore để có score filtering
+      if (
+        typeof vectorStoreWithScore.similaritySearchWithScore === 'function'
+      ) {
+        const scoredResults =
+          await vectorStoreWithScore.similaritySearchWithScore(query, 3);
+
+        // 🚨 STRICT THRESHOLD: 0.85 (để tránh false positives từ word overlap)
+        const SCORE_THRESHOLD = 0.85;
+        const filteredByScore = scoredResults.filter(
+          ([, score]) => typeof score === 'number' && score >= SCORE_THRESHOLD,
+        );
+
+        // 📊 DEBUG LOGGING - hiển thị tất cả scores
+        const scoreDetails = scoredResults
+          .map(
+            ([doc, score], idx) =>
+              `  [${idx + 1}] Score ${(score as number).toFixed(4)}: ${(doc.pageContent as string).substring(0, 50)}...`,
+          )
+          .join('\n');
+
+        this.logger.log(
+          `[AI Assistant] RAG Query="${query}"\n${scoreDetails}\nPassed threshold (${SCORE_THRESHOLD.toFixed(2)}): ${filteredByScore.length}/${scoredResults.length}`,
+        );
+
+        // Chỉ sử dụng results nếu vượt qua score threshold
+        results = filteredByScore.map(([doc]) => doc);
+      } else {
+        // Fallback: sử dụng unfiltered search nếu similaritySearchWithScore không có
+        results = await this.vectorStore.similaritySearch(query, 3);
+      }
+
+      if (!results.length) {
+        return { context: null, hasRelevantSource: false };
+      }
+
+      const contextBlocks = results
+        .map((doc, index) => `[Nguon ${index + 1}] ${doc.pageContent}`)
+        .join('\n\n');
+
+      return {
+        context: `Du lieu tham khao tu Vector DB:\n${contextBlocks}`,
+        hasRelevantSource: true,
+      };
+    } catch (error) {
+      this.logger.warn(
+        '[AI Assistant] Truy van RAG that bai, tiep tuc tra loi khong co context.',
+      );
+      this.logger.error('[AI Assistant] RAG retrieval error:', error);
+      return { context: null, hasRelevantSource: false };
+    }
   }
 
   // 🟢 HÀM NÀY CHẠY TỰ ĐỘNG SAU KHI NESTJS KHỞI ĐỘNG XONG
-  async onModuleInit() {
-    try {
-      this.tryInitializeVectorStore();
-    } catch (error) {
-      this.logger.error('❌ Failed to initialize MongoDB Vector Store:', error);
-    }
+  onModuleInit() {
+    this.tryInitializeAtlasVectorStore();
   }
 
   /**
@@ -209,6 +431,33 @@ export class AiAssistantService implements OnModuleInit {
       timestamp: new Date(),
     });
 
+    const ragContext = await this.buildRagContext(dto.message);
+    const isMedicalRelatedQuestion = this.isMedicalQuery(dto.message);
+
+    if (isMedicalRelatedQuestion && !ragContext.hasRelevantSource) {
+      conversation.messages.push({
+        role: MessageRole.ASSISTANT,
+        content: MEDICAL_KNOWLEDGE_GAP_RESPONSE,
+        timestamp: new Date(),
+      });
+
+      conversation.messageCount = conversation.messages.length;
+      conversation.lastMessageAt = new Date();
+      await conversation.save();
+
+      return {
+        statusCode: 200,
+        message: 'Message processed successfully',
+        data: {
+          conversationId: conversation._id,
+          userMessage: dto.message,
+          aiResponse: MEDICAL_KNOWLEDGE_GAP_RESPONSE,
+          messageCount: conversation.messageCount,
+          groundedByRag: false,
+        },
+      };
+    }
+
     // Get AI response
     const model = this.genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
@@ -231,7 +480,11 @@ export class AiAssistantService implements OnModuleInit {
     const chat = model.startChat({ history: chatHistory.slice(0, -1) });
 
     try {
-      const result = await chat.sendMessage(dto.message);
+      const userPromptForModel = ragContext
+        ? `${dto.message}\n\n${ragContext.context}\n\nHuong dan: Chi su dung thong tin tham khao neu phu hop va khong mau thuan quy tac an toan y te.`
+        : dto.message;
+
+      const result = await chat.sendMessage(userPromptForModel);
       const aiResponse = result.response.text();
 
       // Add AI response to history
@@ -778,9 +1031,9 @@ export class AiAssistantService implements OnModuleInit {
       '[AI Assistant] Bắt đầu nạp dữ liệu y khoa vào Vector DB...',
     );
 
-    if (!this.tryInitializeVectorStore()) {
+    if (!this.vectorStore && !this.tryInitializeAtlasVectorStore()) {
       throw new BadRequestException(
-        'MongoDB Vector Store chưa sẵn sàng. Vui lòng thử lại sau khi DB kết nối ổn định.',
+        'MongoDB Atlas Vector Store chưa sẵn sàng. Kiểm tra kết nối DB, API key, và thử lại.',
       );
     }
 
@@ -804,12 +1057,59 @@ export class AiAssistantService implements OnModuleInit {
     this.logger.log(`Đã băm tài liệu thành ${docs.length} đoạn nhỏ.`);
 
     try {
-      // Gọi lệnh đẩy document + vector vào MongoDB
-      await this.vectorStore.addDocuments(docs);
-      this.logger.log(`Hoàn tất! Đã lưu Database vào MongoDB.`);
+      const texts = docs.map((d) => d.pageContent);
+      const vectors = await this.generateEmbeddings(texts);
+
+      if (vectors.length !== texts.length) {
+        throw new BadRequestException(
+          'Không thể tạo embedding hợp lệ: số lượng vector không khớp với số lượng đoạn văn bản.',
+        );
+      }
+
+      const embeddingDimension = vectors[0].length;
+      this.logger.log(
+        `[AI Assistant] Embedding được tạo thành công: chunks=${vectors.length}, dimension=${embeddingDimension}`,
+      );
+
+      const beforeEmbeddingCount =
+        await this.aiDocumentChunkModel.collection.countDocuments({
+          $expr: { $gt: [{ $size: '$embedding' }, 0] },
+        });
+
+      const now = new Date();
+      const payload = texts.map((content, index) => ({
+        content,
+        embedding: vectors[index],
+        chunkIndex: index,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+      const insertResult =
+        await this.aiDocumentChunkModel.collection.insertMany(payload);
+
+      const afterEmbeddingCount =
+        await this.aiDocumentChunkModel.collection.countDocuments({
+          $expr: { $gt: [{ $size: '$embedding' }, 0] },
+        });
+
+      this.logger.log(
+        `[AI Assistant] Inserted docs: ${insertResult.insertedCount}. Embedding docs trước seed: ${beforeEmbeddingCount}, sau seed: ${afterEmbeddingCount}`,
+      );
+
+      if (afterEmbeddingCount <= beforeEmbeddingCount) {
+        throw new BadRequestException(
+          'Seed chạy xong nhưng không thấy embedding mới trong collection Atlas.',
+        );
+      }
+
+      this.logger.log(
+        'Hoàn tất! Đã lưu Database vào MongoDB Atlas Vector Search.',
+      );
       return {
         statusCode: 200,
-        message: 'Đã nạp kiến thức vào MongoDB thành công!',
+        message: 'Đã nạp kiến thức vào MongoDB Atlas thành công!',
       };
     } catch (error) {
       this.logger.error('Lỗi khi nạp vào MongoDB Vector:', error);
@@ -821,9 +1121,9 @@ export class AiAssistantService implements OnModuleInit {
    * 🔍 RAG BƯỚC 2: TÌM KIẾM KIẾN THỨC THEO CÂU HỎI
    */
   async testVectorSearch(query: string) {
-    if (!this.vectorStore && !this.tryInitializeVectorStore()) {
+    if (!this.vectorStore && !this.tryInitializeAtlasVectorStore()) {
       throw new BadRequestException(
-        'MongoDB Vector Store chưa được khởi tạo. Hãy gọi API Seed Data trước.',
+        'MongoDB Atlas Vector Store chưa được khởi tạo. Hãy kiểm tra Atlas Vector Index và kết nối DB.',
       );
     }
 
