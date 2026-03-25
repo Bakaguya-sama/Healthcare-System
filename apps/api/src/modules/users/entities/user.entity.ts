@@ -23,6 +23,9 @@ export class UserEntity {
   @Prop()
   gender?: string;
 
+  @Prop()
+  dateOfBirth?: Date;
+
   @Prop({ enum: UserRole, default: UserRole.PATIENT })
   role: UserRole;
 

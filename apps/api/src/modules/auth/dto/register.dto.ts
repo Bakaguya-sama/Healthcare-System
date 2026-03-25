@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   ValidateNested,
+  IsDateString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../users/enums/user-role.enum';
@@ -63,6 +64,11 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   gender?: string;
+
+  @ApiProperty({ example: '1990-01-15', required: false })
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
 
   @ApiProperty({ example: '+84912345678', required: false })
   @IsOptional()

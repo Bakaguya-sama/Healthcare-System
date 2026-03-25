@@ -41,6 +41,7 @@ export class AuthService {
       fullName: dto.fullName,
       role: dto.role,
       gender: dto.gender,
+      dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
       phoneNumber: dto.phoneNumber,
       address: dto.address,
     });

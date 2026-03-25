@@ -33,6 +33,11 @@ export class UpdateUserDto {
   @IsString()
   gender?: string;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
   @ApiProperty({ required: false, description: 'Doctor only: specialty' })
   @IsOptional()
   @IsString()

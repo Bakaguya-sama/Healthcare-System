@@ -39,6 +39,9 @@ export class User {
   gender?: string;
 
   @Prop({ required: false })
+  dateOfBirth?: Date;
+
+  @Prop({ required: false })
   phoneNumber?: string;
 
   @Prop({ required: false })

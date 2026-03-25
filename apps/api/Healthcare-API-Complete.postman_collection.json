@@ -34,7 +34,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Patient\",\n  \"role\": \"patient\"\n}"
+              "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Patient\",\n  \"role\": \"patient\",\n  \"dateOfBirth\": \"1990-05-15\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -74,7 +74,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"doctor@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Doctor\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Cardiology\"\n}"
+              "raw": "{\n  \"email\": \"doctor@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Doctor\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Cardiology\",\n  \"dateOfBirth\": \"1985-03-20\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -115,7 +115,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"doctor2@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Second Doctor\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Pediatrics\"\n}"
+              "raw": "{\n  \"email\": \"doctor2@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Second Doctor\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Pediatrics\",\n  \"dateOfBirth\": \"1988-07-10\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -156,7 +156,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Admin\",\n  \"role\": \"admin\"\n}"
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Test Admin\",\n  \"role\": \"admin\",\n  \"dateOfBirth\": \"1980-11-25\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",

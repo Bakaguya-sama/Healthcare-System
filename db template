@@ -7,6 +7,7 @@ Table Users {
   email varchar [unique]
   password_hash varchar
   gender varchar
+  date_of_birth date
   role varchar
   phone_number varchar
   avatar_url varchar [note: "Ảnh đại diện chung cho Bác sĩ, Bệnh nhân, Admin"]
@@ -101,6 +102,7 @@ Table Doctor_Sessions {
   patient_notes text [note: "Tiêu đề, ghi chú của bệnh nhân khi bắt đầu buổi tư vấn"]
   started_at datetime
   ended_at datetime
+  created_at datetime
 }
 
 Table Doctor_Messages {

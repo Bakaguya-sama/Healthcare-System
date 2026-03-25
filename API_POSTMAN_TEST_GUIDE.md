@@ -40,7 +40,7 @@
 **TÁCH BẠCH RÕ RÀNG (17 Bảng):**
 
 **Core 4 (Profile Management):**
-1. **Users** → id, **fullName**✅, email, password_hash, gender, role, phone_number, avatar_url, account_status, otp_code, otp_expires_at, address, createdAt, updatedAt
+1. **Users** → id, **fullName**✅, email, password_hash, gender, **date_of_birth**✅, role, phone_number, avatar_url, account_status, otp_code, otp_expires_at, address, createdAt, updatedAt
 2. **Patients** → user_id ONLY ✅ (LẤY fullName TỪ Users)
 3. **Doctors** → user_id, **specialty**✅, workplace, verification_documents, experience_years, average_rating, is_online, verified_at, verification_status (LẤY fullName TỪ Users)
 4. **Admins** → user_id, admin_role (LẤY fullName TỪ Users)
@@ -48,7 +48,7 @@
 **Messaging (5 Bảng):**
 5. **AI_Sessions** → id, patient_id, status, started_at, ended_at
 6. **AI_Messages** → id, ai_session_id, sender_type, content, attachments, sent_at
-7. **Doctor_Sessions** → id, patient_id, doctor_id, status, doctor_notes, patient_notes, started_at, ended_at
+7. **Doctor_Sessions** → id, patient_id, doctor_id, status, doctor_notes, patient_notes, started_at, ended_at, **created_at**✅
 8. **Doctor_Messages** → id, doctor_session_id, sender_id, sender_type, content, attachments, sent_at
 9. **AI_Feedbacks** → id, patient_id, ai_session_id, content
 
@@ -162,7 +162,8 @@ Body: {
   "email": "patient@example.com",
   "password": "Test123!@",
   "fullName": "Nguyen Van A",
-  "role": "patient"
+  "role": "patient",
+  "dateOfBirth": "1990-05-15"
 }
 ✅ Expected: 201, response includes:
 {
@@ -172,6 +173,7 @@ Body: {
     "fullName": "Nguyen Van A",
     "role": "patient",
     "gender": "not_specified",
+    "dateOfBirth": "1990-05-15",
     "phoneNumber": "",
     "avatarUrl": "",
     "accountStatus": "active",
@@ -191,7 +193,8 @@ Body: {
   "password": "Test123!@",
   "fullName": "Dr. Tran Thi B",
   "role": "doctor",
-  "specialty": "Cardiology"
+  "specialty": "Cardiology",
+  "dateOfBirth": "1985-03-20"
 }
 ✅ Expected: 201, save doctor_token
 
@@ -229,7 +232,7 @@ Body: {"email": "patient@example.com"}
 - [ ] Password change works
 - [ ] Me endpoint returns **fullName** (not "name")
 - [ ] Wrong credentials return 401
-- [ ] User object has all 14 template fields: id, fullName, email, gender, role, phoneNumber, avatarUrl, accountStatus, otpCode, otpExpiresAt, address, createdAt, updatedAt
+- [ ] User object has all 15 template fields: id, fullName, email, gender, dateOfBirth, role, phoneNumber, avatarUrl, accountStatus, otpCode, otpExpiresAt, address, createdAt, updatedAt
 
 ---
 
@@ -280,6 +283,7 @@ PATCH {{base_url}}/users/me
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
   "fullName": "Updated Patient Name",
+  "dateOfBirth": "1990-06-10",
   "phoneNumber": "0987654321",
   "address": {
     "street": "123 Main St",
@@ -287,13 +291,14 @@ Body: {
     "country": "Vietnam"
   }
 }
-✅ Expected: 200, updated user with fullName
+✅ Expected: 200, updated user with fullName and dateOfBirth
 
 # 3b. Update doctor profile (add specialty if doctor)
 PATCH {{base_url}}/users/me
 Header: Authorization: Bearer {{doctor_token}}
 Body: {
   "fullName": "Dr. Updated Name",
+  "dateOfBirth": "1985-04-15",
   "specialty": "Pediatrics",  ✅ NOT "specialization"
   "phoneNumber": "0987654321"
 }
