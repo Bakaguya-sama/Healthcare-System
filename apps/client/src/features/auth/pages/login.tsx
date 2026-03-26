@@ -13,7 +13,7 @@ import { FormEvent, useState } from "react";
 import { Cross, Lock, User } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import authenImage from "@/components/images/authen_image.png";
+import authenImage from "@/features/auth/images/authen_image.png";
 import { useNavigate } from "react-router-dom";
 
 interface LoginFormProps {

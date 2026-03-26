@@ -2,17 +2,45 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
   HealthMetric,
   HealthMetricDocument,
+  MetricValueDetail,
+  MetricType,
 } from './entities/health-metric.entity';
 import { CreateHealthMetricDto } from './dto/create-health-metric.dto';
 import { UpdateHealthMetricDto } from './dto/update-health-metric.dto';
 import { QueryHealthMetricDto } from './dto/query-health-metric.dto';
+
+type MetricEntry = {
+  value: number;
+  recordedAt: Date | string;
+};
+
+const BMI_UNIT = 'kg/m2';
+
+const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
+  [MetricType.BLOOD_PRESSURE]: 'systolic',
+  [MetricType.HEART_RATE]: 'value',
+  [MetricType.BMI]: 'value',
+  [MetricType.WEIGHT]: 'value',
+  [MetricType.HEIGHT]: 'value',
+  [MetricType.WATER_INTAKE]: 'amount',
+  [MetricType.KCAL_INTAKE]: 'amount',
+};
+
+const REQUIRED_KEYS_BY_TYPE: Record<MetricType, string[]> = {
+  [MetricType.BLOOD_PRESSURE]: ['systolic', 'diastolic'],
+  [MetricType.HEART_RATE]: ['value'],
+  [MetricType.BMI]: ['value'],
+  [MetricType.WEIGHT]: ['value'],
+  [MetricType.HEIGHT]: ['value'],
+  [MetricType.WATER_INTAKE]: ['amount'],
+  [MetricType.KCAL_INTAKE]: ['amount'],
+};
 
 @Injectable()
 export class HealthMetricsService {
@@ -29,13 +57,24 @@ export class HealthMetricsService {
       throw new BadRequestException('Invalid user ID');
     }
 
+    const patientId = new Types.ObjectId(userId);
+
+    this.assertValidValuesForType(dto.type, dto.values);
+
     const metric = await this.healthMetricModel.create({
-      patientId: new Types.ObjectId(userId),
+      patientId,
       type: dto.type,
       values: dto.values,
       unit: dto.unit,
       recordedAt: dto.recordedAt || new Date(),
     });
+
+    if (dto.type === MetricType.HEIGHT || dto.type === MetricType.WEIGHT) {
+      await this.upsertBmiFromLatestMetrics(
+        patientId,
+        dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
+      );
+    }
 
     return {
       statusCode: 201,
@@ -76,7 +115,11 @@ export class HealthMetricsService {
 
     // Execute query
     const [data, total] = await Promise.all([
-      this.healthMetricModel.find(filter).sort(sort).skip(skip).limit(query.limit),
+      this.healthMetricModel
+        .find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(query.limit),
       this.healthMetricModel.countDocuments(filter),
     ]);
 
@@ -120,27 +163,43 @@ export class HealthMetricsService {
   /**
    * ✏️ CẬP NHẬT METRIC
    */
-  async update(
-    userId: string,
-    id: string,
-    dto: UpdateHealthMetricDto,
-  ) {
+  async update(userId: string, id: string, dto: UpdateHealthMetricDto) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid metric ID');
     }
 
+    const patientId = new Types.ObjectId(userId);
+
     const metric = await this.healthMetricModel.findOne({
       _id: new Types.ObjectId(id),
-      patientId: new Types.ObjectId(userId),
+      patientId,
     });
 
     if (!metric) {
       throw new NotFoundException('Health metric not found');
     }
 
+    const effectiveType = dto.type ?? metric.type;
+    if (dto.values) {
+      this.assertValidValuesForType(
+        effectiveType,
+        dto.values as Record<string, MetricEntry>,
+      );
+    }
+
     // Update fields
     Object.assign(metric, dto);
     await metric.save();
+
+    if (
+      effectiveType === MetricType.HEIGHT ||
+      effectiveType === MetricType.WEIGHT
+    ) {
+      await this.upsertBmiFromLatestMetrics(
+        patientId,
+        dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
+      );
+    }
 
     return {
       statusCode: 200,
@@ -189,19 +248,11 @@ export class HealthMetricsService {
       throw new NotFoundException('No metrics found for this type');
     }
 
-    // Extract numeric values from flexible values object
+    // Extract numeric values from values.<key>.value
     const values = metrics
-      .map((m) => {
-        // Get primary numeric value from values object
-        if (m.values.value !== undefined) return m.values.value;
-        if (m.values.systolic !== undefined) return m.values.systolic;
-        if (m.values.amount !== undefined) return m.values.amount;
-        // Fallback to any numeric property
-        for (const [_, v] of Object.entries(m.values)) {
-          if (typeof v === 'number') return v;
-        }
-        return 0;
-      })
+      .map((metric) =>
+        this.extractMetricNumericValue(metric.type, metric.values),
+      )
       .filter((v) => v > 0);
 
     if (values.length === 0) {
@@ -225,6 +276,181 @@ export class HealthMetricsService {
         latest,
       },
     };
+  }
+
+  private assertValidValuesForType(
+    type: MetricType,
+    values: Record<string, MetricEntry>,
+  ): void {
+    if (!values || typeof values !== 'object' || Array.isArray(values)) {
+      throw new BadRequestException('values must be a valid object');
+    }
+
+    const requiredKeys = REQUIRED_KEYS_BY_TYPE[type] || [];
+    const keys = Object.keys(values);
+    const requiredKeySet = new Set(requiredKeys);
+
+    if (keys.length !== requiredKeys.length) {
+      throw new BadRequestException(
+        `values for ${type} must contain exactly: ${requiredKeys.join(', ')}`,
+      );
+    }
+
+    if (!keys.every((key) => requiredKeySet.has(key))) {
+      throw new BadRequestException(
+        `values contains unexpected keys for ${type}`,
+      );
+    }
+
+    for (const [key, detail] of Object.entries(values)) {
+      if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
+        throw new BadRequestException(`values.${key} must be an object`);
+      }
+
+      if (
+        typeof detail.value !== 'number' ||
+        !Number.isFinite(detail.value) ||
+        detail.value < 0
+      ) {
+        throw new BadRequestException(
+          `values.${key}.value must be a non-negative number`,
+        );
+      }
+
+      const recordedDate = new Date(detail.recordedAt);
+      if (!detail.recordedAt || Number.isNaN(recordedDate.getTime())) {
+        throw new BadRequestException(
+          `values.${key}.recordedAt must be a valid date`,
+        );
+      }
+    }
+  }
+
+  private extractMetricNumericValue(
+    type: MetricType,
+    values: Record<string, MetricEntry>,
+  ): number {
+    const primaryKey = PRIMARY_VALUE_KEY_BY_TYPE[type];
+    const primaryValue = values?.[primaryKey]?.value;
+
+    if (typeof primaryValue === 'number' && Number.isFinite(primaryValue)) {
+      return primaryValue;
+    }
+
+    for (const detail of Object.values(values ?? {})) {
+      if (!detail || typeof detail !== 'object') {
+        continue;
+      }
+
+      if (typeof detail.value === 'number' && Number.isFinite(detail.value)) {
+        return detail.value;
+      }
+    }
+
+    return 0;
+  }
+
+  private async upsertBmiFromLatestMetrics(
+    patientId: Types.ObjectId,
+    referenceRecordedAt: Date,
+  ): Promise<void> {
+    const [latestHeightMetric, latestWeightMetric] = await Promise.all([
+      this.healthMetricModel
+        .findOne({
+          patientId,
+          type: MetricType.HEIGHT,
+        })
+        .sort({ recordedAt: -1 }),
+      this.healthMetricModel
+        .findOne({
+          patientId,
+          type: MetricType.WEIGHT,
+        })
+        .sort({ recordedAt: -1 }),
+    ]);
+
+    if (!latestHeightMetric || !latestWeightMetric) {
+      return;
+    }
+
+    const rawHeight = this.extractMetricNumericValue(
+      MetricType.HEIGHT,
+      latestHeightMetric.values as Record<string, MetricEntry>,
+    );
+    const rawWeight = this.extractMetricNumericValue(
+      MetricType.WEIGHT,
+      latestWeightMetric.values as Record<string, MetricEntry>,
+    );
+
+    if (rawHeight <= 0 || rawWeight <= 0) {
+      return;
+    }
+
+    const heightInMeters = this.normalizeHeightToMeters(
+      rawHeight,
+      latestHeightMetric.unit,
+    );
+    const weightInKg = this.normalizeWeightToKg(
+      rawWeight,
+      latestWeightMetric.unit,
+    );
+
+    if (heightInMeters <= 0 || weightInKg <= 0) {
+      return;
+    }
+
+    const bmiValue =
+      Math.round((weightInKg / (heightInMeters * heightInMeters)) * 100) / 100;
+
+    const bmiValues: Record<string, MetricValueDetail> = {
+      value: {
+        value: bmiValue,
+        recordedAt: referenceRecordedAt,
+      },
+    };
+
+    const latestBmiMetric = await this.healthMetricModel
+      .findOne({
+        patientId,
+        type: MetricType.BMI,
+      })
+      .sort({ recordedAt: -1 });
+
+    if (latestBmiMetric) {
+      latestBmiMetric.values = bmiValues;
+      latestBmiMetric.unit = BMI_UNIT;
+      latestBmiMetric.recordedAt = referenceRecordedAt;
+      await latestBmiMetric.save();
+      return;
+    }
+
+    await this.healthMetricModel.create({
+      patientId,
+      type: MetricType.BMI,
+      values: bmiValues,
+      unit: BMI_UNIT,
+      recordedAt: referenceRecordedAt,
+    });
+  }
+
+  private normalizeHeightToMeters(value: number, unit?: string): number {
+    const normalizedUnit = (unit || '').toLowerCase().trim();
+
+    if (normalizedUnit === 'cm') {
+      return value / 100;
+    }
+
+    return value;
+  }
+
+  private normalizeWeightToKg(value: number, unit?: string): number {
+    const normalizedUnit = (unit || '').toLowerCase().trim();
+
+    if (normalizedUnit === 'lb' || normalizedUnit === 'lbs') {
+      return value * 0.45359237;
+    }
+
+    return value;
   }
 
   /**

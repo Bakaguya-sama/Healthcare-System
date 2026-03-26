@@ -6,6 +6,9 @@ import { ForgetPassword } from "./features/auth/pages/forget-password";
 import { ConfirmOTP } from "./features/auth/pages/confirm-otp";
 import { ToastContainer } from "react-toastify";
 import { SignUp } from "./features/auth/pages/sign-up";
+import { DoctorOverview } from "./features/doctor/overview/pages/doctor-overview";
+import { Consultations } from "./features/doctor/consultations/pages/consultations";
+import { Profile } from "@repo/ui/pages/profile";
 
 function Page({ title }: { title: string }) {
   return (
@@ -16,7 +19,10 @@ function Page({ title }: { title: string }) {
 }
 
 function App() {
-  const role = "patient";
+  const role = "doctor";
+  const defaultHomePath =
+    role === "doctor" ? "/doctor-overview" : "/patient-overview";
+
   return (
     <>
       <ToastContainer />
@@ -28,18 +34,19 @@ function App() {
           <Route path="/forget-password" element={<ForgetPassword />} />
           <Route path="/confirm-otp" element={<ConfirmOTP />} />
           <Route element={<Layout userRole={role} />}>
+            <Route index element={<Navigate to={defaultHomePath} replace />} />
             {role === "doctor" ? (
               <>
-                <Route index element={<Page title="Overview" />} />
-                <Route
-                  path="consultations"
-                  element={<Page title="Consultations" />}
-                />
-                <Route path="/profile" element={<Page title="Profile" />} />
+                <Route path="/doctor-overview" element={<DoctorOverview />} />
+                <Route path="/consultations" element={<Consultations />} />
+                <Route path="/profile" element={<Profile />} />
               </>
             ) : (
               <>
-                <Route index element={<Page title="Overview" />} />
+                <Route
+                  path="/patient-overview"
+                  element={<Page title="Overview" />}
+                />
                 <Route
                   path="/my_doctors"
                   element={<Page title="My doctors" />}
@@ -49,11 +56,11 @@ function App() {
                   element={<Page title="AI assistant" />}
                 />
                 <Route path="/messages" element={<Page title="Messages" />} />
-                <Route path="/profile" element={<Page title="Profile" />} />
+                <Route path="/profile" element={<Profile />} />
               </>
             )}
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={defaultHomePath} replace />} />
         </Routes>
       </BrowserRouter>
     </>

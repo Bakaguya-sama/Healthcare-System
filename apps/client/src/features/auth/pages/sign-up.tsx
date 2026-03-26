@@ -10,7 +10,7 @@ import {
 import { useMemo, useState } from "react";
 import { Cross } from "lucide-react";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import authenImage from "@/components/images/authen_image.png";
+import authenImage from "@/features/auth/images/authen_image.png";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 type SignUpRole = "patient" | "doctor";

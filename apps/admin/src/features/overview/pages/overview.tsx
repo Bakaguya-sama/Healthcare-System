@@ -1,4 +1,4 @@
-import { OverviewCard } from "@/features/overview/components/overview-card";
+import { OverviewCard } from "@repo/ui/components/data-display/overview-card";
 import {
   MessageSquareText,
   ShieldAlert,

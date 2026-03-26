@@ -533,12 +533,15 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
                 Gender
               </FieldLabel>
               <FieldControl>
-                <Input
+                <select
                   id="gender"
                   value={draftValues.gender}
                   onChange={(e) => onFieldChange("gender", e.target.value)}
-                  className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
-                />
+                  className="h-auto w-full border-0 bg-transparent px-0 py-0 text-sm text-slate-900 outline-none focus-visible:ring-0"
+                >
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                </select>
               </FieldControl>
             </Field>
           </FieldGroup>
