@@ -4,6 +4,10 @@
     "outDir": "dist",
     "strictNullChecks": true
   },
-  "include": ["src", "../../apps/client/src/components/ui/authen_header.tsx"],
+  "include": [
+    "src",
+    "../../apps/client/src/components/ui/authen_header.tsx",
+    "../../apps/client/src/features/chat/window/chat-window.tsx"
+  ],
   "exclude": ["node_modules", "dist"]
 }

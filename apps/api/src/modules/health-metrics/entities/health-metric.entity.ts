@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type HealthMetricDocument = HydratedDocument<HealthMetric>;
 
@@ -10,7 +10,12 @@ export enum MetricType {
   WEIGHT = 'weight',
   HEIGHT = 'height',
   WATER_INTAKE = 'water_intake',
-  ACTIVITY_LEVEL = 'activity_level',
+  KCAL_INTAKE = 'kcal_intake',
+}
+
+export interface MetricValueDetail {
+  value: number;
+  recordedAt: Date;
 }
 
 @Schema({ timestamps: true })
@@ -21,15 +26,9 @@ export class HealthMetric {
   @Prop({ enum: MetricType, required: true })
   type: MetricType;
 
-  // Linh hoạt: {systolic: 120, diastolic: 80} hoặc {amount: 250}
-  @Prop({ type: Object, required: true })
-  values: {
-    value?: number; // Giá trị đơn lẻ
-    systolic?: number; // Cho blood_pressure
-    diastolic?: number; // Cho blood_pressure
-    amount?: number; // Cho water_intake, activity_level
-    [key: string]: any; // Linh hoạt cho các metric khác
-  };
+  // Linh hoat: { systolic: { value, recordedAt }, diastolic: { value, recordedAt } }
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  values: Record<string, MetricValueDetail>;
 
   @Prop({ required: true })
   unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%', 'ml'

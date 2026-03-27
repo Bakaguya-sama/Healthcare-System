@@ -14,6 +14,7 @@ import {
   Bot,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { UserAvatar } from "../components/ui/user-avatar";
 
 const menuItems = {
   admin: [
@@ -45,7 +46,12 @@ const menuItems = {
     { id: "profile", label: "Profile", icon: CircleUser, path: "/profile" },
   ],
   doctor: [
-    { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/" },
+    {
+      id: "doctor-overview",
+      label: "Overview",
+      icon: LayoutDashboard,
+      path: "/doctor-overview",
+    },
     {
       id: "consultations",
       label: "Consultations",
@@ -55,7 +61,12 @@ const menuItems = {
     { id: "profile", label: "Profile", icon: CircleUser, path: "/profile" },
   ],
   patient: [
-    { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/" },
+    {
+      id: "patient-overview",
+      label: "Overview",
+      icon: LayoutDashboard,
+      path: "/patient-overview",
+    },
     {
       id: "my_doctors",
       label: "My doctors",
@@ -146,14 +157,10 @@ export function Sidebar({ userRole }: SidebarProps) {
 
       {/* User Info */}
       <div className="px-4 py-4 border-t flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-brand flex items-center justify-center text-white text-xs font-bold shrink-0">
-          SA
-        </div>
+        <UserAvatar name="Huy Vu" isOnline={true} />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            Super Admin
-          </p>
-          <p className="text-xs text-gray-400 truncate">admin@medi.com</p>
+          <p className="text-sm font-semibold text-gray-900 truncate">Huy Vu</p>
+          <p className="text-xs text-gray-400 truncate">huyvu@example.com</p>
         </div>
         <button
           onClick={onLogOut}

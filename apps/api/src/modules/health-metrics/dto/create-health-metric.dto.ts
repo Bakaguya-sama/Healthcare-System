@@ -1,40 +1,87 @@
 import {
   IsEnum,
-  IsNumber,
   IsString,
   IsOptional,
   IsDate,
-  Min,
   IsObject,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments,
+  Validate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { MetricType } from '../entities/health-metric.entity';
 
-export class ValuesDto {
-  @ApiProperty({ example: 120, required: false })
-  @IsNumber()
-  @IsOptional()
-  @Min(0)
-  value?: number;
+export class MetricValueEntryDto {
+  @ApiProperty({ example: 120 })
+  value: number;
 
-  @ApiProperty({ example: 120, required: false })
-  @IsNumber()
-  @IsOptional()
-  @Min(0)
-  systolic?: number; // Blood pressure systolic
+  @ApiProperty({ example: '2026-03-16T08:00:00Z' })
+  recordedAt: Date;
+}
 
-  @ApiProperty({ example: 80, required: false })
-  @IsNumber()
-  @IsOptional()
-  @Min(0)
-  diastolic?: number; // Blood pressure diastolic
+const TYPE_KEYS: Record<MetricType, string[]> = {
+  [MetricType.BLOOD_PRESSURE]: ['systolic', 'diastolic'],
+  [MetricType.HEART_RATE]: ['value'],
+  [MetricType.BMI]: ['value'],
+  [MetricType.WEIGHT]: ['value'],
+  [MetricType.HEIGHT]: ['value'],
+  [MetricType.WATER_INTAKE]: ['amount'],
+  [MetricType.KCAL_INTAKE]: ['amount'],
+};
 
-  @ApiProperty({ example: 250, required: false })
-  @IsNumber()
-  @IsOptional()
-  @Min(0)
-  amount?: number; // Water intake, activity level
+@ValidatorConstraint({ name: 'metricValuesConstraint', async: false })
+export class MetricValuesConstraint implements ValidatorConstraintInterface {
+  validate(values: unknown, args: ValidationArguments): boolean {
+    if (!values || typeof values !== 'object' || Array.isArray(values)) {
+      return false;
+    }
+
+    const dto = args.object as CreateHealthMetricDto;
+    const metricType = dto.type;
+    const requiredKeys = TYPE_KEYS[metricType] || [];
+    const valueKeys = Object.keys(values as Record<string, unknown>);
+
+    if (requiredKeys.length > 0) {
+      if (valueKeys.length !== requiredKeys.length) {
+        return false;
+      }
+      const requiredSet = new Set(requiredKeys);
+      if (!valueKeys.every((key) => requiredSet.has(key))) {
+        return false;
+      }
+    }
+
+    for (const detail of Object.values(values as Record<string, unknown>)) {
+      if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
+        return false;
+      }
+
+      const value = (detail as MetricValueEntryDto).value;
+      const recordedAt = (detail as MetricValueEntryDto).recordedAt;
+
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        return false;
+      }
+
+      const recordedDate = new Date(recordedAt);
+      if (!recordedAt || Number.isNaN(recordedDate.getTime())) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  defaultMessage(args: ValidationArguments): string {
+    const dto = args.object as CreateHealthMetricDto;
+    const requiredKeys = TYPE_KEYS[dto.type] || [];
+    if (requiredKeys.length > 0) {
+      return `values must contain exactly [${requiredKeys.join(', ')}], and each key must include { value: number, recordedAt: valid date }`;
+    }
+    return 'values must be an object with { value: number, recordedAt: valid date } entries';
+  }
 }
 
 export class CreateHealthMetricDto {
@@ -43,12 +90,17 @@ export class CreateHealthMetricDto {
   type: MetricType;
 
   @ApiProperty({
-    type: ValuesDto,
-    example: { systolic: 120, diastolic: 80 },
-    description: 'Flexible object: {systolic, diastolic} for BP, {amount} for others',
+    type: Object,
+    example: {
+      systolic: { value: 120, recordedAt: '2026-03-16T08:00:00Z' },
+      diastolic: { value: 80, recordedAt: '2026-03-16T08:05:00Z' },
+    },
+    description:
+      'Dynamic object by metric type. Each key must be { value: number, recordedAt: ISO date }',
   })
   @IsObject()
-  values: Record<string, number>;
+  @Validate(MetricValuesConstraint)
+  values: Record<string, MetricValueEntryDto>;
 
   @ApiProperty({ example: 'mmHg' })
   @IsString()

@@ -45,6 +45,7 @@
     "../../packages/ui/src/components/progress.tsx",
     "../../packages/ui/src/components/separator.tsx",
     "../../packages/ui/src/components/spinner.tsx",
-    "../../packages/ui/src/components/toasts.tsx"
+    "../../packages/ui/src/components/toasts.tsx",
+    "../../packages/ui/src/components/data-display/overview-card.tsx"
   ]
 }
