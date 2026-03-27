@@ -1,15 +1,19 @@
 import {
-  Heart,
   Activity,
-  Weight,
   Droplet,
-  Flame,
-  Ruler,
   Droplets,
+  Flame,
   Gauge,
+  Heart,
+  Ruler,
   Thermometer,
+  Weight,
   Wind,
 } from "lucide-react";
+
+{
+  /* <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>; */
+}
 
 type MetricsTypes =
   | "blood_pressure"
@@ -29,11 +33,12 @@ interface MetricEntry {
   recordedAt: Date | string;
 }
 
-interface MetricCardProps {
+interface MetricOverviewCardProps {
   patientId: string;
   metricsType: MetricsTypes;
   values: Record<string, MetricEntry>;
   unit: string;
+  onView: () => void;
 }
 
 type VariantStyle = {
@@ -173,35 +178,131 @@ function formatMetricValue(
   }
 }
 
-export function MetricCard({
+function formatTime(recordedAt?: Date | string): string {
+  if (!recordedAt) return "-";
+  const date = new Date(recordedAt);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const isToday = date.toDateString() === today.toDateString();
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  let dayStr = "";
+  if (isToday) dayStr = "Today";
+  else if (isYesterday) dayStr = "Yesterday";
+  else
+    dayStr = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
+  const timeStr = date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `${dayStr}, ${timeStr}`;
+}
+
+export function MetricOverviewCard({
   patientId,
   metricsType,
   values,
   unit,
-}: MetricCardProps) {
+  onView,
+}: MetricOverviewCardProps) {
   const variant = VARIANT_STYLES[metricsType];
   const displayValue = formatMetricValue(metricsType, values);
+
+  // Get the most recent record timestamp
+  const getLatestTimestamp = (): Date | string | undefined => {
+    const entries = Object.values(values);
+    if (entries.length === 0) return undefined;
+    return entries[entries.length - 1]?.recordedAt;
+  };
+
+  const latestTime = getLatestTimestamp();
+  const formattedTime = formatTime(latestTime);
+
+  // Determine if there's data
+  const hasData = displayValue !== "N/A";
+
   return (
     <div
+      className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 transition-all hover:shadow-md"
       data-patient-id={patientId}
-      className={`flex items-center gap-3 rounded-2xl border ${variant.borderColor} ${variant.bgColor} p-3 min-w-min`}
     >
-      <div
-        className={`flex h-10 w-10 items-center justify-center rounded-lg ${variant.iconBgColor} ${variant.textColor}`}
-      >
-        {variant.icon}
+      {/* Header with icon and badge */}
+      <div className="flex items-center justify-between">
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${variant.iconBgColor} ${variant.textColor}`}
+        >
+          {variant.icon}
+        </div>
+        {hasData ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+            Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+            No Data
+          </span>
+        )}
       </div>
-      <div className="flex flex-col gap-0.5">
-        <p className="text-xs font-medium text-slate-500">{variant.label}</p>
-        <p className={`text-lg font-semibold ${variant.textColor}`}>
-          {displayValue}
-          {displayValue !== "N/A" && (
-            <span className="ml-1 text-sm font-normal text-slate-500">
-              {unit}
-            </span>
-          )}
-        </p>
+
+      {/* Title */}
+      <div>
+        <p className="text-xl font-semibold text-slate-900">{variant.label}</p>
       </div>
+
+      {/* Value with status indicator */}
+      {hasData ? (
+        <>
+          <div className="flex justify-center items-center gap-2">
+            <p className={`text-3xl font-bold ${variant.textColor}`}>
+              {displayValue}
+              <span className="ml-1 text-sm font-normal text-slate-500">
+                {unit}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between mt-2">
+            {/* Timestamp */}
+            <p className="text-xs text-slate-500">{formattedTime}</p>
+
+            {/* View link */}
+            <button
+              onClick={onView}
+              className={`inline-flex items-center gap-1 text-sm font-semibold ${variant.textColor} transition-colors hover:opacity-75 cursor-pointer`}
+            >
+              View
+              <span>›</span>
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* No Data Message */}
+          <div className="flex items-center">
+            <p className="text-sm text-slate-500">No data available yet</p>
+          </div>
+
+          {/* Add Data Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={onView}
+              className={`inline-flex items-center gap-1 text-sm font-semibold transition-colors hover:opacity-75 cursor-pointer`}
+            >
+              Add Data
+              <span>›</span>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

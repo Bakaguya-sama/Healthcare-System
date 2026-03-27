@@ -8,6 +8,7 @@ import { ToastContainer } from "react-toastify";
 import { SignUp } from "./features/auth/pages/sign-up";
 import { DoctorOverview } from "./features/doctor/overview/pages/doctor-overview";
 import { Consultations } from "./features/doctor/consultations/pages/consultations";
+import { Overview } from "./features/patient/overview/page/overview";
 import { Profile } from "@repo/ui/pages/profile";
 
 function Page({ title }: { title: string }) {
@@ -19,7 +20,7 @@ function Page({ title }: { title: string }) {
 }
 
 function App() {
-  const role = "doctor";
+  const role = "patient";
   const defaultHomePath =
     role === "doctor" ? "/doctor-overview" : "/patient-overview";
 
@@ -43,10 +44,7 @@ function App() {
               </>
             ) : (
               <>
-                <Route
-                  path="/patient-overview"
-                  element={<Page title="Overview" />}
-                />
+                <Route path="/patient-overview" element={<Overview />} />
                 <Route
                   path="/my_doctors"
                   element={<Page title="My doctors" />}

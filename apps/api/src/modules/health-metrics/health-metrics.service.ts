@@ -14,6 +14,9 @@ import {
 import { CreateHealthMetricDto } from './dto/create-health-metric.dto';
 import { UpdateHealthMetricDto } from './dto/update-health-metric.dto';
 import { QueryHealthMetricDto } from './dto/query-health-metric.dto';
+import { evaluateMetricThreshold } from './health-metrics-alert.evaluator';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 type MetricEntry = {
   value: number;
@@ -69,6 +72,7 @@ export class HealthMetricsService {
   constructor(
     @InjectModel(HealthMetric.name)
     private healthMetricModel: Model<HealthMetricDocument>,
+    private notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -99,6 +103,12 @@ export class HealthMetricsService {
       );
     }
 
+    const noti = await this.maybeCreateAlertNotification(
+      userId,
+      dto.type,
+      dto.values,
+    );
+
     return {
       statusCode: 201,
       message: 'Health metric recorded successfully',
@@ -114,7 +124,16 @@ export class HealthMetricsService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const filter: any = { patientId: new Types.ObjectId(userId) };
+    const filter: {
+      patientId: Types.ObjectId;
+      type?: MetricType;
+      recordedAt?: {
+        $gte?: Date;
+        $lte?: Date;
+      };
+    } = {
+      patientId: new Types.ObjectId(userId),
+    };
 
     // Apply filters
     if (query.type) {
@@ -229,11 +248,92 @@ export class HealthMetricsService {
       );
     }
 
+    const alert = dto.values
+      ? await this.maybeCreateAlertNotification(
+          userId,
+          effectiveType,
+          dto.values as Record<string, MetricEntry>,
+        )
+      : null;
+
     return {
       statusCode: 200,
       message: 'Health metric updated successfully',
       data: metric,
     };
+  }
+
+  private toEvaluationInput(values: Record<string, MetricEntry>): {
+    value?: number;
+    systolic?: number;
+    diastolic?: number;
+  } {
+    return {
+      value: values?.value?.value ?? values?.amount?.value,
+      systolic: values?.systolic?.value,
+      diastolic: values?.diastolic?.value,
+    };
+  }
+
+  private toSupportedEvaluatorType(
+    type: MetricType,
+  ):
+    | 'blood_pressure'
+    | 'heart_rate'
+    | 'blood_glucose'
+    | 'oxygen_saturation'
+    | 'body_temperature'
+    | 'respiratory_rate'
+    | 'bmi'
+    | 'water_intake'
+    | 'kcal_intake'
+    | null {
+    switch (type) {
+      case MetricType.BLOOD_PRESSURE:
+      case MetricType.HEART_RATE:
+      case MetricType.BLOOD_GLUCOSE:
+      case MetricType.OXYGEN_SATURATION:
+      case MetricType.BODY_TEMPERATURE:
+      case MetricType.RESPIRATORY_RATE:
+      case MetricType.BMI:
+      case MetricType.WATER_INTAKE:
+      case MetricType.KCAL_INTAKE:
+        return type;
+      default:
+        return null;
+    }
+  }
+
+  private async maybeCreateAlertNotification(
+    userId: string,
+    metricType: MetricType,
+    values: Record<string, MetricEntry>,
+  ) {
+    const evaluatorType = this.toSupportedEvaluatorType(metricType);
+    if (!evaluatorType) {
+      return null;
+    }
+
+    const evaluation = evaluateMetricThreshold(
+      evaluatorType,
+      this.toEvaluationInput(values),
+      {
+        // TODO: Replace with real patient profile.
+        gender: 'male',
+      },
+    );
+
+    if (!evaluation || !evaluation.shouldTriggerAlert) {
+      return null;
+    }
+
+    const notification = await this.notificationsService.create(userId, {
+      type: NotificationType.CRITICAL,
+      title: `Critical ${metricType} alert`,
+      message: `${evaluation.status}: ${metricType} is outside safe threshold.`,
+    });
+
+    return notification.data;
   }
 
   /**

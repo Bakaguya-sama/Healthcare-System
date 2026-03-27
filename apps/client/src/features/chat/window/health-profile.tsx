@@ -13,6 +13,10 @@ interface HealthProfileProps {
   diastolic?: number;
   weightKg?: number;
   bmi?: number;
+  bloodGlucose?: number;
+  oxygenSaturation?: number;
+  bodyTemperature?: number;
+  respiratoryRate?: number;
 }
 
 type MetricCardMock = Pick<
@@ -52,6 +56,10 @@ export function HealthProfile({
   diastolic = 80,
   weightKg = 62,
   bmi = 22.4,
+  bloodGlucose = 100,
+  oxygenSaturation = 98,
+  bodyTemperature = 36.5,
+  respiratoryRate = 16,
 }: HealthProfileProps) {
   const updatedDate = formatDate(lastUpdatedAt);
   const updatedTime = formatTime(lastUpdatedAt);
@@ -79,6 +87,46 @@ export function HealthProfile({
         },
       },
       unit: "mmHg",
+    },
+    {
+      metricsType: "blood_glucose",
+      values: {
+        value: {
+          value: bloodGlucose,
+          recordedAt: lastUpdatedAt,
+        },
+      },
+      unit: "mg/dL",
+    },
+    {
+      metricsType: "oxygen_saturation",
+      values: {
+        value: {
+          value: oxygenSaturation,
+          recordedAt: lastUpdatedAt,
+        },
+      },
+      unit: "%",
+    },
+    {
+      metricsType: "body_temperature",
+      values: {
+        value: {
+          value: bodyTemperature,
+          recordedAt: lastUpdatedAt,
+        },
+      },
+      unit: "°C",
+    },
+    {
+      metricsType: "respiratory_rate",
+      values: {
+        value: {
+          value: respiratoryRate,
+          recordedAt: lastUpdatedAt,
+        },
+      },
+      unit: "breaths/min",
     },
   ];
 
