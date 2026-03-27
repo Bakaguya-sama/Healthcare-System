@@ -24,6 +24,10 @@ export class MetricValueEntryDto {
 const TYPE_KEYS: Record<MetricType, string[]> = {
   [MetricType.BLOOD_PRESSURE]: ['systolic', 'diastolic'],
   [MetricType.HEART_RATE]: ['value'],
+  [MetricType.BLOOD_GLUCOSE]: ['value'],
+  [MetricType.OXYGEN_SATURATION]: ['value'],
+  [MetricType.BODY_TEMPERATURE]: ['value'],
+  [MetricType.RESPIRATORY_RATE]: ['value'],
   [MetricType.BMI]: ['value'],
   [MetricType.WEIGHT]: ['value'],
   [MetricType.HEIGHT]: ['value'],
@@ -102,9 +106,10 @@ export class CreateHealthMetricDto {
   @Validate(MetricValuesConstraint)
   values: Record<string, MetricValueEntryDto>;
 
-  @ApiProperty({ example: 'mmHg' })
+  @ApiProperty({ example: 'mmHg', required: false })
   @IsString()
-  unit: string;
+  @IsOptional()
+  unit?: string;
 
   @ApiProperty({ example: '2026-03-16T20:30:00Z', required: false })
   @IsDate()
