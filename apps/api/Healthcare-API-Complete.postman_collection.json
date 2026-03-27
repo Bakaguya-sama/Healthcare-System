@@ -1324,7 +1324,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"metricType\": \"blood_pressure\",\n  \"values\": {\"systolic\": 120, \"diastolic\": 80},\n  \"unit\": \"mmHg\",\n  \"recordedAt\": \"2024-03-17T10:00:00Z\"\n}",
+              "raw": "{\n  \"type\": \"blood_pressure\",\n  \"values\": {\n    \"systolic\": { \"value\": 120, \"recordedAt\": \"2026-03-17T10:00:00Z\" },\n    \"diastolic\": { \"value\": 80, \"recordedAt\": \"2026-03-17T10:00:00Z\" }\n  },\n  \"unit\": \"mmHg\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1342,10 +1342,10 @@
             "method": "GET",
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "url": {
-              "raw": "{{base_url}}/health-metrics?page=1&limit=20&metricType=blood_pressure",
+              "raw": "{{base_url}}/health-metrics?page=1&limit=20&type=blood_pressure",
               "host": ["{{base_url}}"],
               "path": ["health-metrics"],
-              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}, {"key": "metricType", "value": "blood_pressure"}]
+              "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}, {"key": "type", "value": "blood_pressure"}]
             },
             "description": "Get health metrics with filters and pagination"
           },
@@ -1400,7 +1400,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"values\": {\"systolic\": 125, \"diastolic\": 85}\n}",
+              "raw": "{\n  \"values\": {\n    \"systolic\": { \"value\": 125, \"recordedAt\": \"2026-03-17T11:00:00Z\" },\n    \"diastolic\": { \"value\": 85, \"recordedAt\": \"2026-03-17T11:00:00Z\" }\n  }\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {

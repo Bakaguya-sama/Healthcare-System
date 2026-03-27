@@ -777,12 +777,12 @@ Header: Authorization: Bearer {{jwt_token}}
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /health-metrics | POST | type, value, unit | 201 + metric | ✅ |
+| 1 | POST /health-metrics | POST | type, values, unit | 201 + metric | ✅ |
 | 2 | GET /health-metrics | GET | page, type | 200 + list | ✅ |
 | 3 | GET /health-metrics/statistics/:type | GET | - | 200 + stats | ✅ |
 | 4 | GET /health-metrics/alerts | GET | - | 200 + alerts | ✅ |
 | 5 | GET /health-metrics/:id | GET | - | 200 + detail | ✅ |
-| 6 | PATCH /health-metrics/:id | PATCH | value, notes | 200 | ✅ |
+| 6 | PATCH /health-metrics/:id | PATCH | values | 200 | ✅ |
 | 7 | DELETE /health-metrics/:id | DELETE | - | 204 | ✅ |
 | 8 | GET /health-metrics/latest | GET | limit=5 | 200 + latest | ✅ |
 
@@ -792,17 +792,26 @@ Header: Authorization: Bearer {{jwt_token}}
 POST {{base_url}}/health-metrics
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
-  "metricType": "blood_pressure",
-  "value": 120,
-  "unit": "mmHg",
-  "recordedAt": "2026-03-18T10:00:00Z",
-  "notes": "Measured at home"
+  "type": "blood_pressure",
+  "values": {
+    "systolic": { "value": 120, "recordedAt": "2026-03-18T10:00:00Z" },
+    "diastolic": { "value": 80, "recordedAt": "2026-03-18T10:00:00Z" }
+  },
+  "unit": "mmHg"
 }
 ✅ Expected: 201
-✅ Types: blood_pressure, heart_rate, bmi, weight, height, water_intake, activity_level
+✅ Types: blood_pressure, heart_rate, bmi, weight, height, water_intake, kcal_intake
+✅ Values must match metric type structure:
+  - blood_pressure: { systolic: { value, recordedAt }, diastolic: { value, recordedAt } }
+  - heart_rate: { value: { value, recordedAt } }
+  - bmi: { value: { value, recordedAt } }
+  - weight: { value: { value, recordedAt } }
+  - height: { value: { value, recordedAt } }
+  - water_intake: { amount: { value, recordedAt } }
+  - kcal_intake: { amount: { value, recordedAt } }
 
 # 2. Get metrics (filtered by type)
-GET {{base_url}}/health-metrics?page=1&limit=20&metricType=blood_pressure
+GET {{base_url}}/health-metrics?page=1&limit=20&type=blood_pressure
 ✅ Expected: 200, blood pressure history
 
 # 3. Get statistics for metric type
@@ -824,10 +833,29 @@ GET {{base_url}}/health-metrics/alerts
 # 5. Get latest 5 metrics (dashboard)
 GET {{base_url}}/health-metrics/latest?limit=5
 ✅ Expected: 200, most recent across types
+
+# 6. Update health metric (PATCH)
+PATCH {{base_url}}/health-metrics/{{metric_id}}
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "values": {
+    "systolic": { "value": 125, "recordedAt": "2026-03-18T11:00:00Z" },
+    "diastolic": { "value": 85, "recordedAt": "2026-03-18T11:00:00Z" }
+  }
+}
+✅ Expected: 200, updated metric
 ```
 
 **Checklist:**
-- [ ] Metric type enum: blood_pressure, heart_rate, bmi, weight, height, water_intake, activity_level
+- [ ] Metric type enum: blood_pressure, heart_rate, bmi, weight, height, water_intake, kcal_intake
+- [ ] Values must have correct structure: { key: { value: number, recordedAt: ISO date } }
+- [ ] Blood pressure requires both systolic & diastolic
+- [ ] Water/Kcal intake uses 'amount' key instead of 'value'
+- [ ] Can filter by type using query parameter
+- [ ] Statistics returns avg, min, max, trend
+- [ ] Alerts show abnormal readings
+- [ ] Latest endpoint returns most recent records
+- [ ] Update only accepts values, not type or unit
 - [ ] Values flexible (object for blood pressure: {systolic, diastolic})
 - [ ] Unit matches type
 - [ ] Statistics auto-calculate min/max/avg
