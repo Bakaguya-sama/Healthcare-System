@@ -25,6 +25,10 @@ const BMI_UNIT = 'kg/m2';
 const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'systolic',
   [MetricType.HEART_RATE]: 'value',
+  [MetricType.BLOOD_GLUCOSE]: 'value',
+  [MetricType.OXYGEN_SATURATION]: 'value',
+  [MetricType.BODY_TEMPERATURE]: 'value',
+  [MetricType.RESPIRATORY_RATE]: 'value',
   [MetricType.BMI]: 'value',
   [MetricType.WEIGHT]: 'value',
   [MetricType.HEIGHT]: 'value',
@@ -35,11 +39,29 @@ const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
 const REQUIRED_KEYS_BY_TYPE: Record<MetricType, string[]> = {
   [MetricType.BLOOD_PRESSURE]: ['systolic', 'diastolic'],
   [MetricType.HEART_RATE]: ['value'],
+  [MetricType.BLOOD_GLUCOSE]: ['value'],
+  [MetricType.OXYGEN_SATURATION]: ['value'],
+  [MetricType.BODY_TEMPERATURE]: ['value'],
+  [MetricType.RESPIRATORY_RATE]: ['value'],
   [MetricType.BMI]: ['value'],
   [MetricType.WEIGHT]: ['value'],
   [MetricType.HEIGHT]: ['value'],
   [MetricType.WATER_INTAKE]: ['amount'],
   [MetricType.KCAL_INTAKE]: ['amount'],
+};
+
+const DEFAULT_UNIT_BY_TYPE: Record<MetricType, string> = {
+  [MetricType.BLOOD_PRESSURE]: 'mmHg',
+  [MetricType.HEART_RATE]: 'bpm',
+  [MetricType.BLOOD_GLUCOSE]: 'mg/dL',
+  [MetricType.OXYGEN_SATURATION]: '%',
+  [MetricType.BODY_TEMPERATURE]: 'C',
+  [MetricType.RESPIRATORY_RATE]: 'breaths/min',
+  [MetricType.BMI]: BMI_UNIT,
+  [MetricType.WEIGHT]: 'kg',
+  [MetricType.HEIGHT]: 'cm',
+  [MetricType.WATER_INTAKE]: 'ml',
+  [MetricType.KCAL_INTAKE]: 'kcal',
 };
 
 @Injectable()
@@ -60,12 +82,13 @@ export class HealthMetricsService {
     const patientId = new Types.ObjectId(userId);
 
     this.assertValidValuesForType(dto.type, dto.values);
+    const resolvedUnit = this.resolveUnitForType(dto.type);
 
     const metric = await this.healthMetricModel.create({
       patientId,
       type: dto.type,
       values: dto.values,
-      unit: dto.unit,
+      unit: resolvedUnit,
       recordedAt: dto.recordedAt || new Date(),
     });
 
@@ -180,6 +203,8 @@ export class HealthMetricsService {
     }
 
     const effectiveType = dto.type ?? metric.type;
+    const resolvedUnit = this.resolveUnitForType(effectiveType);
+
     if (dto.values) {
       this.assertValidValuesForType(
         effectiveType,
@@ -188,7 +213,10 @@ export class HealthMetricsService {
     }
 
     // Update fields
-    Object.assign(metric, dto);
+    Object.assign(metric, {
+      ...dto,
+      unit: resolvedUnit,
+    });
     await metric.save();
 
     if (
@@ -451,6 +479,18 @@ export class HealthMetricsService {
     }
 
     return value;
+  }
+
+  private resolveUnitForType(type: MetricType): string {
+    const defaultUnit = DEFAULT_UNIT_BY_TYPE[type];
+
+    if (!defaultUnit) {
+      throw new BadRequestException(
+        `No unit configuration found for type ${type}`,
+      );
+    }
+
+    return defaultUnit;
   }
 
   /**

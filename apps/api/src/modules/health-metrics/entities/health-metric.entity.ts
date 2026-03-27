@@ -6,6 +6,10 @@ export type HealthMetricDocument = HydratedDocument<HealthMetric>;
 export enum MetricType {
   BLOOD_PRESSURE = 'blood_pressure',
   HEART_RATE = 'heart_rate',
+  BLOOD_GLUCOSE = 'blood_glucose',
+  OXYGEN_SATURATION = 'oxygen_saturation',
+  BODY_TEMPERATURE = 'body_temperature',
+  RESPIRATORY_RATE = 'respiratory_rate',
   BMI = 'bmi',
   WEIGHT = 'weight',
   HEIGHT = 'height',
