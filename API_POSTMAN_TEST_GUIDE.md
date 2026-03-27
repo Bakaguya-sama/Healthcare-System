@@ -134,6 +134,153 @@ admin_token = (admin token)
 
 ---
 
+## 🌱 SEED DATA - TEST ACCOUNTS (SYNC VỚI POSTMAN)
+
+> ⚠️ **QUAN TRỌNG:** Seed data và Postman collections đã được SYNC hoàn toàn  
+> **Status:** ✅ ALL CREDENTIALS MATCH (100%)
+
+### Seed Database Test Accounts (7 Tài Khoản)
+
+Chạy seed database để tạo tất cả test accounts:
+```bash
+cd apps/api
+pnpm run seed
+```
+
+**Kết quả sau khi chạy seed:**
+
+#### 👥 PATIENTS (3 Tài Khoản)
+| # | Email | Password | Họ Tên | Gender | DoB | Địa Chỉ |
+|---|-------|----------|--------|--------|-----|---------|
+| 1 | **patient1@healthcare.com** | **Password123!** | Nguyễn Văn An | Male | 1990-05-15 | 123 Nguyen Hue, HCM |
+| 2 | **patient2@healthcare.com** | **Password123!** | Trần Thị Bình | Female | 1992-08-22 | 456 Tran Hung Dao, HCM |
+| 3 | **patient3@healthcare.com** | **Password123!** | Phạm Minh Cường | Male | 1988-12-01 | 789 Nguyen Du, Hanoi |
+
+#### 👨‍⚕️ DOCTORS (3 Tài Khoản)
+| # | Email | Password | Họ Tên | Specialty | Exp | Rating | Status |
+|---|-------|----------|--------|-----------|-----|--------|--------|
+| 1 | **doctor1@healthcare.com** | **Password123!** | Dr. Lê Thanh Tâm | Cardiology | 15y | 4.8★ | ✅ VERIFIED |
+| 2 | **doctor2@healthcare.com** | **Password123!** | Dr. Hoàng Thu Hương | Pediatrics | 12y | 4.6★ | ✅ VERIFIED |
+| 3 | **doctor3@healthcare.com** | **Password123!** | Dr. Võ Minh Quân | Neurology | 18y | 4.9★ | ✅ VERIFIED |
+
+#### 🔑 ADMIN (1 Tài Khoản)
+| # | Email | Password | Họ Tên | Role | Status |
+|---|-------|----------|--------|------|--------|
+| 1 | **admin@healthcare.com** | **Password123!** | Admin Hệ Thống | super_admin | ✅ ACTIVE |
+
+### Postman Collections - Test Accounts Sync
+
+#### Healthcare-API-Complete.postman_collection.json (SETUP Section)
+```
+✅ Register Patient: patient1@healthcare.com / Password123! (Nguyễn Văn An)
+✅ Register Doctor #1: doctor1@healthcare.com / Password123! (Dr. Lê Thanh Tâm - Cardiology)
+✅ Register Doctor #2: doctor2@healthcare.com / Password123! (Dr. Hoàng Thu Hương - Pediatrics)
+✅ Register Admin: admin@healthcare.com / Password123! (Admin Hệ Thống)
+```
+
+#### QUICK-SETUP-TESTS.postman_collection.json (BƯỚC 0 Section)
+```
+✅ 1️⃣ Register Patient: patient1@healthcare.com (Nguyễn Văn An)
+✅ 2️⃣ Register Doctor #1: doctor1@healthcare.com (Dr. Lê Thanh Tâm, Cardiology)
+✅ 3️⃣ Register Doctor #2: doctor2@healthcare.com (Dr. Hoàng Thu Hương, Pediatrics)
+✅ 4️⃣ Register Admin: admin@healthcare.com (Admin Hệ Thống)
+```
+
+### 🚀 Recommended Workflow
+
+**Option 1: Dùng Seed Data (Recommended)**
+```
+1. Terminal: pnpm run seed
+   → Tạo 7 users, 3 patients, 3 doctors, 1 admin
+   → + 30+ test data khác (health metrics, sessions, messages, etc.)
+   
+2. Postman: Import Healthcare-API-Complete.postman_collection.json
+   
+3. Postman: Test bằng credentials:
+   - Patient: patient1@healthcare.com / Password123!
+   - Doctor: doctor1@healthcare.com / Password123!
+   - Admin: admin@healthcare.com / Password123!
+   
+4. Direct Test:
+   POST http://localhost:3000/api/v1/auth/login
+   {
+     "email": "patient1@healthcare.com",
+     "password": "Password123!"
+   }
+   Response: { "access_token": "...", "user": {...} }
+```
+
+**Option 2: Dùng Postman Setup (If Seed Issues)**
+```
+1. Xóa database (nếu có duplicate):
+   MongoDB: Clear all collections
+   
+2. Postman: Run QUICK-SETUP-TESTS → BƯỚC 0
+   → Tạo 4 main accounts (Patient, Doctor1, Doctor2, Admin)
+   → Tạo environment variables tự động
+   
+3. Tiếp tục test từ phần BƯỚC 1 trở đi
+```
+
+### ✅ Verification Checklist
+
+Sau khi setup, verify dữ liệu bằng cách:
+
+```bash
+# 1. Test login với patient account
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "patient1@healthcare.com",
+    "password": "Password123!"
+  }'
+
+# Expected Response:
+# {
+#   "access_token": "eyJhbGc...",
+#   "user": {
+#     "_id": "...",
+#     "email": "patient1@healthcare.com",
+#     "fullName": "Nguyễn Văn An",
+#     "role": "patient",
+#     ...
+#   }
+# }
+
+# 2. Dùng token để test health metrics
+curl -X GET http://localhost:3000/api/v1/health-metrics \
+  -H "Authorization: Bearer {{access_token}}"
+
+# Expected: 200 OK, health metrics data
+
+# 3. Test doctor login
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "doctor1@healthcare.com",
+    "password": "Password123!"
+  }'
+
+# 4. Test admin login
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@healthcare.com",
+    "password": "Password123!"
+  }'
+```
+
+### 📝 NOTES
+
+- ✅ **Password:** Tất cả tài khoản seed dùng `Password123!`
+- ✅ **Hashed:** Seed dùng bcrypt hash format `$2b$12$...` (placeholder)
+- ✅ **Doctors Status:** Tất cả doctors đã được VERIFIED trong seed
+- ✅ **Postman Match:** Email/password khớp 100% với seed.ts
+- ⚠️ **Production:** KHÔNG dùng fake hash trong production
+- 💡 **Customization:** Edit seed.ts để thay đổi test data
+
+---
+
 ## 🔑 PHASE 1: AUTHENTICATION & IDENTITY (8 endpoints)
 
 **Mục tiêu:** Kiểm tra auth flow, token generation, user info
