@@ -920,11 +920,33 @@ Header: Authorization: Bearer {{jwt_token}}
 ### 9️⃣ HEALTH-METRICS - Health Data Tracking
 **Collection:** `9️⃣ HEALTH-METRICS - Health Data Tracking`
 
+#### ⚠️ IMPORTANT REFACTOR (Unit Auto-Mapping)
+**Ngày cập nhật:** March 27, 2026
+
+🔄 **THAY ĐỔI:** Unit field không còn cần pass trong request body!
+- ❌ **BEFORE:** `"unit": "mmHg"` (phải pass manual)
+- ✅ **AFTER:** Unit được tự động mapping dựa vào `type`
+
+**Default Unit Mapping (Tự động):**
+| Metric Type | Auto Unit | Key in values |
+|------------|-----------|--------------|
+| blood_pressure | mmHg | systolic, diastolic |
+| heart_rate | bpm | value |
+| blood_glucose | mg/dL | value |
+| oxygen_saturation | % | value |
+| body_temperature | C | value |
+| respiratory_rate | breaths/min | value |
+| bmi | kg/m2 | value |
+| weight | kg | value |
+| height | cm | value |
+| water_intake | ml | amount |
+| kcal_intake | kcal | amount |
+
 #### Test Cases
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /health-metrics | POST | type, values, unit | 201 + metric | ✅ |
+| 1 | POST /health-metrics | POST | type, values | 201 + metric (unit auto-set) | ✅ |
 | 2 | GET /health-metrics | GET | page, type | 200 + list | ✅ |
 | 3 | GET /health-metrics/statistics/:type | GET | - | 200 + stats | ✅ |
 | 4 | GET /health-metrics/alerts | GET | - | 200 + alerts | ✅ |
@@ -935,7 +957,7 @@ Header: Authorization: Bearer {{jwt_token}}
 
 #### Commands
 ```bash
-# 1. Record blood pressure
+# 1. Record blood pressure (❌ DON'T send "unit" anymore)
 POST {{base_url}}/health-metrics
 Header: Authorization: Bearer {{jwt_token}}
 Body: {
@@ -943,14 +965,31 @@ Body: {
   "values": {
     "systolic": { "value": 120, "recordedAt": "2026-03-18T10:00:00Z" },
     "diastolic": { "value": 80, "recordedAt": "2026-03-18T10:00:00Z" }
-  },
-  "unit": "mmHg"
+  }
 }
-✅ Expected: 201
-✅ Types: blood_pressure, heart_rate, bmi, weight, height, water_intake, kcal_intake
-✅ Values must match metric type structure:
+✅ Expected: 201, unit "mmHg" automatically set in response
+✅ Response includes:
+{
+  "_id": "metric_id",
+  "patientId": "{{user_id}}",
+  "type": "blood_pressure",
+  "values": {
+    "systolic": { "value": 120, "recordedAt": "2026-03-18T10:00:00Z" },
+    "diastolic": { "value": 80, "recordedAt": "2026-03-18T10:00:00Z" }
+  },
+  "unit": "mmHg",  ✅ AUTO-SET
+  "recordedAt": "2026-03-18T10:00:00Z"
+}
+
+✅ Types: blood_pressure, heart_rate, blood_glucose, oxygen_saturation, body_temperature, respiratory_rate, bmi, weight, height, water_intake, kcal_intake
+
+✅ Values structure by metric type:
   - blood_pressure: { systolic: { value, recordedAt }, diastolic: { value, recordedAt } }
   - heart_rate: { value: { value, recordedAt } }
+  - blood_glucose: { value: { value, recordedAt } }
+  - oxygen_saturation: { value: { value, recordedAt } }
+  - body_temperature: { value: { value, recordedAt } }
+  - respiratory_rate: { value: { value, recordedAt } }
   - bmi: { value: { value, recordedAt } }
   - weight: { value: { value, recordedAt } }
   - height: { value: { value, recordedAt } }
@@ -994,21 +1033,23 @@ Body: {
 ```
 
 **Checklist:**
-- [ ] Metric type enum: blood_pressure, heart_rate, bmi, weight, height, water_intake, kcal_intake
+- [ ] ✅ **Unit automatically mapped** - DO NOT send unit in request body
+- [ ] Metric type enum: blood_pressure, heart_rate, blood_glucose, oxygen_saturation, body_temperature, respiratory_rate, bmi, weight, height, water_intake, kcal_intake
 - [ ] Values must have correct structure: { key: { value: number, recordedAt: ISO date } }
-- [ ] Blood pressure requires both systolic & diastolic
+- [ ] Blood pressure requires both systolic & diastolic (not value)
 - [ ] Water/Kcal intake uses 'amount' key instead of 'value'
+- [ ] Other metrics use 'value' key
 - [ ] Can filter by type using query parameter
-- [ ] Statistics returns avg, min, max, trend
+- [ ] Statistics returns avg, min, max, count
 - [ ] Alerts show abnormal readings
 - [ ] Latest endpoint returns most recent records
-- [ ] Update only accepts values, not type or unit
-- [ ] Values flexible (object for blood pressure: {systolic, diastolic})
-- [ ] Unit matches type
+- [ ] Update (PATCH) only accepts values, not type or unit
+- [ ] Values flexible (object with keys matching metric type)
+- [ ] Unit auto-set based on metric type (see table above)
 - [ ] Statistics auto-calculate min/max/avg
 - [ ] Alerts for abnormal values (e.g., BP > 160)
-- [ ] Only patient can see own metrics
-- [ ] Doctor can view patient metrics (if authorized)
+- [ ] Only patient can see own metrics (auth required)
+- [ ] Doctor can view patient metrics (if authorized in session)
 
 ---
 

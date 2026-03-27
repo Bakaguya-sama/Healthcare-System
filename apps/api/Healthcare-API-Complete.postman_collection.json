@@ -1316,6 +1316,7 @@
     },
     {
       "name": "9️⃣ HEALTH-METRICS - Health Data Tracking (8 endpoints)",
+      "description": "📝 REFACTOR UPDATE (March 27, 2026): Unit field is AUTO-MAPPED based on metric type - DO NOT send 'unit' in request body! Each metric type has specific value key: blood_pressure uses systolic/diastolic, water_intake/kcal_intake use amount, others use value",
       "item": [
         {
           "name": "Create Health Metric",
@@ -1324,7 +1325,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"blood_pressure\",\n  \"values\": {\n    \"systolic\": { \"value\": 120, \"recordedAt\": \"2026-03-17T10:00:00Z\" },\n    \"diastolic\": { \"value\": 80, \"recordedAt\": \"2026-03-17T10:00:00Z\" }\n  },\n  \"unit\": \"mmHg\"\n}",
+              "raw": "{\n  \"type\": \"blood_pressure\",\n  \"values\": {\n    \"systolic\": { \"value\": 120, \"recordedAt\": \"2026-03-17T10:00:00Z\" },\n    \"diastolic\": { \"value\": 80, \"recordedAt\": \"2026-03-17T10:00:00Z\" }\n  }\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1332,7 +1333,7 @@
               "host": ["{{base_url}}"],
               "path": ["health-metrics"]
             },
-            "description": "Record new health metric"
+            "description": "Record new health metric (Unit auto-mapped by type - NO need to send unit field)"
           },
           "response": []
         },
