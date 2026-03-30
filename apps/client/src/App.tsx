@@ -10,6 +10,8 @@ import { DoctorOverview } from "./features/doctor/overview/pages/doctor-overview
 import { Consultations } from "./features/doctor/consultations/pages/consultations";
 import { Overview } from "./features/patient/overview/page/overview";
 import { Profile } from "@repo/ui/pages/profile";
+import { GlobalCriticalAlertHost } from "./components/GlobalCriticalAlertHost";
+import { useNotificationSync } from "./hooks/useNotificationSync";
 
 function Page({ title }: { title: string }) {
   return (
@@ -19,47 +21,61 @@ function Page({ title }: { title: string }) {
   );
 }
 
-function App() {
+/**
+ * Wrapper component để setup notification sync hook
+ * Mount ở trong BrowserRouter để có access đến route context
+ */
+function AppRoutes() {
   const role = "patient";
   const defaultHomePath =
     role === "doctor" ? "/doctor-overview" : "/patient-overview";
 
+  // TODO: Get actual userId from auth context
+  const userId = null;
+  useNotificationSync(userId);
+
+  return (
+    <>
+      <GlobalCriticalAlertHost />
+      <Routes>
+        <Route path="/login" element={<LogIn />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/change-password" element={<ChangePassword />} />
+        <Route path="/forget-password" element={<ForgetPassword />} />
+        <Route path="/confirm-otp" element={<ConfirmOTP />} />
+        <Route element={<Layout userRole={role} />}>
+          <Route index element={<Navigate to={defaultHomePath} replace />} />
+          {role === "doctor" ? (
+            <>
+              <Route path="/doctor-overview" element={<DoctorOverview />} />
+              <Route path="/consultations" element={<Consultations />} />
+              <Route path="/profile" element={<Profile />} />
+            </>
+          ) : (
+            <>
+              <Route path="/patient-overview" element={<Overview />} />
+              <Route path="/my_doctors" element={<Page title="My doctors" />} />
+              <Route
+                path="/ai_assistant"
+                element={<Page title="AI assistant" />}
+              />
+              <Route path="/messages" element={<Page title="Messages" />} />
+              <Route path="/profile" element={<Profile />} />
+            </>
+          )}
+        </Route>
+        <Route path="*" element={<Navigate to={defaultHomePath} replace />} />
+      </Routes>
+    </>
+  );
+}
+
+function App() {
   return (
     <>
       <ToastContainer />
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LogIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/change-password" element={<ChangePassword />} />
-          <Route path="/forget-password" element={<ForgetPassword />} />
-          <Route path="/confirm-otp" element={<ConfirmOTP />} />
-          <Route element={<Layout userRole={role} />}>
-            <Route index element={<Navigate to={defaultHomePath} replace />} />
-            {role === "doctor" ? (
-              <>
-                <Route path="/doctor-overview" element={<DoctorOverview />} />
-                <Route path="/consultations" element={<Consultations />} />
-                <Route path="/profile" element={<Profile />} />
-              </>
-            ) : (
-              <>
-                <Route path="/patient-overview" element={<Overview />} />
-                <Route
-                  path="/my_doctors"
-                  element={<Page title="My doctors" />}
-                />
-                <Route
-                  path="/ai_assistant"
-                  element={<Page title="AI assistant" />}
-                />
-                <Route path="/messages" element={<Page title="Messages" />} />
-                <Route path="/profile" element={<Profile />} />
-              </>
-            )}
-          </Route>
-          <Route path="*" element={<Navigate to={defaultHomePath} replace />} />
-        </Routes>
+        <AppRoutes />
       </BrowserRouter>
     </>
   );

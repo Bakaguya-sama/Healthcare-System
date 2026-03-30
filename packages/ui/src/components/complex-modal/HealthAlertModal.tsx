@@ -4,7 +4,7 @@ import { AlertTriangle, X } from "lucide-react";
 interface HealthAlertModalProps {
   id: string;
   title: string;
-  content: string;
+  message: string;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -12,7 +12,7 @@ interface HealthAlertModalProps {
 export function HealthAlertModal({
   id,
   title,
-  content,
+  message,
   isOpen,
   onClose,
 }: HealthAlertModalProps) {
@@ -60,7 +60,7 @@ export function HealthAlertModal({
               Alert Details
             </p>
             <div className="whitespace-pre-line text-base leading-relaxed text-slate-700">
-              {content}
+              {message}
             </div>
           </div>
         </div>
