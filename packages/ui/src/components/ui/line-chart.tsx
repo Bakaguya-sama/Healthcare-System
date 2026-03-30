@@ -24,7 +24,7 @@ ChartJS.register(
 
 export interface LineChartDataset {
   label: string;
-  data: number[];
+  data: Array<number | null>;
   borderColor: string;
   backgroundColor?: string;
   fill?: boolean;

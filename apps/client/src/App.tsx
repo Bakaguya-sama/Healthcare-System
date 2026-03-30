@@ -12,6 +12,7 @@ import { Overview } from "./features/patient/overview/page/overview";
 import { Profile } from "@repo/ui/pages/profile";
 import { GlobalCriticalAlertHost } from "./components/GlobalCriticalAlertHost";
 import { useNotificationSync } from "./hooks/useNotificationSync";
+import { HealthMetric } from "./features/patient/health-metric/page/health-metric";
 
 function Page({ title }: { title: string }) {
   return (
@@ -55,6 +56,7 @@ function AppRoutes() {
             <>
               <Route path="/patient-overview" element={<Overview />} />
               <Route path="/my_doctors" element={<Page title="My doctors" />} />
+              <Route path="/health-metric" element={<HealthMetric />} />
               <Route
                 path="/ai_assistant"
                 element={<Page title="AI assistant" />}

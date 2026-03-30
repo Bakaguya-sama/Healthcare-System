@@ -1,6 +1,7 @@
 import { Button } from "@repo/ui/components/ui/button";
 import { useMemo, useState } from "react";
 import { MetricOverviewCard } from "../components/metric-overview-card";
+import { useNavigate } from "react-router-dom";
 
 type MetricsTypes =
   | "blood_pressure"
@@ -138,6 +139,8 @@ export function Overview() {
     day: "numeric", // "27"
   };
 
+  const navigate = useNavigate();
+
   // TODO: Replace MOCK_METRICS with API data when backend integration is ready.
   const metrics = MOCK_METRICS;
 
@@ -206,7 +209,13 @@ export function Overview() {
         </div>
 
         <div className="flex justify-end">
-          <Button>Add new metric</Button>
+          <Button
+            onClick={() => {
+              navigate("/health-metric");
+            }}
+          >
+            Add new metric
+          </Button>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-1 xl:grid-cols-2">
