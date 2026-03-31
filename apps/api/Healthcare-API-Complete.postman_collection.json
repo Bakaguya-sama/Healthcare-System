@@ -2654,6 +2654,186 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "2️⃣0️⃣ FILE UPLOAD - Cloudinary Integration (5 endpoints)",
+      "description": "📤 Upload files/images lên Cloudinary. ✨ NEW - March 31, 2026: Thêm file upload + WebSocket",
+      "item": [
+        {
+          "name": "Upload Single File",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "folder",
+                  "value": "healthcare/profiles",
+                  "type": "text"
+                },
+                {
+                  "key": "fileType",
+                  "value": "image",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/upload/single",
+              "host": ["{{base_url}}"],
+              "path": ["upload", "single"]
+            },
+            "description": "Upload single file (image or document). Folders: healthcare/profiles, healthcare/doctors/verification, healthcare/documents/health, healthcare/chat/attachments"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Multiple Files",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "folder",
+                  "value": "healthcare/doctors/verification",
+                  "type": "text"
+                },
+                {
+                  "key": "fileType",
+                  "value": "document",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/upload/multiple",
+              "host": ["{{base_url}}"],
+              "path": ["upload", "multiple"]
+            },
+            "description": "Upload multiple files. Max 10 files per request"
+          },
+          "response": []
+        },
+        {
+          "name": "Get File Info",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/upload/{{public_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["upload", "{{public_id}}"]
+            },
+            "description": "Get file information from Cloudinary"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fileType\": \"document\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/upload/{{public_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["upload", "{{public_id}}"]
+            },
+            "description": "Delete file from Cloudinary"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Multiple Files",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"publicIds\": [\"public_id_1\", \"public_id_2\"], \"fileType\": \"document\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/upload/delete-multiple",
+              "host": ["{{base_url}}"],
+              "path": ["upload", "delete-multiple"]
+            },
+            "description": "Delete multiple files from Cloudinary"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2️⃣1️⃣ WEBSOCKET - Real-time Notifications (Manual Test)",
+      "description": "🔌 WebSocket for real-time notifications. Test manually using browser console or Socket.IO client",
+      "item": [
+        {
+          "name": "📖 WebSocket Connection Guide",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/notifications",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["notifications"]
+            },
+            "description": "🔌 WEBSOCKET TEST GUIDE:\n\n1. **Browser Console (Chrome DevTools):**\n\n```javascript\n// Paste this in browser console\nconst socket = io('http://localhost:3000/notifications', {\n  auth: { token: localStorage.getItem('jwt_token') }\n});\n\n// Listen for notifications\nsocket.on('notification', (notif) => {\n  console.log('📬 New notification:', notif);\n});\n\n// Mark as read\nsocket.emit('mark-as-read', { notificationId: 'notification_id_here' });\n\n// Listen for connection\nsocket.on('connect', () => {\n  console.log('✅ Connected to WebSocket');\n});\n\n// Listen for errors\nsocket.on('error', (error) => {\n  console.error('❌ Error:', error);\n});\n\n// Disconnect\nsocket.disconnect();\n```\n\n2. **Node.js Test:**\n```javascript\nconst io = require('socket.io-client');\nconst socket = io('http://localhost:3000/notifications', {\n  auth: { token: 'your_jwt_token' }\n});\n\nsocket.on('notification', (notif) => {\n  console.log('Notification:', notif);\n});\n```\n\n3. **Expected Flow:**\n   - Connect → Receive 'connected' event\n   - Service sends notification → Receive 'notification' event\n   - Mark as read → Receive 'notification-marked' event\n   - Disconnect → Clean up\n\n4. **Events:**\n   - 'connected' - Connection established\n   - 'notification' - New notification received\n   - 'notification-marked' - Notification marked as read\n   - 'user-typing' - User typing indicator\n   - 'error' - Error occurred"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Notification - Patient",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"title\": \"Test Notification\", \"message\": \"This is a test notification\", \"type\": \"info\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"]
+            },
+            "description": "Create test notification (Will be broadcast via WebSocket if connected)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/notifications/unread/count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "unread", "count"]
+            },
+            "description": "Get count of unread notifications"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -2715,6 +2895,11 @@
     {
       "key": "document_id",
       "value": "document_object_id",
+      "type": "string"
+    },
+    {
+      "key": "public_id",
+      "value": "cloudinary_public_id",
       "type": "string"
     }
   ]

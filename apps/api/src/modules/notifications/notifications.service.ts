@@ -184,6 +184,37 @@ export class NotificationsService {
   }
 
   /**
+   * ✅ ĐÁNH DẤU MỘT THÔNG BÁO LÀ ĐÃ ĐỌC
+   */
+  async markAsRead(userId: string, notificationId: string) {
+    if (!Types.ObjectId.isValid(notificationId)) {
+      throw new BadRequestException('Invalid notification ID');
+    }
+
+    const notification = await this.notificationModel.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(notificationId),
+        userId: new Types.ObjectId(userId),
+      },
+      {
+        isRead: true,
+        readAt: new Date(),
+      },
+      { new: true },
+    );
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    return {
+      statusCode: 200,
+      message: 'Notification marked as read',
+      data: notification,
+    };
+  }
+
+  /**
    * 🗑️ XÓA THÔNG BÁO
    */
   async delete(userId: string, notificationId: string) {

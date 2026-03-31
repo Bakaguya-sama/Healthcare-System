@@ -1,10 +1,10 @@
 # 📚 HƯỚNG DẪN TEST API - TRÌNH TỰ LOGIC HOÀN CHỈNH
 
-**Ngày:** March 20, 2026  
-**Bản:** Session 10 - Full DB Template Alignment  
-**Mục tiêu:** Test toàn bộ 130+ endpoints theo flow logic của hệ thống  
-**Thời gian dự kiến:** 2-3 giờ (full test)  
-**Lần cập nhật cuối:** Sau khi align 17 bảng DB template + cập nhật tất cả field names (fullName, specialty)
+**Ngày:** March 31, 2026  
+**Bản:** Session 11 - WebSocket + File Upload Integration  
+**Mục tiêu:** Test toàn bộ 140+ endpoints + WebSocket + File Upload  
+**Thời gian dự kiến:** 3-4 giờ (full test)  
+**Lần cập nhật cuối:** Thêm WebSocket notifications + Cloudinary file upload (5 endpoints + gateway)
 
 ---
 
@@ -1050,6 +1050,706 @@ Body: {
 - [ ] Alerts for abnormal values (e.g., BP > 160)
 - [ ] Only patient can see own metrics (auth required)
 - [ ] Doctor can view patient metrics (if authorized in session)
+
+---
+
+## 📤 PHASE 10: FILE UPLOAD - Cloudinary Integration (5 endpoints)
+
+**Mục tiêu:** Upload files/images lên Cloudinary ☁️
+
+**✨ NEW:** Added March 31, 2026 - WebSocket + File Upload Implementation
+
+### 2️⃣0️⃣ FILE UPLOAD - Cloudinary Integration
+**Collection:** `2️⃣0️⃣ FILE UPLOAD - Cloudinary Integration`
+
+#### Folder Structure (Auto-Organized)
+| Folder | Purpose | Examples |
+|--------|---------|----------|
+| `healthcare/profiles` | Patient/Doctor avatars | profile.jpg |
+| `healthcare/doctors/verification` | Doctor license, credentials | license.pdf, certificate.pdf |
+| `healthcare/documents/health` | Medical records, reports | scan.pdf, xray.jpg |
+| `healthcare/documents/records` | Patient health records | test_result.pdf |
+| `healthcare/chat/attachments` | Chat file attachments | document.doc, image.png |
+| `healthcare/ai/documents` | AI knowledge base files | guideline.pdf |
+
+#### File Validation
+- **Max Size:** 50MB (52,428,800 bytes)
+- **Allowed Types:** jpg, jpeg, png, pdf, doc, docx, txt
+- **Response:** URL (HTTP), secure_url (HTTPS), publicId (for deletion)
+
+#### Test Cases
+
+| # | Endpoint | Method | Form Data | Expected | Status |
+|---|----------|--------|-----------|----------|--------|
+| 1 | POST /upload/single | POST | file, folder, fileType | 201 + url + publicId | ✅ |
+| 2 | POST /upload/multiple | POST | files[], folder, fileTypes[] | 201 + urls array | ✅ |
+| 3 | GET /upload/:publicId | GET | - | 200 + file info | ✅ |
+| 4 | DELETE /upload/:publicId | DELETE | fileType | 200 | ✅ |
+| 5 | POST /upload/delete-multiple | POST | publicIds[], fileType | 200 | ✅ |
+
+#### Commands (With FormData)
+
+```bash
+# 1. Upload single profile image
+POST {{base_url}}/upload/single
+Header: Authorization: Bearer {{jwt_token}}
+Header: Content-Type: multipart/form-data
+Form Data:
+  - file: (binary) patient-photo.jpg
+  - folder: healthcare/profiles
+  - fileType: image
+  - description: Patient profile picture
+
+✅ Expected: 201
+Response: {
+  "statusCode": 201,
+  "message": "File uploaded successfully",
+  "data": {
+    "file": {
+      "url": "http://res.cloudinary.com/..../image.jpg",
+      "secure_url": "https://res.cloudinary.com/..../image.jpg",
+      "publicId": "healthcare/profiles/abc123def456",
+      "fileName": "patient-photo.jpg",
+      "fileType": "image",
+      "size": 256000,
+      "uploadedAt": "2026-03-31T14:30:00Z"
+    }
+  }
+}
+✅ Save publicId for later delete operations
+
+# 2. Upload multiple doctor verification documents
+POST {{base_url}}/upload/multiple
+Header: Authorization: Bearer {{doctor_token}}
+Header: Content-Type: multipart/form-data
+Form Data:
+  - files: (binary) license.pdf, certificate.pdf
+  - folder: healthcare/doctors/verification
+  - fileType: document
+  - descriptions: Doctor license, Medical certificate
+
+✅ Expected: 201, returns array with 2 files
+Response: {
+  "statusCode": 201,
+  "message": "Files uploaded successfully",
+  "data": {
+    "files": [
+      {
+        "url": "https://res.cloudinary.com/.../license.pdf",
+        "publicId": "healthcare/doctors/verification/xyz789",
+        "fileName": "license.pdf",
+        ...
+      },
+      {
+        "url": "https://res.cloudinary.com/.../certificate.pdf",
+        "publicId": "healthcare/doctors/verification/abc456",
+        "fileName": "certificate.pdf",
+        ...
+      }
+    ]
+  }
+}
+✅ Save both publicIds
+
+# 3. Get file info
+GET {{base_url}}/upload/healthcare/profiles/abc123def456
+✅ Expected: 200
+Response: {
+  "statusCode": 200,
+  "data": {
+    "publicId": "healthcare/profiles/abc123def456",
+    "url": "http://...",
+    "secure_url": "https://...",
+    "size": 256000,
+    "format": "jpg",
+    "uploadedAt": "2026-03-31T14:30:00Z"
+  }
+}
+
+# 4. Delete single file
+DELETE {{base_url}}/upload/healthcare/profiles/abc123def456
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "fileType": "image"
+}
+✅ Expected: 200
+Response: {
+  "statusCode": 200,
+  "message": "File deleted successfully"
+}
+
+# 5. Delete multiple files at once
+POST {{base_url}}/upload/delete-multiple
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "publicIds": [
+    "healthcare/doctors/verification/xyz789",
+    "healthcare/doctors/verification/abc456"
+  ],
+  "fileType": "document"
+}
+✅ Expected: 200
+Response: {
+  "statusCode": 200,
+  "message": "Files deleted successfully",
+  "data": {
+    "deletedCount": 2,
+    "deletedFiles": [
+      "healthcare/doctors/verification/xyz789",
+      "healthcare/doctors/verification/abc456"
+    ]
+  }
+}
+```
+
+#### Upload Integration Examples
+
+**Example 1: Doctor Upload Verification**
+```bash
+# Workflow: Doctor Registration → Upload License → Save publicId
+
+# 1. Doctor registers
+POST {{base_url}}/auth/register
+Body: {
+  "email": "doctor@example.com",
+  "password": "Password123!",
+  "fullName": "Dr. Tran Thi B",
+  "role": "doctor",
+  "specialty": "Cardiology"
+}
+✅ Save doctor_token
+
+# 2. Doctor uploads license
+POST {{base_url}}/upload/single
+Header: Authorization: Bearer {{doctor_token}}
+Form: file=license.pdf, folder=healthcare/doctors/verification, fileType=document
+✅ Save publicId → store in verification_documents array
+
+# 3. Doctor profile now has verified documents
+GET {{base_url}}/users/me
+✅ Response includes verification_documents array with Cloudinary URLs
+```
+
+**Example 2: Patient Upload Health Record**
+```bash
+# 1. Patient uploads health report
+POST {{base_url}}/upload/single
+Header: Authorization: Bearer {{jwt_token}}
+Form: file=health_report.pdf, folder=healthcare/documents/health, fileType=document
+✅ Save publicId
+
+# 2. Attach to health metric
+POST {{base_url}}/health-metrics
+Body: {
+  "type": "blood_glucose",
+  "values": { "value": { "value": 110, "recordedAt": "2026-03-31T14:00:00Z" } },
+  "attachmentUrl": "https://res.cloudinary.com/.../health_report.pdf"
+}
+
+# 3. Doctor can view attachment during consultation
+GET {{base_url}}/sessions/{{session_id}}
+✅ Response includes attachments with secure URLs
+```
+
+**Example 3: Chat Message with Attachment**
+```bash
+# 1. Upload attachment first
+POST {{base_url}}/upload/single
+Form: file=prescription.pdf, folder=healthcare/chat/attachments, fileType=document
+✅ Save publicId → get secure_url
+
+# 2. Send message with attachment URL
+POST {{base_url}}/chat/send
+Body: {
+  "doctorSessionId": "{{session_id}}",
+  "content": "Here is your prescription",
+  "attachments": ["https://res.cloudinary.com/.../prescription.pdf"]
+}
+
+# 3. Patient receives message with attachment
+GET {{base_url}}/chat/session/{{session_id}}
+✅ All messages include attachments array with secure URLs
+```
+
+#### Error Handling
+
+```bash
+# File too large (> 50MB)
+POST {{base_url}}/upload/single
+✅ Expected: 400 Bad Request
+Response: {
+  "statusCode": 400,
+  "message": "File size exceeds 50MB limit",
+  "error": "BadRequestException"
+}
+
+# Invalid file type (.exe, .zip, etc.)
+POST {{base_url}}/upload/single
+✅ Expected: 400 Bad Request
+Response: {
+  "statusCode": 400,
+  "message": "File type exe is not allowed. Allowed types: jpg,jpeg,png,pdf,doc,docx,txt",
+  "error": "BadRequestException"
+}
+
+# Invalid folder path
+POST {{base_url}}/upload/single
+Body: { "folder": "invalid/path", ... }
+✅ Expected: 400 Bad Request
+Response: {
+  "statusCode": 400,
+  "message": "Invalid folder path",
+  "error": "BadRequestException"
+}
+
+# File not found (for delete)
+DELETE {{base_url}}/upload/invalid/path
+✅ Expected: 404 Not Found
+Response: {
+  "statusCode": 404,
+  "message": "File not found in Cloudinary",
+  "error": "NotFoundException"
+}
+```
+
+#### Postman Environment Setup
+
+Save these variables after first upload:
+```json
+{
+  "profile_public_id": "healthcare/profiles/abc123def456",
+  "license_public_id": "healthcare/doctors/verification/xyz789",
+  "certificate_public_id": "healthcare/doctors/verification/abc456",
+  "health_record_public_id": "healthcare/documents/health/def789",
+  "chat_attachment_public_id": "healthcare/chat/attachments/ghi012"
+}
+```
+
+#### Testing Checklist
+
+- [ ] Single file upload works (< 5MB test file)
+- [ ] Multiple files upload (2-3 files at once)
+- [ ] File type validation (reject .exe, .zip)
+- [ ] File size limit (reject files > 50MB)
+- [ ] Get file info returns correct metadata
+- [ ] Delete single file removes from Cloudinary
+- [ ] Delete multiple files batch operation
+- [ ] HTTP URLs accessible (non-secure)
+- [ ] HTTPS URLs accessible (secure)
+- [ ] publicId matches folder path convention
+- [ ] fileName preserved from upload
+- [ ] File size tracked correctly
+- [ ] uploadedAt timestamp accurate
+- [ ] Can retrieve deleted file info (should 404)
+- [ ] Re-upload same file name creates new publicId
+
+#### Cloudinary Account Requirements
+
+1. **Create Account:** https://cloudinary.com/users/register/free
+2. **Find Credentials:**
+   - Dashboard → Settings → API Environment variable
+   - Copy: CLOUDINARY_URL (contains all credentials)
+   - Extract: Cloud Name, API Key, API Secret
+3. **Setup .env:**
+   ```env
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   ```
+4. **Test Free Tier:**
+   - Upload limit: Unlimited
+   - Storage: 25 GB
+   - Bandwidth: 25 GB/month
+   - Transformations: Yes
+
+---
+
+## 🔌 PHASE 11: WEBSOCKET - Real-Time Notifications (3 + Manual Testing)
+
+**Mục tiêu:** Real-time notifications via WebSocket 🔌
+
+**✨ NEW:** Added March 31, 2026 - WebSocket + Socket.IO Implementation
+
+### 2️⃣1️⃣ WEBSOCKET - Real-Time Notification Delivery
+**Collection:** `2️⃣1️⃣ WEBSOCKET - Real-Time Notification Delivery`
+
+#### Architecture Overview
+
+**Protocol:** WebSocket with Socket.IO v4.x
+**Namespace:** `/notifications`
+**Port:** 3001 (separate from API port 3000)
+**Authentication:** JWT token via socket options
+
+```
+Client                    Server
+  |                         |
+  +------ Connect -------->  |
+  |    (with JWT token)      |
+  |<------ Connected --------- |
+  |                         |
+  |                         | [Notification triggered]
+  |<------- Emit event ------  |
+  | (user_${userId} room)     |
+  |                         |
+  |------ Mark as read --->  |
+  |<------ Ack --------- |
+```
+
+#### WebSocket Events Reference
+
+| Event | Direction | Payload | Purpose |
+|-------|-----------|---------|---------|
+| `connect` | Server → Client | N/A | Connection established |
+| `notification` | Server → Client | {title, message, type, data} | New notification |
+| `notification-marked` | Server → Client | {notificationId, readAt} | Notification read |
+| `disconnect` | Server → Client | N/A | Connection closed |
+| `mark-as-read` | Client → Server | {notificationId} | Mark notification read |
+| `user-typing` | Client → Server | {sessionId, isTyping} | Typing indicator |
+| `error` | Server → Client | {message} | Connection error |
+
+#### Manual Testing (Browser Console)
+
+```javascript
+// ============================================
+// STEP 1: Install Socket.IO Client (in browser)
+// ============================================
+// Create a script in your HTML:
+// <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+// ============================================
+// STEP 2: Connect with JWT Token
+// ============================================
+const token = "eyJhbGc..."; // Your JWT token from login
+const socket = io('http://localhost:3001/notifications', {
+  auth: {
+    token: token
+  },
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  reconnectionAttempts: 5
+});
+
+// ============================================
+// STEP 3: Listen for Events
+// ============================================
+
+// When connected
+socket.on('connect', () => {
+  console.log('✅ Connected to notification server');
+  console.log('Socket ID:', socket.id);
+});
+
+// When receiving notification
+socket.on('notification', (data) => {
+  console.log('📬 New Notification:', data);
+  // Example output:
+  // {
+  //   _id: "123abc",
+  //   title: "Blood Pressure Alert",
+  //   message: "Your BP is 150/90 mmHg",
+  //   type: "warning",
+  //   userId: "user_123",
+  //   createdAt: "2026-03-31T15:00:00Z"
+  // }
+});
+
+// When notification marked as read
+socket.on('notification-marked', (data) => {
+  console.log('✅ Notification Marked:', data);
+  // {
+  //   notificationId: "123abc",
+  //   readAt: "2026-03-31T15:01:00Z"
+  // }
+});
+
+// When disconnected
+socket.on('disconnect', () => {
+  console.log('❌ Disconnected from server');
+});
+
+// When error
+socket.on('error', (error) => {
+  console.error('⚠️ WebSocket Error:', error);
+});
+
+// ============================================
+// STEP 4: Emit Events (From Client)
+// ============================================
+
+// Mark notification as read
+socket.emit('mark-as-read', {
+  notificationId: "123abc"
+}, (response) => {
+  console.log('Server acknowledged:', response);
+});
+
+// Typing indicator in chat
+socket.emit('user-typing', {
+  sessionId: "session_123",
+  isTyping: true
+});
+
+// Stop typing
+socket.emit('user-typing', {
+  sessionId: "session_123",
+  isTyping: false
+});
+
+// ============================================
+// STEP 5: Test Real-Time Flow
+// ============================================
+
+// 1. Open browser console (F12 → Console)
+// 2. Paste connection code above
+// 3. See "✅ Connected to notification server"
+// 4. In another tab/Postman, send notification via API:
+//    POST /api/v1/notifications
+//    Body: { "userId": "...", "title": "Test", "message": "Real-time test" }
+// 5. See "📬 New Notification:" in console immediately
+// 6. Emit mark-as-read event:
+//    socket.emit('mark-as-read', { notificationId: "..." })
+// 7. See "✅ Notification Marked:" in console
+```
+
+#### Test Cases (Manual Browser Testing)
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| 1 | Connection | Paste socket.io code, check console | ✅ Connected message | ✅ |
+| 2 | Receive notification | API POST /notifications, watch console | 📬 notification event | ✅ |
+| 3 | Mark as read | emit('mark-as-read', ...), watch console | ✅ notification-marked event | ✅ |
+| 4 | Reconnection | Close browser, reopen | Auto reconnect in 1-5s | ✅ |
+| 5 | Auth failure | Use invalid token | Error event + disconnect | ✅ |
+| 6 | Multiple clients | 2 browser tabs, 1 token | Each gets own connection | ✅ |
+| 7 | Room isolation | Send to user_123, user_456 | Each sees only their notifications | ✅ |
+
+#### Integration Test Scenarios
+
+**Scenario 1: Doctor Completes Consultation → Patient Gets Notification**
+
+```bash
+# 1. Doctor completes session
+POST {{base_url}}/sessions/{{session_id}}/complete
+Header: Authorization: Bearer {{doctor_token}}
+Body: {
+  "notes": "Patient is healthy",
+  "prescription": "Continue current diet"
+}
+✅ Expected: 200, session status = COMPLETED
+
+# 2. System creates notification for patient
+# (Backend auto-triggered)
+# Patient browser console shows:
+# 📬 New Notification: {
+#   title: "Consultation Complete",
+#   message: "Dr. Tran completed your consultation",
+#   type: "success",
+#   attachments: [{url: "...", fileName: "prescription.pdf"}]
+# }
+
+# 3. Patient marks notification as read
+# Browser console:
+# socket.emit('mark-as-read', { notificationId: "..." })
+# → socket.on('notification-marked', (data) => { ... })
+```
+
+**Scenario 2: Health Alert with File Attachment**
+
+```bash
+# 1. Patient uploads health report
+POST {{base_url}}/upload/single
+Form: file=lab_report.pdf, folder=healthcare/documents/health
+✅ Save secure_url
+
+# 2. Create notification with attachment
+POST {{base_url}}/notifications
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "userId": "{{patient_id}}",
+  "title": "Abnormal Lab Results",
+  "message": "Your recent lab shows elevated glucose",
+  "type": "warning",
+  "attachments": [{
+    "url": "https://res.cloudinary.com/.../lab_report.pdf",
+    "publicId": "healthcare/documents/health/xyz789",
+    "fileName": "lab_report.pdf",
+    "fileType": "document",
+    "size": 156000,
+    "uploadedAt": "2026-03-31T15:00:00Z"
+  }]
+}
+✅ Expected: 201, notification created
+
+# 3. Patient WebSocket receives:
+# 📬 New Notification: {
+#   title: "Abnormal Lab Results",
+#   message: "Your recent lab shows elevated glucose",
+#   type: "warning",
+#   attachments: [{
+#     url: "https://res.cloudinary.com/.../lab_report.pdf",
+#     fileName: "lab_report.pdf"
+#   }]
+# }
+```
+
+**Scenario 3: Multiple Patients Get Alert (Broadcast)**
+
+```javascript
+// Backend sends to multiple users simultaneously
+// via broadcastNotification(userIds, notification)
+
+// Each patient's browser receives independently:
+// User A: socket.on('notification', {...})
+// User B: socket.on('notification', {...})
+// User C: socket.on('notification', {...})
+// (Each in their own browser/device)
+```
+
+#### REST API Endpoints for Notifications
+
+```bash
+# Create notification (sends to WebSocket)
+POST {{base_url}}/notifications
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "userId": "{{user_id}}",
+  "type": "info|success|warning|critical",
+  "title": "Notification Title",
+  "message": "Full message text",
+  "attachments": [
+    {
+      "url": "https://...",
+      "publicId": "...",
+      "fileName": "...",
+      "fileType": "image|document"
+    }
+  ]
+}
+✅ Expected: 201, WebSocket emits to user_${userId} room
+
+# Get user notifications (REST API)
+GET {{base_url}}/notifications?page=1&limit=20
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200, notifications array
+
+# Get unread count (REST API)
+GET {{base_url}}/notifications/unread-count
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200
+Response: {
+  "unreadCount": 5
+}
+
+# Mark as read (both REST + WebSocket)
+PATCH {{base_url}}/notifications/{{notification_id}}/mark-as-read
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200, emits 'notification-marked' to WebSocket
+
+# Mark all as read
+PATCH {{base_url}}/notifications/mark-all-as-read
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 200
+```
+
+#### Environment Variables (Add to .env)
+
+```env
+# WebSocket Settings
+WEBSOCKET_PORT=3001
+WEBSOCKET_NAMESPACE=/notifications
+
+# File Upload Settings
+MAX_FILE_SIZE=52428800
+ALLOWED_FILE_TYPES=jpg,jpeg,png,pdf,doc,docx,txt
+
+# Cloudinary (Already in .env)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# JWT (Already in .env)
+JWT_SECRET=your_secret_key
+JWT_EXPIRATION=30m
+```
+
+#### Frontend Integration (React Example)
+
+```jsx
+import { io } from 'socket.io-client';
+import { useEffect, useState } from 'react';
+
+function NotificationListener() {
+  const [notifications, setNotifications] = useState([]);
+  const token = localStorage.getItem('access_token');
+
+  useEffect(() => {
+    // Connect to WebSocket
+    const socket = io('http://localhost:3001/notifications', {
+      auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 5
+    });
+
+    // Listen for notifications
+    socket.on('notification', (data) => {
+      setNotifications(prev => [data, ...prev]);
+      // Show toast/alert
+      toast.show({
+        title: data.title,
+        message: data.message,
+        type: data.type
+      });
+    });
+
+    // Listen for marked as read
+    socket.on('notification-marked', (data) => {
+      setNotifications(prev =>
+        prev.map(n => n._id === data.notificationId ? 
+          { ...n, isRead: true, readAt: data.readAt } : n)
+      );
+    });
+
+    return () => socket.disconnect();
+  }, [token]);
+
+  return (
+    <div className="notifications">
+      {notifications.map(n => (
+        <NotificationCard key={n._id} notification={n} />
+      ))}
+    </div>
+  );
+}
+
+export default NotificationListener;
+```
+
+#### Testing Checklist
+
+- [ ] WebSocket connects with valid JWT
+- [ ] Connection fails with invalid JWT (401)
+- [ ] Notification event received in real-time
+- [ ] Mark-as-read event acknowledged
+- [ ] Room isolation (user_123 ≠ user_456)
+- [ ] Reconnection works (drop connection, auto-reconnect)
+- [ ] Attachments display with secure URLs
+- [ ] Multiple clients connected simultaneously
+- [ ] Broadcast to multiple users works
+- [ ] Disconnect event triggered properly
+- [ ] Error event on auth failure
+- [ ] Can handle 100+ concurrent connections
+- [ ] Message delivery < 500ms latency
+- [ ] File attachments load correctly
+- [ ] Notification type (info, success, warning, critical) displayed correctly
+
+#### Performance Considerations
+
+- **Connection Pooling:** Socket.IO handles up to 10,000+ concurrent connections
+- **Memory:** ~1MB per connected socket
+- **Latency Target:** < 500ms for message delivery
+- **Scalability:** Use Redis adapter for multi-server deployments
+- **Bandwidth:** ~1KB per notification message
 
 ---
 

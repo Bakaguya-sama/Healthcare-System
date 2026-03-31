@@ -29,6 +29,31 @@ export class Notification {
 
   @Prop({ default: false })
   isRead: boolean;
+
+  @Prop({ type: Date })
+  readAt?: Date; // Thời điểm đánh dấu là read
+
+  // ✅ NEW: Hỗ trợ file attachments (images, documents)
+  @Prop({ type: Array, default: [] })
+  attachments?: Array<{
+    url: string; // Cloudinary URL
+    publicId: string; // Để delete later
+    fileName: string;
+    fileType: 'image' | 'document';
+    size: number;
+    uploadedAt: Date;
+  }>;
+
+  // ✅ NEW: Metadata cho notification (tùy chọn)
+  @Prop({ type: Object })
+  metadata?: {
+    relatedEntityId?: string; // VD: sessionId, documentId
+    relatedEntityType?: string; // VD: 'session', 'document'
+    action?: string; // VD: 'view', 'download'
+  };
+
+  @Prop({ type: Date })
+  expiresAt?: Date; // Notification tự xóa sau khoảng thời gian
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
