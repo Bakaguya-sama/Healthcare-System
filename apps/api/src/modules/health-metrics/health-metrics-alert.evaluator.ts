@@ -283,6 +283,18 @@ export const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
           logic: 'all',
           conditions: [{ key: 'value', op: 'lte', max: 3.6 }],
         },
+        {
+          status: 'Recommended Range',
+          severity: 'none',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'between', min: 3.7, max: 5.5 }],
+        },
+        {
+          status: 'Above Recommended',
+          severity: 'warning',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'gte', min: 5.6 }],
+        },
       ],
     },
     {
@@ -295,6 +307,18 @@ export const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
           logic: 'all',
           conditions: [{ key: 'value', op: 'lte', max: 2.6 }],
         },
+        {
+          status: 'Recommended Range',
+          severity: 'none',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'between', min: 2.7, max: 4.5 }],
+        },
+        {
+          status: 'Above Recommended',
+          severity: 'warning',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'gte', min: 4.6 }],
+        },
       ],
     },
   ],
@@ -305,10 +329,22 @@ export const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
       ageRange: 'adult',
       rules: [
         {
+          status: 'Below Maintenance Range',
+          severity: 'warning',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'lt', max: 2000 }],
+        },
+        {
           status: 'Maintenance Range',
           severity: 'none',
           logic: 'all',
           conditions: [{ key: 'value', op: 'between', min: 2000, max: 2600 }],
+        },
+        {
+          status: 'Above Maintenance Range',
+          severity: 'warning',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'gt', min: 2600 }],
         },
       ],
     },
@@ -317,10 +353,22 @@ export const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
       ageRange: 'adult',
       rules: [
         {
+          status: 'Below Maintenance Range',
+          severity: 'warning',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'lt', max: 1600 }],
+        },
+        {
           status: 'Maintenance Range',
           severity: 'none',
           logic: 'all',
           conditions: [{ key: 'value', op: 'between', min: 1600, max: 2000 }],
+        },
+        {
+          status: 'Above Maintenance Range',
+          severity: 'warning',
+          logic: 'all',
+          conditions: [{ key: 'value', op: 'gt', min: 2000 }],
         },
       ],
     },

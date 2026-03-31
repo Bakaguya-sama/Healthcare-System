@@ -16,6 +16,10 @@ export type MetricsTypes =
 export type TableStatus = "normal" | "high" | "low";
 
 type EvaluatorMetricType = Exclude<MetricsTypes, "height" | "weight">;
+type DailyTotalMetricType = Extract<
+  EvaluatorMetricType,
+  "water_intake" | "kcal_intake"
+>;
 type Gender = "male" | "female";
 type GenderScope = Gender | "all";
 type AgeRange = "all" | "child" | "adult";
@@ -288,6 +292,18 @@ const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
           logic: "all",
           conditions: [{ key: "value", op: "lte", max: 3.6 }],
         },
+        {
+          status: "Recommended Range",
+          severity: "none",
+          logic: "all",
+          conditions: [{ key: "value", op: "between", min: 3.7, max: 5.5 }],
+        },
+        {
+          status: "Above Recommended",
+          severity: "warning",
+          logic: "all",
+          conditions: [{ key: "value", op: "gte", min: 5.6 }],
+        },
       ],
     },
     {
@@ -300,6 +316,18 @@ const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
           logic: "all",
           conditions: [{ key: "value", op: "lte", max: 2.6 }],
         },
+        {
+          status: "Recommended Range",
+          severity: "none",
+          logic: "all",
+          conditions: [{ key: "value", op: "between", min: 2.7, max: 4.5 }],
+        },
+        {
+          status: "Above Recommended",
+          severity: "warning",
+          logic: "all",
+          conditions: [{ key: "value", op: "gte", min: 4.6 }],
+        },
       ],
     },
   ],
@@ -309,10 +337,22 @@ const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
       ageRange: "adult",
       rules: [
         {
+          status: "Below Maintenance Range",
+          severity: "warning",
+          logic: "all",
+          conditions: [{ key: "value", op: "lt", max: 2000 }],
+        },
+        {
           status: "Maintenance Range",
           severity: "none",
           logic: "all",
           conditions: [{ key: "value", op: "between", min: 2000, max: 2600 }],
+        },
+        {
+          status: "Above Maintenance Range",
+          severity: "warning",
+          logic: "all",
+          conditions: [{ key: "value", op: "gt", min: 2600 }],
         },
       ],
     },
@@ -321,10 +361,22 @@ const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
       ageRange: "adult",
       rules: [
         {
+          status: "Below Maintenance Range",
+          severity: "warning",
+          logic: "all",
+          conditions: [{ key: "value", op: "lt", max: 1600 }],
+        },
+        {
           status: "Maintenance Range",
           severity: "none",
           logic: "all",
           conditions: [{ key: "value", op: "between", min: 1600, max: 2000 }],
+        },
+        {
+          status: "Above Maintenance Range",
+          severity: "warning",
+          logic: "all",
+          conditions: [{ key: "value", op: "gt", min: 2000 }],
         },
       ],
     },
@@ -332,6 +384,55 @@ const HEALTH_METRIC_THRESHOLDS: HealthThresholds = {
 };
 
 const LOW_STATUS_KEYWORDS = ["low", "hypo", "under", "below"];
+const WATER_INTAKE_CUTOFF_HOUR = 21;
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toDateKeyFromRecordedAt(recordedAt: string): string {
+  // Keep the source calendar day from ISO string to avoid UTC/local rollover.
+  if (/^\d{4}-\d{2}-\d{2}/.test(recordedAt)) {
+    return recordedAt.slice(0, 10);
+  }
+
+  return toDateKey(new Date(recordedAt));
+}
+
+function isDailyTotalMetricType(
+  metricType: MetricsTypes,
+): metricType is DailyTotalMetricType {
+  return metricType === "water_intake" || metricType === "kcal_intake";
+}
+
+function normalizeDailyTotal(
+  metricType: DailyTotalMetricType,
+  total: number,
+): number {
+  // Water intake entries are stored in ml while threshold rules are in liters.
+  if (metricType === "water_intake") {
+    return total / 1000;
+  }
+
+  return total;
+}
+
+function hasReachedWaterCutoff(recordedDateKey: string, now: Date): boolean {
+  const todayKey = toDateKey(now);
+
+  if (recordedDateKey < todayKey) {
+    return true;
+  }
+
+  if (recordedDateKey > todayKey) {
+    return false;
+  }
+
+  return now.getHours() >= WATER_INTAKE_CUTOFF_HOUR;
+}
 
 function isEvaluatorMetricType(
   metricType: MetricsTypes,
@@ -514,12 +615,56 @@ export function useMetricStatus({
   const gender = options?.gender;
   const birthDay = options?.birthDay;
 
-  return useMemo(
-    () =>
-      entries.map((entry) => ({
+  return useMemo(() => {
+    if (!isDailyTotalMetricType(metricType)) {
+      return entries.map((entry) => ({
         ...entry,
         status: evaluateMetricStatus(metricType, entry, { gender, birthDay }),
-      })),
-    [entries, metricType, birthDay, gender],
-  );
+      }));
+    }
+
+    const now = new Date();
+    const dailyTotals = new Map<string, number>();
+
+    for (const entry of entries) {
+      const dateKey = toDateKeyFromRecordedAt(entry.recordedAt);
+      const currentTotal = dailyTotals.get(dateKey) ?? 0;
+      dailyTotals.set(dateKey, currentTotal + entry.primaryValue);
+    }
+
+    return entries.map((entry) => {
+      const dateKey = toDateKeyFromRecordedAt(entry.recordedAt);
+      const rawDailyTotal = dailyTotals.get(dateKey) ?? entry.primaryValue;
+      const normalizedDailyTotal = normalizeDailyTotal(
+        metricType,
+        rawDailyTotal,
+      );
+
+      const dailyStatus = evaluateMetricStatus(
+        metricType,
+        {
+          ...entry,
+          primaryValue: normalizedDailyTotal,
+          secondaryValue: undefined,
+        },
+        { gender, birthDay },
+      );
+
+      if (
+        metricType === "water_intake" &&
+        dailyStatus === "low" &&
+        !hasReachedWaterCutoff(dateKey, now)
+      ) {
+        return {
+          ...entry,
+          status: "normal",
+        };
+      }
+
+      return {
+        ...entry,
+        status: dailyStatus,
+      };
+    });
+  }, [entries, metricType, birthDay, gender]);
 }

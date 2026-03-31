@@ -7,10 +7,8 @@ import {
   Gauge,
   Heart,
   MoveLeft,
-  Pencil,
   Ruler,
   Thermometer,
-  Trash2,
   Weight,
   Wind,
 } from "lucide-react";
@@ -287,8 +285,56 @@ const MOCK_METRIC_READINGS: Record<MetricsTypes, MetricReading[]> = {
   water_intake: [
     {
       id: "water-1",
-      recordedAt: "2026-03-29T11:20:00.000Z",
+      recordedAt: "2026-03-28T08:10:00.000Z",
       primaryValue: 1200,
+      status: "normal",
+    },
+    {
+      id: "water-2",
+      recordedAt: "2026-03-28T13:30:00.000Z",
+      primaryValue: 1100,
+      status: "normal",
+    },
+    {
+      id: "water-3",
+      recordedAt: "2026-03-28T09:45:00.000Z",
+      primaryValue: 900,
+      status: "normal",
+    },
+    {
+      id: "water-4",
+      recordedAt: "2026-03-29T07:20:00.000Z",
+      primaryValue: 2000,
+      status: "normal",
+    },
+    {
+      id: "water-5",
+      recordedAt: "2026-03-29T12:00:00.000Z",
+      primaryValue: 1800,
+      status: "normal",
+    },
+    {
+      id: "water-6",
+      recordedAt: "2026-03-29T10:40:00.000Z",
+      primaryValue: 2000,
+      status: "normal",
+    },
+    {
+      id: "water-7",
+      recordedAt: "2026-03-30T09:15:00.000Z",
+      primaryValue: 1300,
+      status: "normal",
+    },
+    {
+      id: "water-8",
+      recordedAt: "2026-03-30T14:10:00.000Z",
+      primaryValue: 1400,
+      status: "normal",
+    },
+    {
+      id: "water-9",
+      recordedAt: "2026-03-30T12:05:00.000Z",
+      primaryValue: 1500,
       status: "normal",
     },
   ],
@@ -348,6 +394,15 @@ const toDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const toDateKeyFromRecordedAt = (recordedAt: string) => {
+  // Keep the source calendar day from ISO string to avoid UTC/local rollover.
+  if (/^\d{4}-\d{2}-\d{2}/.test(recordedAt)) {
+    return recordedAt.slice(0, 10);
+  }
+
+  return toDateKey(new Date(recordedAt));
+};
+
 const startOfToday = () => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -396,14 +451,18 @@ export function HealthMetric({
 
   const recordedDateKeys = useMemo(
     () =>
-      new Set(allEntries.map((entry) => toDateKey(new Date(entry.recordedAt)))),
+      new Set(
+        allEntries.map((entry) => toDateKeyFromRecordedAt(entry.recordedAt)),
+      ),
     [allEntries],
   );
 
   const entriesOnSelectedDate = useMemo(() => {
     const selectedKey = toDateKey(selectedDate);
     return allEntries
-      .filter((entry) => toDateKey(new Date(entry.recordedAt)) === selectedKey)
+      .filter(
+        (entry) => toDateKeyFromRecordedAt(entry.recordedAt) === selectedKey,
+      )
       .sort(
         (a, b) =>
           new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime(),
@@ -443,7 +502,9 @@ export function HealthMetric({
               <MoveLeft className="h-5 w-5" />
             </Button>
 
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+            <div
+              className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${style.bgColor} ${style.textColor}`}
+            >
               {style.icon}
             </div>
 
@@ -480,6 +541,7 @@ export function HealthMetric({
             metricType={activeMetric}
             selectedDate={selectedDate}
             entries={entriesUntilSelectedDate}
+            unit={METRIC_UNIT[activeMetric]}
             hasData={resolvedHasData}
           />
 

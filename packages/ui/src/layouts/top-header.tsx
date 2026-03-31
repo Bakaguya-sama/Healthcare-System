@@ -5,6 +5,7 @@ import {
   type NotificationType,
   notificationTypeMap,
 } from "../components/ui/noti-detail-card";
+import { presentThresholdNotification } from "../notifications/threshold-notification-presenter";
 
 type NotificationItem = {
   id: number;
@@ -40,15 +41,13 @@ export function TopHeader() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
       id: 1,
-      title: "Tài liệu mới cần xác minh",
-      message: "Có 3 hồ sơ vừa được gửi lên hệ thống.",
-      detail:
-        "Dr. Marcus Lee has submitted a verification request to join the platform as a licensed medical professional. His submitted credentials include a Medical Degree from Johns Hopkins University and a current Practice License from the State Medical Board.\n\nPlease review the documents carefully before approving or rejecting this application. Approval will grant Dr. Lee full access to the platform and patient consultations.",
+      ...presentThresholdNotification({
+        title: "Critical water_intake alert",
+        message: "Below Recommended: water_intake is outside safe threshold.",
+      }),
       time: "2 phút trước",
       createdAt: "2026-03-05T10:28:00",
       read: false,
-      type: "warning",
-      primaryActionLabel: "Review Doctor Profile",
     },
     {
       id: 2,

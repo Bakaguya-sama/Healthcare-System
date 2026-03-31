@@ -232,7 +232,7 @@ export function MetricOverviewCard({
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 transition-all hover:shadow-md"
+      className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-6 transition-all hover:shadow-md"
       data-patient-id={patientId}
     >
       {/* Header with icon and badge */}
@@ -262,7 +262,7 @@ export function MetricOverviewCard({
       {hasData ? (
         <>
           <div className="flex justify-center items-center gap-2">
-            <p className={`text-3xl font-bold ${variant.textColor}`}>
+            <p className={`text-4xl font-bold ${variant.textColor}`}>
               {displayValue}
               <span className="ml-1 text-sm font-normal text-slate-500">
                 {unit}
@@ -272,7 +272,9 @@ export function MetricOverviewCard({
 
           <div className="flex items-center justify-between mt-2">
             {/* Timestamp */}
-            <p className="text-xs text-slate-500">{formattedTime}</p>
+            <p className="text-xs text-slate-500">
+              Last update: {formattedTime}
+            </p>
 
             {/* View link */}
             <button

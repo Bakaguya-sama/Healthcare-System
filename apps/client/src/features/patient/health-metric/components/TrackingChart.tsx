@@ -15,6 +15,7 @@ type TrackingChartProps = {
   selectedDate: Date;
   entries: MetricReading[];
   hasData: boolean;
+  unit: string;
 };
 
 type RangeOption = {
@@ -70,6 +71,7 @@ export function TrackingChart({
   selectedDate,
   entries,
   hasData,
+  unit,
 }: TrackingChartProps) {
   const [selectedRange, setSelectedRange] = useState<RangeOption>(
     RANGE_OPTIONS[0],
@@ -80,20 +82,45 @@ export function TrackingChart({
     const selectedDayEnd = endOfDay(selectedDate);
     const fromDate = addDays(selectedDayStart, -(selectedRange.days - 1));
 
-    const labels: string[] = [];
-    const dateKeys: string[] = [];
-    for (let i = 0; i < selectedRange.days; i += 1) {
-      const date = addDays(fromDate, i);
-      labels.push(formatLabel(date, selectedRange.days > 7));
-      dateKeys.push(toDateKey(date));
-    }
-
     const filteredEntries = entries.filter((entry) => {
       const entryDate = new Date(entry.recordedAt).getTime();
       return (
         entryDate >= fromDate.getTime() && entryDate <= selectedDayEnd.getTime()
       );
     });
+
+    // 1D: show each record by time (12h), no daily averaging
+    if (selectedRange.label === "1D") {
+      const sortedEntries = [...filteredEntries].sort(
+        (a, b) =>
+          new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime(),
+      );
+
+      const labels = sortedEntries.map((entry) =>
+        new Date(entry.recordedAt).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }),
+      );
+
+      const primaryData = sortedEntries.map((entry) => entry.primaryValue);
+      const secondaryData = sortedEntries.map((entry) =>
+        typeof entry.secondaryValue === "number" ? entry.secondaryValue : null,
+      );
+
+      return { labels, primaryData, secondaryData };
+    }
+
+    const labels: string[] = [];
+    const dateKeys: string[] = [];
+
+    // other ranges
+    for (let i = 0; i < selectedRange.days; i += 1) {
+      const date = addDays(fromDate, i);
+      labels.push(formatLabel(date, selectedRange.days > 7));
+      dateKeys.push(toDateKey(date));
+    }
 
     const grouped = new Map<
       string,
@@ -172,7 +199,10 @@ export function TrackingChart({
 
   const datasets = [
     {
-      label: metricType === "blood_pressure" ? "Systolic" : "Reading",
+      label:
+        metricType === "blood_pressure"
+          ? `Systolic: ${unit}`
+          : `${title}: ${unit}`,
       data: chartModel.primaryData,
       borderColor: "#3B82F6",
       backgroundColor: "rgba(59, 130, 246, 0.15)",
@@ -185,7 +215,7 @@ export function TrackingChart({
 
   if (metricType === "blood_pressure") {
     datasets.push({
-      label: "Diastolic",
+      label: `Diastolic: ${unit}`,
       data: chartModel.secondaryData,
       borderColor: "#84CC16",
       backgroundColor: "rgba(132, 204, 22, 0.15)",

@@ -23,7 +23,13 @@ type MetricEntry = {
   recordedAt: Date | string;
 };
 
+type DailyTotalAlertMetricType =
+  | MetricType.WATER_INTAKE
+  | MetricType.KCAL_INTAKE;
+
 const BMI_UNIT = 'kg/m2';
+const WATER_INTAKE_CUTOFF_HOUR = 21;
+const LOW_STATUS_KEYWORDS = ['low', 'hypo', 'under', 'below'];
 
 const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'systolic',
@@ -314,14 +320,22 @@ export class HealthMetricsService {
       return null;
     }
 
-    const evaluation = evaluateMetricThreshold(
-      evaluatorType,
-      this.toEvaluationInput(values),
-      {
-        // TODO: Replace with real patient profile.
-        gender: 'male',
-      },
-    );
+    const { evaluationInput, referenceRecordedAt } =
+      await this.resolveAlertEvaluationInput(userId, metricType, values);
+
+    const evaluation = evaluateMetricThreshold(evaluatorType, evaluationInput, {
+      // TODO: Replace with real patient profile.
+      gender: 'male',
+    });
+
+    if (
+      metricType === MetricType.WATER_INTAKE &&
+      evaluation &&
+      this.isLowStatus(evaluation.status) &&
+      !this.hasReachedWaterCutoff(referenceRecordedAt)
+    ) {
+      return null;
+    }
 
     if (!evaluation || !evaluation.shouldTriggerAlert) {
       return null;
@@ -334,6 +348,152 @@ export class HealthMetricsService {
     });
 
     return notification.data;
+  }
+
+  private isDailyTotalAlertMetricType(
+    metricType: MetricType,
+  ): metricType is DailyTotalAlertMetricType {
+    return (
+      metricType === MetricType.WATER_INTAKE ||
+      metricType === MetricType.KCAL_INTAKE
+    );
+  }
+
+  private isLowStatus(status: string): boolean {
+    const normalizedStatus = status.toLowerCase();
+    return LOW_STATUS_KEYWORDS.some((keyword) =>
+      normalizedStatus.includes(keyword),
+    );
+  }
+
+  private hasReachedWaterCutoff(referenceRecordedAt: Date): boolean {
+    const now = new Date();
+
+    const referenceDayStart = new Date(referenceRecordedAt);
+    referenceDayStart.setHours(0, 0, 0, 0);
+
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    if (referenceDayStart.getTime() < todayStart.getTime()) {
+      return true;
+    }
+
+    if (referenceDayStart.getTime() > todayStart.getTime()) {
+      return false;
+    }
+
+    return now.getHours() >= WATER_INTAKE_CUTOFF_HOUR;
+  }
+
+  private resolveReferenceRecordedAt(
+    values: Record<string, MetricEntry>,
+    metricType: MetricType,
+  ): Date {
+    const primaryKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
+    const primaryRecordedAt = values?.[primaryKey]?.recordedAt;
+
+    if (primaryRecordedAt) {
+      const parsed = new Date(primaryRecordedAt);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    for (const detail of Object.values(values ?? {})) {
+      if (!detail || typeof detail !== 'object') {
+        continue;
+      }
+
+      const parsed = new Date(detail.recordedAt);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    return new Date();
+  }
+
+  private getUtcDayRange(date: Date): { start: Date; end: Date } {
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+
+    const start = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+
+    return { start, end };
+  }
+
+  private normalizeDailyAlertValue(
+    metricType: DailyTotalAlertMetricType,
+    total: number,
+  ): number {
+    // Water intake is stored in ml while threshold rules are in liters.
+    if (metricType === MetricType.WATER_INTAKE) {
+      return total / 1000;
+    }
+
+    return total;
+  }
+
+  private async resolveAlertEvaluationInput(
+    userId: string,
+    metricType: MetricType,
+    values: Record<string, MetricEntry>,
+  ): Promise<{
+    evaluationInput: ReturnType<typeof this.toEvaluationInput>;
+    referenceRecordedAt: Date;
+  }> {
+    const referenceRecordedAt = this.resolveReferenceRecordedAt(
+      values,
+      metricType,
+    );
+
+    if (!this.isDailyTotalAlertMetricType(metricType)) {
+      return {
+        evaluationInput: this.toEvaluationInput(values),
+        referenceRecordedAt,
+      };
+    }
+
+    const patientId = new Types.ObjectId(userId);
+    const primaryKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
+    const { start, end } = this.getUtcDayRange(referenceRecordedAt);
+
+    const [result] = await this.healthMetricModel.aggregate<{ total: number }>([
+      {
+        $match: {
+          patientId,
+          type: metricType,
+          recordedAt: {
+            $gte: start,
+            $lte: end,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: `$values.${primaryKey}.value`,
+          },
+        },
+      },
+    ]);
+
+    const rawDailyTotal = result?.total ?? 0;
+    const normalizedDailyTotal = this.normalizeDailyAlertValue(
+      metricType,
+      rawDailyTotal,
+    );
+
+    return {
+      evaluationInput: {
+        value: normalizedDailyTotal,
+      },
+      referenceRecordedAt,
+    };
   }
 
   /**

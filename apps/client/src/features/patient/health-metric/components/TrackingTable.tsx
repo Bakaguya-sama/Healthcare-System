@@ -1,14 +1,23 @@
 import { Button } from "@repo/ui/components/ui/button";
-import { ClipboardList, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmationModal } from "@repo/ui/components/complex-modal/ConfirmationModal";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import {
-  ActionCard,
-  type ActionCardItem,
-} from "@repo/ui/components/ui/action-card";
 
 type TableStatus = "normal" | "high" | "low";
+
+type MetricsTypes =
+  | "blood_pressure"
+  | "heart_rate"
+  | "bmi"
+  | "height"
+  | "weight"
+  | "water_intake"
+  | "kcal_intake"
+  | "blood_glucose"
+  | "oxygen_saturation"
+  | "body_temperature"
+  | "respiratory_rate";
 
 type MetricReading = {
   id: string;
@@ -26,6 +35,20 @@ type TrackingTableProps = {
   unit: string;
   entries: MetricReading[];
   hasData: boolean;
+};
+
+const IS_METRIC_EDITABLE: Record<MetricsTypes, boolean> = {
+  blood_pressure: true,
+  heart_rate: true,
+  bmi: false,
+  height: true,
+  weight: true,
+  water_intake: true,
+  kcal_intake: true,
+  blood_glucose: true,
+  oxygen_saturation: true,
+  body_temperature: true,
+  respiratory_rate: true,
 };
 
 const statusStyles: Record<TableStatus, string> = {
@@ -63,33 +86,8 @@ export function TrackingTable({
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<
     string | null
   >(null);
-  const [showActionsForEntryId, setShowActionsForEntryId] = useState<
-    string | null
-  >(null);
 
-  const getActionItems = (entry: MetricReading): ActionCardItem[] => {
-    return [
-      {
-        id: `edit-${entry.id}`,
-        title: "Edit",
-        icon: <Pencil className="h-4 w-4" />,
-        onHandle: () => {
-          startEditEntry(entry);
-          setShowActionsForEntryId(null);
-        },
-      },
-      {
-        id: `delete-${entry.id}`,
-        title: "Delete",
-        icon: <Trash2 className="h-4 w-4" />,
-        iconColor: "text-red-600",
-        onHandle: () => {
-          openDeleteConfirmation(entry.id);
-          setShowActionsForEntryId(null);
-        },
-      },
-    ];
-  };
+  const isEditable: boolean = IS_METRIC_EDITABLE[metricType];
 
   const handleDeleteEntry = () => {
     if (!pendingDeleteEntryId) {
@@ -116,7 +114,6 @@ export function TrackingTable({
     setEditTimeInput(timeStringLocale);
     setPendingDeleteEntryId(null);
     setConfirmationModalOpen(false);
-    setShowActionsForEntryId(null);
   }, [entries, selectedDate]);
 
   const displayEntries = useMemo(
@@ -293,7 +290,7 @@ export function TrackingTable({
             </p>
           </div>
 
-          {!isPastDate && (
+          {!isPastDate && isEditable && (
             <Button
               className="rounded-xl bg-lime-400 text-slate-900 hover:bg-lime-500"
               onClick={() => setIsAdding((prev) => !prev)}
@@ -469,7 +466,7 @@ export function TrackingTable({
                   </div>
                 ) : (
                   <div className="flex w-full items-center gap-4">
-                    <p className="w-24 shrink-0 text-sm text-slate-400">
+                    <p className="w-24 shrink-0 text-sm text-[#374151] font-semibold">
                       {new Date(entry.recordedAt).toLocaleTimeString("en-US", {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -477,7 +474,7 @@ export function TrackingTable({
                       })}
                     </p>
 
-                    <p className="min-w-0 flex-1 text-base font-semibold text-slate-800">
+                    <p className="min-w-0 flex-1 text-xl font-bold text-slate-800">
                       {metricType === "blood_pressure"
                         ? `${entry.primaryValue}/${entry.secondaryValue ?? "-"}`
                         : entry.primaryValue}
@@ -494,24 +491,26 @@ export function TrackingTable({
                       {entry.status}
                     </span>
 
-                    <div className="relative shrink-0">
-                      <button
-                        type="button"
-                        className="rounded-md p-1 text-slate-500 transition hover:bg-slate-100"
-                        onClick={() =>
-                          setShowActionsForEntryId(
-                            showActionsForEntryId === entry.id
-                              ? null
-                              : entry.id,
-                          )
-                        }
-                      >
-                        <Ellipsis className="h-4 w-4" />
-                      </button>
-                      {showActionsForEntryId === entry.id && (
-                        <ActionCard actions={getActionItems(entry)} />
-                      )}
-                    </div>
+                    {isEditable && (
+                      <div className="relative shrink-0">
+                        <div className="p-1 flex items-center gap-4">
+                          <button
+                            type="button"
+                            className="cursor-pointer"
+                            onClick={() => startEditEntry(entry)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="cursor-pointer"
+                            onClick={() => openDeleteConfirmation(entry.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>
