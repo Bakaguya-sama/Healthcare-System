@@ -588,7 +588,7 @@ GET {{base_url}}/admins?page=1&limit=10
 
 | # | Endpoint | Method | Body | Expected | Status |
 |---|----------|--------|------|----------|--------|
-| 1 | POST /notifications | POST | type, title, message | 201 + notif | ✅ |
+| 1 | POST /notifications | POST | userId, type, title, message | 201 + notif + WebSocket | ✅ |
 | 2 | GET /notifications | GET | page | 200 + list | ✅ |
 | 3 | GET /notifications/:id | GET | - | 200 + detail | ✅ |
 | 4 | PATCH /notifications/mark-all-as-read | PATCH | - | 200 | ✅ |
@@ -610,46 +610,75 @@ GET {{base_url}}/admins?page=1&limit=10
 
 #### Commands
 ```bash
-# 1. Create notification (system/admin only)
+# 1. Create notification (ADMIN/DOCTOR only - sends to patient via REST + WebSocket)
 POST {{base_url}}/notifications
 Header: Authorization: Bearer {{admin_token}}
 Body: {
-  "userId": "{{user_id}}",
+  "userId": "{{patient_id}}",
   "type": "warning",
   "title": "Blood Pressure Alert",
   "message": "Your BP is higher than normal: 150/90 mmHg"
 }
-✅ Expected: 201, notification created with:
-  - userId: recipient user
+✅ Expected: 201, notification created + real-time emitted via WebSocket:
+  - userId: recipient user (patient_id from request body)
   - type: one of [info, success, warning, critical]
   - isRead: false by default
-  - createdAt: current timestamp
+  - ⚠️ IMPORTANT: Patient with WebSocket connection will receive 'notification' event immediately
+  
+🔌 WebSocket Event Received (in patient's browser console):
+socket.on('notification', (data) => {
+  console.log('📬 PATIENT RECEIVED:', data);
+  // {
+  //   userId: "...",
+  //   type: "warning",
+  //   title: "Blood Pressure Alert",
+  //   message: "Your BP is higher than normal: 150/90 mmHg",
+  //   isRead: false,
+  //   timestamp: "2026-04-01T10:30:00Z"
+  // }
+});
 
-# 2. Get user notifications
+# 2. Get user notifications (REST polling fallback)
 GET {{base_url}}/notifications?page=1&limit=20
-Header: Authorization: Bearer {{jwt_token}}
+Header: Authorization: Bearer {{patient_token}}
 ✅ Expected: 200, all notifications for current user
+[
+  {
+    "_id": "notification_id",
+    "userId": "patient_id",
+    "type": "warning",
+    "title": "Blood Pressure Alert",
+    "message": "Your BP is higher than normal: 150/90 mmHg",
+    "isRead": false
+  }
+]
 
 # 3. Get notification detail
 GET {{base_url}}/notifications/{{notification_id}}
+Header: Authorization: Bearer {{patient_token}}
 ✅ Expected: 200, notification detail (isRead auto-updates to true)
 
 # 4. Mark all as read
 PATCH {{base_url}}/notifications/mark-all-as-read
+Header: Authorization: Bearer {{patient_token}}
 ✅ Expected: 200, all notifications marked as read
 
 # 5. Delete notification
 DELETE {{base_url}}/notifications/{{notification_id}}
+Header: Authorization: Bearer {{patient_token}}
 ✅ Expected: 204
 ```
 
 **Checklist:**
+- [ ] Only ADMIN/DOCTOR can POST notifications (403 for PATIENT)
+- [ ] userId parameter is required and must be different recipient
 - [ ] Type enum has 4 values: info, success, warning, critical
 - [ ] Each user sees only own notifications
 - [ ] isRead status updates correctly
 - [ ] Mark all read works properly
-- [ ] Pagination works (default 20 per page)
+- [ ] Pagination works (default 10-20 per page)
 - [ ] Delete removes notification permanently
+- [ ] ✅ NEW: WebSocket notification received real-time (patient sees message immediately if connected)
 
 ---
 
@@ -1059,6 +1088,23 @@ Body: {
 
 **✨ NEW:** Added March 31, 2026 - WebSocket + File Upload Implementation
 
+### 🔒 ROLE RESTRICTION - QUAN TRỌNG!
+
+**CHỈ ADMIN CÓ QUYỀN UPLOAD/XÓA FILE:**
+- ✅ super_admin - Toàn quyền
+- ✅ ai_admin - Quản lý AI documents
+- ❌ patient - 403 Forbidden
+- ❌ doctor - 403 Forbidden
+
+**Error Response (Non-Admin):**
+```json
+{
+  "statusCode": 403,
+  "message": "Forbidden",
+  "error": "You don't have permission to upload files"
+}
+```
+
 ### 2️⃣0️⃣ FILE UPLOAD - Cloudinary Integration
 **Collection:** `2️⃣0️⃣ FILE UPLOAD - Cloudinary Integration`
 
@@ -1079,20 +1125,22 @@ Body: {
 
 #### Test Cases
 
-| # | Endpoint | Method | Form Data | Expected | Status |
-|---|----------|--------|-----------|----------|--------|
-| 1 | POST /upload/single | POST | file, folder, fileType | 201 + url + publicId | ✅ |
-| 2 | POST /upload/multiple | POST | files[], folder, fileTypes[] | 201 + urls array | ✅ |
-| 3 | GET /upload/:publicId | GET | - | 200 + file info | ✅ |
-| 4 | DELETE /upload/:publicId | DELETE | fileType | 200 | ✅ |
-| 5 | POST /upload/delete-multiple | POST | publicIds[], fileType | 200 | ✅ |
+| # | Endpoint | Method | Form Data | Expected | Role | Status |
+|---|----------|--------|-----------|----------|------|--------|
+| 1 | POST /upload/single | POST | file, folder, fileType | 201 + url + publicId | ADMIN | ✅ |
+| 2 | POST /upload/multiple | POST | files[], folder, fileTypes[] | 201 + urls array | ADMIN | ✅ |
+| 3 | GET /upload/:publicId | GET | - | 200 + file info | ADMIN | ✅ |
+| 4 | DELETE /upload/:publicId | DELETE | fileType | 200 | ADMIN | ✅ |
+| 5 | POST /upload/delete-multiple | POST | publicIds[], fileType | 200 | ADMIN | ✅ |
 
 #### Commands (With FormData)
 
+**🚨 IMPORTANT: Use {{admin_token}} for all upload/delete operations!**
+
 ```bash
-# 1. Upload single profile image
+# 1. Upload single profile image (ADMIN ONLY)
 POST {{base_url}}/upload/single
-Header: Authorization: Bearer {{jwt_token}}
+Header: Authorization: Bearer {{admin_token}}
 Header: Content-Type: multipart/form-data
 Form Data:
   - file: (binary) patient-photo.jpg
@@ -1100,7 +1148,7 @@ Form Data:
   - fileType: image
   - description: Patient profile picture
 
-✅ Expected: 201
+✅ Expected: 201 (if admin)
 Response: {
   "statusCode": 201,
   "message": "File uploaded successfully",
@@ -1116,11 +1164,19 @@ Response: {
     }
   }
 }
+
+❌ Expected: 403 Forbidden (if patient/doctor)
+Response: {
+  "statusCode": 403,
+  "message": "Forbidden",
+  "error": "You don't have permission to upload files"
+}
+
 ✅ Save publicId for later delete operations
 
-# 2. Upload multiple doctor verification documents
+# 2. Upload multiple doctor verification documents (ADMIN ONLY)
 POST {{base_url}}/upload/multiple
-Header: Authorization: Bearer {{doctor_token}}
+Header: Authorization: Bearer {{admin_token}}
 Header: Content-Type: multipart/form-data
 Form Data:
   - files: (binary) license.pdf, certificate.pdf
@@ -1128,7 +1184,7 @@ Form Data:
   - fileType: document
   - descriptions: Doctor license, Medical certificate
 
-✅ Expected: 201, returns array with 2 files
+✅ Expected: 201 (if admin)
 Response: {
   "statusCode": 201,
   "message": "Files uploaded successfully",
@@ -1149,13 +1205,18 @@ Response: {
     ]
   }
 }
+
+❌ Expected: 403 Forbidden (if patient/doctor)
+
 ✅ Save both publicIds
 
-# 3. Get file info
-GET {{base_url}}/upload/healthcare/profiles/abc123def456
-✅ Expected: 200
+# 3. Get file info (ADMIN ONLY)
+GET {{base_url}}/upload/info?publicId=healthcare/profiles/abc123def456
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200 (if admin)
 Response: {
   "statusCode": 200,
+  "message": "File info retrieved",
   "data": {
     "publicId": "healthcare/profiles/abc123def456",
     "url": "http://...",
@@ -1166,21 +1227,30 @@ Response: {
   }
 }
 
-# 4. Delete single file
-DELETE {{base_url}}/upload/healthcare/profiles/abc123def456
-Header: Authorization: Bearer {{jwt_token}}
+❌ Expected: 403 Forbidden (if patient/doctor)
+
+# 4. Delete single file (ADMIN ONLY)
+DELETE {{base_url}}/upload/delete/healthcare/profiles/abc123def456
+Header: Authorization: Bearer {{admin_token}}
 Body: {
   "fileType": "image"
 }
-✅ Expected: 200
+✅ Expected: 200 (if admin)
 Response: {
   "statusCode": 200,
   "message": "File deleted successfully"
 }
 
-# 5. Delete multiple files at once
+❌ Expected: 403 Forbidden (if patient/doctor)
+Response: {
+  "statusCode": 403,
+  "message": "Forbidden",
+  "error": "You don't have permission to delete files"
+}
+
+# 5. Delete multiple files at once (ADMIN ONLY)
 POST {{base_url}}/upload/delete-multiple
-Header: Authorization: Bearer {{jwt_token}}
+Header: Authorization: Bearer {{admin_token}}
 Body: {
   "publicIds": [
     "healthcare/doctors/verification/xyz789",
@@ -1188,7 +1258,7 @@ Body: {
   ],
   "fileType": "document"
 }
-✅ Expected: 200
+✅ Expected: 200 (if admin)
 Response: {
   "statusCode": 200,
   "message": "Files deleted successfully",
@@ -1200,6 +1270,8 @@ Response: {
     ]
   }
 }
+
+❌ Expected: 403 Forbidden (if patient/doctor)
 ```
 
 #### Upload Integration Examples

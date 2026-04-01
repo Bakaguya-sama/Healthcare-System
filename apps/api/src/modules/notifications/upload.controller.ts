@@ -9,7 +9,9 @@ import {
   UploadedFiles,
   Body,
   Param,
+  Query,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import {
   FileInterceptor,
@@ -24,6 +26,8 @@ import {
 } from '@nestjs/swagger';
 import { CloudinaryService } from '../../core/services/cloudinary.service';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../core/guards/roles.guard';
+import { Roles } from '../../core/decorators/roles.decorator';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import {
   UploadFileDto,
@@ -31,27 +35,36 @@ import {
   FileUploadFolderType,
   UploadResponse,
 } from './dto/upload-file.dto';
+import { UserRole } from '../../modules/users/enums/user-role.enum';
 
 /**
  * 📤 FILE UPLOAD CONTROLLER
  * 
  * Xử lý upload file/ảnh lên Cloudinary
  * 
+ * 🔒 ROLE RESTRICTION:
+ * - Only SUPER_ADMIN & AI_ADMIN can upload/delete files
+ * - Other roles: 403 Forbidden
+ * 
  * ENDPOINTS:
- * - POST /upload/single - Upload 1 file
- * - POST /upload/multiple - Upload nhiều files
- * - GET /upload/:publicId - Get file info
- * - DELETE /upload/:publicId - Delete file
+ * - POST /upload/single - Upload 1 file (ADMIN ONLY)
+ * - POST /upload/multiple - Upload nhiều files (ADMIN ONLY)
+ * - GET /upload/:publicId - Get file info (ADMIN ONLY)
+ * - DELETE /upload/:publicId - Delete file (ADMIN ONLY)
  */
 @ApiTags('upload')
 @Controller('upload')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class UploadController {
+  private readonly logger = new Logger(UploadController.name);
+
   constructor(private cloudinaryService: CloudinaryService) {}
 
   /**
    * 📤 UPLOAD SINGLE FILE
+   * 
+   * 🔒 ADMIN ONLY: super_admin, ai_admin
    * 
    * USAGE:
    * const formData = new FormData();
@@ -66,6 +79,7 @@ export class UploadController {
    * });
    */
   @Post('single')
+  @Roles(UserRole.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload 1 file lên Cloudinary' })
   @ApiConsumes('multipart/form-data')
@@ -111,6 +125,8 @@ export class UploadController {
       dto.fileType,
     );
 
+    this.logger.log(`✅ File uploaded with publicId: ${result.publicId}`);
+
     return {
       statusCode: 201,
       message: 'File uploaded successfully',
@@ -133,6 +149,8 @@ export class UploadController {
   /**
    * 📤 UPLOAD MULTIPLE FILES
    * 
+   * 🔒 ADMIN ONLY: super_admin, ai_admin
+   * 
    * USAGE:
    * const formData = new FormData();
    * formData.append('files', fileInput.files[0]);
@@ -141,6 +159,7 @@ export class UploadController {
    * formData.append('fileType', 'document');
    */
   @Post('multiple')
+  @Roles(UserRole.ADMIN)
   @UseInterceptors(FilesInterceptor('files', 10)) // Max 10 files
   @ApiOperation({ summary: 'Upload nhiều files lên Cloudinary' })
   @ApiConsumes('multipart/form-data')
@@ -208,15 +227,30 @@ export class UploadController {
 
   /**
    * 🔍 GET FILE INFO
+   * 
+   * 🔒 ADMIN ONLY
+   * 
+   * Endpoint: GET /upload/info?publicId=healthcare/profiles/filename.pdf
+   * (Query parameter instead of path to avoid path-to-regexp issues)
    */
-  @Get(':publicId')
-  @ApiOperation({ summary: 'Lấy thông tin file từ Cloudinary' })
-  async getFileInfo(@Param('publicId') publicId: string) {
+  @Get('info')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Lấy thông tin file từ Cloudinary (ADMIN ONLY)' })
+  async getFileInfo(@Query('publicId') publicId: string) {
+    if (!publicId) {
+      throw new BadRequestException('publicId query parameter required');
+    }
+
+    this.logger.log(`🔍 Getting file info for: ${publicId}`);
+    
     const fileInfo = await this.cloudinaryService.getFileInfo(publicId);
 
     if (!fileInfo) {
+      this.logger.warn(`⚠️ File not found: ${publicId}`);
       throw new BadRequestException('File not found');
     }
+
+    this.logger.log(`✅ File info retrieved: ${publicId}`);
 
     return {
       statusCode: 200,
@@ -226,10 +260,38 @@ export class UploadController {
   }
 
   /**
-   * 🗑️ DELETE FILE
+   * 🔍 DEBUG: List all files in Cloudinary (ADMIN ONLY)
    */
-  @Delete(':publicId')
-  @ApiOperation({ summary: 'Xóa file từ Cloudinary' })
+  @Get('debug/list')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'DEBUG: List all files in Cloudinary' })
+  async debugListFiles() {
+    this.logger.log('📋 Listing all Cloudinary resources...');
+    const resources = await this.cloudinaryService.listAllResources();
+    
+    return {
+      statusCode: 200,
+      message: `Found ${resources.length} resources`,
+      data: resources.map(r => ({
+        publicId: r.public_id,
+        size: r.bytes,
+        format: r.format,
+        uploadedAt: r.created_at,
+      })),
+    };
+  }
+
+  /**
+   * 🗑️ DELETE FILE
+   * 
+   * 🔒 ADMIN ONLY
+   * 
+   * Endpoint: DELETE /upload/delete?publicId=healthcare/profiles/filename.pdf
+   * (Query parameter instead of path to avoid path-to-regexp issues)
+   */
+  @Delete('delete')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Xóa file từ Cloudinary (ADMIN ONLY)' })
   @ApiBody({
     description: 'File type (tùy chọn)',
     schema: {
@@ -245,13 +307,21 @@ export class UploadController {
   })
   async deleteFile(
     @CurrentUser('sub') userId: string,
-    @Param('publicId') publicId: string,
+    @Query('publicId') publicId: string,
     @Body() body?: { fileType?: 'image' | 'document' },
   ) {
+    if (!publicId) {
+      throw new BadRequestException('publicId query parameter required');
+    }
+
+    this.logger.log(`🗑️ Deleting file: ${publicId}`);
+    
     const result = await this.cloudinaryService.deleteFile(
       publicId,
       body?.fileType || 'document',
     );
+
+    this.logger.log(`✅ File deleted: ${publicId}`);
 
     return {
       statusCode: 200,
@@ -262,9 +332,12 @@ export class UploadController {
 
   /**
    * 🗑️ DELETE MULTIPLE FILES
+   * 
+   * 🔒 ADMIN ONLY
    */
   @Post('delete-multiple')
-  @ApiOperation({ summary: 'Xóa nhiều files từ Cloudinary' })
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Xóa nhiều files từ Cloudinary (ADMIN ONLY)' })
   @ApiBody({
     schema: {
       type: 'object',

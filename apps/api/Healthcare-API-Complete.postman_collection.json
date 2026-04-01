@@ -74,7 +74,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"doctor1@healthcare.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Dr. Lê Thanh Tâm\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Cardiology\",\n  \"dateOfBirth\": \"1985-03-10\"\n}"
+              "raw": "{\n  \"email\": \"doctor1@healthcare.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Dr. Lê Thanh Tâm\",\n  \"role\": \"doctor\",\n  \"dateOfBirth\": \"1985-03-10\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -115,7 +115,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"doctor2@healthcare.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Dr. Hoàng Thu Hương\",\n  \"role\": \"doctor\",\n  \"specialty\": \"Pediatrics\",\n  \"dateOfBirth\": \"1987-07-25\"\n}"
+              "raw": "{\n  \"email\": \"doctor2@healthcare.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"Dr. Hoàng Thu Hương\",\n  \"role\": \"doctor\",\n  \"dateOfBirth\": \"1987-07-25\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -682,10 +682,10 @@
           "name": "Create Notification",
           "request": {
             "method": "POST",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"warning\",\n  \"title\": \"Blood Pressure Alert\",\n  \"message\": \"Your blood pressure is higher than normal: 150/90 mmHg\"\n}",
+              "raw": "{\n  \"userId\": \"{{patient_id}}\",\n  \"type\": \"warning\",\n  \"title\": \"Blood Pressure Alert\",\n  \"message\": \"Your blood pressure is higher than normal: 150/90 mmHg\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -693,7 +693,7 @@
               "host": ["{{base_url}}"],
               "path": ["notifications"]
             },
-            "description": "Create new notification. Types: info, success, warning, critical"
+            "description": "🔒 ADMIN/DOCTOR ONLY - Create notification for patient. Types: info, success, warning, critical"
           },
           "response": []
         },
@@ -2663,7 +2663,7 @@
           "name": "Upload Single File",
           "request": {
             "method": "POST",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}", "type": "text"}],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -2689,7 +2689,7 @@
               "host": ["{{base_url}}"],
               "path": ["upload", "single"]
             },
-            "description": "Upload single file (image or document). Folders: healthcare/profiles, healthcare/doctors/verification, healthcare/documents/health, healthcare/chat/attachments"
+            "description": "🔒 ADMIN ONLY - Upload single file (image or document). Folders: healthcare/profiles, healthcare/doctors/verification, healthcare/documents/health, healthcare/chat/attachments. Only super_admin and ai_admin can upload."
           },
           "response": []
         },
@@ -2697,7 +2697,7 @@
           "name": "Upload Multiple Files",
           "request": {
             "method": "POST",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}", "type": "text"}],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -2723,7 +2723,7 @@
               "host": ["{{base_url}}"],
               "path": ["upload", "multiple"]
             },
-            "description": "Upload multiple files. Max 10 files per request"
+            "description": "🔒 ADMIN ONLY - Upload multiple files. Max 10 files per request. Only super_admin and ai_admin can upload."
           },
           "response": []
         },
@@ -2731,13 +2731,14 @@
           "name": "Get File Info",
           "request": {
             "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}", "type": "text"}],
             "url": {
-              "raw": "{{base_url}}/upload/{{public_id}}",
+              "raw": "{{base_url}}/upload/info?publicId={{public_id}}",
               "host": ["{{base_url}}"],
-              "path": ["upload", "{{public_id}}"]
+              "path": ["upload", "info"],
+              "query": [{"key": "publicId", "value": "{{public_id}}"}]
             },
-            "description": "Get file information from Cloudinary"
+            "description": "🔒 ADMIN ONLY - Get file information from Cloudinary. Query: ?publicId=healthcare/profiles/filename.pdf. Only super_admin and ai_admin can view file info."
           },
           "response": []
         },
@@ -2745,18 +2746,19 @@
           "name": "Delete File",
           "request": {
             "method": "DELETE",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
               "raw": "{\"fileType\": \"document\"}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
-              "raw": "{{base_url}}/upload/{{public_id}}",
+              "raw": "{{base_url}}/upload/delete?publicId={{public_id}}",
               "host": ["{{base_url}}"],
-              "path": ["upload", "{{public_id}}"]
+              "path": ["upload", "delete"],
+              "query": [{"key": "publicId", "value": "{{public_id}}"}]
             },
-            "description": "Delete file from Cloudinary"
+            "description": "🔒 ADMIN ONLY - Delete file from Cloudinary. Query: ?publicId=healthcare/profiles/filename.pdf. Only super_admin and ai_admin can delete files."
           },
           "response": []
         },
@@ -2764,7 +2766,7 @@
           "name": "Delete Multiple Files",
           "request": {
             "method": "POST",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
               "raw": "{\"publicIds\": [\"public_id_1\", \"public_id_2\"], \"fileType\": \"document\"}",
@@ -2775,7 +2777,7 @@
               "host": ["{{base_url}}"],
               "path": ["upload", "delete-multiple"]
             },
-            "description": "Delete multiple files from Cloudinary"
+            "description": "🔒 ADMIN ONLY - Delete multiple files from Cloudinary. Only super_admin and ai_admin can delete files."
           },
           "response": []
         }
@@ -2786,7 +2788,7 @@
       "description": "🔌 WebSocket for real-time notifications. Test manually using browser console or Socket.IO client",
       "item": [
         {
-          "name": "📖 WebSocket Connection Guide",
+          "name": "📖 WebSocket Connection Guide (With userId)",
           "request": {
             "method": "GET",
             "url": {
@@ -2796,7 +2798,7 @@
               "port": "3000",
               "path": ["notifications"]
             },
-            "description": "🔌 WEBSOCKET TEST GUIDE:\n\n1. **Browser Console (Chrome DevTools):**\n\n```javascript\n// Paste this in browser console\nconst socket = io('http://localhost:3000/notifications', {\n  auth: { token: localStorage.getItem('jwt_token') }\n});\n\n// Listen for notifications\nsocket.on('notification', (notif) => {\n  console.log('📬 New notification:', notif);\n});\n\n// Mark as read\nsocket.emit('mark-as-read', { notificationId: 'notification_id_here' });\n\n// Listen for connection\nsocket.on('connect', () => {\n  console.log('✅ Connected to WebSocket');\n});\n\n// Listen for errors\nsocket.on('error', (error) => {\n  console.error('❌ Error:', error);\n});\n\n// Disconnect\nsocket.disconnect();\n```\n\n2. **Node.js Test:**\n```javascript\nconst io = require('socket.io-client');\nconst socket = io('http://localhost:3000/notifications', {\n  auth: { token: 'your_jwt_token' }\n});\n\nsocket.on('notification', (notif) => {\n  console.log('Notification:', notif);\n});\n```\n\n3. **Expected Flow:**\n   - Connect → Receive 'connected' event\n   - Service sends notification → Receive 'notification' event\n   - Mark as read → Receive 'notification-marked' event\n   - Disconnect → Clean up\n\n4. **Events:**\n   - 'connected' - Connection established\n   - 'notification' - New notification received\n   - 'notification-marked' - Notification marked as read\n   - 'user-typing' - User typing indicator\n   - 'error' - Error occurred"
+            "description": "🔌 WEBSOCKET TEST GUIDE (With userId Context):\n\n**IMPORTANT: userId must be extracted from login response!\n\n**Step 1: After Login, Extract userId**\nFrom login response, get userId (e.g., \"507f1f77bcf86cd799439011\")\nlocalStorage.setItem('userId', userId);\nlocalStorage.setItem('jwt_token', token);\n\n**Step 2: Browser Console - Connect WebSocket WITH userId**\n```javascript\nconst userId = localStorage.getItem('userId');\nconst token = localStorage.getItem('jwt_token');\n\nconst socket = io('http://localhost:3000/notifications', {\n  auth: { \n    token: token,\n    userId: userId  // CRITICAL: Include userId for room assignment\n  }\n});\n\nsocket.on('connect', () => {\n  console.log('✅ Connected as userId:', userId);\n  console.log('📍 Your room:', 'user_' + userId);\n});\n\n// Receive notifications (sent to user_${userId} room)\nsocket.on('notification', (notif) => {\n  console.log('📬 Notification for userId:', notif.userId);\n  console.log('  Type:', notif.type);\n  console.log('  Title:', notif.title);\n  console.log('  Message:', notif.message);\n});\n\n// Mark notification as read\nsocket.emit('mark-as-read', { notificationId: 'notification_id' });\nsocket.on('notification-marked', (data) => {\n  console.log('✅ Marked as read:', data);\n});\n\nsocket.on('error', (error) => console.error('❌ Error:', error));\n```\n\n**Step 3: Admin Creates Notification (Triggers WebSocket)**\nPOST {{base_url}}/notifications\nHeaders: Bearer {{admin_token}}\nBody: { userId: \"{{patient_id}}\", type: \"warning\", title: \"Alert\", message: \"Message\" }\n\n→ Patient's browser console immediately shows notification with userId context!\n→ Because: gateway.sendNotificationToUser(userId, notif) emits to room user_${userId}\n\n**Real-time Flow:**\n1. Patient logs in → Extract userId\n2. Patient connects WebSocket with userId → Server joins room: user_${userId}\n3. Admin creates notification with userId = patient's id\n4. Gateway emits 'notification' event to patient's room\n5. Browser console receives event with full notification details including userId\n6. Patient can mark as read → Server broadcasts 'notification-marked'\n\n**WebSocket Events:**\n- 'connected' - Connection established with userId\n- 'notification' - New notification (userId, type, title, message, isRead, createdAt)\n- 'notification-marked' - Notification marked as read\n- 'error' - Connection error"
           },
           "response": []
         },

@@ -342,6 +342,7 @@ export class HealthMetricsService {
     }
 
     const notification = await this.notificationsService.create(userId, {
+      userId: userId,
       type: NotificationType.CRITICAL,
       title: `Critical ${metricType} alert`,
       message: `${evaluation.status}: ${metricType} is outside safe threshold.`,

@@ -91,12 +91,15 @@ export class CloudinaryService {
 
     return new Promise((resolve, reject) => {
       // ✅ BƯỚC 4: Stream file to Cloudinary
+      const publicIdName = `${Date.now()}-${file.originalname}`;
+      
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder, // Organize files by folder
           resource_type: fileType === 'image' ? 'auto' : 'raw', // 'raw' for documents
-          public_id: `${Date.now()}-${file.originalname}`,
+          public_id: publicIdName, // Without extension - Cloudinary will add it
           overwrite: true,
+          type: 'upload',
         },
         (error, result) => {
           if (error) {
@@ -137,6 +140,18 @@ export class CloudinaryService {
 
       // ✅ BƯỚC 6: Pipe file data to stream
       const stream = Readable.from(file.buffer);
+      
+      // Add error handlers
+      uploadStream.on('error', (error) => {
+        this.logger.error(`❌ Stream error:`, error);
+        reject(new BadRequestException(`Stream error: ${error.message}`));
+      });
+      
+      stream.on('error', (error) => {
+        this.logger.error(`❌ Source stream error:`, error);
+        reject(new BadRequestException(`Source stream error: ${error.message}`));
+      });
+      
       stream.pipe(uploadStream);
     });
   }
@@ -259,26 +274,68 @@ export class CloudinaryService {
   }
 
   /**
-   * 📊 GET FILE INFO từ Cloudinary
+   * � DEBUG: List all resources trong Cloudinary
+   */
+  async listAllResources(prefix?: string) {
+    try {
+      const result = await cloudinary.api.resources({
+        prefix: prefix || 'healthcare',
+        max_results: 500,
+        type: 'upload',
+      });
+      
+      return result.resources;
+    } catch (error) {
+      this.logger.error(`❌ Failed to list resources: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * �📊 GET FILE INFO từ Cloudinary
    * 
-   * @param publicId - Public ID của file
+   * @param publicId - Public ID của file (full path từ folder)
    * @returns File metadata
    * 
    * Dùng để kiểm tra file có tồn tại hay không
    */
   async getFileInfo(publicId: string) {
     try {
-      const result = await cloudinary.api.resource(publicId);
-      return {
-        publicId: result.public_id,
-        url: result.url,
-        secureUrl: result.secure_url,
-        size: result.bytes,
-        format: result.format,
-        uploadedAt: new Date(result.created_at),
-      };
+      // For raw files (documents), must use resource_type: 'raw' in the API call
+      // cloudinary.api.resources() doesn't include raw files
+      try {
+        const result = await cloudinary.api.resource(publicId, {
+          resource_type: 'raw',
+        });
+
+        return {
+          publicId: result.public_id,
+          url: result.url,
+          secureUrl: result.secure_url,
+          size: result.bytes,
+          format: result.format,
+          uploadedAt: new Date(result.created_at),
+        };
+      } catch (err) {
+        // Fallback: try auto resource type
+        try {
+          const result = await cloudinary.api.resource(publicId);
+          
+          return {
+            publicId: result.public_id,
+            url: result.url,
+            secureUrl: result.secure_url,
+            size: result.bytes,
+            format: result.format,
+            uploadedAt: new Date(result.created_at),
+          };
+        } catch (autoErr) {
+          this.logger.warn(`⚠️ File not found: ${publicId}`);
+          return null;
+        }
+      }
     } catch (error) {
-      this.logger.warn(`⚠️ File not found: ${publicId}`);
+      this.logger.error(`❌ Error retrieving file info: ${error.message}`);
       return null;
     }
   }

@@ -26,12 +26,12 @@ export class NotificationsService {
    * 📝 TẠO THÔNG BÁO MỚI
    */
   async create(userId: string, dto: CreateNotificationDto) {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new BadRequestException('Invalid user ID');
+    if (!Types.ObjectId.isValid(dto.userId)) {
+      throw new BadRequestException('Invalid recipient user ID');
     }
 
     const notification = await this.notificationModel.create({
-      userId: new Types.ObjectId(userId),
+      userId: new Types.ObjectId(dto.userId),
       type: dto.type,
       title: dto.title,
       message: dto.message,

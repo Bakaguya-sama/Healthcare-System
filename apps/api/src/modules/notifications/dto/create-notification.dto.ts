@@ -11,6 +11,14 @@ import { NotificationType } from '../entities/notification.entity';
 
 export class CreateNotificationDto {
   @ApiProperty({
+    description: 'User ID to receive notification (Admin/Doctor only)',
+    example: 'user_id_here',
+  })
+  @IsNotEmpty()
+  @IsString()
+  userId: string;
+
+  @ApiProperty({
     enum: NotificationType,
     example: NotificationType.INFO,
   })

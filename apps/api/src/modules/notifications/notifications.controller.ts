@@ -17,26 +17,48 @@ import {
   QueryNotificationDto,
 } from './dto/create-notification.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../core/guards/roles.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
+import { Roles } from '../../core/decorators/roles.decorator';
+import { UserRole } from '../users/enums/user-role.enum';
+import { NotificationsGateway } from './notifications.gateway';
 
 @ApiTags('notifications')
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationsGateway: NotificationsGateway,
+  ) {}
 
   /**
    * 📝 POST /notifications
-   * Tạo thông báo mới (INTERNAL - gọi từ service khác)
+   * Tạo thông báo mới (ADMIN/DOCTOR only - gửi cho user khác)
    */
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Tạo thông báo mới' })
+  @ApiOperation({ summary: 'Tạo thông báo mới (ADMIN/DOCTOR only)' })
   async create(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateNotificationDto,
   ) {
-    return this.notificationsService.create(userId, dto);
+    // ✅ Tạo notification trong DB
+    const result = await this.notificationsService.create(userId, dto);
+
+    // ✅ Emit WebSocket notification real-time cho user nhận
+    if (result.data) {
+      this.notificationsGateway.sendNotificationToUser(dto.userId, {
+        userId: result.data.userId,
+        type: result.data.type,
+        title: result.data.title,
+        message: result.data.message,
+        isRead: result.data.isRead,
+      });
+    }
+
+    return result;
   }
 
   /**
