@@ -24,6 +24,41 @@ import {
   X,
 } from "lucide-react";
 
+export const doctorSpecialty = [
+  { id: "general_practitioner", name: "General Practitioner" },
+  { id: "internal_medicine", name: "Internal Medicine" },
+  { id: "cardiology", name: "Cardiology" },
+  { id: "dermatology", name: "Dermatology" },
+  { id: "neurology", name: "Neurology" },
+  { id: "orthopedics", name: "Orthopedics" },
+  { id: "pediatrics", name: "Pediatrics" },
+  { id: "obstetrics_gynecology", name: "Obstetrics & Gynecology" },
+  { id: "ophthalmology", name: "Ophthalmology" },
+  { id: "ent", name: "Ear, Nose, and Throat (ENT)" },
+  { id: "psychiatry", name: "Psychiatry" },
+  { id: "radiology", name: "Radiology" },
+  { id: "anesthesiology", name: "Anesthesiology" },
+  { id: "emergency_medicine", name: "Emergency Medicine" },
+  { id: "family_medicine", name: "Family Medicine" },
+  { id: "endocrinology", name: "Endocrinology" },
+  { id: "gastroenterology", name: "Gastroenterology" },
+  { id: "hematology", name: "Hematology" },
+  { id: "nephrology", name: "Nephrology" },
+  { id: "oncology", name: "Oncology" },
+  { id: "pulmonology", name: "Pulmonology" },
+  { id: "urology", name: "Urology" },
+  { id: "rheumatology", name: "Rheumatology" },
+  { id: "infectious_disease", name: "Infectious Disease" },
+  { id: "plastic_surgery", name: "Plastic Surgery" },
+  { id: "general_surgery", name: "General Surgery" },
+  { id: "neurosurgery", name: "Neurosurgery" },
+  { id: "cardiothoracic_surgery", name: "Cardiothoracic Surgery" },
+  { id: "rehabilitation", name: "Physical Medicine & Rehabilitation" },
+  { id: "sports_medicine", name: "Sports Medicine" },
+  { id: "allergy_immunology", name: "Allergy & Immunology" },
+  { id: "geriatrics", name: "Geriatrics" },
+  { id: "preventive_medicine", name: "Preventive Medicine" },
+];
 const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_FILE_SIZE_MB = 10;
 
@@ -381,14 +416,12 @@ export function DoctorSignUp({
                 onChange={(e) => setSpecialty(e.target.value)}
                 onBlur={() => handleBlur("specialty")}
                 disabled={submitting}
-                className="w-full appearance-none bg-transparent text-sm text-[#394147] outline-none"
+                className="w-full ml-2 appearance-none bg-transparent text-base text-[#394147] outline-none"
               >
                 <option value="">Select your specialty</option>
-                <option value="Cardiology">Cardiology</option>
-                <option value="Dermatology">Dermatology</option>
-                <option value="Neurology">Neurology</option>
-                <option value="Pediatrics">Pediatrics</option>
-                <option value="General Medicine">General Medicine</option>
+                {doctorSpecialty.map((spe) => (
+                  <option value={spe.name}>{spe.name}</option>
+                ))}
               </select>
               <ChevronDown className="h-5 w-5 shrink-0 text-[#9aa1af]" />
             </FieldControl>

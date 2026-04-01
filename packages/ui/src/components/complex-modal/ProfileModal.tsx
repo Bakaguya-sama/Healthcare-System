@@ -466,7 +466,7 @@ export function ProfileModal({ id = "", isOpen, onClose }: ProfileModalProps) {
   const accountStatusMeta = ACCOUNT_STATUS_META[profileData.account_status];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-1000 flex items-center justify-center bg-black/60 p-4">
       <div className="max-h-[92vh] w-full max-w-[760px] overflow-hidden rounded-3xl border border-slate-200 bg-[#F9FAFB] shadow-2xl">
         <div className="border-b border-slate-200 bg-white">
           <div className="flex items-center justify-between px-6 py-4">
