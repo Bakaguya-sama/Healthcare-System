@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { ApiProperty } from '@nestjs/swagger';
 
 export type DoctorDocument = HydratedDocument<Doctor>;
 
@@ -29,9 +28,6 @@ export class Doctor {
 
   @Prop({ type: Number, min: 0, max: 5, default: 0 })
   averageRating?: number;
-
-  @Prop({ default: false })
-  isOnline?: boolean;
 
   @Prop()
   verifiedAt?: Date;

@@ -99,6 +99,7 @@ async function seedDatabase() {
         phoneNumber: '0912345678',
         avatarUrl: 'https://api.example.com/avatars/patient1.jpg',
         accountStatus: 'active',
+        isOnline: false,
         address: {
           street: '123 Nguyen Hue',
           ward: 'Ward 1',
@@ -118,6 +119,7 @@ async function seedDatabase() {
         phoneNumber: '0912345679',
         avatarUrl: 'https://api.example.com/avatars/patient2.jpg',
         accountStatus: 'active',
+        isOnline: true,
         address: {
           street: '456 Tran Hung Dao',
           ward: 'Ward 2',
@@ -137,6 +139,7 @@ async function seedDatabase() {
         phoneNumber: '0912345680',
         avatarUrl: 'https://api.example.com/avatars/patient3.jpg',
         accountStatus: 'active',
+        isOnline: false,
         address: {
           street: '789 Nguyen Du',
           ward: 'Ward 3',
@@ -159,6 +162,7 @@ async function seedDatabase() {
         phoneNumber: '0912345681',
         avatarUrl: 'https://api.example.com/avatars/doctor1.jpg',
         accountStatus: 'active',
+        isOnline: true,
         address: {
           street: '321 Le Loi',
           ward: 'Ward 4',
@@ -178,6 +182,7 @@ async function seedDatabase() {
         phoneNumber: '0912345682',
         avatarUrl: 'https://api.example.com/avatars/doctor2.jpg',
         accountStatus: 'active',
+        isOnline: true,
         address: {
           street: '654 Ba Trieu',
           ward: 'Ward 5',
@@ -197,6 +202,7 @@ async function seedDatabase() {
         phoneNumber: '0912345683',
         avatarUrl: 'https://api.example.com/avatars/doctor3.jpg',
         accountStatus: 'active',
+        isOnline: false,
         address: {
           street: '987 Ly Thuong Kiet',
           ward: 'Ward 6',
@@ -219,6 +225,7 @@ async function seedDatabase() {
         phoneNumber: '0912345684',
         avatarUrl: 'https://api.example.com/avatars/admin.jpg',
         accountStatus: 'active',
+        isOnline: false,
         address: {
           street: '111 Admin Street',
           ward: 'Ward 7',
@@ -259,7 +266,6 @@ async function seedDatabase() {
         ],
         experienceYears: 15,
         averageRating: 4.8,
-        isOnline: true,
         verifiedAt: new Date(),
         verificationStatus: 'approved',
       },
@@ -272,7 +278,6 @@ async function seedDatabase() {
         ],
         experienceYears: 12,
         averageRating: 4.6,
-        isOnline: true,
         verifiedAt: new Date(),
         verificationStatus: 'approved',
       },
@@ -285,7 +290,6 @@ async function seedDatabase() {
         ],
         experienceYears: 18,
         averageRating: 4.9,
-        isOnline: false,
         verifiedAt: new Date(),
         verificationStatus: 'approved',
       },
@@ -561,7 +565,8 @@ async function seedDatabase() {
       {
         userId: patients[2]._id,
         title: 'Health Tip',
-        message: 'Remember to stay hydrated! Drink at least 2 liters of water daily.',
+        message:
+          'Remember to stay hydrated! Drink at least 2 liters of water daily.',
         isRead: true,
         type: 'success',
       },
@@ -585,7 +590,9 @@ async function seedDatabase() {
         ],
       },
     ]);
-    console.log(`✅ Created ${blacklistKeywords.length} blacklist keyword entries\n`);
+    console.log(
+      `✅ Created ${blacklistKeywords.length} blacklist keyword entries\n`,
+    );
 
     // ==========================================
     // 15. SEED AI DOCUMENTS

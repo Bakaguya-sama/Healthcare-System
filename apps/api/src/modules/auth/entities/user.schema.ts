@@ -35,6 +35,9 @@ export class User {
   @Prop({ enum: AccountStatus, default: AccountStatus.ACTIVE })
   accountStatus: AccountStatus;
 
+  @Prop({ default: false })
+  isOnline?: boolean;
+
   @Prop({ required: false })
   gender?: string;
 

@@ -38,6 +38,9 @@ export class UserEntity {
   @Prop({ enum: AccountStatus, default: AccountStatus.ACTIVE })
   accountStatus: AccountStatus;
 
+  @Prop({ default: false })
+  isOnline?: boolean;
+
   @Prop()
   otpCode?: string;
 
