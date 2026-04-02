@@ -2,16 +2,17 @@ import { useRef, useState } from "react";
 import { Camera, Paperclip, SendHorizontal } from "lucide-react";
 
 interface SendBarProps {
+  isDisabled: boolean;
   onSend: (content: string) => void;
 }
 
-export function SendBar({ onSend }: SendBarProps) {
+export function SendBar({ isDisabled, onSend }: SendBarProps) {
   const [value, setValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
-    if (!value.trim()) return;
+    if (isDisabled || !value.trim()) return;
     onSend(value);
     setValue("");
   };
@@ -26,6 +27,7 @@ export function SendBar({ onSend }: SendBarProps) {
     event: React.ChangeEvent<HTMLInputElement>,
     type: "file" | "image",
   ) => {
+    if (isDisabled) return;
     const pickedFile = event.target.files?.[0];
     if (!pickedFile) return;
 
@@ -44,6 +46,7 @@ export function SendBar({ onSend }: SendBarProps) {
         ref={fileInputRef}
         type="file"
         className="hidden"
+        disabled={isDisabled}
         onChange={(event) => handleFilePicked(event, "file")}
       />
       <input
@@ -51,6 +54,7 @@ export function SendBar({ onSend }: SendBarProps) {
         type="file"
         accept="image/*"
         className="hidden"
+        disabled={isDisabled}
         onChange={(event) => handleFilePicked(event, "image")}
       />
 
@@ -58,7 +62,8 @@ export function SendBar({ onSend }: SendBarProps) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          disabled={isDisabled}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors enabled:hover:bg-slate-100 enabled:hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Send file"
         >
           <Paperclip className="h-5 w-5" />
@@ -67,7 +72,8 @@ export function SendBar({ onSend }: SendBarProps) {
         <button
           type="button"
           onClick={() => imageInputRef.current?.click()}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          disabled={isDisabled}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors enabled:hover:bg-slate-100 enabled:hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Send image"
         >
           <Camera className="h-5 w-5" />
@@ -75,6 +81,7 @@ export function SendBar({ onSend }: SendBarProps) {
 
         <input
           value={value}
+          disabled={isDisabled}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -82,14 +89,19 @@ export function SendBar({ onSend }: SendBarProps) {
               submit();
             }
           }}
-          placeholder="Type your medical advice..."
-          className="h-10 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
+          placeholder={
+            isDisabled
+              ? "This consultation has finished"
+              : "Type your medical advice..."
+          }
+          className="h-10 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         <button
           type="button"
           onClick={submit}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 transition-colors hover:bg-lime-400 hover:text-white"
+          disabled={isDisabled || !value.trim()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 transition-colors enabled:hover:bg-lime-400 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           <SendHorizontal className="h-5 w-5" />
         </button>

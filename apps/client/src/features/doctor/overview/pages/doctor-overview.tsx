@@ -179,61 +179,64 @@ export function DoctorOverview() {
 
   return (
     <div className="w-full p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Overview</h1>
-          <p className="text-sm text-slate-500">Tuesday, March 3, 2026</p>
-        </div>
-        <button
-          type="button"
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          Last 30 days
-        </button>
-      </div>
-
-      <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
-        {overviewStats.map((item) => (
-          <OverviewCard key={item.title} {...item} />
-        ))}
-      </ul>
-
-      <div className="mt-5 grid grid-cols-1 items-stretch gap-4 xl:grid-cols-3">
-        <LineChart
-          title="Consultation Activity"
-          subtitle="Daily consultation volume for the past week"
-          labels={lineChartLabels}
-          datasets={lineChartDatasets}
-          className="xl:col-span-2"
-          height={chartHeight}
-        />
-
-        <div
-          className="xl:col-span-1 flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white"
-          style={{ height: chartHeight }}
-        >
-          <div className="p-2">
-            <p className="ml-3 mt-3 font-bold ">Recent feedback</p>
+      <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900">Overview</h1>
+            <p className="text-sm text-slate-500">Tuesday, March 3, 2026</p>
           </div>
-          <section
-            className={`min-h-0 flex-1 rounded-2xl border-slate-200 bg-white ${showAllReviews ? "overflow-y-scroll" : "overflow-hidden"}`}
+          <button
+            type="button"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
           >
-            <div className="space-y-0">
-              {(showAllReviews ? doctorReviews : doctorReviews.slice(0, 3)).map(
-                (review) => (
-                  <ReviewItem key={review.id} review={review} />
-                ),
-              )}
+            Last 30 days
+          </button>
+        </div>
+
+        <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
+          {overviewStats.map((item) => (
+            <OverviewCard key={item.title} {...item} />
+          ))}
+        </ul>
+
+        <div className="mt-5 grid grid-cols-1 items-stretch gap-4 xl:grid-cols-3">
+          <LineChart
+            title="Consultation Activity"
+            subtitle="Daily consultation volume for the past week"
+            labels={lineChartLabels}
+            datasets={lineChartDatasets}
+            className="xl:col-span-2"
+            height={chartHeight}
+          />
+
+          <div
+            className="xl:col-span-1 flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white"
+            style={{ height: chartHeight }}
+          >
+            <div className="p-2">
+              <p className="ml-3 mt-3 font-bold ">Recent feedback</p>
             </div>
-          </section>
-          <div className="border-t">
-            <button
-              type="button"
-              onClick={handleShowAllReviews}
-              className="w-full py-3 text-sm text-center text-[#3B7BF8] font-medium hover:bg-gray-50 transition-colors rounded-b-xl"
+            <section
+              className={`min-h-0 flex-1 rounded-2xl border-slate-200 bg-white ${showAllReviews ? "overflow-y-scroll" : "overflow-hidden"}`}
             >
-              {showAllReviews ? "Show less" : "View all notifications"}
-            </button>
+              <div className="space-y-0">
+                {(showAllReviews
+                  ? doctorReviews
+                  : doctorReviews.slice(0, 3)
+                ).map((review) => (
+                  <ReviewItem key={review.id} review={review} />
+                ))}
+              </div>
+            </section>
+            <div className="border-t">
+              <button
+                type="button"
+                onClick={handleShowAllReviews}
+                className="w-full py-3 text-sm text-center text-[#3B7BF8] font-medium hover:bg-gray-50 transition-colors rounded-b-xl"
+              >
+                {showAllReviews ? "Show less" : "View all notifications"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

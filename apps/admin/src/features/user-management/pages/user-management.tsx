@@ -567,278 +567,283 @@ export function UserManagement() {
 
   return (
     <div className="w-full p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">
-            User & Doctor Management
-          </h1>
-          <p className="text-sm text-slate-500">
-            Manage all platform users, patients and doctors
-          </p>
+      <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900">
+              User & Doctor Management
+            </h1>
+            <p className="text-sm text-slate-500">
+              Manage all platform users, patients and doctors
+            </p>
+          </div>
         </div>
-      </div>
 
-      <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((item) => (
-          <OverviewCard key={item.title} {...item} />
-        ))}
-      </ul>
+        <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((item) => (
+            <OverviewCard key={item.title} {...item} />
+          ))}
+        </ul>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2">
-            {roleTabs.map((item) => (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-200 p-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2">
+              {roleTabs.map((item) => (
+                <Button
+                  key={item.key}
+                  type="button"
+                  variant={selectedRole === item.key ? "outline" : "ghost"}
+                  size="sm"
+                  className={`rounded-xl px-3 ${selectedRole === item.key ? "border-slate-300 bg-slate-50" : "text-slate-500"}`}
+                  onClick={() => changeRole(item.key)}
+                >
+                  {item.label}
+                  <Badge
+                    variant="outline"
+                    className="ml-1 h-4 px-1.5 text-[10px] leading-none"
+                  >
+                    {item.count}
+                  </Badge>
+                </Button>
+              ))}
               <Button
-                key={item.key}
                 type="button"
-                variant={selectedRole === item.key ? "outline" : "ghost"}
+                variant={selectedRole === "all" ? "outline" : "ghost"}
                 size="sm"
-                className={`rounded-xl px-3 ${selectedRole === item.key ? "border-slate-300 bg-slate-50" : "text-slate-500"}`}
-                onClick={() => changeRole(item.key)}
+                className={`rounded-xl px-3 ${selectedRole === "all" ? "border-slate-300 bg-slate-50" : "text-slate-500"}`}
+                onClick={() => changeRole("all")}
               >
-                {item.label}
+                All
                 <Badge
                   variant="outline"
                   className="ml-1 h-4 px-1.5 text-[10px] leading-none"
                 >
-                  {item.count}
+                  {users.length}
                 </Badge>
               </Button>
-            ))}
-            <Button
-              type="button"
-              variant={selectedRole === "all" ? "outline" : "ghost"}
-              size="sm"
-              className={`rounded-xl px-3 ${selectedRole === "all" ? "border-slate-300 bg-slate-50" : "text-slate-500"}`}
-              onClick={() => changeRole("all")}
-            >
-              All
-              <Badge
-                variant="outline"
-                className="ml-1 h-4 px-1.5 text-[10px] leading-none"
-              >
-                {users.length}
-              </Badge>
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Search name or email..."
-                className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none ring-brand/30 transition focus:ring-2"
-              />
             </div>
-            {selectedRole === "admin" ? (
-              <Button onClick={handleOpenAddAdminModal}>Add admin</Button>
-            ) : null}
-          </div>
-        </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="px-3 text-xs text-slate-400">
-                USER
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                EMAIL
-              </TableHead>
-              {selectedRole === "doctor" ? (
-                <TableHead className="px-3 text-xs text-slate-400">
-                  SPECIALTY
-                </TableHead>
-              ) : null}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search name or email..."
+                  className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none ring-brand/30 transition focus:ring-2"
+                />
+              </div>
               {selectedRole === "admin" ? (
-                <TableHead className="px-3 text-xs text-slate-400">
-                  ASSIGNED ROLE
-                </TableHead>
+                <Button onClick={handleOpenAddAdminModal}>Add admin</Button>
               ) : null}
-              <TableHead className="px-3 text-xs text-slate-400">
-                LOCATION
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                JOINED
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                STATUS
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                ACTIONS
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedUsers.length > 0 ? (
-              paginatedUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white ${getAvatarColor(user.name)}`}
-                      >
-                        {getInitials(user.name)}
-                      </div>
-                      <span className="text-sm text-slate-700">
-                        {user.name}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-3 text-sm text-slate-500">
-                    {user.email}
-                  </TableCell>
-                  {selectedRole === "doctor" ? (
-                    <TableCell className="px-3 text-sm text-slate-500">
-                      <span className="bg-[#DBEAFE] p-1 rounded-xl text-[#3B7BF8]">
-                        {user.specialty}
-                      </span>
-                    </TableCell>
-                  ) : null}
-                  {selectedRole === "admin" ? (
-                    <TableCell className="px-3 text-sm text-slate-500">
-                      {getAssignedRoleBadge(user.assigned_role)}
-                    </TableCell>
-                  ) : null}
-                  <TableCell className="px-3 text-sm text-slate-500">
-                    {user.location}
-                  </TableCell>
-                  <TableCell className="px-3 text-sm text-slate-500">
-                    {user.joined}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    <Badge
-                      variant="outline"
-                      className={`h-5 rounded-full border px-2 text-[10px] font-medium ${
-                        user.status === "active"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-                          : "border-red-200 bg-red-50 text-red-500"
-                      }`}
-                    >
-                      <ShieldCheck className="mr-1 h-3 w-3" />
-                      {user.status === "active" ? "Active" : "Banned"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-3 text-left text-slate-400">
-                    <div
-                      className="relative inline-block"
-                      data-actions-root="true"
-                    >
-                      <button
-                        type="button"
-                        className="h-6 w-6 cursor-pointer rounded-md p-1 transition-colors hover:bg-slate-100"
-                        onClick={() =>
-                          setOpenActionUserId((prev) =>
-                            prev === user.id ? null : user.id,
-                          )
-                        }
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
+            </div>
+          </div>
 
-                      {openActionUserId === user.id ? (
-                        <ActionCard actions={createActionList(user)} />
-                      ) : null}
-                    </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-3 text-xs text-slate-400">
+                  USER
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  EMAIL
+                </TableHead>
+                {selectedRole === "doctor" ? (
+                  <TableHead className="px-3 text-xs text-slate-400">
+                    SPECIALTY
+                  </TableHead>
+                ) : null}
+                {selectedRole === "admin" ? (
+                  <TableHead className="px-3 text-xs text-slate-400">
+                    ASSIGNED ROLE
+                  </TableHead>
+                ) : null}
+                <TableHead className="px-3 text-xs text-slate-400">
+                  LOCATION
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  JOINED
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  STATUS
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  ACTIONS
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedUsers.length > 0 ? (
+                paginatedUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white ${getAvatarColor(user.name)}`}
+                        >
+                          {getInitials(user.name)}
+                        </div>
+                        <span className="text-sm text-slate-700">
+                          {user.name}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 text-sm text-slate-500">
+                      {user.email}
+                    </TableCell>
+                    {selectedRole === "doctor" ? (
+                      <TableCell className="px-3 text-sm text-slate-500">
+                        <span className="bg-[#DBEAFE] p-1 rounded-xl text-[#3B7BF8]">
+                          {user.specialty}
+                        </span>
+                      </TableCell>
+                    ) : null}
+                    {selectedRole === "admin" ? (
+                      <TableCell className="px-3 text-sm text-slate-500">
+                        {getAssignedRoleBadge(user.assigned_role)}
+                      </TableCell>
+                    ) : null}
+                    <TableCell className="px-3 text-sm text-slate-500">
+                      {user.location}
+                    </TableCell>
+                    <TableCell className="px-3 text-sm text-slate-500">
+                      {user.joined}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      <Badge
+                        variant="outline"
+                        className={`h-5 rounded-full border px-2 text-[10px] font-medium ${
+                          user.status === "active"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                            : "border-red-200 bg-red-50 text-red-500"
+                        }`}
+                      >
+                        <ShieldCheck className="mr-1 h-3 w-3" />
+                        {user.status === "active" ? "Active" : "Banned"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-3 text-left text-slate-400">
+                      <div
+                        className="relative inline-block"
+                        data-actions-root="true"
+                      >
+                        <button
+                          type="button"
+                          className="h-6 w-6 cursor-pointer rounded-md p-1 transition-colors hover:bg-slate-100"
+                          onClick={() =>
+                            setOpenActionUserId((prev) =>
+                              prev === user.id ? null : user.id,
+                            )
+                          }
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+
+                        {openActionUserId === user.id ? (
+                          <ActionCard
+                            onClickOutside={() => setOpenActionUserId(null)}
+                            actions={createActionList(user)}
+                          />
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={tableColSpan}
+                    className="px-3 py-8 text-center text-sm text-slate-500"
+                  >
+                    No users found for your current filter.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={tableColSpan}
-                  className="px-3 py-8 text-center text-sm text-slate-500"
-                >
-                  No users found for your current filter.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
 
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-3 py-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            Showing {paginatedUsers.length} of {filteredUsers.length} results
-          </p>
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-3 py-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Showing {paginatedUsers.length} of {filteredUsers.length} results
+            </p>
 
-          <Pagination className="mx-0 w-auto justify-end">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  text=""
-                  className={
-                    currentPage === 1 ? "pointer-events-none opacity-40" : ""
-                  }
-                  onClick={(e) => {
-                    e.preventDefault();
-                    goToPage(currentPage - 1);
-                  }}
-                />
-              </PaginationItem>
+            <Pagination className="mx-0 w-auto justify-end">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    text=""
+                    className={
+                      currentPage === 1 ? "pointer-events-none opacity-40" : ""
+                    }
+                    onClick={(e) => {
+                      e.preventDefault();
+                      goToPage(currentPage - 1);
+                    }}
+                  />
+                </PaginationItem>
 
-              {Array.from({ length: totalPages }).map((_, index) => {
-                const page = index + 1;
-                return (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      href="#"
-                      isActive={page === currentPage}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        goToPage(page);
-                      }}
-                      className="h-7 w-7 rounded-lg text-xs"
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                );
-              })}
+                {Array.from({ length: totalPages }).map((_, index) => {
+                  const page = index + 1;
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        isActive={page === currentPage}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          goToPage(page);
+                        }}
+                        className="h-7 w-7 rounded-lg text-xs"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
 
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  text=""
-                  className={
-                    currentPage === totalPages
-                      ? "pointer-events-none opacity-40"
-                      : ""
-                  }
-                  onClick={(e) => {
-                    e.preventDefault();
-                    goToPage(currentPage + 1);
-                  }}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    text=""
+                    className={
+                      currentPage === totalPages
+                        ? "pointer-events-none opacity-40"
+                        : ""
+                    }
+                    onClick={(e) => {
+                      e.preventDefault();
+                      goToPage(currentPage + 1);
+                    }}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
+
+        <AddAdminModal
+          isOpen={isAddAdminModalOpen}
+          fullName={newAdminFullName}
+          email={newAdminEmail}
+          password={newAdminPassword}
+          role={newAdminRole}
+          errorMessage={addAdminError}
+          onChangeFullName={setNewAdminFullName}
+          onChangeEmail={setNewAdminEmail}
+          onChangePassword={setNewAdminPassword}
+          onChangeRole={setNewAdminRole}
+          onClose={handleCloseAddAdminModal}
+          onAdd={handleCreateAdmin}
+        />
+
+        <ProfileModal
+          id={selectedUserId || ""}
+          isOpen={isProfileModalOpen}
+          onClose={handleCloseProfileModal}
+        />
       </div>
-
-      <AddAdminModal
-        isOpen={isAddAdminModalOpen}
-        fullName={newAdminFullName}
-        email={newAdminEmail}
-        password={newAdminPassword}
-        role={newAdminRole}
-        errorMessage={addAdminError}
-        onChangeFullName={setNewAdminFullName}
-        onChangeEmail={setNewAdminEmail}
-        onChangePassword={setNewAdminPassword}
-        onChangeRole={setNewAdminRole}
-        onClose={handleCloseAddAdminModal}
-        onAdd={handleCreateAdmin}
-      />
-
-      <ProfileModal
-        id={selectedUserId || ""}
-        isOpen={isProfileModalOpen}
-        onClose={handleCloseProfileModal}
-      />
     </div>
   );
 }

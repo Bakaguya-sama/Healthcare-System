@@ -207,45 +207,47 @@ export function Overview() {
 
   return (
     <div className="w-full p-6 ">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Overview</h1>
-          <p className="text-sm text-slate-500">Tuesday, March 3, 2026</p>
+      <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900">Overview</h1>
+            <p className="text-sm text-slate-500">Tuesday, March 3, 2026</p>
+          </div>
+          <button
+            type="button"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            Last 30 days
+          </button>
         </div>
-        <button
-          type="button"
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          Last 30 days
-        </button>
-      </div>
 
-      <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
-        {overviewStats.map((item) => (
-          <OverviewCard key={item.title} {...item} />
-        ))}
-      </ul>
+        <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
+          {overviewStats.map((item) => (
+            <OverviewCard key={item.title} {...item} />
+          ))}
+        </ul>
 
-      <div className="mt-5 grid min-h-[520px] grid-cols-1 gap-4 xl:grid-cols-3">
-        <LineChart
-          title="Platform Growth"
-          subtitle="Patients, Doctors & AI usage over 8 months"
-          labels={lineChartLabels}
-          datasets={lineChartDatasets}
-          options={lineOptions}
-          className="xl:col-span-2"
-          height={460}
-        />
+        <div className="mt-5 grid min-h-[520px] grid-cols-1 gap-4 xl:grid-cols-3">
+          <LineChart
+            title="Platform Growth"
+            subtitle="Patients, Doctors & AI usage over 8 months"
+            labels={lineChartLabels}
+            datasets={lineChartDatasets}
+            options={lineOptions}
+            className="xl:col-span-2"
+            height={460}
+          />
 
-        <BarChart
-          title="Weekly Activity"
-          subtitle="Consultations vs Reports"
-          labels={barChartLabels}
-          datasets={barChartDatasets}
-          options={barOptions}
-          className="xl:col-span-1"
-          height={460}
-        />
+          <BarChart
+            title="Weekly Activity"
+            subtitle="Consultations vs Reports"
+            labels={barChartLabels}
+            datasets={barChartDatasets}
+            options={barOptions}
+            className="xl:col-span-1"
+            height={460}
+          />
+        </div>
       </div>
     </div>
   );

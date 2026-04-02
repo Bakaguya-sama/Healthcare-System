@@ -498,268 +498,274 @@ export function DocumentVerification() {
 
   return (
     <div className="w-full p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">
-            Document Verification
-          </h1>
-          <p className="text-sm text-slate-500">
-            Review and verify doctor certificates and credentials.
-          </p>
-          <p className="py-6 text-2xl">
-            You have{" "}
-            <span className="font-bold text-[#F59E0B]">{pendingCount}</span>{" "}
-            pending reviews.
-          </p>
+      <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900">
+              Document Verification
+            </h1>
+            <p className="text-sm text-slate-500">
+              Review and verify doctor certificates and credentials.
+            </p>
+            <p className="py-6 text-2xl">
+              You have{" "}
+              <span className="font-bold text-[#F59E0B]">{pendingCount}</span>{" "}
+              pending reviews.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
-            {[
-              { key: "pending", label: "Pending", count: pendingCount },
-              { key: "approved", label: "Approved", count: approvedCount },
-              { key: "rejected", label: "Rejected", count: rejectedCount },
-            ].map((item) => (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-200 p-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { key: "pending", label: "Pending", count: pendingCount },
+                { key: "approved", label: "Approved", count: approvedCount },
+                { key: "rejected", label: "Rejected", count: rejectedCount },
+              ].map((item) => (
+                <Button
+                  key={item.key}
+                  type="button"
+                  variant={selectedStatus === item.key ? "outline" : "ghost"}
+                  size="sm"
+                  className={`rounded-xl px-3 ${
+                    selectedStatus === item.key
+                      ? "border-slate-300 bg-slate-50"
+                      : "text-slate-500"
+                  }`}
+                  onClick={() => {
+                    setSelectedStatus(item.key as any);
+                    setCurrentPage(1);
+                  }}
+                >
+                  {item.label}
+                  <Badge
+                    variant="outline"
+                    className="ml-1 h-4 px-1.5 text-[10px] leading-none"
+                  >
+                    {item.count}
+                  </Badge>
+                </Button>
+              ))}
               <Button
-                key={item.key}
                 type="button"
-                variant={selectedStatus === item.key ? "outline" : "ghost"}
+                variant={selectedStatus === "all" ? "outline" : "ghost"}
                 size="sm"
                 className={`rounded-xl px-3 ${
-                  selectedStatus === item.key
+                  selectedStatus === "all"
                     ? "border-slate-300 bg-slate-50"
                     : "text-slate-500"
                 }`}
                 onClick={() => {
-                  setSelectedStatus(item.key as any);
+                  setSelectedStatus("all");
                   setCurrentPage(1);
                 }}
               >
-                {item.label}
+                All
                 <Badge
                   variant="outline"
                   className="ml-1 h-4 px-1.5 text-[10px] leading-none"
                 >
-                  {item.count}
+                  {documents.length}
                 </Badge>
               </Button>
-            ))}
-            <Button
-              type="button"
-              variant={selectedStatus === "all" ? "outline" : "ghost"}
-              size="sm"
-              className={`rounded-xl px-3 ${
-                selectedStatus === "all"
-                  ? "border-slate-300 bg-slate-50"
-                  : "text-slate-500"
-              }`}
-              onClick={() => {
-                setSelectedStatus("all");
-                setCurrentPage(1);
-              }}
-            >
-              All
-              <Badge
-                variant="outline"
-                className="ml-1 h-4 px-1.5 text-[10px] leading-none"
-              >
-                {documents.length}
-              </Badge>
-            </Button>
-          </div>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search name or email..."
-                className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none ring-brand/30 transition focus:ring-2"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search name or email..."
+                  className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none ring-brand/30 transition focus:ring-2"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="px-3 text-xs text-slate-400">
-                USER
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                EMAIL
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                SPECIALTY
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                WORKPLACE
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                SENT AT
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                STATUS
-              </TableHead>
-              <TableHead className="px-3 text-xs text-slate-400">
-                ACTIONS
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedDocuments.length > 0 ? (
-              paginatedDocuments.map((doc) => (
-                <TableRow key={doc.id}>
-                  <TableCell className="px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white ${getAvatarColor(
-                          doc.name,
-                        )}`}
-                      >
-                        {getInitials(doc.name)}
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-3 text-xs text-slate-400">
+                  USER
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  EMAIL
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  SPECIALTY
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  WORKPLACE
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  SENT AT
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  STATUS
+                </TableHead>
+                <TableHead className="px-3 text-xs text-slate-400">
+                  ACTIONS
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedDocuments.length > 0 ? (
+                paginatedDocuments.map((doc) => (
+                  <TableRow key={doc.id}>
+                    <TableCell className="px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white ${getAvatarColor(
+                            doc.name,
+                          )}`}
+                        >
+                          {getInitials(doc.name)}
+                        </div>
+                        <span className="text-sm text-slate-700">
+                          {doc.name}
+                        </span>
                       </div>
-                      <span className="text-sm text-slate-700">{doc.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-3 text-sm text-slate-500">
-                    {doc.email}
-                  </TableCell>
+                    </TableCell>
+                    <TableCell className="px-3 text-sm text-slate-500">
+                      {doc.email}
+                    </TableCell>
 
-                  <TableCell className="px-3 text-sm text-slate-500">
-                    <span className="bg-[#DBEAFE] p-1 rounded-xl text-[#3B7BF8] text-xs font-medium">
-                      {doc.specialty}
-                    </span>
-                  </TableCell>
+                    <TableCell className="px-3 text-sm text-slate-500">
+                      <span className="bg-[#DBEAFE] p-1 rounded-xl text-[#3B7BF8] text-xs font-medium">
+                        {doc.specialty}
+                      </span>
+                    </TableCell>
 
-                  <TableCell className="px-3 text-sm text-slate-500">
-                    {doc.workplace}
-                  </TableCell>
-                  <TableCell className="px-3 text-sm text-slate-500">
-                    {doc.sent_at}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    <Badge
-                      variant="outline"
-                      className={`h-5 rounded-full border px-2 text-[10px] font-medium ${
-                        doc.status === "pending"
-                          ? "border-blue-200 bg-blue-50 text-blue-600"
+                    <TableCell className="px-3 text-sm text-slate-500">
+                      {doc.workplace}
+                    </TableCell>
+                    <TableCell className="px-3 text-sm text-slate-500">
+                      {doc.sent_at}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      <Badge
+                        variant="outline"
+                        className={`h-5 rounded-full border px-2 text-[10px] font-medium ${
+                          doc.status === "pending"
+                            ? "border-blue-200 bg-blue-50 text-blue-600"
+                            : doc.status === "approved"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                              : "border-red-200 bg-red-50 text-red-500"
+                        }`}
+                      >
+                        {doc.status === "pending"
+                          ? "Pending"
                           : doc.status === "approved"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-                            : "border-red-200 bg-red-50 text-red-500"
-                      }`}
-                    >
-                      {doc.status === "pending"
-                        ? "Pending"
-                        : doc.status === "approved"
-                          ? "Approved"
-                          : "Rejected"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-3 text-left">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-lg text-xs"
-                      onClick={() => openReviewModal(doc)}
-                    >
-                      View
-                    </Button>
+                            ? "Approved"
+                            : "Rejected"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-3 text-left">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg text-xs"
+                        onClick={() => openReviewModal(doc)}
+                      >
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="px-3 py-8 text-center text-sm text-slate-500"
+                  >
+                    No users found for your current filter.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="px-3 py-8 text-center text-sm text-slate-500"
-                >
-                  No users found for your current filter.
-                </TableCell>
-              </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-3 py-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Showing {paginatedDocuments.length} of {filteredDocuments.length}{" "}
+              results
+            </p>
+
+            {totalPages > 1 && (
+              <Pagination className="mx-0 w-auto justify-end">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      text=""
+                      className={
+                        currentPage === 1
+                          ? "pointer-events-none opacity-40"
+                          : ""
+                      }
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) setCurrentPage(currentPage - 1);
+                      }}
+                    />
+                  </PaginationItem>
+
+                  {Array.from({ length: totalPages }).map((_, index) => {
+                    const page = index + 1;
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          href="#"
+                          isActive={page === currentPage}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(page);
+                          }}
+                          className="h-7 w-7 rounded-lg text-xs"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      text=""
+                      className={
+                        currentPage === totalPages
+                          ? "pointer-events-none opacity-40"
+                          : ""
+                      }
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages)
+                          setCurrentPage(currentPage + 1);
+                      }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             )}
-          </TableBody>
-        </Table>
-
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-3 py-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            Showing {paginatedDocuments.length} of {filteredDocuments.length}{" "}
-            results
-          </p>
-
-          {totalPages > 1 && (
-            <Pagination className="mx-0 w-auto justify-end">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    text=""
-                    className={
-                      currentPage === 1 ? "pointer-events-none opacity-40" : ""
-                    }
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage > 1) setCurrentPage(currentPage - 1);
-                    }}
-                  />
-                </PaginationItem>
-
-                {Array.from({ length: totalPages }).map((_, index) => {
-                  const page = index + 1;
-                  return (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        href="#"
-                        isActive={page === currentPage}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(page);
-                        }}
-                        className="h-7 w-7 rounded-lg text-xs"
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    text=""
-                    className={
-                      currentPage === totalPages
-                        ? "pointer-events-none opacity-40"
-                        : ""
-                    }
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage < totalPages)
-                        setCurrentPage(currentPage + 1);
-                    }}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
+          </div>
         </div>
-      </div>
 
-      <ReviewModal
-        isOpen={isReviewOpen}
-        document={reviewingDoc}
-        onClose={() => setIsReviewOpen(false)}
-        onApprove={handleApprove}
-        onReject={handleReject}
-      />
+        <ReviewModal
+          isOpen={isReviewOpen}
+          document={reviewingDoc}
+          onClose={() => setIsReviewOpen(false)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+      </div>
     </div>
   );
 }

@@ -1,71 +1,92 @@
 import { UserAvatar } from "@repo/ui/components/ui/user-avatar";
+import { Bot } from "lucide-react";
 
 export type ChatMessage = {
   id: string;
-  sender: "patient" | "doctor";
+  sender: "doctor" | "patient" | "ai";
   content: string;
   time: string;
 };
 
 interface MessageProps {
   message: ChatMessage;
+  viewerRole: "doctor" | "patient";
   patientName: string;
   patientUrl?: string;
+  patientIsOnline: boolean;
   doctorName: string;
-}
-
-function getDoctorInitials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  doctorUrl?: string;
+  doctorIsOnline: boolean;
+  aiName?: string;
 }
 
 export function Message({
   message,
+  viewerRole,
   patientName,
   patientUrl,
+  patientIsOnline,
   doctorName,
+  doctorUrl,
+  doctorIsOnline,
+  aiName = "MedBot",
 }: MessageProps) {
-  const isDoctor = message.sender === "doctor";
+  const isMine = message.sender === viewerRole;
+
+  const senderMeta =
+    message.sender === "patient"
+      ? {
+          name: patientName,
+          url: patientUrl,
+          isOnline: patientIsOnline,
+        }
+      : message.sender === "doctor"
+        ? {
+            name: doctorName,
+            url: doctorUrl,
+            isOnline: doctorIsOnline,
+          }
+        : {
+            name: aiName,
+            url: undefined,
+            isOnline: true,
+          };
 
   return (
-    <div
-      className={`flex w-full ${isDoctor ? "justify-end" : "justify-start"}`}
-    >
+    <div className={`flex w-full ${isMine ? "justify-end" : "justify-start"}`}>
       <div
-        className={`flex max-w-[78%] gap-2 ${isDoctor ? "flex-row-reverse" : "flex-row"}`}
+        className={`flex max-w-[78%] gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}
       >
-        {isDoctor ? (
-          <div className="mt-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lime-400 text-[10px] font-semibold text-slate-800">
-            {getDoctorInitials(doctorName)}
-          </div>
-        ) : (
-          <div className="mt-auto shrink-0">
+        <div className="mt-auto shrink-0">
+          {message.sender === "ai" ? (
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-600">
+              <Bot className="h-4 w-4" />
+            </span>
+          ) : (
             <UserAvatar
-              name={patientName}
-              url={patientUrl}
-              isOnline={false}
+              name={senderMeta.name}
+              url={senderMeta.url}
+              isOnline={senderMeta.isOnline}
               avtStyle="h-8 w-8 rounded-full"
             />
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className={`min-w-0 `}>
+        <div className="min-w-0">
           <div
             className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
-              isDoctor
+              isMine
                 ? "bg-lime-400 text-white"
-                : "border border-slate-200 bg-slate-50 text-slate-700"
+                : message.sender === "ai"
+                  ? "border border-blue-200 bg-blue-50 text-slate-700"
+                  : "border border-slate-200 bg-slate-50 text-slate-700"
             }`}
           >
             {message.content}
           </div>
           <p
             className={`mt-1 text-xs text-slate-400 ${
-              isDoctor ? "pr-1 text-right" : "pl-2"
+              isMine ? "pr-1 text-right" : "pl-2"
             }`}
           >
             {message.time}

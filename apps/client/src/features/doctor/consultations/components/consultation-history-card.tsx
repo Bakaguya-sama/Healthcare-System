@@ -216,7 +216,13 @@ export function ConsultationHistoryCard({
           <MoreVertical className="h-4 w-4" />
           <span className="sr-only">Open history actions</span>
         </button>
-        {showActions && <ActionCard actions={actions} className="top-7" />}
+        {showActions && (
+          <ActionCard
+            onClickOutside={() => setShowActions(false)}
+            actions={actions}
+            className="top-7"
+          />
+        )}
       </div>
     </article>
   );

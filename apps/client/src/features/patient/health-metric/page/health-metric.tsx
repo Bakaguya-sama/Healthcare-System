@@ -18,10 +18,6 @@ import { TrackingCalendar } from "../components/TrackingCalendar";
 import { TrackingChart } from "../components/TrackingChart";
 import { TrackingTable } from "../components/TrackingTable";
 import { useMetricStatus } from "../utils/useMetricStatus";
-import {
-  ActionCard,
-  type ActionCardItem,
-} from "@repo/ui/components/ui/action-card";
 
 type MetricsTypes =
   | "blood_pressure"

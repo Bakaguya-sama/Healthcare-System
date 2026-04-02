@@ -107,7 +107,12 @@ export function ActiveSessionCard({
           className="relative inline-flex items-center justify-center rounded-lg p-2 hover:bg-slate-100 transition-colors"
         >
           <MoreVertical className="h-5 w-5 text-slate-600" />
-          {showActions && <ActionCard actions={actions} />}
+          {showActions && (
+            <ActionCard
+              onClickOutside={() => setShowActions(false)}
+              actions={actions}
+            />
+          )}
         </button>
 
         <button

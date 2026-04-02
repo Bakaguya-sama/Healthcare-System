@@ -20,7 +20,7 @@ export function Layout({ userRole }: LayoutProps) {
       <Sidebar userRole={userRole} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopHeader />
-        <main ref={mainRef} className="flex-1 overflow-y-auto pt-2">
+        <main ref={mainRef} className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

@@ -14,6 +14,8 @@ import { GlobalCriticalAlertHost } from "./components/GlobalCriticalAlertHost";
 import { useNotificationSync } from "./hooks/useNotificationSync";
 import { HealthMetric } from "./features/patient/health-metric/page/health-metric";
 import { MyDoctors } from "./features/patient/my-doctor/page/my-doctors";
+import { AiChat } from "./features/patient/ai-chat/page/ai-chat";
+import { DoctorChat } from "./features/patient/doctor-chat/page/doctor-chat";
 
 function Page({ title }: { title: string }) {
   return (
@@ -28,7 +30,7 @@ function Page({ title }: { title: string }) {
  * Mount ở trong BrowserRouter để có access đến route context
  */
 function AppRoutes() {
-  const role = "doctor";
+  const role = "patient";
   const defaultHomePath =
     role === "doctor" ? "/doctor-overview" : "/patient-overview";
 
@@ -56,13 +58,10 @@ function AppRoutes() {
           ) : (
             <>
               <Route path="/patient-overview" element={<Overview />} />
-              <Route path="/my_doctors" element={<MyDoctors />} />
+              <Route path="/my-doctors" element={<MyDoctors />} />
               <Route path="/health-metric" element={<HealthMetric />} />
-              <Route
-                path="/ai_assistant"
-                element={<Page title="AI assistant" />}
-              />
-              <Route path="/messages" element={<Page title="Messages" />} />
+              <Route path="/ai-chat" element={<AiChat />} />
+              <Route path="/doctor-chat" element={<DoctorChat />} />
               <Route path="/profile" element={<Profile />} />
             </>
           )}

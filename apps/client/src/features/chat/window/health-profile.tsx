@@ -131,7 +131,7 @@ export function HealthProfile({
   ];
 
   return (
-    <aside className="hidden w-[320px] shrink-0 border-l border-slate-200 bg-slate-50 p-4 lg:block">
+    <aside className="hidden overflow-y-auto w-[320px] shrink-0 border-l border-slate-200 bg-slate-50 p-4 lg:block">
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex items-center gap-2 text-slate-800">
           <Activity className="h-4 w-4" />
@@ -171,7 +171,7 @@ export function HealthProfile({
             />
           ))}
 
-          <div className="flex items-center gap-3 rounded-2xl border border-lime-200 bg-lime-50 p-3">
+          {/* <div className="flex items-center gap-3 rounded-2xl border border-lime-200 bg-lime-50 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-lime-100 text-lime-700">
               <Scale className="h-5 w-5" />
             </div>
@@ -184,7 +184,7 @@ export function HealthProfile({
                 </span>
               </p>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </aside>

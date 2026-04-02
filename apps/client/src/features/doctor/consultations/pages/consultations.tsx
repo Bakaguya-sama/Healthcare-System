@@ -7,7 +7,11 @@ import { ChevronDown, Search } from "lucide-react";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import { ProfileModal } from "@repo/ui/components/complex-modal/ProfileModal";
 import { EndConsultationModal } from "@repo/ui/components/complex-modal/EndConsultationModal";
-import { ReportModal } from "@repo/ui/components/complex-modal/ReportModal";
+import {
+  ReportModal,
+  type ReportActor,
+  type ReportType,
+} from "@repo/ui/components/complex-modal/ReportModal";
 import { ChatWindow } from "@/features/chat/window/chat-window";
 import { chatService } from "@/features/chat/services/chat.service";
 
@@ -232,7 +236,11 @@ export function Consultations() {
   const [selectedChatSession, setSelectedChatSession] =
     useState<ChatTarget | null>(null);
 
-  const currentDoctorId = "doctor-demo-001";
+  // TODO: fetch doctor data
+  const currentDoctorData = {
+    id: "doctor-demo-001",
+    name: "Dr. Marcus Lee",
+  };
 
   const handleCloseEndChatModal = () => {
     setEndChatModalOpen(false);
@@ -270,6 +278,9 @@ export function Consultations() {
       prev.filter((item) => item.sessionId !== sessionId),
     );
     setActiveSessions((prev) => Math.max(0, prev - 1));
+
+    // Close chat only after the end consultation has been confirmed.
+    handleCloseChatWindow();
 
     if (notes) {
       showToast.success(
@@ -409,26 +420,18 @@ export function Consultations() {
     setReviewModalOpen(true);
   };
 
-  const handleSubmitReport = ({
-    reportType,
-    reason,
-    sessionId,
-  }: {
+  const handleSubmitReport = (_payload: {
     sessionId: string;
-    patientId: string;
-    doctorId: string;
-    reportType:
-      | "harassment"
-      | "spam"
-      | "misinformation"
-      | "inappropriate_content"
-      | "impersonation"
-      | "fraud"
-      | "ai_hallucination"
-      | "other";
+    sender: ReportActor;
+    viewer: ReportActor;
+    reportType: ReportType;
     reason: string;
   }) => {
-    // TODO: Call api to submit report
+    void _payload;
+    // TODO: Call API to submit report with _payload.
+    // NOTE: As requested, submitting a report must close ChatWindow immediately
+    // and must not open EndConsultationModal. Doctor notes flow will be handled later.
+    handleCloseChatWindow();
     showToast.success(`Report submitted successfully.`);
   };
 
@@ -529,233 +532,236 @@ export function Consultations() {
 
   return (
     <div className="w-full p-6">
-      <div className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">
-          Patient Consultations
-        </h1>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-slate-100">
-        <div className="flex items-center gap-8 border-b border-slate-200 bg-white px-6 pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("pending-requests")}
-            className={`${getTabClass(activeTab === "pending-requests")} cursor-pointer`}
-          >
-            Pending Requests
-            <span className=" inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
-              {requests.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("active-sessions")}
-            className={`${getTabClass(activeTab === "active-sessions")} cursor-pointer`}
-          >
-            Active Sessions
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
-              {activeSessions}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("history")}
-            className={`${getTabClass(activeTab === "history")} cursor-pointer`}
-          >
-            History
-          </button>
+      <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div className="mb-5">
+          <h1 className="text-3xl font-semibold text-slate-900">
+            Patient Consultations
+          </h1>
         </div>
 
-        {activeTab === "pending-requests" && (
-          <>
-            <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-              <label className="relative block w-full md:max-w-xs">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  type="text"
-                  placeholder="Search by name or symptom..."
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
-                />
-              </label>
+        <div className="rounded-2xl border border-slate-200 bg-slate-100">
+          <div className="flex items-center gap-8 border-b border-slate-200 bg-white px-6 pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("pending-requests")}
+              className={`${getTabClass(activeTab === "pending-requests")} cursor-pointer`}
+            >
+              Pending Requests
+              <span className=" inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
+                {requests.length}
+              </span>
+            </button>
 
-              <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
-                Sort by:
-                <span className="relative inline-flex">
-                  <select
-                    value={sortBy}
-                    onChange={(e) =>
-                      setSortBy(e.target.value as "newest" | "oldest")
-                    }
-                    className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
-                  >
-                    <option value="newest">Latest</option>
-                    <option value="oldest">Oldest</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                </span>
-              </label>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("active-sessions")}
+              className={`${getTabClass(activeTab === "active-sessions")} cursor-pointer`}
+            >
+              Active Sessions
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
+                {activeSessions}
+              </span>
+            </button>
 
-            <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
-              {filteredRequests.length > 0 ? (
-                filteredRequests.map((item) => (
-                  <PendingRequestCard
-                    key={item.id}
-                    id={item.id}
-                    patientName={item.patientName}
-                    patientAvatarUrl={item.patientAvatarUrl}
-                    patientBirthDay={item.patientBirthDay}
-                    patientGender={item.patientGender}
-                    patientNote={item.patientNote}
-                    createdAt={item.createdAt}
-                    onAccept={() => handleRequestAction("accept", item.id)}
-                    onDecline={() => handleRequestAction("decline", item.id)}
-                    isAccepting={
-                      processingRequestId === item.id &&
-                      processingAction === "accept"
-                    }
-                    isDeclining={
-                      processingRequestId === item.id &&
-                      processingAction === "decline"
-                    }
+            <button
+              type="button"
+              onClick={() => setActiveTab("history")}
+              className={`${getTabClass(activeTab === "history")} cursor-pointer`}
+            >
+              History
+            </button>
+          </div>
+
+          {activeTab === "pending-requests" && (
+            <>
+              <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                <label className="relative block w-full md:max-w-xs">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    type="text"
+                    placeholder="Search by name or symptom..."
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
                   />
-                ))
-              ) : (
+                </label>
+
+                <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
+                  Sort by:
+                  <span className="relative inline-flex">
+                    <select
+                      value={sortBy}
+                      onChange={(e) =>
+                        setSortBy(e.target.value as "newest" | "oldest")
+                      }
+                      className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
+                    >
+                      <option value="newest">Latest</option>
+                      <option value="oldest">Oldest</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  </span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map((item) => (
+                    <PendingRequestCard
+                      key={item.id}
+                      id={item.id}
+                      patientName={item.patientName}
+                      patientAvatarUrl={item.patientAvatarUrl}
+                      patientBirthDay={item.patientBirthDay}
+                      patientGender={item.patientGender}
+                      patientNote={item.patientNote}
+                      createdAt={item.createdAt}
+                      onAccept={() => handleRequestAction("accept", item.id)}
+                      onDecline={() => handleRequestAction("decline", item.id)}
+                      isAccepting={
+                        processingRequestId === item.id &&
+                        processingAction === "accept"
+                      }
+                      isDeclining={
+                        processingRequestId === item.id &&
+                        processingAction === "decline"
+                      }
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-8 text-slate-500">
+                    No results match your search.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === "active-sessions" && (
+            <>
+              <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+                <label className="relative block w-full md:max-w-xs">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={activeSessionSearchTerm}
+                    onChange={(e) => setActiveSessionSearchTerm(e.target.value)}
+                    type="text"
+                    placeholder="Search by patient name..."
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-1">
+                {activeSessionsList
+                  .filter((session) => {
+                    const keyword = activeSessionSearchTerm
+                      .trim()
+                      .toLowerCase();
+                    if (!keyword) return true;
+                    return session.patientName.toLowerCase().includes(keyword);
+                  })
+                  .map((session) => (
+                    <ActiveSessionCard
+                      key={session.sessionId}
+                      sessionId={session.sessionId}
+                      patientId={session.patientId}
+                      patientName={session.patientName}
+                      patientUrl={session.patientUrl}
+                      patientIsOnline={session.patientIsOnline}
+                      lastSent={session.lastSent}
+                      onOpenchat={() => handleOpenChat(session.sessionId)}
+                      onViewProfile={() => handleViewProfile(session.patientId)}
+                      onEndConsultation={() =>
+                        handleEndConsultation(session.sessionId)
+                      }
+                      onReport={() => handleReportPatient(session.sessionId)}
+                    />
+                  ))}
+              </div>
+
+              {activeSessionsList.filter((session) => {
+                const keyword = activeSessionSearchTerm.trim().toLowerCase();
+                if (!keyword) return true;
+                return session.patientName.toLowerCase().includes(keyword);
+              }).length === 0 && (
                 <div className="col-span-full text-center py-8 text-slate-500">
-                  No results match your search.
+                  No active sessions found.
                 </div>
               )}
-            </div>
-          </>
-        )}
+            </>
+          )}
 
-        {activeTab === "active-sessions" && (
-          <>
-            <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
-              <label className="relative block w-full md:max-w-xs">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={activeSessionSearchTerm}
-                  onChange={(e) => setActiveSessionSearchTerm(e.target.value)}
-                  type="text"
-                  placeholder="Search by patient name..."
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
-                />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-1">
-              {activeSessionsList
-                .filter((session) => {
-                  const keyword = activeSessionSearchTerm.trim().toLowerCase();
-                  if (!keyword) return true;
-                  return session.patientName.toLowerCase().includes(keyword);
-                })
-                .map((session) => (
-                  <ActiveSessionCard
-                    key={session.sessionId}
-                    sessionId={session.sessionId}
-                    patientId={session.patientId}
-                    patientName={session.patientName}
-                    patientUrl={session.patientUrl}
-                    patientIsOnline={session.patientIsOnline}
-                    lastSent={session.lastSent}
-                    onOpenchat={() => handleOpenChat(session.sessionId)}
-                    onViewProfile={() => handleViewProfile(session.patientId)}
-                    onEndConsultation={() =>
-                      handleEndConsultation(session.sessionId)
-                    }
-                    onReport={() => handleReportPatient(session.sessionId)}
+          {activeTab === "history" && (
+            <>
+              <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                <label className="relative block w-full md:max-w-xs">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    type="text"
+                    placeholder="Search patient or review..."
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
                   />
-                ))}
-            </div>
+                </label>
 
-            {activeSessionsList.filter((session) => {
-              const keyword = activeSessionSearchTerm.trim().toLowerCase();
-              if (!keyword) return true;
-              return session.patientName.toLowerCase().includes(keyword);
-            }).length === 0 && (
-              <div className="col-span-full text-center py-8 text-slate-500">
-                No active sessions found.
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === "history" && (
-          <>
-            <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-              <label className="relative block w-full md:max-w-xs">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  type="text"
-                  placeholder="Search patient or review..."
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
-                />
-              </label>
-
-              <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
-                Sort by:
-                <span className="relative inline-flex">
-                  <select
-                    value={sortBy}
-                    onChange={(e) =>
-                      setSortBy(e.target.value as "newest" | "oldest")
-                    }
-                    className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
-                  >
-                    <option value="newest">Latest</option>
-                    <option value="oldest">Oldest</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                </span>
-              </label>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-              <div className="grid min-w-[900px] grid-cols-[2fr_3fr_2fr_1.2fr_1.2fr_0.8fr] gap-3 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                <span>Patient</span>
-                <span>Date & Time</span>
-                <span>Status</span>
-                <span>Rating</span>
-                <span>Review</span>
-                <span className="text-right">Action</span>
+                <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
+                  Sort by:
+                  <span className="relative inline-flex">
+                    <select
+                      value={sortBy}
+                      onChange={(e) =>
+                        setSortBy(e.target.value as "newest" | "oldest")
+                      }
+                      className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
+                    >
+                      <option value="newest">Latest</option>
+                      <option value="oldest">Oldest</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  </span>
+                </label>
               </div>
 
-              {filteredHistory.length > 0 ? (
-                filteredHistory.map((session) => (
-                  <ConsultationHistoryCard
-                    key={session.sessionId}
-                    sessionId={session.sessionId}
-                    patientId={session.patientId}
-                    patientName={session.patientName}
-                    patientAvatarUrl={session.patientAvatarUrl}
-                    patientRating={session.patientRating}
-                    patientReview={session.patientReview}
-                    sessionStatus={session.sessionStatus}
-                    endedAt={session.endedAt}
-                    onOpenchat={() => handleOpenChat(session.sessionId)}
-                    onViewProfile={() => handleViewProfile(session.patientId)}
-                    onOpenReview={() => handleOpenReview(session.sessionId)}
-                    onReport={() => handleReportFromHistory(session)}
-                  />
-                ))
-              ) : (
-                <div className="px-4 py-8 text-center text-sm text-slate-500">
-                  No consultation history matches your search.
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <div className="grid min-w-[900px] grid-cols-[2fr_3fr_2fr_1.2fr_1.2fr_0.8fr] gap-3 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <span>Patient</span>
+                  <span>Date & Time</span>
+                  <span>Status</span>
+                  <span>Rating</span>
+                  <span>Review</span>
+                  <span className="text-right">Action</span>
                 </div>
-              )}
-            </div>
-          </>
-        )}
+
+                {filteredHistory.length > 0 ? (
+                  filteredHistory.map((session) => (
+                    <ConsultationHistoryCard
+                      key={session.sessionId}
+                      sessionId={session.sessionId}
+                      patientId={session.patientId}
+                      patientName={session.patientName}
+                      patientAvatarUrl={session.patientAvatarUrl}
+                      patientRating={session.patientRating}
+                      patientReview={session.patientReview}
+                      sessionStatus={session.sessionStatus}
+                      endedAt={session.endedAt}
+                      onOpenchat={() => handleOpenChat(session.sessionId)}
+                      onViewProfile={() => handleViewProfile(session.patientId)}
+                      onOpenReview={() => handleOpenReview(session.sessionId)}
+                      onReport={() => handleReportFromHistory(session)}
+                    />
+                  ))
+                ) : (
+                  <div className="px-4 py-8 text-center text-sm text-slate-500">
+                    No consultation history matches your search.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
-
       <ProfileModal
         id={selectedUserId || ""}
         isOpen={isProfileModalOpen}
@@ -773,9 +779,16 @@ export function Consultations() {
       <ReportModal
         isOpen={reportModalOpen}
         sessionId={selectedReportSession?.sessionId || ""}
-        patientId={selectedReportSession?.patientId || ""}
-        doctorId={currentDoctorId}
-        patientName={selectedReportSession?.patientName || ""}
+        sender={{
+          id: selectedReportSession?.patientId || "",
+          name: selectedReportSession?.patientName || "",
+          role: "patient",
+        }}
+        viewer={{
+          id: currentDoctorData.id,
+          name: currentDoctorData.name,
+          role: "doctor",
+        }}
         onClose={handleCloseReportModal}
         onConfirm={handleSubmitReport}
       />

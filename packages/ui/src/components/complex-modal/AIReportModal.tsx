@@ -13,26 +13,17 @@ export type ReportType =
   | "ai_hallucination"
   | "other";
 
-export type ReportActorRole = "patient" | "doctor" | "ai" | "admin";
-
-export interface ReportActor {
-  id: string;
-  name: string;
-  role: ReportActorRole;
-}
-
-interface ReportModalProps {
+interface AIReportModalProps {
   isOpen: boolean;
   sessionId: string;
-  sender: ReportActor;
-  viewer: ReportActor;
+  patientId: string;
+  patientName: string;
   reason?: string;
   reportType?: ReportType;
   onClose: () => void;
   onConfirm: (payload: {
     sessionId: string;
-    sender: ReportActor;
-    viewer: ReportActor;
+    patientId: string;
     reportType: ReportType;
     reason: string;
   }) => void;
@@ -51,16 +42,16 @@ const REPORT_TYPE_OPTIONS: Array<{ value: ReportType; label: string }> = [
 
 const MAX_REASON_LENGTH = 1000;
 
-export function ReportModal({
+export function AIReportModal({
   isOpen,
   sessionId,
-  sender,
-  viewer,
+  patientId,
+  patientName,
   reason,
   reportType = "other",
   onClose,
   onConfirm,
-}: ReportModalProps) {
+}: AIReportModalProps) {
   const [selectedType, setSelectedType] = useState<ReportType>(reportType);
   const [reportReason, setReportReason] = useState(reason ?? "");
 
@@ -81,18 +72,12 @@ export function ReportModal({
   const handleConfirm = () => {
     onConfirm({
       sessionId,
-      sender,
-      viewer,
+      patientId,
       reportType: selectedType,
       reason: reportReason.trim(),
     });
     onClose();
   };
-
-  const senderLabel =
-    sender.role === "ai"
-      ? "AI"
-      : sender.role.charAt(0).toUpperCase() + sender.role.slice(1);
 
   return (
     <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
@@ -109,12 +94,12 @@ export function ReportModal({
         </div>
 
         <h2 className="text-center text-2xl font-semibold tracking-tight text-slate-900">
-          Report {senderLabel}
+          Report
         </h2>
         <p className="mx-auto mt-3 max-w-[540px] text-center text-medium leading-[1.45] text-slate-500">
           Submit a report for{" "}
-          <span className="font-semibold text-slate-700">{sender.name}</span>.
-          This report will be reviewed by the moderation team.
+          <span className="font-semibold text-slate-700">AI Chatbot</span>. This
+          report will be reviewed by the moderation team.
         </p>
 
         <div className="mt-7 space-y-4">
