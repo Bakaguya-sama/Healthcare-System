@@ -377,6 +377,198 @@ export class UploadController {
   }
 
   /**
+   * 👤 UPLOAD AVATAR
+   * 
+   * 🔒 USER (own user) or ADMIN
+   * Specialized endpoint for user profile avatar upload
+   * 
+   * Usage:
+   * - Regular user: POST /upload/avatar (uploads own avatar)
+   * - Admin: POST /upload/avatar (can upload for other users)
+   * 
+   * Returns: { file: { url, secureUrl, size } }
+   * 
+   * Workflow:
+   * 1. Call this endpoint to get avatar URL
+   * 2. Use returned URL in PATCH /users/me { avatarUrl: url }
+   */
+  @Post('avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: '👤 Upload user profile avatar (image only)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Avatar image (jpg, png) - max 10MB',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  async uploadAvatar(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<UploadResponse> {
+    if (!file) {
+      throw new BadRequestException('No avatar image provided');
+    }
+
+    // Validate image file type
+    const imageTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!imageTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid file type. Only JPEG and PNG images are allowed',
+      );
+    }
+
+    // Validate image file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new BadRequestException(
+        `File size (${file.size} bytes) exceeds maximum (${maxSize} bytes). Max avatar size: 10MB`,
+      );
+    }
+
+    const result = await this.cloudinaryService.uploadFile(
+      file,
+      'healthcare/profiles',
+      'image',
+    );
+
+    this.logger.log(`✅ Avatar uploaded for user ${userId}: ${result.publicId}`);
+
+    return {
+      statusCode: 201,
+      message: 'Avatar uploaded successfully. Now update your profile with this URL.',
+      data: {
+        files: [
+          {
+            originalName: file.originalname,
+            publicId: result.publicId,
+            url: result.url,
+            secureUrl: result.secureUrl,
+            size: result.size,
+          },
+        ],
+        uploadedAt: result.uploadedAt,
+        totalSize: result.size,
+      },
+    };
+  }
+
+  /**
+   * 📄 UPLOAD DOCTOR VERIFICATION DOCUMENTS
+   * 
+   * 🔒 DOCTOR (own docs) or ADMIN
+   * Specialized endpoint for doctor verification document upload
+   * Supports batch upload of credentials (max 5 files)
+   * 
+   * Usage:
+   * - Doctor: POST /upload/doctor-verification (uploads own verification docs)
+   * - Admin: POST /upload/doctor-verification (can upload for other doctors)
+   * 
+   * Returns: { files: [{ url, secureUrl, size }, ...] }
+   * 
+   * Workflow:
+   * 1. Call this endpoint to upload 2-5 certificate files
+   * 2. Get array of URLs from response
+   * 3. Use URLs in PATCH /users/me { verificationDocuments: [...urls] }
+   */
+  @Post('doctor-verification')
+  @Roles(UserRole.DOCTOR, UserRole.ADMIN)
+  @UseInterceptors(FilesInterceptor('files', 5))
+  @ApiOperation({
+    summary: '📄 Upload doctor verification documents (batch, max 5 files)',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+          description: 'Verification documents (pdf, doc, docx) - max 5 files, 50MB each',
+        },
+      },
+      required: ['files'],
+    },
+  })
+  async uploadDoctorVerification(
+    @CurrentUser('sub') userId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<UploadResponse> {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No verification documents provided');
+    }
+
+    if (files.length > 5) {
+      throw new BadRequestException(
+        `Too many files. Maximum 5 documents allowed, received ${files.length}`,
+      );
+    }
+
+    // Validate document file types
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    for (const file of files) {
+      if (!allowedTypes.includes(file.mimetype)) {
+        throw new BadRequestException(
+          `Invalid file type for ${file.originalname}. Only PDF and Word documents are allowed`,
+        );
+      }
+
+      // Validate file size (max 50MB each)
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        throw new BadRequestException(
+          `File ${file.originalname} (${file.size} bytes) exceeds maximum (${maxSize} bytes). Max document size: 50MB`,
+        );
+      }
+    }
+
+    // Upload all files
+    const results = await this.cloudinaryService.uploadMultiple(
+      files,
+      'healthcare/doctors/verification',
+      'document',
+    );
+
+    this.logger.log(
+      `✅ ${results.length} verification documents uploaded for user ${userId}`,
+    );
+
+    const uploadedUrls = results.map((result) => result.secureUrl);
+
+    return {
+      statusCode: 201,
+      message: `${results.length} verification documents uploaded successfully. Now update your profile with these URLs.`,
+      data: {
+        files: results.map((result) => ({
+          originalName: result.filename,
+          publicId: result.publicId,
+          url: result.url,
+          secureUrl: result.secureUrl,
+          size: result.size,
+        })),
+        uploadedAt: new Date(),
+        totalSize: results.reduce((sum, r) => sum + r.size, 0),
+      },
+    };
+  }
+
+  /**
    * ✅ VALIDATE DTO
    */
   private validateDto(dto: UploadFileDto | UploadMultipleFilesDto) {

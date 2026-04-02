@@ -11,6 +11,7 @@ import {
   Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
 
 export class UpdateUserDto {
   @ApiProperty({ required: false })
@@ -18,9 +19,14 @@ export class UpdateUserDto {
   @IsString()
   fullName?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({
+    required: false,
+    description:
+      '🌥️ Cloudinary URL only. Upload via POST /upload/single first, then use returned URL here',
+    example: 'https://res.cloudinary.com/healthcare/image/upload/...',
+  })
   @IsOptional()
-  @IsUrl()
+  @IsCloudinaryUrl()
   avatarUrl?: string;
 
   @ApiProperty({ required: false })
@@ -53,15 +59,16 @@ export class UpdateUserDto {
 
   @ApiProperty({
     required: false,
-    description: 'Doctor only: array of verification document URLs',
+    description:
+      '🔒 Doctor only: Array of Cloudinary URLs (max 5 documents). Upload via POST /upload/multiple first, then use returned URLs here',
     example: [
-      'https://example.com/cert1.pdf',
-      'https://example.com/cert2.pdf',
+      'https://res.cloudinary.com/healthcare/raw/upload/healthcare/doctors/verification/cert1.pdf',
+      'https://res.cloudinary.com/healthcare/raw/upload/healthcare/doctors/verification/cert2.pdf',
     ],
   })
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsCloudinaryUrl({ each: true })
   verificationDocuments?: string[];
 
   @ApiProperty({

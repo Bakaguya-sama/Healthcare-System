@@ -6,6 +6,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Types } from 'mongoose';
+import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
 
 export class CreateAiMessageDto {
   @ApiProperty({ description: 'AI Session ID', example: '507f1f77bcf86cd799439011' })
@@ -23,10 +24,16 @@ export class CreateAiMessageDto {
   @IsString()
   content: string;
 
-  @ApiProperty({ description: 'Array of attachment URLs', required: false })
+  @ApiProperty({
+    description: '🌥️ Array of Cloudinary URLs only. Upload via POST /upload/single first',
+    example: [
+      'https://res.cloudinary.com/healthcare/raw/upload/healthcare/chat/attachments/document.pdf',
+    ],
+    required: false,
+  })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsCloudinaryUrl({ each: true })
   attachments?: string[];
 }
 

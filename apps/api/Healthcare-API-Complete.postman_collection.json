@@ -2780,6 +2780,47 @@
             "description": "🔒 ADMIN ONLY - Delete multiple files from Cloudinary. Only super_admin and ai_admin can delete files."
           },
           "response": []
+        },
+        {
+          "name": "👤 Upload User Avatar",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {"key": "file", "type": "file", "src": "", "description": "Avatar image (jpg, png) - max 10MB"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/upload/avatar",
+              "host": ["{{base_url}}"],
+              "path": ["upload", "avatar"]
+            },
+            "description": "👤 Upload user profile avatar (any authenticated user). Automatically saves to healthcare/profiles folder on Cloudinary.\n\n🔄 WORKFLOW:\n1. Call this endpoint to upload avatar image\n2. Get URL from response: data.files[0].secureUrl\n3. Call PATCH /users/me { avatarUrl: \"<returned_url>\" } to update profile\n\n✅ RETURNS: { files: [{ url, secureUrl, size, ... }], uploadedAt }\n\n⚠️ VALIDATION:\n- File types: JPEG, PNG only\n- Max size: 10MB\n- Automatically compressed & optimized by Cloudinary"
+          },
+          "response": []
+        },
+        {
+          "name": "📄 Upload Doctor Verification Documents",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{doctor_token}}", "type": "text"}],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {"key": "files", "type": "file", "src": "", "description": "Verification document (pdf, doc, docx) #1"},
+                {"key": "files", "type": "file", "src": "", "description": "Verification document (pdf, doc, docx) #2"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/upload/doctor-verification",
+              "host": ["{{base_url}}"],
+              "path": ["upload", "doctor-verification"]
+            },
+            "description": "📄 Upload doctor verification documents (credentials, licenses, certificates). DOCTOR or ADMIN only.\n\n🔄 WORKFLOW:\n1. Doctor uploads 2-5 verification documents\n2. Get array of URLs from response: data.files[].secureUrl\n3. Call PATCH /users/me { verificationDocuments: [...urls] } to update profile\n\n✅ RETURNS: { files: [{ url, secureUrl, size, ... }, ...], uploadedAt, totalSize }\n\n⚠️ VALIDATION:\n- File types: PDF, Word (.doc, .docx) only\n- Max files: 5 documents\n- Max size per file: 50MB\n- Auto-organized in: healthcare/doctors/verification folder\n\n📝 TYPICAL USE CASE:\n- Doctor uploads: medical_license.pdf, specialty_certificate.pdf, medical_school_degree.pdf\n- Then updates profile with these URLs for verification by admin"
+          },
+          "response": []
         }
       ]
     },

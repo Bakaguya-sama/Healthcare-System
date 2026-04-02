@@ -1108,331 +1108,348 @@ Body: {
 ### 2️⃣0️⃣ FILE UPLOAD - Cloudinary Integration
 **Collection:** `2️⃣0️⃣ FILE UPLOAD - Cloudinary Integration`
 
-#### Folder Structure (Auto-Organized)
-| Folder | Purpose | Examples |
-|--------|---------|----------|
-| `healthcare/profiles` | Patient/Doctor avatars | profile.jpg |
-| `healthcare/doctors/verification` | Doctor license, credentials | license.pdf, certificate.pdf |
-| `healthcare/documents/health` | Medical records, reports | scan.pdf, xray.jpg |
-| `healthcare/documents/records` | Patient health records | test_result.pdf |
-| `healthcare/chat/attachments` | Chat file attachments | document.doc, image.png |
-| `healthcare/ai/documents` | AI knowledge base files | guideline.pdf |
+#### 🌥️ CLOUDINARY ARCHITECTURE
 
-#### File Validation
-- **Max Size:** 50MB (52,428,800 bytes)
-- **Allowed Types:** jpg, jpeg, png, pdf, doc, docx, txt
-- **Response:** URL (HTTP), secure_url (HTTPS), publicId (for deletion)
+**Key Principle:** All file URLs must be Cloudinary URLs
+- ✅ User uploads file → Cloudinary stores it → Returns HTTPS URL
+- ✅ API saves returned URL to database (not the file itself)
+- ✅ Frontend displays secure Cloudinary URLs with automatic optimization
 
-#### Test Cases
+**Folder Structure (Auto-Organized)**
+| Folder | Purpose | Examples | Max Size | Types |
+|--------|---------|----------|----------|-------|
+| `healthcare/profiles` | User avatars (auto-optimized) | profile.jpg | 10MB | jpg, png |
+| `healthcare/doctors/verification` | Doctor credentials | license.pdf, cert.pdf | 50MB each | pdf, doc, docx |
+| `healthcare/documents/health` | Medical records | scan.pdf, report.docx | 50MB each | pdf, doc, docx |
+| `healthcare/chat/attachments` | Message attachments | prescription.pdf | 50MB each | pdf, doc, docx |
+| `healthcare/ai/documents` | Knowledge base | guideline.pdf | 50MB each | pdf, doc, docx |
 
-| # | Endpoint | Method | Form Data | Expected | Role | Status |
-|---|----------|--------|-----------|----------|------|--------|
-| 1 | POST /upload/single | POST | file, folder, fileType | 201 + url + publicId | ADMIN | ✅ |
-| 2 | POST /upload/multiple | POST | files[], folder, fileTypes[] | 201 + urls array | ADMIN | ✅ |
-| 3 | GET /upload/:publicId | GET | - | 200 + file info | ADMIN | ✅ |
-| 4 | DELETE /upload/:publicId | DELETE | fileType | 200 | ADMIN | ✅ |
-| 5 | POST /upload/delete-multiple | POST | publicIds[], fileType | 200 | ADMIN | ✅ |
+#### Test Cases (7 Endpoints - ALL PUBLIC, Auth Required)
 
-#### Commands (With FormData)
+| # | Endpoint | Role | Purpose | Workflow |
+|---|----------|------|---------|----------|
+| 1 | POST /upload/single | ALL | Upload 1 file (generic) | Admin/utility endpoint |
+| 2 | POST /upload/multiple | ALL | Batch upload files | Admin/utility endpoint |
+| 3 | POST /upload/avatar | ANY AUTH | Upload user avatar | User uploads own avatar, then PATCH /users/me |
+| 4 | POST /upload/doctor-verification | DOCTOR/ADMIN | Batch upload verification docs | Doctor uploads 2-5 certs, then PATCH /users/me |
+| 5 | GET /upload/:publicId | ADMIN | Get file info | Admin only - inspect file metadata |
+| 6 | DELETE /upload/:publicId | ADMIN | Delete 1 file | Admin only - cleanup |
+| 7 | DELETE /upload/delete-multiple | ADMIN | Delete batch | Admin only - bulk cleanup |
 
-**🚨 IMPORTANT: Use {{admin_token}} for all upload/delete operations!**
+#### 🔄 UPLOAD WORKFLOWS (WITH VALIDATION)
 
+**ALL URLs MUST BE CLOUDINARY URLs! Validation enforced in DTOs:**
+- `avatarUrl`: Must match pattern `https://res.cloudinary.com/...`
+- `verificationDocuments[]`: Each URL must be valid Cloudinary URL
+- `fileUrl` (chat, AI docs): Must be valid Cloudinary URL
+- `attachments[].fileUrl` (messages): Must be valid Cloudinary URL
+
+---
+
+### WORKFLOW 1: User Avatar Upload
+
+**Step 1: Upload Avatar Image**
 ```bash
-# 1. Upload single profile image (ADMIN ONLY)
-POST {{base_url}}/upload/single
-Header: Authorization: Bearer {{admin_token}}
-Header: Content-Type: multipart/form-data
+POST {{base_url}}/upload/avatar
+Header: Authorization: Bearer {{jwt_token}}
 Form Data:
-  - file: (binary) patient-photo.jpg
-  - folder: healthcare/profiles
-  - fileType: image
-  - description: Patient profile picture
+  - file: (binary) my-photo.jpg [MAX 10MB]
 
-✅ Expected: 201 (if admin)
-Response: {
+✅ Response (201):
+{
   "statusCode": 201,
-  "message": "File uploaded successfully",
+  "message": "Avatar uploaded successfully...",
   "data": {
-    "file": {
-      "url": "http://res.cloudinary.com/..../image.jpg",
-      "secure_url": "https://res.cloudinary.com/..../image.jpg",
-      "publicId": "healthcare/profiles/abc123def456",
-      "fileName": "patient-photo.jpg",
-      "fileType": "image",
-      "size": 256000,
-      "uploadedAt": "2026-03-31T14:30:00Z"
+    "files": [{
+      "publicId": "healthcare/profiles/avatar-12345",
+      "url": "http://res.cloudinary.com/...",
+      "secureUrl": "https://res.cloudinary.com/healthcare-app/image/upload/.../avatar.jpg",
+      "size": 245000
+    }],
+    "uploadedAt": "2026-04-02T10:00:00Z",
+    "totalSize": 245000
+  }
+}
+```
+
+**Step 2: Update Profile with Avatar URL**
+```bash
+PATCH {{base_url}}/users/me
+Header: Authorization: Bearer {{jwt_token}}
+Body: {
+  "fullName": "Nguyễn Văn An",
+  "avatarUrl": "https://res.cloudinary.com/healthcare-app/image/upload/.../avatar.jpg"
+}
+
+✅ Response (200):
+{
+  "statusCode": 200,
+  "data": {
+    "user": {
+      "_id": "507f1f77bcf86cd799439011",
+      "fullName": "Nguyễn Văn An",
+      "avatarUrl": "https://res.cloudinary.com/healthcare-app/image/upload/.../avatar.jpg",
+      ...
     }
   }
 }
 
-❌ Expected: 403 Forbidden (if patient/doctor)
-Response: {
-  "statusCode": 403,
-  "message": "Forbidden",
-  "error": "You don't have permission to upload files"
+❌ VALIDATION ERROR (400):
+{
+  "statusCode": 400,
+  "message": "Invalid URL",
+  "error": "avatarUrl must be a valid Cloudinary URL (https://res.cloudinary.com/...)"
 }
+```
 
-✅ Save publicId for later delete operations
+---
 
-# 2. Upload multiple doctor verification documents (ADMIN ONLY)
-POST {{base_url}}/upload/multiple
-Header: Authorization: Bearer {{admin_token}}
-Header: Content-Type: multipart/form-data
+### WORKFLOW 2: Doctor Verification Documents Upload
+
+**Step 1: Doctor Uploads Multiple Credentials**
+```bash
+POST {{base_url}}/upload/doctor-verification
+Header: Authorization: Bearer {{doctor_token}}
 Form Data:
-  - files: (binary) license.pdf, certificate.pdf
-  - folder: healthcare/doctors/verification
-  - fileType: document
-  - descriptions: Doctor license, Medical certificate
+  - files: (binary) medical_license.pdf
+  - files: (binary) specialty_certificate.pdf
+  - files: (binary) residency_completion.pdf
+  [MAX 5 FILES, 50MB EACH]
 
-✅ Expected: 201 (if admin)
-Response: {
+✅ Response (201):
+{
   "statusCode": 201,
-  "message": "Files uploaded successfully",
+  "message": "3 verification documents uploaded successfully...",
   "data": {
     "files": [
       {
-        "url": "https://res.cloudinary.com/.../license.pdf",
-        "publicId": "healthcare/doctors/verification/xyz789",
-        "fileName": "license.pdf",
-        ...
+        "publicId": "healthcare/doctors/verification/cert-1",
+        "url": "http://...",
+        "secureUrl": "https://res.cloudinary.com/.../medical_license.pdf",
+        "size": 512000
       },
       {
-        "url": "https://res.cloudinary.com/.../certificate.pdf",
-        "publicId": "healthcare/doctors/verification/abc456",
-        "fileName": "certificate.pdf",
-        ...
+        "publicId": "healthcare/doctors/verification/cert-2",
+        "url": "http://...",
+        "secureUrl": "https://res.cloudinary.com/.../specialty_certificate.pdf",
+        "size": 324000
+      },
+      {
+        "publicId": "healthcare/doctors/verification/cert-3",
+        "url": "http://...",
+        "secureUrl": "https://res.cloudinary.com/.../residency_completion.pdf",
+        "size": 216000
       }
-    ]
+    ],
+    "uploadedAt": "2026-04-02T10:05:00Z",
+    "totalSize": 1052000
   }
 }
-
-❌ Expected: 403 Forbidden (if patient/doctor)
-
-✅ Save both publicIds
-
-# 3. Get file info (ADMIN ONLY)
-GET {{base_url}}/upload/info?publicId=healthcare/profiles/abc123def456
-Header: Authorization: Bearer {{admin_token}}
-✅ Expected: 200 (if admin)
-Response: {
-  "statusCode": 200,
-  "message": "File info retrieved",
-  "data": {
-    "publicId": "healthcare/profiles/abc123def456",
-    "url": "http://...",
-    "secure_url": "https://...",
-    "size": 256000,
-    "format": "jpg",
-    "uploadedAt": "2026-03-31T14:30:00Z"
-  }
-}
-
-❌ Expected: 403 Forbidden (if patient/doctor)
-
-# 4. Delete single file (ADMIN ONLY)
-DELETE {{base_url}}/upload/delete/healthcare/profiles/abc123def456
-Header: Authorization: Bearer {{admin_token}}
-Body: {
-  "fileType": "image"
-}
-✅ Expected: 200 (if admin)
-Response: {
-  "statusCode": 200,
-  "message": "File deleted successfully"
-}
-
-❌ Expected: 403 Forbidden (if patient/doctor)
-Response: {
-  "statusCode": 403,
-  "message": "Forbidden",
-  "error": "You don't have permission to delete files"
-}
-
-# 5. Delete multiple files at once (ADMIN ONLY)
-POST {{base_url}}/upload/delete-multiple
-Header: Authorization: Bearer {{admin_token}}
-Body: {
-  "publicIds": [
-    "healthcare/doctors/verification/xyz789",
-    "healthcare/doctors/verification/abc456"
-  ],
-  "fileType": "document"
-}
-✅ Expected: 200 (if admin)
-Response: {
-  "statusCode": 200,
-  "message": "Files deleted successfully",
-  "data": {
-    "deletedCount": 2,
-    "deletedFiles": [
-      "healthcare/doctors/verification/xyz789",
-      "healthcare/doctors/verification/abc456"
-    ]
-  }
-}
-
-❌ Expected: 403 Forbidden (if patient/doctor)
 ```
 
-#### Upload Integration Examples
-
-**Example 1: Doctor Upload Verification**
+**Step 2: Update Doctor Profile with Verification Documents**
 ```bash
-# Workflow: Doctor Registration → Upload License → Save publicId
-
-# 1. Doctor registers
-POST {{base_url}}/auth/register
-Body: {
-  "email": "doctor@example.com",
-  "password": "Password123!",
-  "fullName": "Dr. Tran Thi B",
-  "role": "doctor",
-  "specialty": "Cardiology"
-}
-✅ Save doctor_token
-
-# 2. Doctor uploads license
-POST {{base_url}}/upload/single
+PATCH {{base_url}}/users/me
 Header: Authorization: Bearer {{doctor_token}}
-Form: file=license.pdf, folder=healthcare/doctors/verification, fileType=document
-✅ Save publicId → store in verification_documents array
+Body: {
+  "fullName": "Dr. Lê Thanh Tâm",
+  "specialty": "Cardiology",
+  "workplace": "Central Hospital",
+  "experienceYears": 15,
+  "verificationDocuments": [
+    "https://res.cloudinary.com/.../medical_license.pdf",
+    "https://res.cloudinary.com/.../specialty_certificate.pdf",
+    "https://res.cloudinary.com/.../residency_completion.pdf"
+  ]
+}
 
-# 3. Doctor profile now has verified documents
-GET {{base_url}}/users/me
-✅ Response includes verification_documents array with Cloudinary URLs
+✅ Response (200):
+{
+  "statusCode": 200,
+  "data": {
+    "user": {
+      "_id": "507f1f77bcf86cd799439012",
+      "fullName": "Dr. Lê Thanh Tâm",
+      "specialty": "Cardiology",
+      "verificationDocuments": [
+        "https://res.cloudinary.com/.../medical_license.pdf",
+        "https://res.cloudinary.com/.../specialty_certificate.pdf",
+        "https://res.cloudinary.com/.../residency_completion.pdf"
+      ],
+      ...
+    }
+  }
+}
+
+❌ VALIDATION ERROR (400):
+{
+  "statusCode": 400,
+  "message": "Invalid URL",
+  "error": "verificationDocuments[0] must be a valid Cloudinary URL (https://res.cloudinary.com/...)"
+}
 ```
 
-**Example 2: Patient Upload Health Record**
+---
+
+### WORKFLOW 3: Chat Message with Attachment
+
+**Step 1: Upload File Attachment**
 ```bash
-# 1. Patient uploads health report
 POST {{base_url}}/upload/single
 Header: Authorization: Bearer {{jwt_token}}
-Form: file=health_report.pdf, folder=healthcare/documents/health, fileType=document
-✅ Save publicId
+Form Data:
+  - file: (binary) prescription.pdf
+  - folder: healthcare/chat/attachments
+  - fileType: document
 
-# 2. Attach to health metric
-POST {{base_url}}/health-metrics
-Body: {
-  "type": "blood_glucose",
-  "values": { "value": { "value": 110, "recordedAt": "2026-03-31T14:00:00Z" } },
-  "attachmentUrl": "https://res.cloudinary.com/.../health_report.pdf"
+✅ Response (201):
+{
+  "data": {
+    "files": [{
+      "secureUrl": "https://res.cloudinary.com/.../prescription.pdf"
+    }]
+  }
 }
-
-# 3. Doctor can view attachment during consultation
-GET {{base_url}}/sessions/{{session_id}}
-✅ Response includes attachments with secure URLs
 ```
 
-**Example 3: Chat Message with Attachment**
+**Step 2: Send Message with Attachment URL**
 ```bash
-# 1. Upload attachment first
-POST {{base_url}}/upload/single
-Form: file=prescription.pdf, folder=healthcare/chat/attachments, fileType=document
-✅ Save publicId → get secure_url
-
-# 2. Send message with attachment URL
-POST {{base_url}}/chat/send
+POST {{base_url}}/sessions/{{session_id}}/messages
+Header: Authorization: Bearer {{doctor_token}}
 Body: {
-  "doctorSessionId": "{{session_id}}",
-  "content": "Here is your prescription",
-  "attachments": ["https://res.cloudinary.com/.../prescription.pdf"]
+  "senderType": "doctor",
+  "content": "Please follow this prescription",
+  "attachments": [{
+    "fileUrl": "https://res.cloudinary.com/.../prescription.pdf",
+    "fileName": "prescription.pdf",
+    "fileSize": 102400,
+    "mimeType": "application/pdf"
+  }]
 }
 
-# 3. Patient receives message with attachment
-GET {{base_url}}/chat/session/{{session_id}}
-✅ All messages include attachments array with secure URLs
+✅ Response (201):
+Message saved with attachment Cloudinary URL
+
+❌ VALIDATION ERROR (400):
+{
+  "statusCode": 400,
+  "message": "Invalid attachment URL",
+  "error": "attachments[0].fileUrl must be a valid Cloudinary URL"
+}
 ```
 
-#### Error Handling
+---
 
+### WORKFLOW 4: AI Document Upload (Admin)
+
+**Step 1: Admin Uploads Knowledge Base Document**
 ```bash
-# File too large (> 50MB)
 POST {{base_url}}/upload/single
-✅ Expected: 400 Bad Request
-Response: {
-  "statusCode": 400,
-  "message": "File size exceeds 50MB limit",
-  "error": "BadRequestException"
-}
+Header: Authorization: Bearer {{admin_token}}
+Form Data:
+  - file: (binary) cardiology_guidelines_2026.pdf
+  - folder: healthcare/ai/documents
+  - fileType: document
 
-# Invalid file type (.exe, .zip, etc.)
-POST {{base_url}}/upload/single
-✅ Expected: 400 Bad Request
-Response: {
-  "statusCode": 400,
-  "message": "File type exe is not allowed. Allowed types: jpg,jpeg,png,pdf,doc,docx,txt",
-  "error": "BadRequestException"
-}
-
-# Invalid folder path
-POST {{base_url}}/upload/single
-Body: { "folder": "invalid/path", ... }
-✅ Expected: 400 Bad Request
-Response: {
-  "statusCode": 400,
-  "message": "Invalid folder path",
-  "error": "BadRequestException"
-}
-
-# File not found (for delete)
-DELETE {{base_url}}/upload/invalid/path
-✅ Expected: 404 Not Found
-Response: {
-  "statusCode": 404,
-  "message": "File not found in Cloudinary",
-  "error": "NotFoundException"
+✅ Response (201):
+{
+  "data": {
+    "files": [{
+      "secureUrl": "https://res.cloudinary.com/.../cardiology_guidelines_2026.pdf"
+    }]
+  }
 }
 ```
+
+**Step 2: Create AI Document Record**
+```bash
+POST {{base_url}}/ai-documents
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "title": "Cardiology Treatment Guidelines 2026",
+  "fileUrl": "https://res.cloudinary.com/.../cardiology_guidelines_2026.pdf",
+  "fileType": "pdf"
+}
+
+✅ Response (201):
+{
+  "data": {
+    "document": {
+      "_id": "507f...",
+      "title": "Cardiology Treatment Guidelines 2026",
+      "fileUrl": "https://res.cloudinary.com/.../cardiology_guidelines_2026.pdf",
+      "status": "processing",
+      ...
+    }
+  }
+}
+
+❌ VALIDATION ERROR (400):
+{
+  "statusCode": 400,
+  "message": "Invalid URL",
+  "error": "fileUrl must be a valid Cloudinary URL (https://res.cloudinary.com/...)"
+}
+```
+
+---
+
+### FILE UPLOAD VALIDATION TABLE
+
+| Field | Type | Rules | Example |
+|-------|------|-------|---------|
+| `avatarUrl` | string | Must be Cloudinary URL, optional | `https://res.cloudinary.com/.../avatar.jpg` |
+| `verificationDocuments[]` | array | Each must be Cloudinary URL, max 5 | `["https://res.cloudinary.com/.../cert.pdf"]` |
+| `attachments[].fileUrl` | string | Must be Cloudinary URL | `https://res.cloudinary.com/.../file.pdf` |
+| `aiDocument.fileUrl` | string | Must be Cloudinary URL | `https://res.cloudinary.com/.../guide.pdf` |
+
+---
+
+### ERROR CODES & MESSAGES
+
+| Status | Error | Reason | Solution |
+|--------|-------|--------|----------|
+| 400 | File size exceeds 50MB limit | File too large | Upload smaller file or compress |
+| 400 | File type .exe is not allowed | Invalid format | Use jpg, png, pdf, doc, docx |
+| 400 | Invalid folder type | Wrong folder path | Use valid folder enum |
+| 400 | Invalid URL format | URL syntax wrong | Check URL format, must be valid |
+| 400 | Must be a Cloudinary URL | URL not from Cloudinary | Upload via /upload endpoints first |
+| 403 | Forbidden - insufficient permissions | Not admin | Only admins can use POST /upload/single |
+| 404 | File not found in Cloudinary | File deleted | Re-upload or use valid publicId |
+
+---
 
 #### Postman Environment Setup
 
-Save these variables after first upload:
+Save these variables after testing:
 ```json
 {
-  "profile_public_id": "healthcare/profiles/abc123def456",
-  "license_public_id": "healthcare/doctors/verification/xyz789",
-  "certificate_public_id": "healthcare/doctors/verification/abc456",
-  "health_record_public_id": "healthcare/documents/health/def789",
-  "chat_attachment_public_id": "healthcare/chat/attachments/ghi012"
+  "avatar_url": "https://res.cloudinary.com/healthcare-app/image/upload/.../avatar.jpg",
+  "cert1_url": "https://res.cloudinary.com/healthcare-app/raw/upload/.../cert1.pdf",
+  "cert2_url": "https://res.cloudinary.com/healthcare-app/raw/upload/.../cert2.pdf",
+  "prescription_url": "https://res.cloudinary.com/healthcare-app/raw/upload/.../prescription.pdf",
+  "guideline_url": "https://res.cloudinary.com/healthcare-app/raw/upload/.../guideline.pdf"
 }
 ```
 
 #### Testing Checklist
 
-- [ ] Single file upload works (< 5MB test file)
-- [ ] Multiple files upload (2-3 files at once)
-- [ ] File type validation (reject .exe, .zip)
-- [ ] File size limit (reject files > 50MB)
-- [ ] Get file info returns correct metadata
-- [ ] Delete single file removes from Cloudinary
-- [ ] Delete multiple files batch operation
-- [ ] HTTP URLs accessible (non-secure)
-- [ ] HTTPS URLs accessible (secure)
-- [ ] publicId matches folder path convention
-- [ ] fileName preserved from upload
-- [ ] File size tracked correctly
-- [ ] uploadedAt timestamp accurate
-- [ ] Can retrieve deleted file info (should 404)
-- [ ] Re-upload same file name creates new publicId
-
-#### Cloudinary Account Requirements
-
-1. **Create Account:** https://cloudinary.com/users/register/free
-2. **Find Credentials:**
-   - Dashboard → Settings → API Environment variable
-   - Copy: CLOUDINARY_URL (contains all credentials)
-   - Extract: Cloud Name, API Key, API Secret
-3. **Setup .env:**
-   ```env
-   CLOUDINARY_CLOUD_NAME=your_cloud_name
-   CLOUDINARY_API_KEY=your_api_key
-   CLOUDINARY_API_SECRET=your_api_secret
-   ```
-4. **Test Free Tier:**
-   - Upload limit: Unlimited
-   - Storage: 25 GB
-   - Bandwidth: 25 GB/month
-   - Transformations: Yes
+- [ ] Avatar upload (< 10MB, jpg/png only)
+- [ ] Avatar validation (reject > 10MB)
+- [ ] Doctor verification batch (2-5 pdfs)
+- [ ] Doctor verification max limit (reject > 5)
+- [ ] Chat attachment upload
+- [ ] AI document upload
+- [ ] PATCH /users/me with Cloudinary URL (success)
+- [ ] PATCH /users/me with invalid URL (400 error)
+- [ ] PATCH /users/me with non-Cloudinary URL (400 error)
+- [ ] Verify avatarUrl persists in database
+- [ ] Verify verificationDocuments persist as array
+- [ ] DELETE file via publicId
+- [ ] Verify GET /users/me returns Cloudinary URLs
+- [ ] Verify populated doctor shows verification URLs
+- [ ] Verify chat messages show attachment URLs
+- [ ] Verify AI documents show fileUrl
 
 ---
 

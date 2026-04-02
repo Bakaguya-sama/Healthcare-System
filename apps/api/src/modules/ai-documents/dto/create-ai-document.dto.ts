@@ -6,6 +6,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { DocumentStatus } from '../entities/ai-document.entity';
+import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
 
 export class CreateAiDocumentDto {
   @ApiProperty({ description: 'Document title' })
@@ -13,9 +14,14 @@ export class CreateAiDocumentDto {
   @IsString()
   title: string;
 
-  @ApiProperty({ description: 'S3/Cloud storage URL' })
+  @ApiProperty({
+    description:
+      '🌥️ Cloudinary URL only. Upload via POST /upload/single first with folder=healthcare/ai/documents, then use returned URL here',
+    example:
+      'https://res.cloudinary.com/healthcare/raw/upload/healthcare/ai/documents/guideline.pdf',
+  })
   @IsNotEmpty()
-  @IsString()
+  @IsCloudinaryUrl()
   fileUrl: string;
 
   @ApiProperty({ description: 'File type (pdf, docx, txt, etc)' })
@@ -30,9 +36,15 @@ export class UpdateAiDocumentDto {
   @IsString()
   title?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({
+    required: false,
+    description:
+      '🌥️ Cloudinary URL only. Upload via POST /upload/single first, then use returned URL here',
+    example:
+      'https://res.cloudinary.com/healthcare/raw/upload/healthcare/ai/documents/guideline.pdf',
+  })
   @IsOptional()
-  @IsString()
+  @IsCloudinaryUrl()
   fileUrl?: string;
 
   @ApiProperty({ required: false })

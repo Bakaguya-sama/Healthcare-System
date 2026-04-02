@@ -13,11 +13,16 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { SenderType } from '../entities/message.entity';
 import { Type } from 'class-transformer';
+import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
 
 export class AttachmentDto {
-  @ApiProperty({ example: 'https://example.com/file.pdf' })
+  @ApiProperty({
+    example:
+      'https://res.cloudinary.com/healthcare/raw/upload/healthcare/chat/attachments/document.pdf',
+    description: '🌥️ Cloudinary URL only. Upload via POST /upload/single first',
+  })
   @IsNotEmpty()
-  @IsString()
+  @IsCloudinaryUrl()
   fileUrl: string;
 
   @ApiProperty({ example: 'document.pdf' })
