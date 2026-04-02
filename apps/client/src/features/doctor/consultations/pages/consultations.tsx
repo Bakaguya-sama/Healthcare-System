@@ -816,6 +816,8 @@ export function Consultations() {
         onReport={handleChatReport}
         onEndConsultation={handleChatEndConsultation}
         onSend={handleChatSend}
+        chatPaneClassName="max-w-[calc(100%-850px)] min-w-[320px]"
+        healthProfileClassName="w-[850px] min-w-[850px]"
       />
     </div>
   );

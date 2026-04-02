@@ -34,6 +34,7 @@ interface MetricCardProps {
   metricsType: MetricsTypes;
   values: Record<string, MetricEntry>;
   unit: string;
+  handleClick: () => void;
 }
 
 type VariantStyle = {
@@ -178,13 +179,15 @@ export function MetricCard({
   metricsType,
   values,
   unit,
+  handleClick,
 }: MetricCardProps) {
   const variant = VARIANT_STYLES[metricsType];
   const displayValue = formatMetricValue(metricsType, values);
   return (
     <div
+      onClick={handleClick}
       data-patient-id={patientId}
-      className={`flex items-center gap-3 rounded-2xl border ${variant.borderColor} ${variant.bgColor} p-3 min-w-min`}
+      className={`cursor-pointer flex items-center gap-3 rounded-2xl border ${variant.borderColor} ${variant.bgColor} p-3 min-w-min`}
     >
       <div
         className={`flex h-10 w-10 items-center justify-center rounded-lg ${variant.iconBgColor} ${variant.textColor}`}

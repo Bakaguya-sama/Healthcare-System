@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
 import { UserAvatar } from "@repo/ui/components/ui/user-avatar";
 import {
   ActionCard,
@@ -39,6 +40,8 @@ interface ChatWindowProps {
   onEndConsultation?: () => void;
   onSend?: (content: string) => void;
   usePortal?: boolean;
+  chatPaneClassName?: string;
+  healthProfileClassName?: string;
 }
 
 const DEFAULT_MESSAGES: ChatMessage[] = [
@@ -125,6 +128,8 @@ export function ChatWindow({
   onEndConsultation,
   onSend,
   usePortal = true,
+  chatPaneClassName,
+  healthProfileClassName,
 }: ChatWindowProps) {
   const [showActions, setShowActions] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(
@@ -292,7 +297,7 @@ export function ChatWindow({
       className="flex h-full w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={cn("flex min-w-0 flex-1 flex-col", chatPaneClassName)}>
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div className="flex min-w-0 items-center gap-3">
             {!isAiChat ? (
@@ -405,6 +410,7 @@ export function ChatWindow({
         <HealthProfile
           patientId={patientId || sessionId}
           patientName={patientName}
+          className={healthProfileClassName}
           birthday={patientBirthday}
           gender={patientGender}
         />

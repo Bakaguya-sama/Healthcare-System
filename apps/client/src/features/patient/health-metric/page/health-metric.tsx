@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { TrackingCalendar } from "../components/TrackingCalendar";
-import { TrackingChart } from "../components/TrackingChart";
-import { TrackingTable } from "../components/TrackingTable";
+import { TrackingCalendar } from "../../../../components/TrackingCalendar";
+import { TrackingChart } from "../../../../components/TrackingChart";
+import { TrackingTable } from "../../../../components/TrackingTable";
 import { useMetricStatus } from "../utils/useMetricStatus";
 
 type MetricsTypes =
