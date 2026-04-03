@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { ReportModal, type ReportActor, type ReportType } from "./ReportModal";
 
 type UserRole = "admin" | "patient" | "doctor";
 type AccountStatus = "active" | "banned";
@@ -83,6 +84,8 @@ type ProfileModalProps = {
   id?: string;
   isOpen: boolean;
   onClose: () => void;
+  profileSeed?: Partial<ProfileData>;
+  reportViewer?: ReportActor;
 };
 
 function initialsFromName(name: string) {
@@ -443,16 +446,29 @@ function ReviewItem({ review }: { review: DoctorReview }) {
   );
 }
 
-export function ProfileModal({ id = "", isOpen, onClose }: ProfileModalProps) {
+export function ProfileModal({
+  id = "",
+  isOpen,
+  onClose,
+  profileSeed,
+  reportViewer,
+}: ProfileModalProps) {
   if (!isOpen) return null;
 
   const [activeTab, setActiveTab] = useState<"overview" | "reviews">(
     "overview",
   );
+  const [isReportModalOpen, setReportModalOpen] = useState(false);
 
-  //   Call api
+  // TODO(real-data): Preprocess/fetch profile by id in container and pass into `profileSeed`.
   const profileData: ProfileData = {
     ...FALLBACK_PROFILE,
+    ...profileSeed,
+    id: profileSeed?.id || id || FALLBACK_PROFILE.id,
+    role_specific: {
+      ...FALLBACK_PROFILE.role_specific,
+      ...profileSeed?.role_specific,
+    },
   };
   const reports = FALLBACK_REPORT ?? [];
   const doctorReviews = FALLBACK_DOCTOR_REVIEWS ?? [];
@@ -464,6 +480,21 @@ export function ProfileModal({ id = "", isOpen, onClose }: ProfileModalProps) {
 
   const roleMeta = ROLE_META[userRole];
   const accountStatusMeta = ACCOUNT_STATUS_META[profileData.account_status];
+
+  const reportSenderRole =
+    userRole === "doctor" || userRole === "patient" ? userRole : "admin";
+
+  const handleSubmitReport = (payload: {
+    sessionId: string;
+    target: ReportActor;
+    reporter: ReportActor;
+    reportType: ReportType;
+    reason: string;
+  }) => {
+    // TODO(real-data): Send this payload to report API.
+    console.log("Submit profile report:", payload);
+    setReportModalOpen(false);
+  };
 
   return (
     <div className="fixed inset-0 z-1000 flex items-center justify-center bg-black/60 p-4">
@@ -555,6 +586,18 @@ export function ProfileModal({ id = "", isOpen, onClose }: ProfileModalProps) {
                         {roleMeta.label}
                       </Badge>
                     </div>
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setReportModalOpen(true)}
+                      disabled={!reportViewer}
+                      aria-label="Report this profile"
+                      className="cursor-pointer inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-600 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Flag className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -745,6 +788,21 @@ export function ProfileModal({ id = "", isOpen, onClose }: ProfileModalProps) {
           )}
         </div>
       </div>
+
+      {reportViewer && (
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          onConfirm={handleSubmitReport}
+          sessionId={`profile-${profileData.id}`}
+          target={{
+            id: profileData.id,
+            name: profileData.full_name,
+            role: reportSenderRole,
+          }}
+          reporter={reportViewer}
+        />
+      )}
     </div>
   );
 }

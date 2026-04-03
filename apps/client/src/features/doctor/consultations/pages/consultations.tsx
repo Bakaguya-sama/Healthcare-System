@@ -422,8 +422,8 @@ export function Consultations() {
 
   const handleSubmitReport = (_payload: {
     sessionId: string;
-    sender: ReportActor;
-    viewer: ReportActor;
+    target: ReportActor;
+    reporter: ReportActor;
     reportType: ReportType;
     reason: string;
   }) => {
@@ -766,6 +766,27 @@ export function Consultations() {
         id={selectedUserId || ""}
         isOpen={isProfileModalOpen}
         onClose={handleCloseProfileModal}
+        profileSeed={
+          selectedUserId
+            ? {
+                id: selectedUserId,
+                full_name:
+                  selectedChatSession?.patientName ||
+                  selectedReportSession?.patientName ||
+                  selectedReviewSession?.patientName ||
+                  "Selected Patient",
+                role: "patient",
+                avatar_url:
+                  selectedChatSession?.patientUrl ||
+                  selectedReviewSession?.patientAvatarUrl,
+              }
+            : undefined
+        }
+        reportViewer={{
+          id: currentDoctorData.id,
+          name: currentDoctorData.name,
+          role: "doctor",
+        }}
       />
 
       <EndConsultationModal
@@ -779,12 +800,12 @@ export function Consultations() {
       <ReportModal
         isOpen={reportModalOpen}
         sessionId={selectedReportSession?.sessionId || ""}
-        sender={{
+        target={{
           id: selectedReportSession?.patientId || "",
           name: selectedReportSession?.patientName || "",
           role: "patient",
         }}
-        viewer={{
+        reporter={{
           id: currentDoctorData.id,
           name: currentDoctorData.name,
           role: "doctor",
@@ -805,6 +826,7 @@ export function Consultations() {
       />
 
       <ChatWindow
+        // sessionStatus={}
         sessionId={selectedChatSession?.sessionId || ""}
         isOpen={isChatOpen}
         patientName={selectedChatSession?.patientName || ""}

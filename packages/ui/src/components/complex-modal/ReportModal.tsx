@@ -24,15 +24,15 @@ export interface ReportActor {
 interface ReportModalProps {
   isOpen: boolean;
   sessionId: string;
-  sender: ReportActor;
-  viewer: ReportActor;
+  target: ReportActor;
+  reporter: ReportActor;
   reason?: string;
   reportType?: ReportType;
   onClose: () => void;
   onConfirm: (payload: {
     sessionId: string;
-    sender: ReportActor;
-    viewer: ReportActor;
+    target: ReportActor;
+    reporter: ReportActor;
     reportType: ReportType;
     reason: string;
   }) => void;
@@ -54,8 +54,8 @@ const MAX_REASON_LENGTH = 1000;
 export function ReportModal({
   isOpen,
   sessionId,
-  sender,
-  viewer,
+  target,
+  reporter,
   reason,
   reportType = "other",
   onClose,
@@ -81,18 +81,18 @@ export function ReportModal({
   const handleConfirm = () => {
     onConfirm({
       sessionId,
-      sender,
-      viewer,
+      target,
+      reporter,
       reportType: selectedType,
       reason: reportReason.trim(),
     });
     onClose();
   };
 
-  const senderLabel =
-    sender.role === "ai"
+  const targetLabel =
+    target.role === "ai"
       ? "AI"
-      : sender.role.charAt(0).toUpperCase() + sender.role.slice(1);
+      : target.role.charAt(0).toUpperCase() + target.role.slice(1);
 
   return (
     <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
@@ -109,11 +109,11 @@ export function ReportModal({
         </div>
 
         <h2 className="text-center text-2xl font-semibold tracking-tight text-slate-900">
-          Report {senderLabel}
+          Report {targetLabel}
         </h2>
         <p className="mx-auto mt-3 max-w-[540px] text-center text-medium leading-[1.45] text-slate-500">
           Submit a report for{" "}
-          <span className="font-semibold text-slate-700">{sender.name}</span>.
+          <span className="font-semibold text-slate-700">{target.name}</span>.
           This report will be reviewed by the moderation team.
         </p>
 

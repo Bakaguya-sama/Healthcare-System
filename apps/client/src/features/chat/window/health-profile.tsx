@@ -1,4 +1,10 @@
-import { Activity, CalendarDays, UserRound } from "lucide-react";
+import {
+  Activity,
+  CalendarDays,
+  Notebook,
+  NotebookTextIcon,
+  UserRound,
+} from "lucide-react";
 import { useMemo, useState, type ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { MetricCard } from "../components/metric-card";
@@ -11,6 +17,8 @@ interface HealthProfileProps {
   birthday?: Date | string;
   gender?: string;
   lastUpdatedAt?: Date | string;
+  patientNote?: string;
+  doctorNote?: string;
   heartRate?: number;
   systolic?: number;
   diastolic?: number;
@@ -136,6 +144,8 @@ export function HealthProfile({
   patientName,
   className,
   // TODO(real-data): Remove mock defaults and bind these props to patient profile API.
+  patientNote = "I'm highhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh!",
+  doctorNote = "Take care of yourself",
   birthday = "1998-04-17",
   gender = "Female",
   lastUpdatedAt = new Date(),
@@ -386,18 +396,20 @@ export function HealthProfile({
       )}
     >
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center gap-2 text-slate-800">
-          <Activity className="h-4 w-4" />
-          <h3 className="text-sm font-semibold">Health Profile</h3>
+        <div className="flex items-center justify-center gap-2 text-slate-800">
+          <div className="flex gap-4 items-center">
+            <Activity className="h-6 w-6" />
+            <h3 className="text-3xl font-semibold">Health Profile</h3>
+          </div>
         </div>
-        <p className="mt-1 text-[11px] text-slate-400">
+        <p className="mt-1 text-center text-[11px] text-slate-400">
           Last updated: {updatedDate}, {updatedTime}
         </p>
       </div>
 
       <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <p className="text-sm font-semibold text-slate-900">{patientName}</p>
-        <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-600">
+        <p className="text-lg font-semibold text-slate-900">{patientName}</p>
+        <div className="mt-3 grid grid-cols-1 gap-2 text-base text-slate-600">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
             <span>Birthday: {formatDate(birthday)}</span>
@@ -406,8 +418,25 @@ export function HealthProfile({
             <UserRound className="h-3.5 w-3.5 text-slate-400" />
             <span>Gender: {gender}</span>
           </div>
+          <div className="flex items-start gap-2">
+            <Notebook className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="min-w-0 break-all">
+              Patient's note: {patientNote}
+            </span>
+          </div>
         </div>
       </div>
+
+      {doctorNote ? (
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-start gap-2 text-base text-slate-600">
+            <NotebookTextIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="min-w-0 break-all">
+              Doctor's note: {doctorNote}
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">

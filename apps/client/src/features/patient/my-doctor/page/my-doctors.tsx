@@ -174,6 +174,13 @@ export function MyDoctors() {
   const [selectedRequestDoctorId, setSelectedRequestDoctorId] =
     useState<string>("");
 
+  // TODO(real-data): Replace with logged-in patient identity from auth state.
+  const currentViewer = {
+    id: "patient-demo-001",
+    name: "Current Patient",
+    role: "patient" as const,
+  };
+
   const handleOpenViewProfile = (id: string) => {
     if (!id) {
       setProfileOpen(false);
@@ -207,6 +214,10 @@ export function MyDoctors() {
 
   const selectedRequestDoctor = MOCK_DOCTOR_DATA.find(
     (doctor) => doctor.id === selectedRequestDoctorId,
+  );
+
+  const selectedDoctor = MOCK_DOCTOR_DATA.find(
+    (doctor) => doctor.id === selectedDoctorId,
   );
 
   const filteredDoctors = useMemo(() => {
@@ -351,6 +362,22 @@ export function MyDoctors() {
         id={selectedDoctorId}
         isOpen={isProfileOpen}
         onClose={handleCloseViewProfile}
+        profileSeed={
+          selectedDoctor
+            ? {
+                id: selectedDoctor.id,
+                full_name: selectedDoctor.fullName,
+                role: "doctor",
+                avatar_url: selectedDoctor.avatarUrl,
+                role_specific: {
+                  specialty: selectedDoctor.specialty,
+                  workplace: selectedDoctor.workplace,
+                  experience_years: selectedDoctor.yearsOfExperience,
+                },
+              }
+            : undefined
+        }
+        reportViewer={currentViewer}
       />
 
       <RequestModal

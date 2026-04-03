@@ -30,7 +30,7 @@ function Page({ title }: { title: string }) {
  * Mount ở trong BrowserRouter để có access đến route context
  */
 function AppRoutes() {
-  const role = "doctor";
+  const role = "patient";
   const defaultHomePath =
     role === "doctor" ? "/doctor-overview" : "/patient-overview";
 
