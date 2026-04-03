@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import { SessionCard } from "../components/session-card";
 import { ChatWindow } from "@/features/chat/window/chat-window";
 import type { ChatMessage } from "@/features/chat/components/message";
+import type { SendMessagePayload } from "@/features/chat/components/send-bar";
 import { ProfileModal } from "@repo/ui/components/complex-modal/ProfileModal";
 import {
   ReportModal,
@@ -133,6 +134,20 @@ export function DoctorChat() {
     // TODO: call API by sessionId and return mapped ChatMessage[]
     console.log("Load doctor session messages:", sessionId);
     return [];
+  };
+
+  const handleChatSend = async (payload: SendMessagePayload) => {
+    const content = payload.content?.trim() || "";
+    const attachmentCount = payload.attachments?.length || 0;
+
+    if (!content && attachmentCount === 0) return;
+
+    // TODO: call API by sessionId and include attachments metadata when backend is ready.
+    console.log("Send doctor chat message:", {
+      sessionId: selectedSession?.id,
+      content,
+      attachmentCount,
+    });
   };
 
   const tabs: Array<{ key: FilterKey; label: string; count: number }> = [
@@ -299,6 +314,7 @@ export function DoctorChat() {
               onClose={() => setSelectedSessionId(null)}
               onViewDoctorNote={() => setDoctorNoteModalOpen(true)}
               usePortal={false}
+              onSend={handleChatSend}
             />
           </div>
         )}

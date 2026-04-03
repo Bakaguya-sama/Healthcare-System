@@ -3,6 +3,7 @@ import { HistoryCard } from "../components/history-card";
 import { ChatWindow } from "@/features/chat/window/chat-window";
 import { useState } from "react";
 import type { ChatMessage } from "@/features/chat/components/message";
+import type { SendMessagePayload } from "@/features/chat/components/send-bar";
 import {
   AIReportModal,
   type ReportType,
@@ -133,6 +134,20 @@ export function AiChat() {
     return [];
   };
 
+  const handleChatSend = async (payload: SendMessagePayload) => {
+    const content = payload.content?.trim() || "";
+    const attachmentCount = payload.attachments?.length || 0;
+
+    if (!content && attachmentCount === 0) return;
+
+    // TODO: call AI chat API by sessionId and send attachments metadata when supported.
+    console.log("Send AI chat message:", {
+      sessionId: selectedSession?.id,
+      content,
+      attachmentCount,
+    });
+  };
+
   const handleCloseChat = () => {
     setSelectedSessionId(null);
   };
@@ -198,6 +213,7 @@ export function AiChat() {
               onReport={handleOpenReportModal}
               onClose={handleCloseChat}
               usePortal={false}
+              onSend={handleChatSend}
             />
           </div>
         )}

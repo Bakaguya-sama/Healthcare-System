@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { Message, type ChatMessage } from "../components/message";
-import { SendBar } from "../components/send-bar";
+import { SendBar, type SendMessagePayload } from "../components/send-bar";
 import { HealthProfile } from "./health-profile";
 
 type SessionStatus = "pending" | "rejected" | "completed" | "active";
@@ -46,7 +46,7 @@ interface ChatWindowProps {
   onReport?: () => void;
   onReview?: () => void;
   onEndConsultation?: () => void;
-  onSend?: (content: string) => void;
+  onSend?: (payload: SendMessagePayload) => void;
   onViewDoctorNote?: () => void;
   usePortal?: boolean;
   chatPaneClassName?: string;
@@ -306,14 +306,16 @@ export function ChatWindow({
     ],
   );
 
-  const handleSend = (content: string) => {
-    const trimmed = content.trim();
-    if (!trimmed) return;
+  const handleSend = (payload: SendMessagePayload) => {
+    const trimmed = payload.content?.trim() || "";
+    const hasAttachments = Boolean(payload.attachments?.length);
+    if (!trimmed && !hasAttachments) return;
 
     const nextMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: viewerRole,
-      content: trimmed,
+      content: trimmed || undefined,
+      attachments: payload.attachments,
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
@@ -321,7 +323,7 @@ export function ChatWindow({
     };
 
     setMessages((prev) => [...prev, nextMessage]);
-    onSend?.(trimmed);
+    onSend?.(payload);
   };
 
   if (!isOpen || !isMounted) return null;
