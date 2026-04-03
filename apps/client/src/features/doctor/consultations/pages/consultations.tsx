@@ -805,6 +805,7 @@ export function Consultations() {
       />
 
       <ChatWindow
+        // sessionStatus={}
         sessionId={selectedChatSession?.sessionId || ""}
         isOpen={isChatOpen}
         patientName={selectedChatSession?.patientName || ""}

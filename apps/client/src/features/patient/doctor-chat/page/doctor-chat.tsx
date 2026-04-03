@@ -13,6 +13,7 @@ import {
   DoctorReviewModal,
   type DoctorReviewPayload,
 } from "../components/doctor-review-modal";
+import { DoctorNoteModal } from "../components/doctor-note-modal";
 
 type SessionStatus = "pending" | "rejected" | "completed" | "active";
 
@@ -22,6 +23,7 @@ type DoctorSession = {
   status: SessionStatus;
   updatedAt: Date;
   doctorName: string;
+  doctorNote?: string;
   doctorIsActive: boolean;
   doctorSpecialty: string;
   doctorAvatarUrl?: string;
@@ -78,6 +80,7 @@ export function DoctorChat() {
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [isReportModalOpen, setReportModalOpen] = useState(false);
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
+  const [isDoctorNoteModalOpen, setDoctorNoteModalOpen] = useState(false);
 
   // TODO: Replace with global auth state (current logged-in patient data).
   const currentViewer: ReportActor = {
@@ -198,6 +201,10 @@ export function DoctorChat() {
     setReviewModalOpen(false);
   };
 
+  const handleCloseDoctorNoteModal = () => {
+    setDoctorNoteModalOpen(false);
+  };
+
   return (
     <section className="relative h-full w-full overflow-hidden bg-slate-100 p-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.1),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(163,230,53,0.12),transparent_35%)]" />
@@ -290,6 +297,7 @@ export function DoctorChat() {
               onReport={handleOpenReportModal}
               onReview={handleOpenReviewModal}
               onClose={() => setSelectedSessionId(null)}
+              onViewDoctorNote={() => setDoctorNoteModalOpen(true)}
               usePortal={false}
             />
           </div>
@@ -326,6 +334,14 @@ export function DoctorChat() {
             doctorIsOnline={selectedSession.doctorIsActive}
             onClose={handleCloseReviewModal}
             onSubmit={handleSubmitReview}
+          />
+          <DoctorNoteModal
+            doctorName={selectedSession.doctorName}
+            doctorAvatarUrl={selectedSession.doctorAvatarUrl}
+            doctorIsOnline={selectedSession.doctorIsActive}
+            doctorNote={selectedSession.doctorNote}
+            isOpen={isDoctorNoteModalOpen}
+            onClose={handleCloseDoctorNoteModal}
           />
         </>
       )}

@@ -8,7 +8,15 @@ import {
   ActionCard,
   type ActionCardItem,
 } from "@repo/ui/components/ui/action-card";
-import { Bot, Eye, Flag, MoreVertical, UserStar, X } from "lucide-react";
+import {
+  Bot,
+  Eye,
+  Flag,
+  MoreVertical,
+  NotebookPenIcon,
+  UserStar,
+  X,
+} from "lucide-react";
 import { Message, type ChatMessage } from "../components/message";
 import { SendBar } from "../components/send-bar";
 import { HealthProfile } from "./health-profile";
@@ -39,6 +47,7 @@ interface ChatWindowProps {
   onReview?: () => void;
   onEndConsultation?: () => void;
   onSend?: (content: string) => void;
+  onViewDoctorNote?: () => void;
   usePortal?: boolean;
   chatPaneClassName?: string;
   healthProfileClassName?: string;
@@ -127,6 +136,7 @@ export function ChatWindow({
   onReview,
   onEndConsultation,
   onSend,
+  onViewDoctorNote,
   usePortal = true,
   chatPaneClassName,
   healthProfileClassName,
@@ -146,6 +156,8 @@ export function ChatWindow({
   const canViewHealthProfile =
     !isAiChat && viewerRole === "doctor" && sessionStatus === "active";
   const canLeaveReview =
+    !isAiChat && viewerRole === "patient" && sessionStatus === "completed";
+  const canViewDoctorNote =
     !isAiChat && viewerRole === "patient" && sessionStatus === "completed";
 
   const statusPanel = (
@@ -254,6 +266,20 @@ export function ChatWindow({
           setShowActions(false);
         },
       },
+      ...(canViewDoctorNote && onViewDoctorNote
+        ? [
+            {
+              id: "doctor-note",
+              title: "Doctor note",
+              icon: <NotebookPenIcon className="h-4 w-4" />,
+              iconColor: "text-brand",
+              onHandle: () => {
+                onViewDoctorNote?.();
+                setShowActions(false);
+              },
+            },
+          ]
+        : []),
       ...(canLeaveReview && onReview
         ? [
             {
@@ -269,7 +295,15 @@ export function ChatWindow({
           ]
         : []),
     ],
-    [canLeaveReview, canViewProfileSelect, onReport, onReview, onViewProfile],
+    [
+      canLeaveReview,
+      canViewProfileSelect,
+      canViewDoctorNote,
+      onViewDoctorNote,
+      onReport,
+      onReview,
+      onViewProfile,
+    ],
   );
 
   const handleSend = (content: string) => {
