@@ -174,6 +174,62 @@ function formatMetricValue(
   }
 }
 
+function formatRecordedAt(value?: Date | string): string {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("en-US", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getRecordedAtFromDisplayedValues(
+  metricsType: MetricsTypes,
+  values: Record<string, MetricEntry>,
+): Date | string | undefined {
+  let displayedEntries: MetricEntry[] = [];
+
+  if (metricsType === "blood_pressure") {
+    const systolic = values.systolic;
+    const diastolic = values.diastolic;
+
+    if (systolic?.value !== undefined && diastolic?.value !== undefined) {
+      displayedEntries = [systolic, diastolic];
+    }
+  } else {
+    const primaryKey =
+      metricsType === "water_intake" || metricsType === "kcal_intake"
+        ? "amount"
+        : "value";
+    const entry = values[primaryKey];
+
+    if (entry?.value !== undefined) {
+      displayedEntries = [entry];
+    }
+  }
+
+  if (displayedEntries.length === 0) return undefined;
+
+  // Compare recordedAt only among entries that actually build the displayed value.
+  let latestEntry = displayedEntries[0];
+  let latestTime = new Date(latestEntry.recordedAt).getTime();
+
+  for (const entry of displayedEntries.slice(1)) {
+    const entryTime = new Date(entry.recordedAt).getTime();
+    if (Number.isFinite(entryTime) && entryTime > latestTime) {
+      latestEntry = entry;
+      latestTime = entryTime;
+    }
+  }
+
+  return latestEntry.recordedAt;
+}
+
 export function MetricCard({
   patientId,
   metricsType,
@@ -183,6 +239,9 @@ export function MetricCard({
 }: MetricCardProps) {
   const variant = VARIANT_STYLES[metricsType];
   const displayValue = formatMetricValue(metricsType, values);
+  const lastRecordedAt = formatRecordedAt(
+    getRecordedAtFromDisplayedValues(metricsType, values),
+  );
   return (
     <div
       onClick={handleClick}
@@ -203,6 +262,13 @@ export function MetricCard({
               {unit}
             </span>
           )}
+        </p>
+      </div>
+
+      <div className="ml-auto text-right">
+        <p className="text-[11px] font-medium text-slate-500">
+          Last updated:{" "}
+          <span className="text-xs text-slate-700">{lastRecordedAt}</span>
         </p>
       </div>
     </div>
