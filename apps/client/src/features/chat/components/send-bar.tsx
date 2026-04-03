@@ -1,26 +1,99 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Paperclip, SendHorizontal } from "lucide-react";
+import type { ChatAttachment } from "./message";
+import { PendingUploadList } from "./pending-upload-list";
+
+export type SendMessagePayload = {
+  content?: string;
+  attachments?: ChatAttachment[];
+};
 
 interface SendBarProps {
   isDisabled: boolean;
-  onSend: (content: string) => void;
+  onSend: (payload: SendMessagePayload) => void;
 }
 
 export function SendBar({ isDisabled, onSend }: SendBarProps) {
   const [value, setValue] = useState("");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const uploadTimersRef = useRef<number[]>([]);
 
-  const submit = () => {
-    if (isDisabled || !value.trim()) return;
-    onSend(value);
-    setValue("");
+  useEffect(() => {
+    return () => {
+      uploadTimersRef.current.forEach((timerId) =>
+        window.clearTimeout(timerId),
+      );
+      uploadTimersRef.current = [];
+    };
+  }, []);
+
+  // TODO: call api to upload
+  const processAttachmentUpload = (attachmentId: string) => {
+    setAttachments((prev) =>
+      prev.map((attachment) =>
+        attachment.id === attachmentId
+          ? {
+              ...attachment,
+              uploadStatus: "uploading",
+              uploadError: undefined,
+            }
+          : attachment,
+      ),
+    );
+
+    const timerId = window.setTimeout(() => {
+      setAttachments((prev) =>
+        prev.map((attachment) => {
+          if (attachment.id !== attachmentId) return attachment;
+
+          const file = attachment.file;
+          const isTooLarge = file ? file.size > 10 * 1024 * 1024 : false;
+          const isEmpty = file ? file.size === 0 : false;
+
+          if (!file || isTooLarge || isEmpty) {
+            return {
+              ...attachment,
+              uploadStatus: "failed",
+              uploadError: isTooLarge
+                ? "File is too large. Max 10 MB."
+                : isEmpty
+                  ? "File is empty."
+                  : "Upload failed.",
+            };
+          }
+
+          return {
+            ...attachment,
+            uploadStatus: "done",
+            uploadError: undefined,
+          };
+        }),
+      );
+    }, 500);
+
+    uploadTimersRef.current.push(timerId);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const submit = () => {
+    if (isDisabled) return;
+
+    const trimmed = value.trim();
+    const blockingUpload = attachments.some(
+      (attachment) => attachment.uploadStatus !== "done",
+    );
+
+    if (!trimmed && attachments.length === 0) return;
+    if (blockingUpload) return;
+
+    onSend({
+      content: trimmed || undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
+
+    setValue("");
+    setAttachments([]);
   };
 
   const handleFilePicked = (
@@ -28,16 +101,45 @@ export function SendBar({ isDisabled, onSend }: SendBarProps) {
     type: "file" | "image",
   ) => {
     if (isDisabled) return;
-    const pickedFile = event.target.files?.[0];
-    if (!pickedFile) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    const label = type === "image" ? "Image" : "File";
-    onSend(
-      `[${label}] ${pickedFile.name} (${formatFileSize(pickedFile.size)})`,
-    );
+    const nextAttachments: ChatAttachment[] = files.map((file, index) => {
+      const isImage =
+        type === "image" || (file.type.startsWith("image/") && type !== "file");
+      const blobUrl = URL.createObjectURL(file);
+
+      return {
+        id: `${Date.now()}-${index}-${file.name}`,
+        type: isImage ? "image" : "file",
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        url: blobUrl,
+        thumbnailUrl: isImage ? blobUrl : undefined,
+        uploadStatus: "uploading",
+        file,
+      };
+    });
+
+    setAttachments((prev) => [...prev, ...nextAttachments]);
+
+    nextAttachments.forEach((attachment) => {
+      processAttachmentUpload(attachment.id);
+    });
 
     // Reset value so choosing the same file again still triggers onChange.
     event.target.value = "";
+  };
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setAttachments((prev) => {
+      const removed = prev.find((item) => item.id === attachmentId);
+      if (removed && removed.url.startsWith("blob:")) {
+        URL.revokeObjectURL(removed.url);
+      }
+      return prev.filter((item) => item.id !== attachmentId);
+    });
   };
 
   return (
@@ -45,6 +147,7 @@ export function SendBar({ isDisabled, onSend }: SendBarProps) {
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         className="hidden"
         disabled={isDisabled}
         onChange={(event) => handleFilePicked(event, "file")}
@@ -53,9 +156,16 @@ export function SendBar({ isDisabled, onSend }: SendBarProps) {
         ref={imageInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         disabled={isDisabled}
         onChange={(event) => handleFilePicked(event, "image")}
+      />
+
+      <PendingUploadList
+        attachments={attachments}
+        onRemove={handleRemoveAttachment}
+        onRetry={processAttachmentUpload}
       />
 
       <div className="flex items-center gap-2">
@@ -100,7 +210,11 @@ export function SendBar({ isDisabled, onSend }: SendBarProps) {
         <button
           type="button"
           onClick={submit}
-          disabled={isDisabled || !value.trim()}
+          disabled={
+            isDisabled ||
+            (!value.trim() && attachments.length === 0) ||
+            attachments.some((attachment) => attachment.uploadStatus !== "done")
+          }
           className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 transition-colors enabled:hover:bg-lime-400 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           <SendHorizontal className="h-5 w-5" />

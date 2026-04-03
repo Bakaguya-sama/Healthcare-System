@@ -13,6 +13,7 @@ import {
   type ReportType,
 } from "@repo/ui/components/complex-modal/ReportModal";
 import { ChatWindow } from "@/features/chat/window/chat-window";
+import type { SendMessagePayload } from "@/features/chat/components/send-bar";
 import { chatService } from "@/features/chat/services/chat.service";
 
 type TabSwitch = "pending-requests" | "active-sessions" | "history";
@@ -292,13 +293,22 @@ export function Consultations() {
     showToast.success(`Consultation with ${session.patientName} ended.`);
   };
 
-  const handleChatSend = async (content: string) => {
+  const handleChatSend = async (payload: SendMessagePayload) => {
     if (!selectedChatSession) return;
+
+    const text = payload.content?.trim() || "";
+    const attachmentCount = payload.attachments?.length || 0;
+    if (!text && attachmentCount === 0) return;
+
+    // TODO(real-data): send attachments metadata in dedicated API fields.
+    const normalizedContent =
+      text ||
+      `[Attachment] ${attachmentCount} file${attachmentCount > 1 ? "s" : ""}`;
 
     try {
       await chatService.sendMessage({
         sessionId: selectedChatSession.sessionId,
-        content,
+        content: normalizedContent,
       });
     } catch {
       // TODO: Add retry queue and failed-message UI when API is integrated.
