@@ -246,6 +246,8 @@ export function UserManagement() {
   const [selectedRole, setSelectedRole] = useState<UserRole | "all">("patient");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const selectedUser = USER_DATA.find((user) => user.id === selectedUserId);
   const [openActionUserId, setOpenActionUserId] = useState<string | null>(null);
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
   const [newAdminFullName, setNewAdminFullName] = useState("");
@@ -842,6 +844,23 @@ export function UserManagement() {
           id={selectedUserId || ""}
           isOpen={isProfileModalOpen}
           onClose={handleCloseProfileModal}
+          profileSeed={
+            selectedUser
+              ? {
+                  id: selectedUser.id,
+                  full_name: selectedUser.name,
+                  email: selectedUser.email,
+                  role: selectedUser.role,
+                  account_status: selectedUser.status,
+                  address_display: selectedUser.location,
+                }
+              : undefined
+          }
+          reportViewer={{
+            id: "admin-current",
+            name: "Current Admin",
+            role: "admin",
+          }}
         />
       </div>
     </div>

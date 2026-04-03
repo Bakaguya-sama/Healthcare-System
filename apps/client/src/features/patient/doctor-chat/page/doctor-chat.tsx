@@ -161,8 +161,8 @@ export function DoctorChat() {
 
   const handleSubmitReport = (payload: {
     sessionId: string;
-    sender: ReportActor;
-    viewer: ReportActor;
+    target: ReportActor;
+    reporter: ReportActor;
     reportType: ReportType;
     reason: string;
   }) => {
@@ -308,6 +308,17 @@ export function DoctorChat() {
         id={selectedSession?.doctorId || ""}
         isOpen={isProfileModalOpen}
         onClose={handleCloseProfileModal}
+        profileSeed={
+          selectedSession
+            ? {
+                id: selectedSession.doctorId,
+                full_name: selectedSession.doctorName,
+                role: "doctor",
+                avatar_url: selectedSession.doctorAvatarUrl,
+              }
+            : undefined
+        }
+        reportViewer={currentViewer}
       />
 
       {selectedSession && (
@@ -317,12 +328,12 @@ export function DoctorChat() {
             onClose={handleCloseReportModal}
             onConfirm={handleSubmitReport}
             sessionId={selectedSession.id}
-            sender={{
+            target={{
               id: selectedSession.doctorId,
               name: selectedSession.doctorName,
               role: "doctor",
             }}
-            viewer={currentViewer}
+            reporter={currentViewer}
           />
           <DoctorReviewModal
             isOpen={isReviewModalOpen}
