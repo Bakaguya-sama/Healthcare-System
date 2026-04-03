@@ -12,9 +12,12 @@ import {
   MessageSquare,
   Stethoscope,
   Bot,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { UserAvatar } from "../components/ui/user-avatar";
+import { useState } from "react";
 
 const menuItems = {
   admin: [
@@ -96,34 +99,74 @@ type SidebarProps = {
 };
 
 export function Sidebar({ userRole }: SidebarProps) {
+  // TODO: handle userRole
+
+  const [shrunk, setShrunk] = useState(false);
   const roleItems = menuItems[userRole] ?? [];
   const onLogOut = () => {};
+
   return (
-    <aside className="w-64 bg-white shadow-lg flex flex-col h-screen shrink-0">
+    <aside
+      className={cn(
+        "bg-white shadow-lg flex h-screen shrink-0 flex-col transition-all duration-300",
+        shrunk ? "w-20" : "w-64",
+      )}
+    >
       {/* Logo */}
-      <div className="px-6 py-5">
-        <div className="flex items-center gap-3">
+      <div className={cn("py-5", shrunk ? "px-4" : "px-6")}>
+        <div
+          className={cn(
+            "flex items-center",
+            shrunk ? "justify-center" : "gap-3",
+          )}
+        >
           <Cross className="h-9 w-9 text-brand fill-brand shrink-0" />
-          <div>
-            <p className="text-2xl font-bold text-gray-900 leading-tight">
-              Healthcare
-            </p>
-            <p className="text-sm text-center text-[#6B7280] font-semibold">
-              {userRole === "admin"
-                ? "MediAdmin"
-                : userRole === "doctor"
-                  ? "Medidoctor"
-                  : ""}
-            </p>
-          </div>
+          {!shrunk && (
+            <div>
+              <p className="text-2xl font-bold text-gray-900 leading-tight">
+                Healthcare
+              </p>
+              <p className="text-sm text-center text-[#6B7280] font-semibold">
+                {userRole === "admin"
+                  ? "MediAdmin"
+                  : userRole === "doctor"
+                    ? "Medidoctor"
+                    : ""}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Menu */}
-      <nav className="flex-1 px-4 py-5 overflow-y-auto">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-2">
-          Main Menu
-        </p>
+      <nav
+        className={cn("flex-1 overflow-y-auto py-5", shrunk ? "px-2" : "px-4")}
+      >
+        <div
+          className={cn(
+            "mb-3 flex items-center",
+            shrunk ? "justify-center" : "justify-between px-2",
+          )}
+        >
+          {!shrunk && (
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+              Main Menu
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setShrunk((prev) => !prev)}
+            aria-label={shrunk ? "Expand sidebar" : "Collapse sidebar"}
+            className="cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            {shrunk ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
         <ul className="space-y-1">
           {roleItems.map((item) => {
             const Icon = item.icon;
@@ -134,18 +177,24 @@ export function Sidebar({ userRole }: SidebarProps) {
                   end={item.path === "/"}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                      "flex items-center rounded-xl text-sm font-medium transition-colors",
+                      shrunk
+                        ? "justify-center px-2 py-2.5"
+                        : "gap-3 px-3 py-2.5",
                       isActive
                         ? "bg-brand text-white"
                         : "text-gray-500 hover:bg-gray-100 hover:text-gray-900",
                     )
                   }
+                  title={shrunk ? item.label : undefined}
                 >
                   {({ isActive }: { isActive: boolean }) => (
                     <>
                       <Icon className="w-5 h-5 shrink-0" />
-                      <span className="flex-1">{item.label}</span>
-                      {isActive && <ChevronRight className="w-4 h-4" />}
+                      {!shrunk && <span className="flex-1">{item.label}</span>}
+                      {!shrunk && isActive && (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
                     </>
                   )}
                 </NavLink>
@@ -156,15 +205,26 @@ export function Sidebar({ userRole }: SidebarProps) {
       </nav>
 
       {/* User Info */}
-      <div className="px-4 py-4 border-t flex items-center gap-3">
+      <div
+        className={cn(
+          "border-t py-4",
+          shrunk
+            ? "px-2 flex flex-col items-center gap-3"
+            : "px-4 flex items-center gap-3",
+        )}
+      >
         <UserAvatar name="Huy Vu" isOnline={true} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">Huy Vu</p>
-          <p className="text-xs text-gray-400 truncate">huyvu@example.com</p>
-        </div>
+        {!shrunk && (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              Huy Vu
+            </p>
+          </div>
+        )}
         <button
           onClick={onLogOut}
           className="text-gray-400 hover:text-gray-700 shrink-0"
+          title="Log out"
         >
           <LogOut className="w-4 h-4" />
         </button>
