@@ -489,7 +489,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"phoneNumber\": \"0987654321\",\n  \"avatarUrl\": \"https://example.com/avatar.jpg\",\n  \"address\": {\"street\": \"123 Main St\", \"city\": \"Ho Chi Minh\", \"country\": \"Vietnam\"}\n}",
+              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"phoneNumber\": \"0987654321\",\n  \"avatarUrl\": \"https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/avatar-123.jpg\",\n  \"address\": {\"street\": \"123 Main St\", \"city\": \"Ho Chi Minh\", \"country\": \"Vietnam\"}\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -497,7 +497,7 @@
               "host": ["{{base_url}}"],
               "path": ["users", "me"]
             },
-            "description": "Update current user's profile"
+            "description": "Update current user's profile (🔶 Note: avatarUrl must be Cloudinary URL - upload via POST /upload/avatar first)"
           },
           "response": []
         },
@@ -1737,7 +1737,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"aiSessionId\": \"{{ai_session_id}}\",\n  \"senderType\": \"patient\",\n  \"content\": \"I have a headache for 3 days\"\n}",
+              "raw": "{\n  \"aiSessionId\": \"{{ai_session_id}}\",\n  \"senderType\": \"patient\",\n  \"content\": \"I have a headache for 3 days\",\n  \"attachments\": [\"https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/chat/attachments/test-results.pdf\"]\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1745,7 +1745,7 @@
               "host": ["{{base_url}}"],
               "path": ["ai-messages"]
             },
-            "description": "Create new AI message"
+            "description": "Create new AI message (🔶 Note: attachments array must contain Cloudinary URLs only - upload via POST /upload/single first)"
           },
           "response": []
         },
@@ -2040,7 +2040,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"fileUrl\": \"https://example.com/guideline.pdf\",\n  \"fileType\": \"pdf\",\n  \"status\": \"processing\",\n  \"uploadedBy\": \"{{user_id}}\"\n}",
+              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"fileUrl\": \"https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/guideline-2024.pdf\",\n  \"fileType\": \"pdf\",\n  \"status\": \"processing\",\n  \"uploadedBy\": \"{{user_id}}\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2048,7 +2048,7 @@
               "host": ["{{base_url}}"],
               "path": ["ai-documents"]
             },
-            "description": "Create knowledge base document"
+            "description": "Create knowledge base document (🔶 Note: fileUrl must be Cloudinary URL - upload via POST /upload/single first with folder=healthcare/ai/documents)"
           },
           "response": []
         },
