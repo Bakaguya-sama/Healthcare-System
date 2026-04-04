@@ -230,7 +230,7 @@ function ReviewModal({
   document: DocumentRecord | null;
   onClose: () => void;
   onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onReject: (id: string, reason: string) => void;
 }) {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [showRejectReason, setShowRejectReason] = useState(false);
@@ -242,7 +242,7 @@ function ReviewModal({
 
   const handleReject = () => {
     if (rejectReason.trim()) {
-      onReject(document.id);
+      onReject(document.id, rejectReason.trim());
       setRejectReason("");
       setShowRejectReason(false);
       onClose();
@@ -256,7 +256,7 @@ function ReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-5xl rounded-lg bg-white shadow-lg max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-7xl rounded-lg bg-white shadow-lg max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-200 flex items-center justify-between p-6 z-10">
           <h2 className="text-2xl font-semibold text-slate-900">
@@ -272,50 +272,58 @@ function ReviewModal({
 
         {/* Content */}
         <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* File Preview - Large */}
-            <div className="lg:col-span-2">
-              <div className="rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-4 h-[500px] flex items-center justify-center">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)_380px]">
+            {/* File List - Left */}
+            <div className="min-w-0">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-3 text-sm font-semibold text-slate-700">
+                  Documents ({document.verificationFiles.length})
+                </p>
+
+                {document.verificationFiles.length > 0 ? (
+                  <div className="flex max-h-[560px] flex-col gap-2 overflow-y-auto pr-1">
+                    {document.verificationFiles.map((file, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedFileIndex(idx)}
+                        className={`cursor-pointer rounded-md border px-2 py-2 text-left transition ${
+                          selectedFileIndex === idx
+                            ? "border-brand bg-brand/5"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <p className="truncate text-[11px] font-medium text-slate-900">
+                          {file.name}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          {file.type.toUpperCase()} ·{" "}
+                          {Math.max(file.size / 1024, 1).toFixed(0)} KB
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-[560px] items-center justify-center rounded-md border border-dashed border-slate-200 bg-white px-3 text-center text-sm text-slate-500">
+                    No documents uploaded
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* File Preview - Middle */}
+            <div className="min-w-0">
+              <div className="flex h-[560px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-4">
                 {selectedFile ? (
                   <FilePreviewComponent file={selectedFile} />
                 ) : (
                   <p className="text-slate-500">No file selected</p>
                 )}
               </div>
-
-              {/* File List */}
-              {document.verificationFiles.length > 1 && (
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-slate-700 mb-3">
-                    Documents ({document.verificationFiles.length})
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {document.verificationFiles.map((file, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedFileIndex(idx)}
-                        className={`p-3 rounded-lg border-2 transition text-left ${
-                          selectedFileIndex === idx
-                            ? "border-brand bg-brand/5"
-                            : "border-slate-200 hover:border-slate-300"
-                        }`}
-                      >
-                        <p className="text-xs font-medium text-slate-900 truncate">
-                          {file.name}
-                        </p>
-                        <p className="text-[10px] text-slate-500 mt-1">
-                          {file.type.toUpperCase()}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Doctor Info - Compact */}
-            <div>
-              <div className="bg-slate-50 rounded-lg p-4 space-y-4">
+            {/* Doctor Info - Right */}
+            <div className="min-w-0">
+              <div className="space-y-4 rounded-lg bg-slate-50 p-5">
                 <div>
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                     Professional Information
@@ -370,55 +378,31 @@ function ReviewModal({
                     </p>
                   </div>
                 )}
+
+                {showRejectReason && (
+                  <>
+                    <div className="border-t border-slate-200 pt-4">
+                      <p className="text-xs font-semibold text-red-600 mb-2">
+                        REJECTION REASON
+                      </p>
+                      <textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Explain why you are rejecting this application..."
+                        className="min-h-[180px] w-full rounded-lg border border-red-200 p-3 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                        rows={5}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Reject Reason Form */}
-          {showRejectReason && (
-            <div className="mt-6 p-4 border border-red-200 bg-red-50 rounded-lg">
-              <label className="block text-sm font-semibold text-slate-900 mb-3">
-                Reason for Rejection
-              </label>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Explain why you are rejecting this application..."
-                className="w-full rounded-lg border border-red-200 p-3 text-sm outline-none focus:ring-2 focus:ring-red-500"
-                rows={3}
-              />
-            </div>
-          )}
         </div>
 
         {/* Footer Actions */}
         <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 p-6 flex gap-3 justify-end">
-          {!showRejectReason ? (
-            <>
-              {document.status !== "rejected" ? (
-                <Button
-                  onClick={() => setShowRejectReason(true)}
-                  variant="outline"
-                  className="border-red-300 text-red-700 hover:bg-red-50"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Reject
-                </Button>
-              ) : null}
-              {document.status !== "approved" ? (
-                <Button
-                  onClick={handleApprove}
-                  className={`bg-green-600 hover:bg-green-700 `}
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  Approve
-                </Button>
-              ) : null}
-              <Button onClick={onClose} variant="outline">
-                Close
-              </Button>
-            </>
-          ) : (
+          {showRejectReason ? (
             <>
               <Button
                 onClick={() => {
@@ -438,6 +422,33 @@ function ReviewModal({
                 Confirm Rejection
               </Button>
             </>
+          ) : document.status === "pending" ? (
+            <>
+              <Button
+                onClick={() => setShowRejectReason(true)}
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Reject
+              </Button>
+
+              <Button
+                onClick={handleApprove}
+                className={`bg-green-600 hover:bg-green-700 `}
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Approve
+              </Button>
+
+              <Button onClick={onClose} variant="outline">
+                Close
+              </Button>
+            </>
+          ) : (
+            <Button onClick={onClose} variant="outline">
+              Close
+            </Button>
           )}
         </div>
       </div>
@@ -485,9 +496,13 @@ export function DocumentVerification() {
     );
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = (id: string, reason: string) => {
     setDocuments((docs) =>
-      docs.map((doc) => (doc.id === id ? { ...doc, status: "rejected" } : doc)),
+      docs.map((doc) =>
+        doc.id === id
+          ? { ...doc, status: "rejected", rejectionReason: reason }
+          : doc,
+      ),
     );
   };
 

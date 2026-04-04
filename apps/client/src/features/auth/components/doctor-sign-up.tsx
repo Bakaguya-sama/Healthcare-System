@@ -61,6 +61,120 @@ export const doctorSpecialty = [
 ];
 const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_FILE_SIZE_MB = 10;
+const PREFILL_API_URL =
+  import.meta.env.VITE_DOCTOR_PREFILL_API_URL ??
+  "/api/v1/auth/doctor/re-register-prefill";
+
+type DoctorVerificationStatus = "rejected" | "pending" | "approved";
+
+type ExistingVerificationDocument = {
+  id: string;
+  publicId: string | null;
+  originalFilename: string;
+  resourceType: "image" | "raw" | "video";
+  format: string | null;
+  bytes: number | null;
+  secureUrl: string;
+  uploadedAt: string | null;
+};
+
+type DoctorReRegisterSeed = {
+  email: string;
+  verificationStatus: DoctorVerificationStatus;
+  rejectReason: string | null;
+  phone: string;
+  specialty: string;
+  yearsOfExperience: string;
+  workplace: string;
+  existingDocuments: ExistingVerificationDocument[];
+};
+
+type DoctorReRegisterPrefillApiResponse = {
+  email?: string;
+  phone?: string;
+  phoneNumber?: string;
+  specialty?: string;
+  workplace?: string;
+  yearsOfExperience?: string | number | null;
+  experienceYears?: string | number | null;
+  verificationStatus?: DoctorVerificationStatus;
+  verification_status?: DoctorVerificationStatus;
+  rejectReason?: string | null;
+  reason?: string | null;
+  existingDocuments?: ExistingVerificationDocument[];
+  verificationDocuments?: string[];
+  verification_documents?: string[];
+};
+
+type PrefillNotice = {
+  tone: "info" | "success" | "error";
+  message: string;
+};
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function preprocessReRegisterSeed(
+  payload: DoctorReRegisterPrefillApiResponse,
+): DoctorReRegisterSeed {
+  const verificationStatus =
+    payload.verificationStatus ?? payload.verification_status ?? "pending";
+  const yearsOfExperienceRaw =
+    payload.yearsOfExperience ?? payload.experienceYears ?? "";
+  const existingDocumentsFromMetadata = payload.existingDocuments ?? [];
+  const existingDocumentLinks =
+    payload.verificationDocuments ?? payload.verification_documents ?? [];
+
+  const existingDocuments =
+    existingDocumentsFromMetadata.length > 0
+      ? existingDocumentsFromMetadata
+      : existingDocumentLinks.map((documentUrl, index) => {
+          const strippedQuery = documentUrl.split("?")[0];
+          const fallbackName = `document-${index + 1}`;
+          const originalFilename =
+            decodeURIComponent(
+              strippedQuery.split("/").pop() || fallbackName,
+            ) || fallbackName;
+          const format = originalFilename.includes(".")
+            ? originalFilename.split(".").pop()?.toLowerCase() || null
+            : null;
+
+          return {
+            id: `existing-${index + 1}`,
+            publicId: null,
+            originalFilename,
+            resourceType:
+              format &&
+              ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(format)
+                ? "image"
+                : "raw",
+            format,
+            bytes: null,
+            secureUrl: documentUrl,
+            uploadedAt: null,
+          } satisfies ExistingVerificationDocument;
+        });
+
+  return {
+    email: normalizeEmail(payload.email ?? ""),
+    verificationStatus,
+    rejectReason: payload.rejectReason ?? payload.reason ?? null,
+    phone: (payload.phone ?? payload.phoneNumber ?? "").trim(),
+    specialty: (payload.specialty ?? "").trim(),
+    yearsOfExperience: String(yearsOfExperienceRaw ?? "").trim(),
+    workplace: (payload.workplace ?? "").trim(),
+    existingDocuments,
+  };
+}
+
+function isImageDocument(document: ExistingVerificationDocument): boolean {
+  return document.resourceType === "image";
+}
+
+function isPdfDocument(document: ExistingVerificationDocument): boolean {
+  return document.format?.toLowerCase() === "pdf";
+}
 
 export interface DoctorSignUpValues {
   email: string;
@@ -71,6 +185,13 @@ export interface DoctorSignUpValues {
   yearsOfExperience: string;
   workplace: string;
   verificationFiles: File[];
+  newFiles: File[];
+  keepDocumentIds: string[];
+  removeDocumentIds: string[];
+  existingDocuments: ExistingVerificationDocument[];
+  verificationStatus: DoctorVerificationStatus | null;
+  rejectReason: string | null;
+  isReRegister: boolean;
 }
 
 interface DoctorSignUpErrors {
@@ -107,8 +228,22 @@ export function DoctorSignUp({
   const [yearsOfExperience, setYearsOfExperience] = useState("");
   const [workplace, setWorkplace] = useState("");
   const [verificationFiles, setVerificationFiles] = useState<File[]>([]);
+  const [existingDocuments, setExistingDocuments] = useState<
+    ExistingVerificationDocument[]
+  >([]);
+  const [removedDocumentIds, setRemovedDocumentIds] = useState<string[]>([]);
+  const [replacementFilesByDocumentId, setReplacementFilesByDocumentId] =
+    useState<Record<string, File>>({});
+  const [verificationStatus, setVerificationStatus] =
+    useState<DoctorVerificationStatus | null>(null);
+  const [rejectReason, setRejectReason] = useState<string | null>(null);
+  const [isReRegisterMode, setIsReRegisterMode] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [internalLoading, setInternalLoading] = useState(false);
+  const [prefillLoading, setPrefillLoading] = useState(false);
+  const [prefillNotice, setPrefillNotice] = useState<PrefillNotice | null>(
+    null,
+  );
   const [touched, setTouched] = useState({
     email: false,
     phone: false,
@@ -123,6 +258,9 @@ export function DoctorSignUp({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const submitting = isLoading || internalLoading;
+
+  const replacementFiles = Object.values(replacementFilesByDocumentId);
+  const newFiles = [...verificationFiles, ...replacementFiles];
 
   function validate(values: DoctorSignUpValues): DoctorSignUpErrors {
     const nextErrors: DoctorSignUpErrors = {};
@@ -165,7 +303,10 @@ export function DoctorSignUp({
       nextErrors.workplace = "Please enter your workplace / hospital.";
     }
 
-    if (values.verificationFiles.length === 0) {
+    const hasExistingDocumentToKeep = values.keepDocumentIds.length > 0;
+    const hasNewFiles = values.newFiles.length > 0;
+
+    if (!hasExistingDocumentToKeep && !hasNewFiles) {
       nextErrors.verificationFiles = "Please upload verification documents.";
     }
 
@@ -181,13 +322,176 @@ export function DoctorSignUp({
       specialty,
       yearsOfExperience,
       workplace,
-      verificationFiles,
+      verificationFiles: newFiles,
+      newFiles,
+      keepDocumentIds: existingDocuments
+        .filter((doc) => !removedDocumentIds.includes(doc.id))
+        .map((doc) => doc.id),
+      removeDocumentIds: removedDocumentIds,
+      existingDocuments,
+      verificationStatus,
+      rejectReason,
+      isReRegister: isReRegisterMode,
     };
   }
 
   function handleBlur(field: keyof typeof touched) {
     setTouched((prev) => ({ ...prev, [field]: true }));
     setLocalErrors(validate(collectValues()));
+  }
+
+  async function fetchDoctorVerificationSeedByEmail(
+    emailValue: string,
+  ): Promise<DoctorReRegisterSeed | null> {
+    const query = encodeURIComponent(emailValue);
+    const response = await fetch(`${PREFILL_API_URL}?email=${query}`);
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      let message = "Failed to load previous registration data.";
+      try {
+        const json = (await response.json()) as { message?: string };
+        if (json.message) {
+          message = json.message;
+        }
+      } catch {
+        // Keep fallback message.
+      }
+      throw new Error(message);
+    }
+
+    const payload =
+      (await response.json()) as DoctorReRegisterPrefillApiResponse;
+    return preprocessReRegisterSeed(payload);
+  }
+
+  async function handlePrefillFromPreviousRegistration() {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail) {
+      setTouched((prev) => ({ ...prev, email: true }));
+      setLocalErrors((prev) => ({
+        ...prev,
+        email: "Please enter your email first.",
+      }));
+      setPrefillNotice({
+        tone: "error",
+        message: "Enter your email before loading previous application data.",
+      });
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setTouched((prev) => ({ ...prev, email: true }));
+      setLocalErrors((prev) => ({ ...prev, email: "Invalid email." }));
+      setPrefillNotice({
+        tone: "error",
+        message: "Invalid email format.",
+      });
+      return;
+    }
+
+    setPrefillLoading(true);
+    setPrefillNotice(null);
+    setFileError(null);
+
+    try {
+      const seedResponse =
+        await fetchDoctorVerificationSeedByEmail(normalizedEmail);
+
+      if (!seedResponse) {
+        setPrefillNotice({
+          tone: "info",
+          message: "No previous registration data found for this email.",
+        });
+        return;
+      }
+
+      const seed = seedResponse;
+      setEmail(seed.email);
+      setVerificationStatus(seed.verificationStatus);
+      setRejectReason(seed.rejectReason);
+
+      if (seed.verificationStatus !== "rejected") {
+        setIsReRegisterMode(false);
+        setExistingDocuments([]);
+        setRemovedDocumentIds([]);
+        setReplacementFilesByDocumentId({});
+        setPrefillNotice({
+          tone: "info",
+          message:
+            seed.verificationStatus === "pending"
+              ? "This account is under review. Re-registration is not available yet."
+              : "This account is already approved.",
+        });
+        return;
+      }
+
+      setIsReRegisterMode(true);
+
+      setPhone(seed.phone);
+      setSpecialty(seed.specialty);
+      setYearsOfExperience(seed.yearsOfExperience);
+      setWorkplace(seed.workplace);
+      setExistingDocuments(seed.existingDocuments);
+      setRemovedDocumentIds([]);
+      setReplacementFilesByDocumentId({});
+
+      setVerificationFiles([]);
+
+      setPrefillNotice({
+        tone: "success",
+        message:
+          "Loaded previous data and existing documents. You can keep, replace, or remove old files before resubmitting.",
+      });
+      setTouched((prev) => ({
+        ...prev,
+        phone: true,
+        specialty: true,
+        yearsOfExperience: true,
+        workplace: true,
+      }));
+      setLocalErrors((prev) => ({
+        ...prev,
+        email: undefined,
+        phone: undefined,
+        specialty: undefined,
+        yearsOfExperience: undefined,
+        workplace: undefined,
+        verificationFiles: undefined,
+      }));
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to load previous registration data.";
+      setPrefillNotice({ tone: "error", message });
+    } finally {
+      setPrefillLoading(false);
+    }
+  }
+
+  function validateIncomingFiles(incoming: File[]) {
+    const invalidType = incoming.find(
+      (file) => !ACCEPTED_FILE_TYPES.includes(file.type),
+    );
+
+    if (invalidType) {
+      return "Only PDF, JPG, PNG files are allowed.";
+    }
+
+    const oversize = incoming.find(
+      (file) => file.size > MAX_FILE_SIZE_MB * 1024 * 1024,
+    );
+
+    if (oversize) {
+      return `Each file must be <= ${MAX_FILE_SIZE_MB} MB.`;
+    }
+
+    return null;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -236,21 +540,9 @@ export function DoctorSignUp({
 
     const incoming = Array.from(files);
 
-    const invalidType = incoming.find(
-      (file) => !ACCEPTED_FILE_TYPES.includes(file.type),
-    );
-
-    if (invalidType) {
-      setFileError("Only PDF, JPG, PNG files are allowed.");
-      return;
-    }
-
-    const oversize = incoming.find(
-      (file) => file.size > MAX_FILE_SIZE_MB * 1024 * 1024,
-    );
-
-    if (oversize) {
-      setFileError(`Each file must be <= ${MAX_FILE_SIZE_MB} MB.`);
+    const errorMessage = validateIncomingFiles(incoming);
+    if (errorMessage) {
+      setFileError(errorMessage);
       return;
     }
 
@@ -261,6 +553,41 @@ export function DoctorSignUp({
     });
     setTouched((prev) => ({ ...prev, verificationFiles: true }));
     setLocalErrors((prev) => ({ ...prev, verificationFiles: undefined }));
+  }
+
+  function handleReplaceExistingDocument(
+    documentId: string,
+    file: File | null,
+  ) {
+    if (!file) {
+      return;
+    }
+
+    const errorMessage = validateIncomingFiles([file]);
+    if (errorMessage) {
+      setFileError(errorMessage);
+      return;
+    }
+
+    setFileError(null);
+    setReplacementFilesByDocumentId((prev) => ({
+      ...prev,
+      [documentId]: file,
+    }));
+    setRemovedDocumentIds((prev) =>
+      prev.includes(documentId) ? prev : [...prev, documentId],
+    );
+    setTouched((prev) => ({ ...prev, verificationFiles: true }));
+    setLocalErrors((prev) => ({ ...prev, verificationFiles: undefined }));
+  }
+
+  function handleToggleRemoveExistingDocument(documentId: string) {
+    setRemovedDocumentIds((prev) => {
+      if (prev.includes(documentId)) {
+        return prev.filter((id) => id !== documentId);
+      }
+      return [...prev, documentId];
+    });
   }
 
   function removeFile(index: number) {
@@ -319,7 +646,12 @@ export function DoctorSignUp({
                 type="email"
                 autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (prefillNotice) {
+                    setPrefillNotice(null);
+                  }
+                }}
                 onBlur={() => handleBlur("email")}
                 placeholder="Enter your email account"
                 disabled={submitting}
@@ -327,6 +659,40 @@ export function DoctorSignUp({
               />
             </FieldControl>
             <FieldError>{emailError}</FieldError>
+            <div className="mt-1 flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrefillFromPreviousRegistration}
+                disabled={submitting || prefillLoading}
+                className="h-8 rounded-lg border-[#d6e3d8] px-3 text-xs text-[#4f8d64]"
+              >
+                {prefillLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Spinner className="size-4" />
+                    Checking...
+                  </span>
+                ) : (
+                  "Load previous registration data"
+                )}
+              </Button>
+              <p className="text-xs text-[#7b8192]">
+                For doctors with previous rejected verification.
+              </p>
+            </div>
+            {prefillNotice && (
+              <p
+                className={`text-sm font-medium ${
+                  prefillNotice.tone === "error"
+                    ? "text-[#d64545]"
+                    : prefillNotice.tone === "success"
+                      ? "text-[#2f8f4e]"
+                      : "text-[#5d6b81]"
+                }`}
+              >
+                {prefillNotice.message}
+              </p>
+            )}
           </Field>
 
           <Field className="gap-1.5">
@@ -471,6 +837,124 @@ export function DoctorSignUp({
             <FieldError>{workplaceError}</FieldError>
           </Field>
 
+          {isReRegisterMode && rejectReason && (
+            <div className="rounded-xl border border-[#f2d6d6] bg-[#fff5f5] px-4 py-3">
+              <p className="text-sm font-bold text-[#a23f3f]">
+                Previous reject reason
+              </p>
+              <p className="mt-1 text-sm text-[#7a4a4a]">{rejectReason}</p>
+            </div>
+          )}
+
+          {isReRegisterMode && existingDocuments.length > 0 && (
+            <div className="overflow-hidden rounded-2xl border border-[#d7deec] bg-[#f6f9ff]">
+              <div className="border-b border-[#d7deec] bg-[#edf2ff] px-4 py-3">
+                <p className="text-sm font-bold text-[#2f3a5a]">
+                  Existing documents
+                </p>
+                <p className="text-xs text-[#6b7592]">
+                  Keep valid files, replace outdated files, or remove invalid
+                  ones.
+                </p>
+              </div>
+
+              <div className="space-y-2 px-4 py-4">
+                {existingDocuments.map((document) => {
+                  const isRemoved = removedDocumentIds.includes(document.id);
+                  const replacementFile =
+                    replacementFilesByDocumentId[document.id];
+                  const previewLabel = isImageDocument(document)
+                    ? "Image"
+                    : isPdfDocument(document)
+                      ? "PDF"
+                      : "File";
+
+                  return (
+                    <div
+                      key={document.id}
+                      className={`rounded-xl border px-3 py-2 ${
+                        isRemoved
+                          ? "border-[#ead1d1] bg-[#fff6f6]"
+                          : "border-[#d6deef] bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="rounded-full bg-[#eff2f6] p-1.5 text-[#6b768a]">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold text-[#374151]">
+                              {document.originalFilename}
+                            </p>
+                            <p className="text-[11px] text-[#7b859a]">
+                              {previewLabel}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-[#e5ecff] px-2 py-0.5 text-[11px] font-semibold text-[#4660a3]">
+                            Existing
+                          </span>
+                          {replacementFile && (
+                            <span className="rounded-full bg-[#ddf4e6] px-2 py-0.5 text-[11px] font-semibold text-[#3f8d5d]">
+                              Replaced
+                            </span>
+                          )}
+                          {isRemoved && (
+                            <span className="rounded-full bg-[#f9dfdf] px-2 py-0.5 text-[11px] font-semibold text-[#b94d4d]">
+                              Removed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {(isImageDocument(document) ||
+                        isPdfDocument(document)) && (
+                        <a
+                          href={document.secureUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-block text-xs font-semibold text-[#4a6cc2] hover:underline"
+                        >
+                          Preview {previewLabel}
+                        </a>
+                      )}
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <label className="inline-flex cursor-pointer items-center rounded-lg border border-[#c9d7f6] px-3 py-1.5 text-xs font-semibold text-[#4762a8] hover:bg-[#edf2ff]">
+                          Replace
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            className="hidden"
+                            onChange={(event) =>
+                              handleReplaceExistingDocument(
+                                document.id,
+                                event.target.files?.[0] ?? null,
+                              )
+                            }
+                          />
+                        </label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-8 px-3 text-xs text-[#9f4c4c] hover:bg-[#fff0f0] hover:text-[#903f3f]"
+                          onClick={() =>
+                            handleToggleRemoveExistingDocument(document.id)
+                          }
+                        >
+                          {isRemoved ? "Undo remove" : "Remove"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-2xl border border-[#d9e5db] bg-[#f6fbf7]">
             <div className="flex items-center justify-between border-b border-[#d9e5db] bg-[#ebf7ef] px-4 py-3">
               <div className="flex items-center gap-2">
@@ -482,7 +966,9 @@ export function DoctorSignUp({
                     Professional Verification
                   </p>
                   <p className="text-xs text-[#7d8b80]">
-                    Required to activate your account
+                    {isReRegisterMode
+                      ? "Upload new files if you replaced or added documents"
+                      : "Required to activate your account"}
                   </p>
                 </div>
               </div>

@@ -17,6 +17,9 @@ type SignUpRole = "patient" | "doctor";
 
 const SIGN_UP_API_URL =
   import.meta.env.VITE_SIGNUP_API_URL ?? "/api/v1/auth/register";
+const RE_REGISTER_API_URL =
+  import.meta.env.VITE_DOCTOR_RE_REGISTER_API_URL ??
+  "/api/v1/auth/doctor/re-register";
 
 interface SignUpApiResponse {
   message?: string;
@@ -42,6 +45,51 @@ async function registerRequest(
 
   if (!res.ok) {
     throw new Error(json?.message ?? "Sign up failed. Please try again.");
+  }
+
+  return json ?? {};
+}
+
+async function reRegisterDoctorRequest(values: DoctorSignUpValues) {
+  const payload = {
+    email: values.email,
+    phoneNumber: values.phone,
+    specialty: values.specialty,
+    yearsOfExperience: Number(values.yearsOfExperience),
+    workplace: values.workplace,
+    // On resubmit, doctor profile should go back to pending for admin re-review.
+    verificationStatus: "pending",
+    rejectReason: null,
+    keepDocumentIds: values.keepDocumentIds,
+    removeDocumentIds: values.removeDocumentIds,
+  };
+
+  const formData = new FormData();
+  formData.append("payload", JSON.stringify(payload));
+  values.newFiles.forEach((file) => {
+    formData.append("newFiles", file);
+  });
+
+  // TODO: Backend for re-register submit will be implemented later.
+  // This FE code prepares request payload for keep/remove/newFiles contract.
+  const res = await fetch(RE_REGISTER_API_URL, {
+    method: "POST",
+    body: formData,
+  });
+
+  let json: SignUpApiResponse | null = null;
+
+  try {
+    json = (await res.json()) as SignUpApiResponse;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.message ??
+        "Re-register API is not available yet. Backend integration is pending.",
+    );
   }
 
   return json ?? {};
@@ -91,6 +139,14 @@ export function SignUp() {
     setIsSubmitting(true);
 
     try {
+      if (values.isReRegister) {
+        await reRegisterDoctorRequest(values);
+        showToast.success(
+          "Resubmitted successfully. Your verification status is now pending for admin review.",
+        );
+        return;
+      }
+
       await registerRequest("doctor", {
         email: values.email,
         phoneNumber: values.phone,
@@ -99,9 +155,7 @@ export function SignUp() {
         specialty: values.specialty,
         yearsOfExperience: Number(values.yearsOfExperience),
         workplace: values.workplace,
-        verificationFileNames: values.verificationFiles.map(
-          (file) => file.name,
-        ),
+        verificationFileNames: values.newFiles.map((file) => file.name),
       });
       showToast.success("Create doctor account successfully.");
       navigate("/login");
@@ -118,7 +172,7 @@ export function SignUp() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Header />
 
-      <div className="mx-auto flex w-full max-w-[1280px] flex-1 items-start justify-between gap-10 px-6 py-8 lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 items-start justify-between gap-10 px-6 py-8 lg:px-8">
         {role === "doctor" ? (
           <DoctorSignUp
             onSubmit={handleDoctorSubmit}
@@ -139,7 +193,7 @@ export function SignUp() {
           <img
             src={authenImage}
             alt="Healthcare illustration"
-            className="w-[360px] object-contain"
+            className="w-90 object-contain"
           />
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-2">

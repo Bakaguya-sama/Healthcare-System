@@ -246,8 +246,6 @@ export function UserManagement() {
   const [selectedRole, setSelectedRole] = useState<UserRole | "all">("patient");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
-  const selectedUser = USER_DATA.find((user) => user.id === selectedUserId);
   const [openActionUserId, setOpenActionUserId] = useState<string | null>(null);
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
   const [newAdminFullName, setNewAdminFullName] = useState("");
@@ -259,6 +257,7 @@ export function UserManagement() {
 
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const selectedUser = USER_DATA.find((user) => user.id === selectedUserId);
 
   const handleCloseProfileModal = () => {
     setProfileModalOpen(false);
