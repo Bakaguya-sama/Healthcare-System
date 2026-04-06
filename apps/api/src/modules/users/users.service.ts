@@ -1,26 +1,73 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../auth/entities/user.schema';
+import {
+  Doctor,
+  DoctorDocument,
+  DoctorVerificationStatus,
+} from './entities/doctor.schema';
 import { Patient, PatientDocument } from '../patients/entities/patient.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
 import { UserRole } from './enums/user-role.enum';
+import { AccountStatus } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
   ) {}
 
   async findAll() {
-    return this.userModel.find().select('-password -refreshToken');
+    const approvedDoctors = await this.doctorModel
+      .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
+      .select('userId -_id')
+      .lean<{ userId: Types.ObjectId }[]>();
+
+    const approvedDoctorUserIds = approvedDoctors.map(
+      (doctor) => doctor.userId,
+    );
+
+    return this.userModel
+      .find({
+        $or: [
+          { role: { $ne: UserRole.DOCTOR } },
+          {
+            role: UserRole.DOCTOR,
+            _id: { $in: approvedDoctorUserIds },
+          },
+        ],
+      })
+      .select('-password -refreshToken');
   }
 
   async findDoctors() {
+    const approvedDoctors = await this.doctorModel
+      .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
+      .select('userId -_id')
+      .lean<{ userId: Types.ObjectId }[]>();
+
+    const approvedDoctorUserIds = approvedDoctors.map(
+      (doctor) => doctor.userId,
+    );
+
+    if (approvedDoctorUserIds.length === 0) {
+      return [];
+    }
+
     return this.userModel
-      .find({ role: UserRole.DOCTOR, isActive: true })
+      .find({
+        role: UserRole.DOCTOR,
+        accountStatus: AccountStatus.ACTIVE,
+        _id: { $in: approvedDoctorUserIds },
+      })
       .select('-password -refreshToken');
   }
 
@@ -42,7 +89,11 @@ export class UsersService {
 
   async deactivate(id: string) {
     const user = await this.userModel
-      .findByIdAndUpdate(id, { isActive: false }, { new: true })
+      .findByIdAndUpdate(
+        id,
+        { accountStatus: AccountStatus.BANNED },
+        { new: true },
+      )
       .select('-password -refreshToken');
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -52,10 +103,7 @@ export class UsersService {
    * 👤 POST /users/profile
    * Bệnh nhân tạo profile
    */
-  async createPatientProfile(
-    userId: string,
-    dto: CreatePatientProfileDto,
-  ) {
+  async createPatientProfile(userId: string, dto: CreatePatientProfileDto) {
     // Kiểm tra user tồn tại và là patient
     const user = await this.userModel.findById(userId);
     if (!user) throw new NotFoundException('User not found');
@@ -98,15 +146,10 @@ export class UsersService {
    * 👤 PATCH /users/profile
    * Cập nhật patient profile
    */
-  async updatePatientProfile(
-    userId: string,
-    dto: CreatePatientProfileDto,
-  ) {
-    const patient = await this.patientModel.findOneAndUpdate(
-      { userId },
-      dto,
-      { new: true },
-    );
+  async updatePatientProfile(userId: string, dto: CreatePatientProfileDto) {
+    const patient = await this.patientModel.findOneAndUpdate({ userId }, dto, {
+      new: true,
+    });
 
     if (!patient) {
       throw new NotFoundException('Patient profile not found');
