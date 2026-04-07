@@ -95,4 +95,11 @@ export class UsersController {
   ) {
     return this.usersService.updatePatientProfile(userId, dto);
   }
+
+  @Delete('profile')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Xóa patient profile' })
+  deletePatientProfile(@CurrentUser('sub') userId: string) {
+    return this.usersService.deletePatientProfile(userId);
+  }
 }

@@ -422,7 +422,7 @@
       ]
     },
     {
-      "name": "2️⃣ USERS - User Management (6 endpoints)",
+      "name": "2️⃣ USERS - User Management (10 endpoints)",
       "item": [
         {
           "name": "Get All Users",
@@ -514,11 +514,77 @@
             "description": "Delete user account (Admin or own account)"
           },
           "response": []
+        },
+        {
+          "name": "Create Patient Profile",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Create patient profile (Patient only - auto-created from auth context, empty body)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patient Profile",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Get current patient's profile (Patient only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Patient Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Update patient profile (Patient only - currently no custom fields per DB template)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Patient Profile",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Delete patient profile (Patient only)"
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "3️⃣ PATIENTS - Patient Management (5 endpoints)",
+      "name": "3️⃣ PATIENTS - Patient Management (⚠️ DEPRECATED - Use 2️⃣ USERS /users/profile instead)",
       "item": [
         {
           "name": "Create Patient Profile",
@@ -535,7 +601,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients"]
             },
-            "description": "Create new patient profile (no additional fields needed - only uses userId from auth)"
+            "description": "⚠️ DEPRECATED - Use POST /users/profile instead. Create new patient profile (no additional fields needed - only uses userId from auth)"
           },
           "response": []
         },
@@ -549,7 +615,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients", "profile"]
             },
-            "description": "Get current patient's profile"
+            "description": "⚠️ DEPRECATED - Use GET /users/profile instead. Get current patient's profile"
           },
           "response": []
         },
@@ -564,7 +630,7 @@
               "path": ["patients"],
               "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
             },
-            "description": "Get paginated list of all patients (ADMIN only)"
+            "description": "⚠️ DEPRECATED - Use GET /users instead. Get paginated list of all patients (ADMIN only)"
           },
           "response": []
         },
@@ -583,7 +649,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients", "profile"]
             },
-            "description": "Update current patient's profile (read-only in template - no fields can be updated)"
+            "description": "⚠️ DEPRECATED - Use PATCH /users/profile instead. Update current patient's profile (read-only in template - no fields can be updated)"
           },
           "response": []
         },
@@ -597,7 +663,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients", "profile"]
             },
-            "description": "Delete patient profile"
+            "description": "⚠️ DEPRECATED - Use DELETE /users/profile instead. Delete patient profile"
           },
           "response": []
         }
