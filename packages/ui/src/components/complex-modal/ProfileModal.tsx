@@ -77,6 +77,8 @@ type ProfileData = {
   role: UserRole;
   avatar_url?: string;
   reports?: ProfileReport[];
+  doctor_reviews?: DoctorReview[];
+  doctor_review_metrics?: DoctorReviewMetrics;
   role_specific?: DoctorRoleSpecific;
 };
 
@@ -86,6 +88,12 @@ type ProfileModalProps = {
   onClose: () => void;
   profileSeed?: Partial<ProfileData>;
   reportViewer?: ReportActor;
+  onSubmitReport?: (payload: {
+    target: ReportActor;
+    reporter: ReportActor;
+    reportType: ReportType;
+    reason: string;
+  }) => void | Promise<void>;
 };
 
 function initialsFromName(name: string) {
@@ -237,95 +245,6 @@ const REPORT_REASON_META: Record<
   },
 };
 
-const FALLBACK_PROFILE: ProfileData = {
-  id: "userId",
-  full_name: "Emma Thompson",
-  email: "emma.t@gmail.com",
-  phone_number: "+1 (212) 555-0147",
-  gender: "female",
-  created_at: "2026-01-12T00:00:00.000Z",
-  address_display: "Ward X, District Y, HCM City, Vietnam",
-  role: "doctor",
-  account_status: "active",
-  avatar_url: "",
-  role_specific: {
-    specialty: "Cardiology",
-    workplace: "City Hospital",
-    experience_years: 8,
-    verified_at: "2025-06-01",
-    verification_status: "approved",
-  },
-};
-
-const FALLBACK_REPORT = [
-  {
-    id: "report-1",
-    reason: "Spam",
-    date: "Feb 15, 2026",
-    resolved: true,
-  },
-  {
-    id: "report-2",
-    reason: "Harassment",
-    date: "Jan 20, 2026",
-    resolved: true,
-  },
-];
-
-const FALLBACK_DOCTOR_REVIEWS: DoctorReview[] = [
-  {
-    id: "review-1",
-    reviewer_name: "Emma Thompson",
-    reviewer_avatar_initials: "ET",
-    rating: 5,
-    comment:
-      "Dr. Chen is incredibly thorough and takes time to explain everything. Best cardiologist I've visited.",
-    created_at: "2026-02-28T00:00:00.000Z",
-  },
-  {
-    id: "review-2",
-    reviewer_name: "Emma Thompson",
-    reviewer_avatar_initials: "LJ",
-    rating: 1,
-    comment:
-      "Dr. Chen is incredibly thorough and takes time to explain everything. Best cardiologist I've visited.",
-    created_at: "2026-02-28T00:00:00.000Z",
-  },
-  {
-    id: "review-3",
-    reviewer_name: "Emma Thompson",
-    reviewer_avatar_initials: "AP",
-    rating: 4,
-    comment:
-      "Dr. Chen is incredibly thorough and takes time to explain everything. Best cardiologist I've visited.",
-    created_at: "2026-02-28T00:00:00.000Z",
-  },
-  {
-    id: "review-4",
-    reviewer_name: "Emma Thompson",
-    reviewer_avatar_initials: "NK",
-    rating: 1,
-    comment:
-      "Dr. Chen is incredibly thorough and takes time to explain everything. Best cardiologist I've visited.",
-    created_at: "2026-02-28T00:00:00.000Z",
-  },
-  {
-    id: "review-5",
-    reviewer_name: "Emma Thompson",
-    reviewer_avatar_initials: "NK",
-    rating: 3,
-    comment:
-      "Dr. Chen is incredibly thorough and takes time to explain everything. Best cardiologist I've visited.",
-    created_at: "2026-02-28T00:00:00.000Z",
-  },
-];
-
-const FALLBACK_DOCTOR_REVIEW_METRICS: DoctorReviewMetrics = {
-  average_rating: 4.8,
-  total_reviews: 4,
-  rating_distribution: { 5: 4, 4: 1, 3: 0, 2: 0, 1: 0 },
-};
-
 function InformationListItem({ fieldKey, value }: InformationProperty) {
   const fieldMeta = FIELD_META[fieldKey];
   const Icon = fieldMeta.icon;
@@ -392,17 +311,6 @@ function getDisplayValue(
   return "N/A";
 }
 
-function getRatingColor(rating: number): string {
-  const colors = {
-    5: "text-yellow-400",
-    4: "text-yellow-400",
-    3: "text-yellow-400",
-    2: "text-yellow-400",
-    1: "text-yellow-400",
-  };
-  return colors[rating as keyof typeof colors] || colors[5];
-}
-
 function ReviewItem({ review }: { review: DoctorReview }) {
   const initials = review.reviewer_avatar_initials || "U";
   const avatarColors = [
@@ -452,27 +360,39 @@ export function ProfileModal({
   onClose,
   profileSeed,
   reportViewer,
+  onSubmitReport,
 }: ProfileModalProps) {
-  if (!isOpen) return null;
-
   const [activeTab, setActiveTab] = useState<"overview" | "reviews">(
     "overview",
   );
   const [isReportModalOpen, setReportModalOpen] = useState(false);
 
+  if (!isOpen) return null;
+
   // TODO(real-data): Preprocess/fetch profile by id in container and pass into `profileSeed`.
   const profileData: ProfileData = {
-    ...FALLBACK_PROFILE,
-    ...profileSeed,
-    id: profileSeed?.id || id || FALLBACK_PROFILE.id,
-    role_specific: {
-      ...FALLBACK_PROFILE.role_specific,
-      ...profileSeed?.role_specific,
-    },
+    id: profileSeed?.id || id,
+    full_name: profileSeed?.full_name ?? "",
+    email: profileSeed?.email ?? "",
+    phone_number: profileSeed?.phone_number ?? "",
+    gender: profileSeed?.gender ?? "",
+    account_status: profileSeed?.account_status ?? "active",
+    created_at: profileSeed?.created_at ?? new Date().toISOString(),
+    address_display: profileSeed?.address_display ?? "",
+    role: profileSeed?.role ?? "patient",
+    avatar_url: profileSeed?.avatar_url,
+    reports: profileSeed?.reports,
+    doctor_reviews: profileSeed?.doctor_reviews,
+    doctor_review_metrics: profileSeed?.doctor_review_metrics,
+    role_specific: profileSeed?.role_specific,
   };
-  const reports = FALLBACK_REPORT ?? [];
-  const doctorReviews = FALLBACK_DOCTOR_REVIEWS ?? [];
-  const doctorReviewMetrics = FALLBACK_DOCTOR_REVIEW_METRICS;
+  const reports = profileData.reports ?? [];
+  const doctorReviews = profileData.doctor_reviews ?? [];
+  const doctorReviewMetrics = profileData.doctor_review_metrics ?? {
+    average_rating: 0,
+    total_reviews: 0,
+    rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  };
   const userRole = profileData.role;
 
   const avatarUrl = profileData.avatar_url || "";
@@ -485,14 +405,12 @@ export function ProfileModal({
     userRole === "doctor" || userRole === "patient" ? userRole : "admin";
 
   const handleSubmitReport = (payload: {
-    sessionId: string;
     target: ReportActor;
     reporter: ReportActor;
     reportType: ReportType;
     reason: string;
   }) => {
-    // TODO(real-data): Send this payload to report API.
-    console.log("Submit profile report:", payload);
+    void onSubmitReport?.(payload);
     setReportModalOpen(false);
   };
 
@@ -794,7 +712,6 @@ export function ProfileModal({
           isOpen={isReportModalOpen}
           onClose={() => setReportModalOpen(false)}
           onConfirm={handleSubmitReport}
-          sessionId={`profile-${profileData.id}`}
           target={{
             id: profileData.id,
             name: profileData.full_name,

@@ -1,19 +1,46 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AiSession, AiSessionDocument, SessionStatus } from './entities/ai-session.entity';
-import { CreateAiSessionDto, UpdateAiSessionDto, QueryAiSessionDto } from './dto/create-ai-session.dto';
+import {
+  AiSession,
+  AiSessionDocument,
+  SessionStatus,
+} from './entities/ai-session.entity';
+import {
+  CreateAiSessionDto,
+  UpdateAiSessionDto,
+  QueryAiSessionDto,
+} from './dto/create-ai-session.dto';
+
+type AiSessionFilter = {
+  patientId?: Types.ObjectId;
+  status?: SessionStatus;
+  createdAt?: {
+    $gte: Date;
+    $lt: Date;
+  };
+};
+
+type SortOrder = 1 | -1;
 
 @Injectable()
 export class AiSessionsService {
   constructor(
-    @InjectModel(AiSession.name) private aiSessionModel: Model<AiSessionDocument>,
+    @InjectModel(AiSession.name)
+    private aiSessionModel: Model<AiSessionDocument>,
   ) {}
 
-  async create(userId: string, createDto: CreateAiSessionDto): Promise<AiSession> {
+  async create(
+    userId: string,
+    createDto: CreateAiSessionDto,
+  ): Promise<AiSession> {
     try {
       const session = new this.aiSessionModel({
-        userId: new Types.ObjectId(userId),
+        patientId: new Types.ObjectId(userId),
         ...createDto,
         status: SessionStatus.ACTIVE,
         messageIds: [],
@@ -24,21 +51,36 @@ export class AiSessionsService {
       });
       return await session.save();
     } catch (error) {
-      throw new BadRequestException(`Failed to create AI session: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new BadRequestException(
+        `Failed to create AI session: ${errorMessage}`,
+      );
     }
   }
 
-  async findByUserId(userId: string, query: QueryAiSessionDto): Promise<{ data: AiSession[]; total: number }> {
-    const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = -1 } = query;
+  async findByUserId(
+    userId: string,
+    query: QueryAiSessionDto,
+  ): Promise<{ data: AiSession[]; total: number }> {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      sortBy = 'createdAt',
+      sortOrder = -1,
+    } = query;
 
-    const filter: any = { patientId: new Types.ObjectId(userId) };
+    const filter: AiSessionFilter = { patientId: new Types.ObjectId(userId) };
 
     if (status) filter.status = status;
+
+    const resolvedSortOrder: SortOrder = sortOrder === 1 ? 1 : -1;
 
     const skip = (page - 1) * limit;
     const data = await this.aiSessionModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort({ [sortBy]: resolvedSortOrder })
       .skip(skip)
       .limit(limit)
       .exec();
@@ -48,17 +90,46 @@ export class AiSessionsService {
     return { data, total };
   }
 
-  async findAll(query: QueryAiSessionDto): Promise<{ data: AiSession[]; total: number }> {
-    const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = -1 } = query;
+  async findAll(
+    query: QueryAiSessionDto,
+  ): Promise<{ data: AiSession[]; total: number }> {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      sortBy = 'createdAt',
+      sortOrder = -1,
+      fromDate,
+      toDate,
+    } = query;
 
-    const filter: any = {};
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const createdAtFrom = fromDate ? new Date(fromDate) : startOfCurrentMonth;
+    const createdAtTo = toDate ? new Date(toDate) : startOfNextMonth;
+
+    if (
+      Number.isNaN(createdAtFrom.getTime()) ||
+      Number.isNaN(createdAtTo.getTime())
+    ) {
+      throw new BadRequestException('Invalid fromDate or toDate');
+    }
+
+    const filter: AiSessionFilter = {};
+    filter.createdAt = {
+      $gte: createdAtFrom,
+      $lt: createdAtTo,
+    };
 
     if (status) filter.status = status;
+
+    const resolvedSortOrder: SortOrder = sortOrder === 1 ? 1 : -1;
 
     const skip = (page - 1) * limit;
     const data = await this.aiSessionModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort({ [sortBy]: resolvedSortOrder })
       .skip(skip)
       .limit(limit)
       .exec();
@@ -69,14 +140,19 @@ export class AiSessionsService {
   }
 
   async findById(sessionId: string): Promise<AiSession> {
-    const session = await this.aiSessionModel.findById(new Types.ObjectId(sessionId)).exec();
+    const session = await this.aiSessionModel
+      .findById(new Types.ObjectId(sessionId))
+      .exec();
     if (!session) {
       throw new NotFoundException(`AI Session with ID ${sessionId} not found`);
     }
     return session;
   }
 
-  async findByIdAndUserId(sessionId: string, userId: string): Promise<AiSession> {
+  async findByIdAndUserId(
+    sessionId: string,
+    userId: string,
+  ): Promise<AiSession> {
     const session = await this.aiSessionModel
       .findOne({
         _id: new Types.ObjectId(sessionId),
@@ -85,19 +161,29 @@ export class AiSessionsService {
       .exec();
 
     if (!session) {
-      throw new NotFoundException(`AI Session with ID ${sessionId} not found or access denied`);
+      throw new NotFoundException(
+        `AI Session with ID ${sessionId} not found or access denied`,
+      );
     }
     return session;
   }
 
-  async update(sessionId: string, userId: string, updateDto: UpdateAiSessionDto): Promise<AiSession> {
+  async update(
+    sessionId: string,
+    userId: string,
+    updateDto: UpdateAiSessionDto,
+  ): Promise<AiSession> {
     const session = await this.findByIdAndUserId(sessionId, userId);
 
     Object.assign(session, updateDto);
     return await session.save();
   }
 
-  async addMessage(sessionId: string, messageId: string, tokenCount: number = 0): Promise<AiSession> {
+  async addMessage(
+    sessionId: string,
+    messageId: string,
+    tokenCount: number = 0,
+  ): Promise<AiSession> {
     const session = await this.aiSessionModel.findByIdAndUpdate(
       new Types.ObjectId(sessionId),
       {
@@ -132,17 +218,21 @@ export class AiSessionsService {
   async delete(sessionId: string, userId: string): Promise<AiSession> {
     const session = await this.aiSessionModel.findOneAndDelete({
       _id: new Types.ObjectId(sessionId),
-      userId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(userId),
     });
 
     if (!session) {
-      throw new NotFoundException(`AI Session with ID ${sessionId} not found or access denied`);
+      throw new NotFoundException(
+        `AI Session with ID ${sessionId} not found or access denied`,
+      );
     }
     return session;
   }
 
   async deleteById(sessionId: string): Promise<AiSession> {
-    const session = await this.aiSessionModel.findByIdAndDelete(new Types.ObjectId(sessionId));
+    const session = await this.aiSessionModel.findByIdAndDelete(
+      new Types.ObjectId(sessionId),
+    );
 
     if (!session) {
       throw new NotFoundException(`AI Session with ID ${sessionId} not found`);

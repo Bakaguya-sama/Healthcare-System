@@ -40,12 +40,28 @@ import {
   type AdminAssignedRole,
 } from "@/features/ai_management/components/add-admin-modal";
 import { ProfileModal } from "@repo/ui/components/complex-modal/ProfileModal";
+import { UserAvatar } from "@repo/ui/components/ui/user-avatar";
+import { useUsers } from "../hooks/useUserManagement";
+import type { UserManagementUser } from "../services/user-management.service";
+import {
+  createAdmin,
+  changeAdminRole,
+} from "../services/admin-management.service";
+import { banUser, unbanUser } from "../services/user-management.service";
+import { showToast } from "@repo/ui/components/ui/toasts";
+import { useViewProfile } from "@/features/shared/hooks/useProfile";
+import { useReport } from "@/features/shared/hooks/useReport";
+import type {
+  ReportActor,
+  ReportType,
+} from "@repo/ui/components/complex-modal/ReportModal";
 
 type UserRole = "patient" | "doctor" | "admin";
 type UserStatus = "active" | "banned";
 type UserRecord = {
   id: string;
   name: string;
+  avatarUrl?: string;
   email: string;
   location: string;
   joined: string;
@@ -54,174 +70,6 @@ type UserRecord = {
   specialty?: string;
   assigned_role?: AdminAssignedRole;
 };
-
-const USER_DATA: UserRecord[] = [
-  {
-    id: "u-001",
-    name: "Emma Thompson",
-    email: "emma.t@gmail.com",
-    location: "New York, US",
-    joined: "Jan 12, 2026",
-    role: "patient",
-    status: "active",
-  },
-  {
-    id: "u-002",
-    name: "James Wilson",
-    email: "j.wilson@mail.com",
-    location: "London, UK",
-    joined: "Feb 3, 2026",
-    role: "doctor",
-    status: "active",
-    specialty: "Cardiology",
-  },
-  {
-    id: "u-003",
-    name: "Sofia Martinez",
-    email: "sofia.m@outlook.com",
-    location: "Madrid, ES",
-    joined: "Dec 20, 2025",
-    role: "admin",
-    status: "banned",
-    assigned_role: "super_admin",
-  },
-  {
-    id: "u-004",
-    name: "Liam Johnson",
-    email: "liam.j@gmail.com",
-    location: "Chicago, US",
-    joined: "Mar 1, 2026",
-    role: "patient",
-    status: "active",
-  },
-  {
-    id: "u-005",
-    name: "Aisha Patel",
-    email: "aisha.p@yahoo.com",
-    location: "Mumbai, IN",
-    joined: "Feb 18, 2026",
-    role: "doctor",
-    status: "active",
-    specialty: "Cardiology",
-  },
-  {
-    id: "u-006",
-    name: "Noah Kim",
-    email: "noah.k@mail.com",
-    location: "Seoul, KR",
-    joined: "Jan 28, 2026",
-    role: "patient",
-    status: "active",
-  },
-  {
-    id: "u-007",
-    name: "Olivia Brown",
-    email: "olivia.b@gmail.com",
-    location: "Toronto, CA",
-    joined: "Feb 10, 2026",
-    role: "patient",
-    status: "active",
-  },
-  {
-    id: "u-008",
-    name: "Ethan Davis",
-    email: "ethan.d@work.com",
-    location: "Sydney, AU",
-    joined: "Nov 5, 2025",
-    role: "admin",
-    status: "banned",
-    assigned_role: "ai_admin",
-  },
-  {
-    id: "u-009",
-    name: "Mia Carter",
-    email: "mia.c@gmail.com",
-    location: "Boston, US",
-    joined: "Jan 15, 2026",
-    role: "patient",
-    status: "active",
-  },
-  {
-    id: "u-010",
-    name: "Benjamin Clark",
-    email: "ben.c@outlook.com",
-    location: "Dublin, IE",
-    joined: "Dec 15, 2025",
-    role: "doctor",
-    status: "active",
-    specialty: "Cardiology",
-  },
-  {
-    id: "u-011",
-    name: "Charlotte Lee",
-    email: "charlotte.l@mail.com",
-    location: "Seattle, US",
-    joined: "Jan 7, 2026",
-    role: "admin",
-    status: "active",
-    assigned_role: "user_admin",
-  },
-  {
-    id: "u-012",
-    name: "Lucas Nguyen",
-    email: "lucas.n@gmail.com",
-    location: "Ho Chi Minh, VN",
-    joined: "Feb 12, 2026",
-    role: "doctor",
-    status: "active",
-    specialty: "Cardiology",
-  },
-  {
-    id: "u-013",
-    name: "Ava Garcia",
-    email: "ava.g@gmail.com",
-    location: "Barcelona, ES",
-    joined: "Mar 4, 2026",
-    role: "patient",
-    status: "active",
-  },
-  {
-    id: "u-014",
-    name: "Henry Turner",
-    email: "henry.t@mail.com",
-    location: "Melbourne, AU",
-    joined: "Dec 30, 2025",
-    role: "admin",
-    status: "banned",
-    assigned_role: "super_admin",
-  },
-  {
-    id: "u-015",
-    name: "Isabella Moore",
-    email: "isabella.m@outlook.com",
-    location: "Auckland, NZ",
-    joined: "Jan 21, 2026",
-    role: "doctor",
-    status: "active",
-    specialty: "Cardiology",
-  },
-];
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
-function getAvatarColor(seed: string) {
-  const palette = [
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-amber-500",
-    "bg-violet-500",
-    "bg-rose-500",
-    "bg-cyan-500",
-  ];
-  const index = seed.charCodeAt(0) % palette.length;
-  return palette[index];
-}
 
 const ADMIN_ROLE_ORDER: AdminAssignedRole[] = [
   "super_admin",
@@ -241,8 +89,44 @@ function getAdminRoleLabel(role?: AdminAssignedRole) {
   return "AI admin";
 }
 
+function mapUserToRecord(user: UserManagementUser): UserRecord {
+  return {
+    id: user.id,
+    name: user.fullName,
+    avatarUrl: user.avatarUrl,
+    email: user.email,
+    location: user.location,
+    joined: user.joined,
+    role: user.role,
+    status: user.status,
+    specialty: user.specialty,
+    assigned_role: user.assigned_role,
+  };
+}
+
+function mergeUsers(baseUsers: UserRecord[], localUsers: UserRecord[]) {
+  const mergedUsers = new Map<string, UserRecord>();
+
+  for (const user of baseUsers) {
+    mergedUsers.set(user.id, user);
+  }
+
+  for (const user of localUsers) {
+    mergedUsers.set(user.id, {
+      ...(mergedUsers.get(user.id) ?? {}),
+      ...user,
+    });
+  }
+
+  return Array.from(mergedUsers.values()).sort((left, right) =>
+    left.name.localeCompare(right.name),
+  );
+}
+
 export function UserManagement() {
-  const [users, setUsers] = useState<UserRecord[]>(USER_DATA);
+  const { users: usersData, isLoading, error, refresh } = useUsers();
+  const { submitReport, error: submitReportError } = useReport();
+  const [localUsers, setLocalUsers] = useState<UserRecord[]>([]);
   const [selectedRole, setSelectedRole] = useState<UserRole | "all">("patient");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -254,14 +138,57 @@ export function UserManagement() {
   const [newAdminRole, setNewAdminRole] =
     useState<AdminAssignedRole>("user_admin");
   const [addAdminError, setAddAdminError] = useState("");
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
 
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const selectedUser = USER_DATA.find((user) => user.id === selectedUserId);
+  const { data: profileData, error: profileError } = useViewProfile(
+    selectedUserId,
+    isProfileModalOpen,
+  );
+  const baseUsers = useMemo(
+    () => usersData.userList.map(mapUserToRecord),
+    [usersData.userList],
+  );
+  const users = useMemo(
+    () => mergeUsers(baseUsers, localUsers),
+    [baseUsers, localUsers],
+  );
+  const selectedUser = users.find((user) => user.id === selectedUserId);
 
   const handleCloseProfileModal = () => {
     setProfileModalOpen(false);
     setSelectedUserId(null);
+  };
+
+  useEffect(() => {
+    if (profileError) {
+      showToast.error(profileError);
+    }
+  }, [profileError]);
+
+  useEffect(() => {
+    if (submitReportError) {
+      showToast.error(submitReportError);
+    }
+  }, [submitReportError]);
+
+  const handleSubmitProfileReport = async (payload: {
+    target: ReportActor;
+    reporter: ReportActor;
+    reportType: ReportType;
+    reason: string;
+  }) => {
+    const result = await submitReport({
+      reportedUserId: payload.target.id,
+      reportType: payload.reportType,
+      reason: payload.reason,
+    });
+
+    if (result) {
+      showToast.success("Report submitted successfully");
+      await refresh();
+    }
   };
 
   const pageSize = 8;
@@ -329,27 +256,7 @@ export function UserManagement() {
     resetAddAdminForm();
   };
 
-  const createUserId = () => {
-    const maxId = users.reduce((acc, item) => {
-      const currentId = Number(item.id.replace("u-", ""));
-      if (Number.isNaN(currentId)) {
-        return acc;
-      }
-      return Math.max(acc, currentId);
-    }, 0);
-
-    return `u-${String(maxId + 1).padStart(3, "0")}`;
-  };
-
-  const formatJoinedDate = () => {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date());
-  };
-
-  const handleCreateAdmin = () => {
+  const handleCreateAdmin = async () => {
     const fullName = newAdminFullName.trim();
     const email = newAdminEmail.trim().toLowerCase();
 
@@ -376,30 +283,38 @@ export function UserManagement() {
       return;
     }
 
-    const newAdmin: UserRecord = {
-      id: createUserId(),
-      name: fullName,
-      email,
-      location: "-",
-      joined: formatJoinedDate(),
-      role: "admin",
-      status: "active",
-      assigned_role: newAdminRole,
-    };
+    try {
+      setIsCreatingAdmin(true);
+      await createAdmin({
+        fullName,
+        email,
+        password: newAdminPassword,
+        assignedRole: newAdminRole,
+        accountStatus: "active",
+      });
 
-    setUsers((prevUsers) => [newAdmin, ...prevUsers]);
-    setCurrentPage(1);
-    setSelectedRole("admin");
-    setOpenActionUserId(null);
-    setIsAddAdminModalOpen(false);
-    resetAddAdminForm();
+      await refresh();
+      setCurrentPage(1);
+      setSelectedRole("admin");
+      setOpenActionUserId(null);
+      setIsAddAdminModalOpen(false);
+      resetAddAdminForm();
+    } catch (createError) {
+      setAddAdminError(
+        createError instanceof Error
+          ? createError.message
+          : "Failed to create admin account.",
+      );
+    } finally {
+      setIsCreatingAdmin(false);
+    }
   };
 
   const summaryCards = [
     {
       title: "Total Users",
       icon: <Users size={18} />,
-      stats: users.length,
+      stats: usersData.totalUser,
       subText: "all users",
       comparedStats: 6.4,
       iconClassName: "bg-blue-50 text-blue-600",
@@ -407,9 +322,7 @@ export function UserManagement() {
     {
       title: "Active Doctors",
       icon: <Stethoscope size={18} />,
-      stats: users.filter(
-        (item) => item.role === "doctor" && item.status === "active",
-      ).length,
+      stats: usersData.activeDoctors,
       subText: "active doctors",
       comparedStats: 4.2,
       iconClassName: "bg-emerald-50 text-emerald-600",
@@ -417,7 +330,7 @@ export function UserManagement() {
     {
       title: "Pending Application",
       icon: <Clock size={18} />,
-      stats: 3,
+      stats: usersData.pendingVerifications,
       subText: "need attention",
       comparedStats: -1.2,
       iconClassName: "bg-amber-50 text-amber-600",
@@ -425,7 +338,7 @@ export function UserManagement() {
     {
       title: "Banned Users",
       icon: <Ban size={18} />,
-      stats: users.filter((item) => item.status === "banned").length,
+      stats: usersData.bannedUsers,
       subText: "across platform",
       comparedStats: -5,
       iconClassName: "bg-red-50 text-red-500",
@@ -449,35 +362,80 @@ export function UserManagement() {
     setOpenActionUserId(null);
   };
 
-  const handleToggleStatus = (userId: string) => {
-    setUsers((prevUsers) =>
-      prevUsers.map((item) =>
-        item.id === userId
-          ? { ...item, status: item.status === "active" ? "banned" : "active" }
-          : item,
-      ),
-    );
-    setOpenActionUserId(null);
+  const handleToggleStatus = async (userId: string) => {
+    const currentUser = users.find((item) => item.id === userId);
+
+    if (!currentUser) {
+      return;
+    }
+
+    try {
+      if (currentUser.status === "active") {
+        await banUser({
+          id: userId,
+          reason: "Vi phạm quy định hệ thống",
+        });
+      } else {
+        await unbanUser({
+          id: userId,
+        });
+      }
+
+      await refresh();
+      setLocalUsers((prevUsers) =>
+        prevUsers.map((item) =>
+          item.id === userId
+            ? {
+                ...item,
+                status: currentUser.status === "active" ? "banned" : "active",
+              }
+            : item,
+        ),
+      );
+      setOpenActionUserId(null);
+      showToast.success(
+        currentUser.status === "active"
+          ? "User banned successfully"
+          : "User unbanned successfully",
+      );
+    } catch (toggleError) {
+      showToast.error(
+        toggleError instanceof Error
+          ? toggleError.message
+          : "Failed to update user status",
+      );
+    }
   };
 
-  const handleAssignAdminRole = (userId: string) => {
-    setUsers((prevUsers) =>
-      prevUsers.map((item) => {
-        if (item.id !== userId || item.role !== "admin") {
-          return item;
-        }
+  const handleAssignAdminRole = async (userId: string) => {
+    const currentUser = users.find((item) => item.id === userId);
 
-        const currentRole = item.assigned_role ?? "user_admin";
-        const currentRoleIndex = ADMIN_ROLE_ORDER.indexOf(currentRole);
-        const nextRole =
-          ADMIN_ROLE_ORDER[(currentRoleIndex + 1) % ADMIN_ROLE_ORDER.length];
+    if (!currentUser || currentUser.role !== "admin") {
+      return;
+    }
 
-        return {
-          ...item,
-          assigned_role: nextRole,
-        };
-      }),
-    );
+    const currentRole = currentUser.assigned_role ?? "user_admin";
+    const currentRoleIndex = ADMIN_ROLE_ORDER.indexOf(currentRole);
+    const nextRole =
+      ADMIN_ROLE_ORDER[(currentRoleIndex + 1) % ADMIN_ROLE_ORDER.length];
+
+    try {
+      await changeAdminRole({
+        id: userId,
+        assignedRole: nextRole,
+      });
+
+      setLocalUsers((prevUsers) =>
+        prevUsers.map((item) =>
+          item.id === userId ? { ...item, assigned_role: nextRole } : item,
+        ),
+      );
+      await refresh();
+      setCurrentPage(1);
+      setOpenActionUserId(null);
+    } catch (createError) {
+      showToast.error(createError);
+    }
 
     setOpenActionUserId(null);
   };
@@ -504,7 +462,7 @@ export function UserManagement() {
           ),
         iconColor:
           user.status === "active" ? "text-red-700" : "text-emerald-700",
-        onHandle: () => handleToggleStatus(user.id),
+        onHandle: () => void handleToggleStatus(user.id),
       },
     ];
 
@@ -580,6 +538,18 @@ export function UserManagement() {
           </div>
         </div>
 
+        {error ? (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            Loading user data...
+          </div>
+        ) : null}
+
         <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((item) => (
             <OverviewCard key={item.title} {...item} />
@@ -636,7 +606,12 @@ export function UserManagement() {
                 />
               </div>
               {selectedRole === "admin" ? (
-                <Button onClick={handleOpenAddAdminModal}>Add admin</Button>
+                <Button
+                  onClick={handleOpenAddAdminModal}
+                  disabled={isCreatingAdmin}
+                >
+                  {isCreatingAdmin ? "Creating..." : "Add admin"}
+                </Button>
               ) : null}
             </div>
           </div>
@@ -680,14 +655,7 @@ export function UserManagement() {
                   <TableRow key={user.id}>
                     <TableCell className="px-3 py-3">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white ${getAvatarColor(user.name)}`}
-                        >
-                          {getInitials(user.name)}
-                        </div>
-                        <span className="text-sm text-slate-700">
-                          {user.name}
-                        </span>
+                        <UserAvatar name={user.name} url={user.avatarUrl} />
                       </div>
                     </TableCell>
                     <TableCell className="px-3 text-sm text-slate-500">
@@ -839,27 +807,31 @@ export function UserManagement() {
           onAdd={handleCreateAdmin}
         />
 
+        {/* TODO: handle profile */}
         <ProfileModal
           id={selectedUserId || ""}
           isOpen={isProfileModalOpen}
           onClose={handleCloseProfileModal}
           profileSeed={
-            selectedUser
-              ? {
-                  id: selectedUser.id,
-                  full_name: selectedUser.name,
-                  email: selectedUser.email,
-                  role: selectedUser.role,
-                  account_status: selectedUser.status,
-                  address_display: selectedUser.location,
-                }
-              : undefined
+            profileData
+              ? profileData
+              : selectedUser
+                ? {
+                    id: selectedUser.id,
+                    full_name: selectedUser.name,
+                    email: selectedUser.email,
+                    role: selectedUser.role,
+                    account_status: selectedUser.status,
+                    address_display: selectedUser.location,
+                  }
+                : undefined
           }
           reportViewer={{
             id: "admin-current",
             name: "Current Admin",
             role: "admin",
           }}
+          onSubmitReport={handleSubmitProfileReport}
         />
       </div>
     </div>

@@ -11,7 +11,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminsService } from './admins.service';
-import { CreateAdminDto, UpdateAdminDto, QueryAdminDto } from './dto/create-admin.dto';
+import {
+  CreateAdminDto,
+  UpdateAdminDto,
+  QueryAdminDto,
+} from './dto/create-admin.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../core/decorators/roles.decorator';
@@ -34,9 +38,9 @@ export class AdminsController {
   @ApiOperation({ summary: 'Tạo hồ sơ admin mới (SUPER_ADMIN)' })
   async create(
     @CurrentUser('sub') userId: string,
-    @Body() dto: CreateAdminDto & { userId: string },
+    @Body() dto: CreateAdminDto,
   ) {
-    return this.adminsService.create(userId, dto.userId, dto);
+    return this.adminsService.create(userId, dto);
   }
 
   /**

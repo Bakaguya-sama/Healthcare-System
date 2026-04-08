@@ -1,6 +1,6 @@
 /**
  * Seed Database Configuration
- * 
+ *
  * This file contains helper functions and constants for database seeding.
  * All data is generated with realistic relationships following the DB template.
  */
@@ -88,8 +88,8 @@ export const SEED_CONFIG = {
   // Admin roles
   ADMIN_ROLES: {
     SUPER_ADMIN: 'super_admin',
-    USER_MANAGER: 'user_manager',
-    AI_MANAGER: 'ai_manager',
+    USER_ADMIN: 'user_admin',
+    AI_ADMIN: 'ai_admin',
   },
 
   // Risk levels
@@ -121,32 +121,56 @@ export function generateHealthMetricValue(metricType: string) {
   switch (metricType) {
     case SEED_CONFIG.METRIC_TYPES.BLOOD_PRESSURE:
       return {
-        systolic: { value: Math.floor(Math.random() * 50 + 100), recordedAt: new Date() },
-        diastolic: { value: Math.floor(Math.random() * 30 + 60), recordedAt: new Date() },
+        systolic: {
+          value: Math.floor(Math.random() * 50 + 100),
+          recordedAt: new Date(),
+        },
+        diastolic: {
+          value: Math.floor(Math.random() * 30 + 60),
+          recordedAt: new Date(),
+        },
       };
     case SEED_CONFIG.METRIC_TYPES.HEART_RATE:
       return {
-        value: { value: Math.floor(Math.random() * 40 + 60), recordedAt: new Date() },
+        value: {
+          value: Math.floor(Math.random() * 40 + 60),
+          recordedAt: new Date(),
+        },
       };
     case SEED_CONFIG.METRIC_TYPES.BMI:
       return {
-        value: { value: Math.round((Math.random() * 12 + 18) * 10) / 10, recordedAt: new Date() },
+        value: {
+          value: Math.round((Math.random() * 12 + 18) * 10) / 10,
+          recordedAt: new Date(),
+        },
       };
     case SEED_CONFIG.METRIC_TYPES.WEIGHT:
       return {
-        value: { value: Math.floor(Math.random() * 40 + 50), recordedAt: new Date() },
+        value: {
+          value: Math.floor(Math.random() * 40 + 50),
+          recordedAt: new Date(),
+        },
       };
     case SEED_CONFIG.METRIC_TYPES.HEIGHT:
       return {
-        value: { value: Math.floor(Math.random() * 30 + 150), recordedAt: new Date() },
+        value: {
+          value: Math.floor(Math.random() * 30 + 150),
+          recordedAt: new Date(),
+        },
       };
     case SEED_CONFIG.METRIC_TYPES.WATER_INTAKE:
       return {
-        amount: { value: Math.floor(Math.random() * 1000 + 1500), recordedAt: new Date() },
+        amount: {
+          value: Math.floor(Math.random() * 1000 + 1500),
+          recordedAt: new Date(),
+        },
       };
     case SEED_CONFIG.METRIC_TYPES.KCAL_INTAKE:
       return {
-        amount: { value: Math.floor(Math.random() * 1500 + 1500), recordedAt: new Date() },
+        amount: {
+          value: Math.floor(Math.random() * 1500 + 1500),
+          recordedAt: new Date(),
+        },
       };
     default:
       return {};

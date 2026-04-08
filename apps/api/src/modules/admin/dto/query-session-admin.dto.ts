@@ -1,10 +1,15 @@
-import { IsNumberString, IsOptional, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, Min } from 'class-validator';
 
 export class QuerySessionAdminDto {
-  @IsNumberString()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number = 1;
 
-  @IsNumberString()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   limit?: number = 10;
 
   @IsOptional()

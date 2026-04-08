@@ -1,16 +1,28 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AiFeedback, AiFeedbackDocument } from './entities/ai-feedback.entity';
-import { CreateAiFeedbackDto, UpdateAiFeedbackDto, QueryAiFeedbackDto } from './dto/create-ai-feedback.dto';
+import {
+  CreateAiFeedbackDto,
+  UpdateAiFeedbackDto,
+  QueryAiFeedbackDto,
+} from './dto/create-ai-feedback.dto';
 
 @Injectable()
 export class AiFeedbacksService {
   constructor(
-    @InjectModel(AiFeedback.name) private aiFeedbackModel: Model<AiFeedbackDocument>,
+    @InjectModel(AiFeedback.name)
+    private aiFeedbackModel: Model<AiFeedbackDocument>,
   ) {}
 
-  async create(patientId: string, createDto: CreateAiFeedbackDto): Promise<AiFeedback> {
+  async create(
+    patientId: string,
+    createDto: CreateAiFeedbackDto,
+  ): Promise<AiFeedback> {
     try {
       const feedback = new this.aiFeedbackModel({
         ...createDto,
@@ -19,12 +31,23 @@ export class AiFeedbacksService {
       });
       return await feedback.save();
     } catch (error) {
-      throw new BadRequestException(`Failed to create AI feedback: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to create AI feedback: ${error.message}`,
+      );
     }
   }
 
-  async findByPatientId(patientId: string, query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
-    const { page = 1, limit = 10, aiSessionId, sortBy = 'createdAt', sortOrder = -1 } = query;
+  async findByPatientId(
+    patientId: string,
+    query: QueryAiFeedbackDto,
+  ): Promise<{ data: AiFeedback[]; total: number }> {
+    const {
+      page = 1,
+      limit = 10,
+      aiSessionId,
+      sortBy = 'createdAt',
+      sortOrder = -1,
+    } = query;
 
     const filter: any = { patientId: new Types.ObjectId(patientId) };
 
@@ -43,8 +66,16 @@ export class AiFeedbacksService {
     return { data, total };
   }
 
-  async findBySessionId(aiSessionId: string, query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = -1 } = query;
+  async findBySessionId(
+    aiSessionId: string,
+    query: QueryAiFeedbackDto,
+  ): Promise<{ data: AiFeedback[]; total: number }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = -1,
+    } = query;
 
     const filter: any = { aiSessionId: new Types.ObjectId(aiSessionId) };
 
@@ -61,8 +92,15 @@ export class AiFeedbacksService {
     return { data, total };
   }
 
-  async findAll(query: QueryAiFeedbackDto): Promise<{ data: AiFeedback[]; total: number }> {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = -1 } = query;
+  async findAll(
+    query: QueryAiFeedbackDto,
+  ): Promise<{ data: AiFeedback[]; total: number }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = -1,
+    } = query;
 
     const filter: any = {};
 
@@ -80,28 +118,41 @@ export class AiFeedbacksService {
   }
 
   async findById(feedbackId: string): Promise<AiFeedback> {
-    const feedback = await this.aiFeedbackModel.findById(new Types.ObjectId(feedbackId)).exec();
+    const feedback = await this.aiFeedbackModel
+      .findById(new Types.ObjectId(feedbackId))
+      .exec();
     if (!feedback) {
-      throw new NotFoundException(`AI Feedback with ID ${feedbackId} not found`);
+      throw new NotFoundException(
+        `AI Feedback with ID ${feedbackId} not found`,
+      );
     }
     return feedback;
   }
 
-  async findByIdAndUserId(feedbackId: string, userId: string): Promise<AiFeedback> {
+  async findByIdAndUserId(
+    feedbackId: string,
+    userId: string,
+  ): Promise<AiFeedback> {
     const feedback = await this.aiFeedbackModel
       .findOne({
         _id: new Types.ObjectId(feedbackId),
-        userId: new Types.ObjectId(userId),
+        patientId: new Types.ObjectId(userId),
       })
       .exec();
 
     if (!feedback) {
-      throw new NotFoundException(`AI Feedback with ID ${feedbackId} not found or access denied`);
+      throw new NotFoundException(
+        `AI Feedback with ID ${feedbackId} not found or access denied`,
+      );
     }
     return feedback;
   }
 
-  async update(feedbackId: string, userId: string, updateDto: UpdateAiFeedbackDto): Promise<AiFeedback> {
+  async update(
+    feedbackId: string,
+    userId: string,
+    updateDto: UpdateAiFeedbackDto,
+  ): Promise<AiFeedback> {
     const feedback = await this.findByIdAndUserId(feedbackId, userId);
 
     Object.assign(feedback, updateDto);
@@ -118,7 +169,9 @@ export class AiFeedbacksService {
     );
 
     if (!feedback) {
-      throw new NotFoundException(`AI Feedback with ID ${feedbackId} not found`);
+      throw new NotFoundException(
+        `AI Feedback with ID ${feedbackId} not found`,
+      );
     }
     return feedback;
   }
@@ -133,12 +186,16 @@ export class AiFeedbacksService {
     );
 
     if (!feedback) {
-      throw new NotFoundException(`AI Feedback with ID ${feedbackId} not found`);
+      throw new NotFoundException(
+        `AI Feedback with ID ${feedbackId} not found`,
+      );
     }
     return feedback;
   }
 
-  async getAverageRating(sessionId: string): Promise<{ totalFeedbacks: number }> {
+  async getAverageRating(
+    sessionId: string,
+  ): Promise<{ totalFeedbacks: number }> {
     const feedbacks = await this.aiFeedbackModel
       .find({ aiSessionId: new Types.ObjectId(sessionId) })
       .exec();
@@ -155,27 +212,35 @@ export class AiFeedbacksService {
   async delete(feedbackId: string, userId: string): Promise<AiFeedback> {
     const feedback = await this.aiFeedbackModel.findOneAndDelete({
       _id: new Types.ObjectId(feedbackId),
-      userId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(userId),
     });
 
     if (!feedback) {
-      throw new NotFoundException(`AI Feedback with ID ${feedbackId} not found or access denied`);
+      throw new NotFoundException(
+        `AI Feedback with ID ${feedbackId} not found or access denied`,
+      );
     }
     return feedback;
   }
 
   async deleteById(feedbackId: string): Promise<AiFeedback> {
-    const feedback = await this.aiFeedbackModel.findByIdAndDelete(new Types.ObjectId(feedbackId));
+    const feedback = await this.aiFeedbackModel.findByIdAndDelete(
+      new Types.ObjectId(feedbackId),
+    );
 
     if (!feedback) {
-      throw new NotFoundException(`AI Feedback with ID ${feedbackId} not found`);
+      throw new NotFoundException(
+        `AI Feedback with ID ${feedbackId} not found`,
+      );
     }
     return feedback;
   }
 
-  async deleteBySessionId(sessionId: string): Promise<{ deletedCount: number }> {
+  async deleteBySessionId(
+    sessionId: string,
+  ): Promise<{ deletedCount: number }> {
     const result = await this.aiFeedbackModel.deleteMany({
-      sessionId: new Types.ObjectId(sessionId),
+      aiSessionId: new Types.ObjectId(sessionId),
     });
 
     return { deletedCount: result.deletedCount };

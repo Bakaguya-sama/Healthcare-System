@@ -8,46 +8,79 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Admin, AdminDocument, AdminRole } from './entities/admin.entity';
-import { CreateAdminDto, UpdateAdminDto, QueryAdminDto } from './dto/create-admin.dto';
+import {
+  CreateAdminDto,
+  UpdateAdminDto,
+  QueryAdminDto,
+} from './dto/create-admin.dto';
+import {
+  User,
+  UserDocument,
+  AccountStatus,
+} from '../auth/entities/user.schema';
+import { UserRole } from '../users/enums/user-role.enum';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminsService {
   constructor(
     @InjectModel(Admin.name)
     private adminModel: Model<AdminDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
   /**
    * 📝 TẠO HỒSƠ ADMIN MỚI (SUPER_ADMIN ONLY)
    */
-  async create(currentAdminUserId: string, newAdminUserId: string, dto: CreateAdminDto) {
+  async create(currentAdminUserId: string, dto: CreateAdminDto) {
     // Check if current user is super admin
     const currentAdmin = await this.adminModel.findOne({
       userId: new Types.ObjectId(currentAdminUserId),
     });
 
-    if (
-      !currentAdmin ||
-      currentAdmin.adminRole !== AdminRole.SUPER_ADMIN
-    ) {
+    if (!currentAdmin || currentAdmin.adminRole !== AdminRole.SUPER_ADMIN) {
       throw new ForbiddenException(
         'Only super admins can create new admin accounts',
       );
     }
 
-    // Check if admin profile already exists
-    if (!dto.adminRole) {
-      dto.adminRole = AdminRole.USER_MANAGER;
+    const existingUser = await this.userModel.findOne({
+      email: dto.email.toLowerCase(),
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already in use');
     }
 
-    const admin = await this.adminModel.create({
-      userId: new Types.ObjectId(newAdminUserId),
-      adminRole: dto.adminRole || AdminRole.USER_MANAGER,
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const assignedRole = dto.assignedRole || AdminRole.USER_ADMIN;
+    const accountStatus = dto.accountStatus || AccountStatus.ACTIVE;
+
+    const newUser = await this.userModel.create({
+      email: dto.email.toLowerCase(),
+      password: hashedPassword,
+      fullName: dto.fullName,
+      role: UserRole.ADMIN,
+      accountStatus,
     });
+
+    let admin: AdminDocument;
+    try {
+      admin = await this.adminModel.create({
+        userId: newUser._id,
+        adminRole: assignedRole,
+      });
+    } catch (error) {
+      await this.userModel.findByIdAndDelete(newUser._id);
+      throw error;
+    }
+
+    await admin.populate('userId', 'fullName email accountStatus');
 
     return {
       statusCode: 201,
-      message: 'Admin profile created successfully',
+      message: 'Admin account created successfully',
       data: admin,
     };
   }
@@ -86,10 +119,7 @@ export class AdminsService {
       userId: new Types.ObjectId(currentAdminUserId),
     });
 
-    if (
-      !currentAdmin ||
-      currentAdmin.adminRole !== AdminRole.SUPER_ADMIN
-    ) {
+    if (!currentAdmin || currentAdmin.adminRole !== AdminRole.SUPER_ADMIN) {
       throw new ForbiddenException(
         'Only super admins can view all admin accounts',
       );
@@ -144,10 +174,7 @@ export class AdminsService {
       userId: new Types.ObjectId(currentAdminUserId),
     });
 
-    if (
-      !currentAdmin ||
-      currentAdmin.adminRole !== AdminRole.SUPER_ADMIN
-    ) {
+    if (!currentAdmin || currentAdmin.adminRole !== AdminRole.SUPER_ADMIN) {
       throw new ForbiddenException(
         'Only super admins can update admin accounts',
       );
@@ -204,10 +231,7 @@ export class AdminsService {
       userId: new Types.ObjectId(currentAdminUserId),
     });
 
-    if (
-      !currentAdmin ||
-      currentAdmin.adminRole !== AdminRole.SUPER_ADMIN
-    ) {
+    if (!currentAdmin || currentAdmin.adminRole !== AdminRole.SUPER_ADMIN) {
       throw new ForbiddenException(
         'Only super admins can delete admin accounts',
       );

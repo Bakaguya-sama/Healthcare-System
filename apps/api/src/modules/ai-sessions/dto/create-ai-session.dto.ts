@@ -1,14 +1,13 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
+import { IsDateString, IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { SessionStatus } from '../entities/ai-session.entity';
 
 export class CreateAiSessionDto {
-  @ApiProperty({ description: 'Session status', enum: Object.values(SessionStatus), default: SessionStatus.ACTIVE })
+  @ApiProperty({
+    description: 'Session status',
+    enum: Object.values(SessionStatus),
+    default: SessionStatus.ACTIVE,
+  })
   @IsOptional()
   @IsEnum(SessionStatus)
   status?: SessionStatus;
@@ -65,4 +64,20 @@ export class QueryAiSessionDto {
   @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
   @IsOptional()
   sortOrder?: number = -1;
+
+  @ApiProperty({
+    required: false,
+    description: 'Inclusive start datetime (ISO) for createdAt filter',
+  })
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Exclusive end datetime (ISO) for createdAt filter',
+  })
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
 }

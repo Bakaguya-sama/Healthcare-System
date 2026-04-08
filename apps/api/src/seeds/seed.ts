@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { Model } from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
+import * as bcrypt from 'bcrypt';
 
 async function seedDatabase() {
   const app = await NestFactory.create(AppModule);
@@ -87,11 +88,13 @@ async function seedDatabase() {
     // Admin: admin@healthcare.com / Password123!
     // ==========================================
     console.log('👥 Creating users...');
+    const seededPasswordHash = await bcrypt.hash('Password123!', 12);
+
     const patients = await userModel.insertMany([
       {
         // PATIENT 1: patient1@healthcare.com / Password123!
         email: 'patient1@healthcare.com',
-        password: '$2b$12$abcdefghijklmnopqrstuvwxyz', // hashed "Password123!"
+        password: seededPasswordHash,
         fullName: 'Nguyễn Văn An',
         gender: 'male',
         dateOfBirth: new Date('1990-05-15'),
@@ -111,7 +114,7 @@ async function seedDatabase() {
       {
         // PATIENT 2: patient2@healthcare.com / Password123!
         email: 'patient2@healthcare.com',
-        password: '$2b$12$abcdefghijklmnopqrstuvwxyz',
+        password: seededPasswordHash,
         fullName: 'Trần Thị Bình',
         gender: 'female',
         dateOfBirth: new Date('1992-08-22'),
@@ -131,7 +134,7 @@ async function seedDatabase() {
       {
         // PATIENT 3: patient3@healthcare.com / Password123!
         email: 'patient3@healthcare.com',
-        password: '$2b$12$abcdefghijklmnopqrstuvwxyz',
+        password: seededPasswordHash,
         fullName: 'Phạm Minh Cường',
         gender: 'male',
         dateOfBirth: new Date('1988-12-01'),
@@ -154,7 +157,7 @@ async function seedDatabase() {
       {
         // DOCTOR 1: doctor1@healthcare.com / Password123! (Cardiology)
         email: 'doctor1@healthcare.com',
-        password: '$2b$12$abcdefghijklmnopqrstuvwxyz',
+        password: seededPasswordHash,
         fullName: 'Dr. Lê Thanh Tâm',
         gender: 'male',
         dateOfBirth: new Date('1985-03-10'),
@@ -174,7 +177,7 @@ async function seedDatabase() {
       {
         // DOCTOR 2: doctor2@healthcare.com / Password123! (Pediatrics)
         email: 'doctor2@healthcare.com',
-        password: '$2b$12$abcdefghijklmnopqrstuvwxyz',
+        password: seededPasswordHash,
         fullName: 'Dr. Hoàng Thu Hương',
         gender: 'female',
         dateOfBirth: new Date('1987-07-25'),
@@ -194,7 +197,7 @@ async function seedDatabase() {
       {
         // DOCTOR 3: doctor3@healthcare.com / Password123! (Neurology)
         email: 'doctor3@healthcare.com',
-        password: '$2b$12$abcdefghijklmnopqrstuvwxyz',
+        password: seededPasswordHash,
         fullName: 'Dr. Võ Minh Quân',
         gender: 'male',
         dateOfBirth: new Date('1984-11-18'),
@@ -217,7 +220,7 @@ async function seedDatabase() {
       {
         // ADMIN: admin@healthcare.com / Password123!
         email: 'admin@healthcare.com',
-        password: '$2b$12$abcdefghijklmnopqrstuvwxyz',
+        password: seededPasswordHash,
         fullName: 'Admin Hệ Thống',
         gender: 'male',
         dateOfBirth: new Date('1990-01-01'),
@@ -278,8 +281,7 @@ async function seedDatabase() {
         ],
         experienceYears: 12,
         averageRating: 4.6,
-        verifiedAt: new Date(),
-        verificationStatus: 'approved',
+        verificationStatus: 'pending',
       },
       {
         userId: doctors[2]._id,
@@ -290,8 +292,7 @@ async function seedDatabase() {
         ],
         experienceYears: 18,
         averageRating: 4.9,
-        verifiedAt: new Date(),
-        verificationStatus: 'approved',
+        verificationStatus: 'pending',
       },
     ]);
     console.log(`✅ Created ${doctorProfiles.length} doctor profiles\n`);

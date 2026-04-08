@@ -23,14 +23,12 @@ export interface ReportActor {
 
 interface ReportModalProps {
   isOpen: boolean;
-  sessionId: string;
   target: ReportActor;
   reporter: ReportActor;
   reason?: string;
   reportType?: ReportType;
   onClose: () => void;
   onConfirm: (payload: {
-    sessionId: string;
     target: ReportActor;
     reporter: ReportActor;
     reportType: ReportType;
@@ -53,7 +51,6 @@ const MAX_REASON_LENGTH = 1000;
 
 export function ReportModal({
   isOpen,
-  sessionId,
   target,
   reporter,
   reason,
@@ -69,7 +66,7 @@ export function ReportModal({
       setSelectedType(reportType);
       setReportReason(reason ?? "");
     }
-  }, [isOpen, reportType, reason, sessionId]);
+  }, [isOpen, reportType, reason]);
 
   const remaining = useMemo(
     () => MAX_REASON_LENGTH - reportReason.length,
@@ -80,7 +77,6 @@ export function ReportModal({
 
   const handleConfirm = () => {
     onConfirm({
-      sessionId,
       target,
       reporter,
       reportType: selectedType,

@@ -43,8 +43,14 @@ export class UsersController {
 
   @Get('me')
   @ApiOperation({ summary: 'Lấy thông tin tài khoản hiện tại' })
-  getMe(@CurrentUser('userId') userId: string) {
+  getMe(@CurrentUser('sub') userId: string) {
     return this.usersService.findById(userId);
+  }
+
+  @Get(':id/profile')
+  @ApiOperation({ summary: 'Lấy profile user theo ID (role-aware)' })
+  findProfile(@Param('id') id: string) {
+    return this.usersService.findProfileById(id);
   }
 
   @Get(':id')
@@ -55,7 +61,7 @@ export class UsersController {
 
   @Patch('me')
   @ApiOperation({ summary: 'Cập nhật thông tin tài khoản hiện tại' })
-  updateMe(@CurrentUser('userId') userId: string, @Body() dto: UpdateUserDto) {
+  updateMe(@CurrentUser('sub') userId: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(userId, dto);
   }
 

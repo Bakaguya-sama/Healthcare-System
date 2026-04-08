@@ -6,8 +6,16 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserDocument, AccountStatus } from '../auth/entities/user.schema';
-import { Doctor, DoctorDocument, DoctorVerificationStatus } from '../users/entities/doctor.schema';
+import {
+  User,
+  UserDocument,
+  AccountStatus,
+} from '../auth/entities/user.schema';
+import {
+  Doctor,
+  DoctorDocument,
+  DoctorVerificationStatus,
+} from '../users/entities/doctor.schema';
 import { UserRole } from '../users/enums/user-role.enum';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';
@@ -49,6 +57,7 @@ export class AdminService {
     adminId: string,
     dto: VerifyDoctorDto,
   ) {
+    void dto;
     console.log('🔍 VERIFY DOCTOR - Searching by userId:', doctorUserId);
 
     // Kiểm tra người duyệt là admin
@@ -62,7 +71,10 @@ export class AdminService {
       userId: new Types.ObjectId(doctorUserId),
     });
 
-    console.log('📋 DOCTOR FOUND:', doctor ? `Yes (${doctor._id})` : 'NO');
+    console.log(
+      '📋 DOCTOR FOUND:',
+      doctor ? `Yes (${doctor._id.toString()})` : 'NO',
+    );
 
     if (!doctor) {
       throw new NotFoundException('Doctor not found');
@@ -90,6 +102,7 @@ export class AdminService {
     adminId: string,
     dto: RejectDoctorDto,
   ) {
+    void dto;
     // Kiểm tra người duyệt là admin
     const admin = await this.userModel.findById(adminId);
     if (!admin || admin.role !== UserRole.ADMIN) {
@@ -125,6 +138,7 @@ export class AdminService {
    * Admin khóa tài khoản vi phạm
    */
   async lockAccount(userId: string, adminId: string, dto: LockAccountDto) {
+    void dto;
     // Kiểm tra người khóa là admin
     const admin = await this.userModel.findById(adminId);
     if (!admin || admin.role !== UserRole.ADMIN) {
@@ -187,8 +201,14 @@ export class AdminService {
     const limit = Math.min(100, Number(query.limit) || 10);
     const skip = (page - 1) * limit;
 
+    type SessionFilter = {
+      doctorId?: Types.ObjectId;
+      patientId?: Types.ObjectId;
+      status?: string;
+    };
+
     // Build filter
-    const filter: any = {};
+    const filter: SessionFilter = {};
     if (query.doctorId) {
       filter.doctorId = new Types.ObjectId(query.doctorId);
     }
@@ -201,7 +221,7 @@ export class AdminService {
 
     // Build sort
     const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
-    const sort: any = {};
+    const sort: Record<string, 1 | -1> = {};
     sort[query.sortBy || 'createdAt'] = sortOrder;
 
     const [data, total] = await Promise.all([
@@ -248,7 +268,13 @@ export class AdminService {
    * Lấy thống kê hệ thống
    */
   async getDashboardStats() {
-    const [totalUsers, totalDoctors, pendingDoctors, totalSessions, bannedAccounts] = await Promise.all([
+    const [
+      totalUsers,
+      totalDoctors,
+      pendingDoctors,
+      totalSessions,
+      bannedAccounts,
+    ] = await Promise.all([
       this.userModel.countDocuments(),
       this.doctorModel.countDocuments(),
       this.doctorModel.countDocuments({

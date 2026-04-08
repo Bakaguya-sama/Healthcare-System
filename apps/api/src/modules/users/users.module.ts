@@ -5,6 +5,12 @@ import { UsersController } from './users.controller';
 import { User, UserSchema } from '../auth/entities/user.schema';
 import { Patient, PatientSchema } from '../patients/entities/patient.entity';
 import { Doctor, DoctorSchema } from './entities/doctor.schema';
+import { Admin, AdminSchema } from '../admins/entities/admin.entity';
+import { Review, ReviewSchema } from '../reviews/entities/review.entity';
+import {
+  Violation,
+  ViolationSchema,
+} from '../violations/entities/violation.entity';
 
 @Module({
   imports: [
@@ -12,6 +18,9 @@ import { Doctor, DoctorSchema } from './entities/doctor.schema';
       { name: User.name, schema: UserSchema },
       { name: Patient.name, schema: PatientSchema },
       { name: Doctor.name, schema: DoctorSchema },
+      { name: Admin.name, schema: AdminSchema },
+      { name: Review.name, schema: ReviewSchema },
+      { name: Violation.name, schema: ViolationSchema },
     ]),
   ],
   controllers: [UsersController],

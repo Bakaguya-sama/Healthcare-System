@@ -8,24 +8,19 @@ import {
 import type { ChartOptions } from "chart.js";
 import { LineChart } from "@repo/ui/components/ui/line-chart";
 import { BarChart } from "@repo/ui/components/ui/vertical-bar-chart";
+import { useOverview } from "../hooks/useOverview";
 
 export function Overview() {
-  const lineChartLabels = [
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-    "Jan",
-    "Feb",
-    "Mar",
-  ];
-  const barChartLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const { summary, isLoading, error } = useOverview();
+
+  const lineChartLabels = summary.monthly.labels;
+
+  const barChartLabels = summary.weekly.labels;
 
   const lineChartDatasets = [
     {
       label: "Patients",
-      data: [1200, 1450, 1380, 1710, 1650, 2200, 2400, 2220],
+      data: summary.monthly.totalUsers,
       borderColor: "rgb(59, 130, 246)",
       backgroundColor: "rgba(59, 130, 246, 0.14)",
       tension: 0.4,
@@ -36,7 +31,7 @@ export function Overview() {
     },
     {
       label: "Doctors",
-      data: [85, 95, 92, 105, 108, 112, 118, 121],
+      data: summary.monthly.activeDoctors,
       borderColor: "rgb(16, 185, 129)",
       backgroundColor: "rgba(16, 185, 129, 0.08)",
       tension: 0.35,
@@ -46,8 +41,8 @@ export function Overview() {
       pointHoverRadius: 3,
     },
     {
-      label: "AI Usage",
-      data: [320, 520, 480, 720, 680, 980, 1120, 1060],
+      label: "AI Sessions",
+      data: summary.monthly.aiChatSessions,
       borderColor: "rgb(245, 158, 11)",
       backgroundColor: "rgba(245, 158, 11, 0.12)",
       tension: 0.4,
@@ -61,7 +56,7 @@ export function Overview() {
   const barChartDatasets = [
     {
       label: "Consultations",
-      data: [48, 72, 61, 86, 95, 43, 29],
+      data: summary.weekly.doctorSessions,
       borderColor: "rgb(59, 130, 246)",
       backgroundColor: "rgb(59, 130, 246)",
       borderRadius: 6,
@@ -69,7 +64,7 @@ export function Overview() {
     },
     {
       label: "Reports",
-      data: [6, 8, 4, 12, 7, 3, 2],
+      data: summary.weekly.violationReports,
       borderColor: "rgb(239, 68, 68)",
       backgroundColor: "rgb(239, 68, 68)",
       borderRadius: 6,
@@ -174,7 +169,7 @@ export function Overview() {
     {
       title: "Total Users",
       icon: <UsersRound size={18} />,
-      stats: 24891,
+      stats: isLoading ? 0 : summary.totalUsers,
       subText: "vs last month",
       comparedStats: 12.5,
       iconClassName: "bg-blue-50 text-blue-600",
@@ -182,15 +177,15 @@ export function Overview() {
     {
       title: "Active Doctors",
       icon: <Stethoscope size={18} />,
-      stats: 1382,
+      stats: isLoading ? 0 : summary.activeDoctors,
       subText: "vs last month",
       comparedStats: 8.2,
       iconClassName: "bg-emerald-50 text-emerald-600",
     },
     {
-      title: "AI Chat Usages",
+      title: "AI Chat Sessions",
       icon: <MessageSquareText size={18} />,
-      stats: 98432,
+      stats: isLoading ? 0 : summary.aiChatSessions,
       subText: "this month",
       comparedStats: 31.4,
       iconClassName: "bg-amber-50 text-amber-600",
@@ -198,12 +193,20 @@ export function Overview() {
     {
       title: "Pending Verifications",
       icon: <ShieldAlert size={18} />,
-      stats: 47,
+      stats: isLoading ? 0 : summary.pendingVerifications,
       subText: "needs review",
       comparedStats: -5,
       iconClassName: "bg-red-50 text-red-500",
     },
   ];
+
+  const date = new Date();
+  const today = date.toLocaleDateString("en-US", {
+    weekday: "long", // "Monday"
+    year: "numeric", // "2024"
+    month: "long", // "May"
+    day: "numeric", // "15"
+  });
 
   return (
     <div className="w-full p-6 ">
@@ -211,13 +214,14 @@ export function Overview() {
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold text-slate-900">Overview</h1>
-            <p className="text-sm text-slate-500">Tuesday, March 3, 2026</p>
+            <p className="text-sm text-slate-500">{today}</p>
+            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
           </div>
           <button
             type="button"
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
           >
-            Last 30 days
+            {isLoading ? "Loading..." : null}
           </button>
         </div>
 
@@ -227,7 +231,7 @@ export function Overview() {
           ))}
         </ul>
 
-        <div className="mt-5 grid min-h-[520px] grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="mt-5 grid min-h-130 grid-cols-1 gap-4 xl:grid-cols-3">
           <LineChart
             title="Platform Growth"
             subtitle="Patients, Doctors & AI usage over 8 months"

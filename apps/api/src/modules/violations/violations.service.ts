@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Violation, ViolationStatus } from './entities/violation.entity';
@@ -27,9 +31,9 @@ export class ViolationsService {
     }
 
     const violation = new this.violationModel({
-      reporter_id: dto.reporter_id || null,
-      reported_user_id: dto.reported_user_id || null,
-      report_type: dto.report_type,
+      reporterId: dto.reporter_id || null,
+      reportedUserId: dto.reported_user_id || null,
+      reportType: dto.report_type,
       reason: dto.reason,
     });
 
@@ -54,7 +58,7 @@ export class ViolationsService {
     }
 
     if (report_type) {
-      filter.report_type = report_type;
+      filter.reportType = report_type;
     }
 
     const skip = (page - 1) * limit;
@@ -62,11 +66,11 @@ export class ViolationsService {
     const [data, total] = await Promise.all([
       this.violationModel
         .find(filter)
-        .sort({ created_at: -1 })
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('reporter_id', 'email name')
-        .populate('reported_user_id', 'email name')
+        .populate('reporterId', 'email fullName')
+        .populate('reportedUserId', 'email fullName')
         .lean(),
       this.violationModel.countDocuments(filter),
     ]);
@@ -85,8 +89,8 @@ export class ViolationsService {
   async findById(id: string): Promise<Violation> {
     const violation = await this.violationModel
       .findById(id)
-      .populate('reporter_id', 'email name')
-      .populate('reported_user_id', 'email name')
+      .populate('reporterId', 'email fullName')
+      .populate('reportedUserId', 'email fullName')
       .lean();
 
     if (!violation) {
@@ -99,14 +103,17 @@ export class ViolationsService {
   /**
    * Get violations for a specific user (reported by or against)
    */
-  async findByUserId(userId: string, query: QueryViolationDto): Promise<{
+  async findByUserId(
+    userId: string,
+    query: QueryViolationDto,
+  ): Promise<{
     data: Violation[];
     total: number;
   }> {
     const { status, report_type, page = 1, limit = 20 } = query;
 
     const filter: any = {
-      $or: [{ reporter_id: userId }, { reported_user_id: userId }],
+      $or: [{ reporterId: userId }, { reportedUserId: userId }],
     };
 
     if (status) {
@@ -114,7 +121,7 @@ export class ViolationsService {
     }
 
     if (report_type) {
-      filter.report_type = report_type;
+      filter.reportType = report_type;
     }
 
     const skip = (page - 1) * limit;
@@ -122,11 +129,11 @@ export class ViolationsService {
     const [data, total] = await Promise.all([
       this.violationModel
         .find(filter)
-        .sort({ created_at: -1 })
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('reporter_id', 'email name')
-        .populate('reported_user_id', 'email name')
+        .populate('reporterId', 'email fullName')
+        .populate('reportedUserId', 'email fullName')
         .lean(),
       this.violationModel.countDocuments(filter),
     ]);
@@ -138,18 +145,19 @@ export class ViolationsService {
    * Update violation (add note, resolve)
    */
   async update(id: string, dto: UpdateViolationDto): Promise<Violation> {
-    const violation = await this.violationModel.findByIdAndUpdate(
-      id,
-      {
-        resolution_note: dto.resolution_note,
-        status: dto.status,
-        resolved_at: dto.status === ViolationStatus.RESOLVED ? new Date() : null,
-        updated_at: new Date(),
-      },
-      { new: true },
-    )
-      .populate('reporter_id', 'email name')
-      .populate('reported_user_id', 'email name');
+    const violation = await this.violationModel
+      .findByIdAndUpdate(
+        id,
+        {
+          resolutionNote: dto.resolution_note,
+          status: dto.status,
+          resolvedAt:
+            dto.status === ViolationStatus.RESOLVED ? new Date() : null,
+        },
+        { new: true },
+      )
+      .populate('reporterId', 'email fullName')
+      .populate('reportedUserId', 'email fullName');
 
     if (!violation) {
       throw new NotFoundException(`Violation #${id} not found`);
@@ -195,7 +203,7 @@ export class ViolationsService {
       this.violationModel.aggregate([
         {
           $group: {
-            _id: '$report_type',
+            _id: '$reportType',
             count: { $sum: 1 },
           },
         },

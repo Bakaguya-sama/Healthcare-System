@@ -11,7 +11,12 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ViolationsService } from './violations.service';
 import {
   CreateViolationDto,
@@ -24,7 +29,6 @@ import { RolesGuard } from './../../core/guards/roles.guard';
 import { CurrentUser } from './../../core/decorators/current-user.decorator';
 import { Roles } from './../../core/decorators/roles.decorator';
 import { UserRole } from './../users/enums/user-role.enum';
-import type { UserPayload } from './../auth/auth.payload';
 
 @ApiTags('Violations')
 @Controller('violations')
@@ -41,8 +45,14 @@ export class ViolationsController {
   @Roles(UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Report user violation' })
   @ApiResponse({ status: 201, description: 'Report created', type: Violation })
-  async create(@Body() dto: CreateViolationDto): Promise<Violation> {
-    return this.violationsService.create(dto);
+  async create(
+    @CurrentUser('sub') reporterId: string,
+    @Body() dto: CreateViolationDto,
+  ): Promise<Violation> {
+    return this.violationsService.create({
+      ...dto,
+      reporter_id: reporterId,
+    });
   }
 
   /**
@@ -91,7 +101,11 @@ export class ViolationsController {
   @Patch(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update violation (ADMIN only)' })
-  @ApiResponse({ status: 200, description: 'Violation updated', type: Violation })
+  @ApiResponse({
+    status: 200,
+    description: 'Violation updated',
+    type: Violation,
+  })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateViolationDto,
@@ -106,7 +120,11 @@ export class ViolationsController {
   @Post(':id/resolve')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Resolve violation (ADMIN only)' })
-  @ApiResponse({ status: 200, description: 'Violation resolved', type: Violation })
+  @ApiResponse({
+    status: 200,
+    description: 'Violation resolved',
+    type: Violation,
+  })
   async resolve(
     @Param('id') id: string,
     @Body('resolution_note') resolution_note: string,

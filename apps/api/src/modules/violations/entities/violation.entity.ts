@@ -9,6 +9,7 @@ export enum ReportType {
   IMPERSONATION = 'impersonation',
   FRAUD = 'fraud',
   AI_HALLUCINATION = 'ai_hallucination',
+  OTHER = 'other',
 }
 
 export enum ViolationStatus {
@@ -30,7 +31,11 @@ export class Violation extends Document {
   @Prop({ required: true, maxlength: 1000 })
   reason: string;
 
-  @Prop({ type: String, enum: ViolationStatus, default: ViolationStatus.PENDING })
+  @Prop({
+    type: String,
+    enum: ViolationStatus,
+    default: ViolationStatus.PENDING,
+  })
   status: ViolationStatus;
 }
 
