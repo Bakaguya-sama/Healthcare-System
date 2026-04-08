@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -39,6 +39,11 @@ import {
   X,
 } from "lucide-react";
 
+import { useReportList } from "../hooks/useReportManagement";
+import { useChangeReportStatus } from "../hooks/useChangeReportStatus";
+import { useViewProfile } from "@/features/shared/hooks/useProfile";
+import { useBanUser } from "@/features/user-management/hooks/useUserManagement";
+
 type ReportType =
   | "harassment"
   | "spam"
@@ -54,6 +59,7 @@ type AccountStatus = "active" | "banned";
 
 type ViolationReportItem = {
   id: string;
+  reportedUserId: string;
   reporterName: string;
   reportedAccount: string;
   reportType: ReportType;
@@ -62,63 +68,6 @@ type ViolationReportItem = {
   accountStatus: AccountStatus;
   createdAt: string;
 };
-
-const MOCK_REPORTS: ViolationReportItem[] = [
-  {
-    id: "VR-0001",
-    reporterName: "Liam Johnson",
-    reportedAccount: "Dr.SarahChen_fake",
-    reportType: "impersonation",
-    reason:
-      "Account appears to be impersonating a verified doctor with a nearly identical username and profile photo.",
-    status: "resolved",
-    accountStatus: "active",
-    createdAt: "Feb 28, 2026",
-  },
-  {
-    id: "VR-0002",
-    reporterName: "Hailey Nguyen",
-    reportedAccount: "dr.help.fastcash",
-    reportType: "fraud",
-    reason:
-      "This account asked me to transfer money to unlock private consultation results.",
-    status: "pending",
-    accountStatus: "active",
-    createdAt: "Mar 2, 2026",
-  },
-  {
-    id: "VR-0003",
-    reporterName: "Noah Kim",
-    reportedAccount: "medbot-v2",
-    reportType: "ai_hallucination",
-    reason:
-      "The AI recommended medication dosage that contradicts the prescription from my doctor.",
-    status: "pending",
-    accountStatus: "active",
-    createdAt: "Mar 5, 2026",
-  },
-  {
-    id: "VR-0004",
-    reporterName: "Emma Tran",
-    reportedAccount: "dr.john.med",
-    reportType: "harassment",
-    reason: "The user repeatedly sent offensive messages in consultation chat.",
-    status: "resolved",
-    accountStatus: "banned",
-    createdAt: "Mar 6, 2026",
-  },
-  {
-    id: "VR-0005",
-    reporterName: "Lucas Pham",
-    reportedAccount: "clinic.prime.offer",
-    reportType: "spam",
-    reason:
-      "The account keeps posting repetitive promotional messages in every discussion thread.",
-    status: "pending",
-    accountStatus: "active",
-    createdAt: "Mar 9, 2026",
-  },
-];
 
 const REPORT_TYPE_META: Record<
   ReportType,
@@ -182,17 +131,21 @@ const REPORT_TYPE_META: Record<
 type ReportDetailModalProps = {
   report: ViolationReportItem | null;
   isOpen: boolean;
+  canBan: boolean;
   onClose: () => void;
   onToggleResolved: (id: string) => void;
   onBanUser: (id: string) => void;
+  isUpdating: boolean;
 };
 
 function ReportDetailModal({
   report,
   isOpen,
+  canBan,
   onClose,
   onToggleResolved,
   onBanUser,
+  isUpdating,
 }: ReportDetailModalProps) {
   if (!isOpen || !report) return null;
 
@@ -276,6 +229,7 @@ function ReportDetailModal({
                 : "bg-slate-600 hover:bg-slate-700"
             }`}
             onClick={() => onToggleResolved(report.id)}
+            disabled={isUpdating}
           >
             <CheckCircle className="mr-2 h-4 w-4" />
             {report.status === "pending" ? "Mark Resolved" : "Unmark"}
@@ -283,15 +237,15 @@ function ReportDetailModal({
           <Button
             type="button"
             className={`sm:min-w-36 text-white ${
-              report.accountStatus === "active"
+              canBan
                 ? "bg-red-500 hover:bg-red-600"
                 : "cursor-not-allowed bg-slate-300 text-slate-100"
             }`}
             onClick={() => onBanUser(report.id)}
-            disabled={report.accountStatus === "banned"}
+            disabled={!canBan || isUpdating}
           >
             <UserX className="mr-2 h-4 w-4" />
-            {report.accountStatus === "active" ? "Ban User" : "Banned"}
+            {canBan ? "Ban User" : "Banned"}
           </Button>
         </div>
       </div>
@@ -300,8 +254,7 @@ function ReportDetailModal({
 }
 
 export function ViolationReport() {
-  const [reportList, setReportList] =
-    useState<ViolationReportItem[]>(MOCK_REPORTS);
+  const [reportList, setReportList] = useState<ViolationReportItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ReportStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | ReportType>("all");
@@ -310,6 +263,53 @@ export function ViolationReport() {
     useState<ViolationReportItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const itemsPerPage = 8;
+  const {
+    response: reportListResponse,
+    isLoading: isReportListLoading,
+    error: reportListError,
+    loadReportList,
+  } = useReportList();
+  const {
+    changeReportStatus,
+    isLoading: isChangingReportStatus,
+    error: changeReportStatusError,
+  } = useChangeReportStatus();
+  const {
+    submitBanUser,
+    isLoading: isBanningUser,
+    error: banUserError,
+  } = useBanUser();
+  const {
+    data: selectedReportedUserProfile,
+    isLoading: isLoadingSelectedReportedUser,
+  } = useViewProfile(
+    selectedReport?.reportedUserId ?? null,
+    isModalOpen && Boolean(selectedReport?.reportedUserId),
+  );
+
+  useEffect(() => {
+    void loadReportList();
+  }, [loadReportList]);
+
+  useEffect(() => {
+    if (!reportListResponse) {
+      return;
+    }
+
+    setReportList(
+      reportListResponse.reportListReceiver.map((item) => ({
+        id: item.id,
+        reportedUserId: item.reportedUserId,
+        reporterName: item.reporterName,
+        reportedAccount: item.reportedAccount,
+        reportType: item.reportType,
+        reason: item.reason,
+        status: item.status,
+        accountStatus: item.accountStatus,
+        createdAt: item.createdAt,
+      })),
+    );
+  }, [reportListResponse]);
 
   const filteredReports = useMemo(() => {
     return reportList.filter((report) => {
@@ -345,28 +345,53 @@ export function ViolationReport() {
     setIsModalOpen(true);
   };
 
-  const handleToggleResolved = (id: string) => {
+  const handleToggleResolved = async (id: string) => {
+    const currentReport = reportList.find((item) => item.id === id);
+    if (!currentReport) {
+      return;
+    }
+
+    const nextStatus: ReportStatus =
+      currentReport.status === "pending" ? "resolved" : "pending";
+
+    const updated = await changeReportStatus({
+      id,
+      status: nextStatus,
+    });
+
+    if (!updated) {
+      return;
+    }
+
     setReportList((prev) =>
       prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status: item.status === "pending" ? "resolved" : "pending",
-            }
-          : item,
+        item.id === id ? { ...item, status: nextStatus } : item,
       ),
     );
     setSelectedReport((prev) =>
-      prev && prev.id === id
-        ? {
-            ...prev,
-            status: prev.status === "pending" ? "resolved" : "pending",
-          }
-        : prev,
+      prev && prev.id === id ? { ...prev, status: nextStatus } : prev,
     );
   };
 
-  const handleBanUser = (id: string) => {
+  const handleBanUser = async (id: string) => {
+    if (selectedReportedUserProfile?.account_status === "banned") {
+      return;
+    }
+
+    const targetReport = reportList.find((item) => item.id === id);
+    if (!targetReport?.reportedUserId) {
+      return;
+    }
+
+    const response = await submitBanUser({
+      id: targetReport.reportedUserId,
+      reason: `Violation report ${id}`,
+    });
+
+    if (!response) {
+      return;
+    }
+
     setReportList((prev) =>
       prev.map((item) =>
         item.id === id
@@ -380,6 +405,10 @@ export function ViolationReport() {
         : prev,
     );
   };
+
+  const canBanSelectedUser =
+    selectedReportedUserProfile?.account_status === "active" &&
+    !isLoadingSelectedReportedUser;
 
   return (
     <div className="w-full p-6">
@@ -397,6 +426,19 @@ export function ViolationReport() {
             pending reports.
           </p>
         </div>
+
+        {/* Loading */}
+        {isReportListLoading ? (
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            Loading violation reports...
+          </div>
+        ) : null}
+
+        {reportListError || changeReportStatusError || banUserError ? (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {reportListError || changeReportStatusError || banUserError}
+          </div>
+        ) : null}
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-slate-200 p-3 lg:flex-row lg:items-center lg:justify-between">
@@ -538,6 +580,7 @@ export function ViolationReport() {
                           size="sm"
                           className="rounded-lg text-xs"
                           onClick={() => openReportModal(report)}
+                          disabled={isChangingReportStatus || isBanningUser}
                         >
                           View
                         </Button>
@@ -630,9 +673,11 @@ export function ViolationReport() {
         <ReportDetailModal
           report={selectedReport}
           isOpen={isModalOpen}
+          canBan={canBanSelectedUser}
           onClose={() => setIsModalOpen(false)}
           onToggleResolved={handleToggleResolved}
           onBanUser={handleBanUser}
+          isUpdating={isChangingReportStatus || isBanningUser}
         />
       </div>
     </div>
