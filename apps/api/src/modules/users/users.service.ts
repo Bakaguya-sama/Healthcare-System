@@ -387,4 +387,16 @@ export class UsersService {
 
     return patient.toObject({ versionKey: false });
   }
+
+  /**
+   * 👤 DELETE /users/profile
+   * Xóa patient profile
+   */
+  async deletePatientProfile(userId: string): Promise<void> {
+    const result = await this.patientModel.deleteOne({ userId });
+
+    if (result.deletedCount === 0) {
+      throw new NotFoundException('Patient profile not found');
+    }
+  }
 }

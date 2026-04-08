@@ -383,14 +383,14 @@ Body: {"email": "patient@example.com"}
 
 ---
 
-## 👥 PHASE 2: USER MANAGEMENT (6 endpoints)
+## 👥 PHASE 2: USER MANAGEMENT (10 endpoints)
 
-**Mục tiêu:** CRUD users, list doctors, manage profiles
+**Mục tiêu:** CRUD users, list doctors, manage profiles (including patient profile)
 
 ### 2️⃣ USERS - User Management
 **Collection:** `2️⃣ USERS - User Management`
 
-#### Test Cases
+#### Test Cases (General User Management - 6 endpoints)
 
 | # | Endpoint | Method | Query | Expected | Role | Status |
 |---|----------|--------|-------|----------|------|--------|
@@ -401,7 +401,16 @@ Body: {"email": "patient@example.com"}
 | 5 | PATCH /users/me | PATCH | fullName, phoneNumber, address, specialty | 200 + updated user | Auth | ✅ |
 | 6 | DELETE /users/:id | DELETE | - | 204 + no content | Admin/Own | ✅ |
 
-#### Commands
+#### Test Cases (Patient Profile - NEW - 4 endpoints)
+
+| # | Endpoint | Method | Body | Expected | Role | Status |
+|---|----------|--------|------|----------|------|--------|
+| 7 | POST /users/profile | POST | {} | 201 + profile | PATIENT | ✨ NEW |
+| 8 | GET /users/profile | GET | - | 200 + profile | PATIENT | ✨ NEW |
+| 9 | PATCH /users/profile | PATCH | {} | 200 + profile | PATIENT | ✨ NEW |
+| 10 | DELETE /users/profile | DELETE | - | 204 | PATIENT | ✨ NEW |
+
+#### Commands - General User Management
 ```bash
 # 1. Get all users (ADMIN only)
 GET {{base_url}}/users?page=1&limit=10
@@ -432,6 +441,7 @@ Body: {
   "fullName": "Updated Patient Name",
   "dateOfBirth": "1990-06-10",
   "phoneNumber": "0987654321",
+  "avatarUrl": "https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/avatar-123.jpg",
   "address": {
     "street": "123 Main St",
     "city": "Ho Chi Minh",
@@ -457,54 +467,27 @@ Header: Authorization: Bearer {{admin_token}}
 ✅ Expected: 204
 ```
 
-**Checklist:**
-- [ ] Users can only update own profile
-- [ ] Admin can list all users
-- [ ] Doctor list is public (no auth needed)
-- [ ] Doctor list shows **specialty** (not "specialization")
-- [ ] User response includes **fullName** (not "name")
-- [ ] Deleted user can't login
-- [ ] Pagination works (limit 1-100)
-
----
-
-## 🏥 PHASE 3: ROLE-SPECIFIC PROFILES (5 + 4 = 9 endpoints)
-
-**Mục tiêu:** Manage Patient and Admin profiles
-
-### 3️⃣ PATIENTS - Patient Management
-**Collection:** `3️⃣ PATIENTS - Patient Management`
-
-#### Test Cases (Patient Role)
-
-| # | Endpoint | Method | Body | Expected | Status |
-|---|----------|--------|------|----------|--------|
-| 1 | POST /patients | POST | {} (no fields) | 201 + patient | ✅ |
-| 2 | GET /patients/profile | GET | - | 200 + patient profile | ✅ |
-| 3 | GET /patients | GET | page, status | 200 + all patients (ADMIN) | ✅ |
-| 4 | PATCH /patients/profile | PATCH | {} (no fields) | 200 + updated | ✅ |
-| 5 | DELETE /patients/profile | DELETE | - | 204 | ✅ |
-
-#### Commands
+#### Commands - Patient Profile Management (NEW)
 ```bash
-# 1. Create patient profile (empty body - only userId from auth)
-POST {{base_url}}/patients
+# 5. Create patient profile (empty body - auto-populated from auth)
+POST {{base_url}}/users/profile
 Header: Authorization: Bearer {{jwt_token}}
 Body: {}
-✅ Expected: 201, patient created with userId auto-populated from auth
+✅ Expected: 201, patient profile created
 Response: {
-  "_id": "patient_id",
+  "_id": "profile_id",
   "userId": "{{user_id}}",
-  "createdAt": "2026-03-20T10:00:00Z",
-  "updatedAt": "2026-03-20T10:00:00Z"
+  "createdAt": "2026-04-07T10:00:00Z",
+  "updatedAt": "2026-04-07T10:00:00Z"
 }
+⚠️ Note: Patient profile is READ-ONLY per template - no custom fields
 
-# 2. Get own patient profile
-GET {{base_url}}/patients/profile
+# 6. Get own patient profile
+GET {{base_url}}/users/profile
 Header: Authorization: Bearer {{jwt_token}}
 ✅ Expected: 200, patient object with ONLY: userId, timestamps
 Response: {
-  "_id": "patient_id",
+  "_id": "profile_id",
   "userId": {
     "_id": "{{user_id}}",
     "fullName": "Nguyen Van A",  ← Populated from User
@@ -513,35 +496,50 @@ Response: {
     "avatarUrl": "...",
     ...
   },
-  "createdAt": "2026-03-20T10:00:00Z",
-  "updatedAt": "2026-03-20T10:00:00Z"
+  "createdAt": "2026-04-07T10:00:00Z",
+  "updatedAt": "2026-04-07T10:00:00Z"
 }
 
-# 3. Update profile (no fields to update - read-only)
-PATCH {{base_url}}/patients/profile
+# 7. Update patient profile (empty body - no fields to update per template)
+PATCH {{base_url}}/users/profile
 Header: Authorization: Bearer {{jwt_token}}
 Body: {}
-✅ Expected: 200, no changes possible (template-aligned)
+✅ Expected: 200, no changes possible (template-aligned read-only)
 
-# 4. Get all patients (ADMIN only)
-GET {{base_url}}/patients?page=1&limit=10
-Header: Authorization: Bearer {{admin_token}}
-✅ Expected: 200, paginated list of patients with userId populated
+# 8. Delete patient profile
+DELETE {{base_url}}/users/profile
+Header: Authorization: Bearer {{jwt_token}}
+✅ Expected: 204, no content
 ```
 
-**Checklist:**
-- [ ] Patient can create own profile (once)
-- [ ] Only template field: userId (NO dateOfBirth, NO fullName)
+**Checklist - General:**
+- [ ] Users can only update own profile (/users/me)
+- [ ] Admin can list all users (/users)
+- [ ] Doctor list is public (no auth needed)
+- [ ] Doctor list shows **specialty** (not "specialization")
+- [ ] User response includes **fullName** (not "name")
+- [ ] Deleted user can't login
+- [ ] Pagination works (limit 1-100)
+
+**Checklist - Patient Profile (NEW):**
+- [ ] Patient can create own profile (POST /users/profile)
+- [ ] Patient can read own profile (GET /users/profile)
+- [ ] Patient can update own profile (PATCH /users/profile - no changes)
+- [ ] Patient can delete own profile (DELETE /users/profile)
 - [ ] Request bodies for Create/Update are EMPTY: `{}`
-- [ ] Patient profile is **READ-ONLY** in template
-- [ ] Only ADMIN can list all patients
-- [ ] Timestamps auto-generated (createdAt, updatedAt)
+- [ ] Patient profile is **READ-ONLY** in template - only userId stored
 - [ ] User.fullName obtained via populate on userId
+- [ ] Timestamps auto-generated (createdAt, updatedAt)
+- [ ] Only PATIENT role can access these endpoints
 
 ---
 
-### 4️⃣ ADMINS - Admin Management
-**Collection:** `4️⃣ ADMINS - Admin Management`
+## 🏥 PHASE 3: ADMIN MANAGEMENT (4 endpoints)
+
+**Mục tiêu:** Manage admin accounts
+
+### 3️⃣ ADMINS - Admin Management
+**Collection:** `3️⃣ ADMINS - Admin Management`
 
 #### Test Cases (ADMIN Role)
 
@@ -565,7 +563,21 @@ Body: {
 
 # 2. Get all admins
 GET {{base_url}}/admins?page=1&limit=10
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 200, paginated list
+
+# 3. Update admin role
+PATCH {{base_url}}/admins/:id
+Header: Authorization: Bearer {{admin_token}}
+Body: {
+  "adminRole": "ai_manager"
+}
 ✅ Expected: 200
+
+# 4. Delete admin
+DELETE {{base_url}}/admins/:id
+Header: Authorization: Bearer {{admin_token}}
+✅ Expected: 204
 ```
 
 **Checklist:**

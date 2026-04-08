@@ -100,7 +100,7 @@ async function seedDatabase() {
         dateOfBirth: new Date('1990-05-15'),
         role: 'patient',
         phoneNumber: '0912345678',
-        avatarUrl: 'https://api.example.com/avatars/patient1.jpg',
+        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient1-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -120,7 +120,7 @@ async function seedDatabase() {
         dateOfBirth: new Date('1992-08-22'),
         role: 'patient',
         phoneNumber: '0912345679',
-        avatarUrl: 'https://api.example.com/avatars/patient2.jpg',
+        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient2-avatar.jpg',
         accountStatus: 'active',
         isOnline: true,
         address: {
@@ -140,7 +140,7 @@ async function seedDatabase() {
         dateOfBirth: new Date('1988-12-01'),
         role: 'patient',
         phoneNumber: '0912345680',
-        avatarUrl: 'https://api.example.com/avatars/patient3.jpg',
+        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient3-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -163,7 +163,7 @@ async function seedDatabase() {
         dateOfBirth: new Date('1985-03-10'),
         role: 'doctor',
         phoneNumber: '0912345681',
-        avatarUrl: 'https://api.example.com/avatars/doctor1.jpg',
+        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor1-avatar.jpg',
         accountStatus: 'active',
         isOnline: true,
         address: {
@@ -183,7 +183,7 @@ async function seedDatabase() {
         dateOfBirth: new Date('1987-07-25'),
         role: 'doctor',
         phoneNumber: '0912345682',
-        avatarUrl: 'https://api.example.com/avatars/doctor2.jpg',
+        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor2-avatar.jpg',
         accountStatus: 'active',
         isOnline: true,
         address: {
@@ -203,7 +203,7 @@ async function seedDatabase() {
         dateOfBirth: new Date('1984-11-18'),
         role: 'doctor',
         phoneNumber: '0912345683',
-        avatarUrl: 'https://api.example.com/avatars/doctor3.jpg',
+        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor3-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -226,7 +226,7 @@ async function seedDatabase() {
         dateOfBirth: new Date('1990-01-01'),
         role: 'admin',
         phoneNumber: '0912345684',
-        avatarUrl: 'https://api.example.com/avatars/admin.jpg',
+        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/admin-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -264,8 +264,8 @@ async function seedDatabase() {
         specialty: 'Cardiology',
         workplace: 'Central Hospital',
         verificationDocuments: [
-          'https://api.example.com/docs/doctor1_license.pdf',
-          'https://api.example.com/docs/doctor1_cert.pdf',
+          'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/doctors/verification/doctor1_license.pdf',
+          'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/doctors/verification/doctor1_cert.pdf',
         ],
         experienceYears: 15,
         averageRating: 4.8,
@@ -277,7 +277,7 @@ async function seedDatabase() {
         specialty: 'Pediatrics',
         workplace: 'Children Hospital',
         verificationDocuments: [
-          'https://api.example.com/docs/doctor2_license.pdf',
+          'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/doctors/verification/doctor2_license.pdf',
         ],
         experienceYears: 12,
         averageRating: 4.6,
@@ -288,7 +288,7 @@ async function seedDatabase() {
         specialty: 'Neurology',
         workplace: 'Brain Health Center',
         verificationDocuments: [
-          'https://api.example.com/docs/doctor3_license.pdf',
+          'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/doctors/verification/doctor3_license.pdf',
         ],
         experienceYears: 18,
         averageRating: 4.9,
@@ -510,7 +510,7 @@ async function seedDatabase() {
         content: 'Let me check your vaccination records',
         attachments: [
           {
-            fileUrl: 'https://api.example.com/records/immunization_chart.pdf',
+            fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/chat/attachments/immunization_chart.pdf',
             fileName: 'immunization_chart.pdf',
             fileSize: 245000,
             mimeType: 'application/pdf',
@@ -602,21 +602,21 @@ async function seedDatabase() {
     const aiDocuments = await aiDocumentModel.insertMany([
       {
         title: 'Cardiology Treatment Guidelines 2026',
-        fileUrl: 'https://api.example.com/docs/cardiology_guidelines.pdf',
+        fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/cardiology_guidelines.pdf',
         fileType: 'pdf',
         status: 'active',
         uploadedBy: admins[0]._id,
       },
       {
         title: 'Pediatric Care Manual',
-        fileUrl: 'https://api.example.com/docs/pediatric_manual.docx',
+        fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/pediatric_manual.docx',
         fileType: 'docx',
         status: 'processing',
         uploadedBy: admins[0]._id,
       },
       {
         title: 'Neurology Diagnostic Criteria',
-        fileUrl: 'https://api.example.com/docs/neurology_criteria.pdf',
+        fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/neurology_criteria.pdf',
         fileType: 'pdf',
         status: 'active',
         uploadedBy: admins[0]._id,

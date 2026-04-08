@@ -422,7 +422,7 @@
       ]
     },
     {
-      "name": "2️⃣ USERS - User Management (6 endpoints)",
+      "name": "2️⃣ USERS - User Management (10 endpoints)",
       "item": [
         {
           "name": "Get All Users",
@@ -489,7 +489,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"phoneNumber\": \"0987654321\",\n  \"avatarUrl\": \"https://example.com/avatar.jpg\",\n  \"address\": {\"street\": \"123 Main St\", \"city\": \"Ho Chi Minh\", \"country\": \"Vietnam\"}\n}",
+              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"phoneNumber\": \"0987654321\",\n  \"avatarUrl\": \"https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/avatar-123.jpg\",\n  \"address\": {\"street\": \"123 Main St\", \"city\": \"Ho Chi Minh\", \"country\": \"Vietnam\"}\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -497,7 +497,7 @@
               "host": ["{{base_url}}"],
               "path": ["users", "me"]
             },
-            "description": "Update current user's profile"
+            "description": "Update current user's profile (🔶 Note: avatarUrl must be Cloudinary URL - upload via POST /upload/avatar first)"
           },
           "response": []
         },
@@ -514,11 +514,77 @@
             "description": "Delete user account (Admin or own account)"
           },
           "response": []
+        },
+        {
+          "name": "Create Patient Profile",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Create patient profile (Patient only - auto-created from auth context, empty body)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Patient Profile",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Get current patient's profile (Patient only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Patient Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Update patient profile (Patient only - currently no custom fields per DB template)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Patient Profile",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Delete patient profile (Patient only)"
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "3️⃣ PATIENTS - Patient Management (5 endpoints)",
+      "name": "3️⃣ PATIENTS - Patient Management (⚠️ DEPRECATED - Use 2️⃣ USERS /users/profile instead)",
       "item": [
         {
           "name": "Create Patient Profile",
@@ -535,7 +601,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients"]
             },
-            "description": "Create new patient profile (no additional fields needed - only uses userId from auth)"
+            "description": "⚠️ DEPRECATED - Use POST /users/profile instead. Create new patient profile (no additional fields needed - only uses userId from auth)"
           },
           "response": []
         },
@@ -549,7 +615,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients", "profile"]
             },
-            "description": "Get current patient's profile"
+            "description": "⚠️ DEPRECATED - Use GET /users/profile instead. Get current patient's profile"
           },
           "response": []
         },
@@ -564,7 +630,7 @@
               "path": ["patients"],
               "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}, {"key": "status", "value": "active"}]
             },
-            "description": "Get paginated list of all patients (ADMIN only)"
+            "description": "⚠️ DEPRECATED - Use GET /users instead. Get paginated list of all patients (ADMIN only)"
           },
           "response": []
         },
@@ -583,7 +649,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients", "profile"]
             },
-            "description": "Update current patient's profile (read-only in template - no fields can be updated)"
+            "description": "⚠️ DEPRECATED - Use PATCH /users/profile instead. Update current patient's profile (read-only in template - no fields can be updated)"
           },
           "response": []
         },
@@ -597,7 +663,7 @@
               "host": ["{{base_url}}"],
               "path": ["patients", "profile"]
             },
-            "description": "Delete patient profile"
+            "description": "⚠️ DEPRECATED - Use DELETE /users/profile instead. Delete patient profile"
           },
           "response": []
         }
@@ -1737,7 +1803,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"aiSessionId\": \"{{ai_session_id}}\",\n  \"senderType\": \"patient\",\n  \"content\": \"I have a headache for 3 days\"\n}",
+              "raw": "{\n  \"aiSessionId\": \"{{ai_session_id}}\",\n  \"senderType\": \"patient\",\n  \"content\": \"I have a headache for 3 days\",\n  \"attachments\": [\"https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/chat/attachments/test-results.pdf\"]\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -1745,7 +1811,7 @@
               "host": ["{{base_url}}"],
               "path": ["ai-messages"]
             },
-            "description": "Create new AI message"
+            "description": "Create new AI message (🔶 Note: attachments array must contain Cloudinary URLs only - upload via POST /upload/single first)"
           },
           "response": []
         },
@@ -2040,7 +2106,7 @@
             "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"fileUrl\": \"https://example.com/guideline.pdf\",\n  \"fileType\": \"pdf\",\n  \"status\": \"processing\",\n  \"uploadedBy\": \"{{user_id}}\"\n}",
+              "raw": "{\n  \"title\": \"Medical Guidelines 2024\",\n  \"fileUrl\": \"https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/guideline-2024.pdf\",\n  \"fileType\": \"pdf\",\n  \"status\": \"processing\",\n  \"uploadedBy\": \"{{user_id}}\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -2048,7 +2114,7 @@
               "host": ["{{base_url}}"],
               "path": ["ai-documents"]
             },
-            "description": "Create knowledge base document"
+            "description": "Create knowledge base document (🔶 Note: fileUrl must be Cloudinary URL - upload via POST /upload/single first with folder=healthcare/ai/documents)"
           },
           "response": []
         },
