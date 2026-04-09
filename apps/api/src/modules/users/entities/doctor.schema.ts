@@ -38,6 +38,9 @@ export class Doctor {
     default: DoctorVerificationStatus.PENDING,
   })
   verificationStatus: DoctorVerificationStatus;
+
+  @Prop()
+  rejectReason?: string;
 }
 
 export const DoctorSchema = SchemaFactory.createForClass(Doctor);

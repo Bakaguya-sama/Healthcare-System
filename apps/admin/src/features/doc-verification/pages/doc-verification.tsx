@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import {
   Table,
@@ -16,30 +16,21 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@repo/ui/components/ui/pagination";
+import {
+  useGetDoctorDocuments,
+  useApproveDoctor,
+  useRejectDoctor,
+} from "../hooks/useDocumentVerification";
+import type {
+  DocumentItemReceiver,
+  VerificationFile,
+} from "../services/doc-verification.service";
 
 import { Check, X, Search } from "lucide-react";
 import { Button } from "@repo/ui/components/ui/button";
+import { showToast } from "@repo/ui/components/ui/toasts";
 
-type VerificationFile = {
-  name: string;
-  url: string;
-  type: "pdf" | "jpg" | "jpeg" | "png";
-  size: number;
-};
-
-type DocumentRecord = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  specialty: string;
-  experience: string;
-  workplace: string;
-  sent_at: string;
-  status: "pending" | "approved" | "rejected";
-  verificationFiles: VerificationFile[];
-  rejectionReason?: string;
-};
+type DocumentRecord = DocumentItemReceiver;
 
 function getInitials(name: string) {
   return name
@@ -61,124 +52,6 @@ function getAvatarColor(seed: string) {
   const index = seed.charCodeAt(0) % palette.length;
   return palette[index];
 }
-
-// Mock data - Replace with API calls
-const mockDocuments: DocumentRecord[] = [
-  {
-    id: "1",
-    name: "Dr. Marcus Lee",
-    email: "ml@clinic.com",
-    phone: "+1 (333) 584-3843",
-    specialty: "Neurology",
-    experience: "5 years",
-    workplace: "Stanford Medical School",
-    sent_at: "Dec 1, 2025",
-    status: "pending",
-    verificationFiles: [
-      {
-        name: "Medical_License_Marcus_Lee.pdf",
-        url: "https://via.placeholder.com/800x600?text=Medical+License+PDF",
-        type: "pdf",
-        size: 2048,
-      },
-      {
-        name: "degree_certificate.jpg",
-        url: "https://via.placeholder.com/800x600?text=Degree+Certificate",
-        type: "jpg",
-        size: 1024,
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Dr. Sarah Johnson",
-    email: "sarah.j@hospital.com",
-    phone: "+1 (415) 555-2671",
-    specialty: "Cardiology",
-    experience: "8 years",
-    workplace: "Johns Hopkins Hospital",
-    sent_at: "Dec 2, 2025",
-    status: "approved",
-    verificationFiles: [
-      {
-        name: "CardiolgyLicense_SarahJ.pdf",
-        url: "https://via.placeholder.com/800x600?text=License",
-        type: "pdf",
-        size: 3072,
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "Dr. James Wilson",
-    email: "j.wilson@medical.com",
-    phone: "+1 (415) 555-2672",
-    specialty: "Pediatrics",
-    experience: "10 years",
-    workplace: "Children's Hospital",
-    sent_at: "Dec 3, 2025",
-    status: "rejected",
-    verificationFiles: [
-      {
-        name: "expired_license.pdf",
-        url: "https://via.placeholder.com/800x600?text=Expired+License",
-        type: "pdf",
-        size: 2560,
-      },
-    ],
-    rejectionReason: "Document expired - valid until Dec 31, 2024",
-  },
-  {
-    id: "4",
-    name: "Dr. Emily Chen",
-    email: "emily.chen@clinic.com",
-    phone: "+1 (551) 555-2673",
-    specialty: "Dermatology",
-    experience: "6 years",
-    workplace: "Mayo Clinic",
-    sent_at: "Dec 4, 2025",
-    status: "pending",
-    verificationFiles: [
-      {
-        name: "dermatology_cert.jpg",
-        url: "https://via.placeholder.com/800x600?text=Dermatology+Certificate",
-        type: "jpg",
-        size: 1536,
-      },
-      {
-        name: "license_2024.pdf",
-        url: "https://via.placeholder.com/800x600?text=License+2024",
-        type: "pdf",
-        size: 2200,
-      },
-      {
-        name: "professional_credential.png",
-        url: "https://via.placeholder.com/800x600?text=Professional+Credential",
-        type: "png",
-        size: 1800,
-      },
-    ],
-  },
-  {
-    id: "5",
-    name: "Dr. Michael Brown",
-    email: "m.brown@hospital.com",
-    phone: "+1 (216) 555-2674",
-    specialty: "Orthopedics",
-    experience: "12 years",
-    workplace: "Cleveland Clinic",
-    sent_at: "Dec 5, 2025",
-    status: "pending",
-    verificationFiles: [
-      {
-        name: "orthopedic_license.pdf",
-        url: "https://via.placeholder.com/800x600?text=Orthopedic+License",
-        type: "pdf",
-        size: 3000,
-      },
-    ],
-  },
-];
 
 // Modal Components
 function FilePreviewComponent({ file }: { file: VerificationFile }) {
@@ -225,12 +98,14 @@ function ReviewModal({
   onClose,
   onApprove,
   onReject,
+  isProcessing,
 }: {
   isOpen: boolean;
   document: DocumentRecord | null;
   onClose: () => void;
-  onApprove: (id: string) => void;
-  onReject: (id: string, reason: string) => void;
+  onApprove: (id: string) => Promise<void>;
+  onReject: (id: string, reason: string) => Promise<void>;
+  isProcessing: boolean;
 }) {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [showRejectReason, setShowRejectReason] = useState(false);
@@ -240,18 +115,14 @@ function ReviewModal({
 
   const selectedFile = document.verificationFiles[selectedFileIndex];
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (rejectReason.trim()) {
-      onReject(document.id, rejectReason.trim());
-      setRejectReason("");
-      setShowRejectReason(false);
-      onClose();
+      await onReject(document.id, rejectReason.trim());
     }
   };
 
-  const handleApprove = () => {
-    onApprove(document.id);
-    onClose();
+  const handleApprove = async () => {
+    await onApprove(document.id);
   };
 
   return (
@@ -281,7 +152,7 @@ function ReviewModal({
                 </p>
 
                 {document.verificationFiles.length > 0 ? (
-                  <div className="flex max-h-[560px] flex-col gap-2 overflow-y-auto pr-1">
+                  <div className="flex max-h-140 flex-col gap-2 overflow-y-auto pr-1">
                     {document.verificationFiles.map((file, idx) => (
                       <button
                         key={idx}
@@ -303,7 +174,7 @@ function ReviewModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="flex h-[560px] items-center justify-center rounded-md border border-dashed border-slate-200 bg-white px-3 text-center text-sm text-slate-500">
+                  <div className="flex h-140 items-center justify-center rounded-md border border-dashed border-slate-200 bg-white px-3 text-center text-sm text-slate-500">
                     No documents uploaded
                   </div>
                 )}
@@ -312,7 +183,7 @@ function ReviewModal({
 
             {/* File Preview - Middle */}
             <div className="min-w-0">
-              <div className="flex h-[560px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex h-140 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-4">
                 {selectedFile ? (
                   <FilePreviewComponent file={selectedFile} />
                 ) : (
@@ -389,7 +260,7 @@ function ReviewModal({
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
                         placeholder="Explain why you are rejecting this application..."
-                        className="min-h-[180px] w-full rounded-lg border border-red-200 p-3 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                        className="min-h-45 w-full rounded-lg border border-red-200 p-3 text-sm outline-none focus:ring-2 focus:ring-red-500"
                         rows={5}
                       />
                     </div>
@@ -410,16 +281,17 @@ function ReviewModal({
                   setRejectReason("");
                 }}
                 variant="outline"
+                disabled={isProcessing}
               >
                 Back
               </Button>
               <Button
-                onClick={handleReject}
-                disabled={!rejectReason.trim()}
+                onClick={() => void handleReject()}
+                disabled={!rejectReason.trim() || isProcessing}
                 className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X className="h-4 w-4 mr-2" />
-                Confirm Rejection
+                {isProcessing ? "Processing..." : "Confirm Rejection"}
               </Button>
             </>
           ) : document.status === "pending" ? (
@@ -428,20 +300,26 @@ function ReviewModal({
                 onClick={() => setShowRejectReason(true)}
                 variant="outline"
                 className="border-red-300 text-red-700 hover:bg-red-50"
+                disabled={isProcessing}
               >
                 <X className="h-4 w-4 mr-2" />
                 Reject
               </Button>
 
               <Button
-                onClick={handleApprove}
+                onClick={() => void handleApprove()}
                 className={`bg-green-600 hover:bg-green-700 `}
+                disabled={isProcessing}
               >
                 <Check className="h-4 w-4 mr-2" />
-                Approve
+                {isProcessing ? "Processing..." : "Approve"}
               </Button>
 
-              <Button onClick={onClose} variant="outline">
+              <Button
+                onClick={onClose}
+                variant="outline"
+                disabled={isProcessing}
+              >
                 Close
               </Button>
             </>
@@ -457,18 +335,67 @@ function ReviewModal({
 }
 
 export function DocumentVerification() {
-  const [selectedStatus, setSelectedStatus] = useState<
-    "all" | "pending" | "approved" | "rejected"
-  >("all");
+  type StatusFilter = "all" | "pending" | "approved" | "rejected";
+
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [documents, setDocuments] = useState<DocumentRecord[]>(mockDocuments);
   const [reviewingDoc, setReviewingDoc] = useState<DocumentRecord | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [statusOverrides, setStatusOverrides] = useState<
+    Record<string, Partial<Pick<DocumentRecord, "status" | "rejectionReason">>>
+  >({});
+
+  const {
+    data: documentData,
+    isLoading,
+    error: loadError,
+    refresh,
+  } = useGetDoctorDocuments();
+  const { approve, isLoading: isApproving } = useApproveDoctor();
+  const { reject, isLoading: isRejecting } = useRejectDoctor();
+
+  const isProcessing = isApproving || isRejecting;
+
+  const documents = useMemo(
+    () => documentData?.doctorDocumentList ?? [],
+    [documentData],
+  );
+  const mergedDocuments = useMemo(
+    () =>
+      documents.map((doc) => {
+        const override = statusOverrides[doc.id];
+        return override ? { ...doc, ...override } : doc;
+      }),
+    [documents, statusOverrides],
+  );
+
+  const statusFilters: {
+    key: Exclude<StatusFilter, "all">;
+    label: string;
+    count: number;
+  }[] = [
+    {
+      key: "pending",
+      label: "Pending",
+      count: mergedDocuments.filter((d) => d.status === "pending").length,
+    },
+    {
+      key: "approved",
+      label: "Approved",
+      count: mergedDocuments.filter((d) => d.status === "approved").length,
+    },
+    {
+      key: "rejected",
+      label: "Rejected",
+      count: mergedDocuments.filter((d) => d.status === "rejected").length,
+    },
+  ];
+
   const itemsPerPage = 10;
 
   // Filter documents
-  const filteredDocuments = documents.filter((doc) => {
+  const filteredDocuments = mergedDocuments.filter((doc) => {
     const matchesStatus =
       selectedStatus === "all" || doc.status === selectedStatus;
     const matchesSearch =
@@ -486,24 +413,73 @@ export function DocumentVerification() {
   );
 
   // Count by status
-  const pendingCount = documents.filter((d) => d.status === "pending").length;
-  const approvedCount = documents.filter((d) => d.status === "approved").length;
-  const rejectedCount = documents.filter((d) => d.status === "rejected").length;
+  const pendingCount = statusFilters[0].count;
 
-  const handleApprove = (id: string) => {
-    setDocuments((docs) =>
-      docs.map((doc) => (doc.id === id ? { ...doc, status: "approved" } : doc)),
-    );
+  useEffect(() => {
+    if (loadError) {
+      showToast.error(loadError);
+    }
+  }, [loadError]);
+
+  const handleApprove = async (id: string) => {
+    try {
+      const res = await approve(id);
+      if (!res) {
+        return;
+      }
+
+      setStatusOverrides((prev) => ({
+        ...prev,
+        [id]: {
+          status: "approved",
+          rejectionReason: undefined,
+        },
+      }));
+
+      setReviewingDoc((prev) =>
+        prev && prev.id === id
+          ? { ...prev, status: "approved", rejectionReason: undefined }
+          : prev,
+      );
+      showToast.success("Approved successfully");
+      void refresh();
+      setIsReviewOpen(false);
+    } catch (error) {
+      showToast.error(
+        error instanceof Error ? error.message : "Failed to approve doctor",
+      );
+    }
   };
 
-  const handleReject = (id: string, reason: string) => {
-    setDocuments((docs) =>
-      docs.map((doc) =>
-        doc.id === id
-          ? { ...doc, status: "rejected", rejectionReason: reason }
-          : doc,
-      ),
-    );
+  const handleReject = async (id: string, reason: string) => {
+    try {
+      const res = await reject(id, reason);
+      if (!res) {
+        return;
+      }
+
+      setStatusOverrides((prev) => ({
+        ...prev,
+        [id]: {
+          status: "rejected",
+          rejectionReason: reason,
+        },
+      }));
+
+      setReviewingDoc((prev) =>
+        prev && prev.id === id
+          ? { ...prev, status: "rejected", rejectionReason: reason }
+          : prev,
+      );
+
+      showToast.success("Rejected successfully");
+      void refresh();
+      setIsReviewOpen(false);
+    } catch (error) {
+      showToast.error(
+        error instanceof Error ? error.message : "Failed to reject doctor",
+      );
+    }
   };
 
   const openReviewModal = (doc: DocumentRecord) => {
@@ -531,13 +507,15 @@ export function DocumentVerification() {
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          {isLoading && (
+            <div className="border-b border-slate-200 px-3 py-2 text-sm text-slate-500">
+              Loading doctor documents...
+            </div>
+          )}
+
           <div className="flex flex-col gap-3 border-b border-slate-200 p-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2 flex-wrap">
-              {[
-                { key: "pending", label: "Pending", count: pendingCount },
-                { key: "approved", label: "Approved", count: approvedCount },
-                { key: "rejected", label: "Rejected", count: rejectedCount },
-              ].map((item) => (
+              {statusFilters.map((item) => (
                 <Button
                   key={item.key}
                   type="button"
@@ -549,7 +527,7 @@ export function DocumentVerification() {
                       : "text-slate-500"
                   }`}
                   onClick={() => {
-                    setSelectedStatus(item.key as any);
+                    setSelectedStatus(item.key);
                     setCurrentPage(1);
                   }}
                 >
@@ -581,7 +559,7 @@ export function DocumentVerification() {
                   variant="outline"
                   className="ml-1 h-4 px-1.5 text-[10px] leading-none"
                 >
-                  {documents.length}
+                  {mergedDocuments.length}
                 </Badge>
               </Button>
             </div>
@@ -774,11 +752,13 @@ export function DocumentVerification() {
         </div>
 
         <ReviewModal
+          key={reviewingDoc?.id ?? "review-modal"}
           isOpen={isReviewOpen}
           document={reviewingDoc}
           onClose={() => setIsReviewOpen(false)}
           onApprove={handleApprove}
           onReject={handleReject}
+          isProcessing={isProcessing}
         />
       </div>
     </div>

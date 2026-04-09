@@ -65,6 +65,7 @@ type UserProfileResponse = {
     experience_years?: number;
     verified_at?: string;
     verification_status?: 'pending' | 'approved' | 'rejected';
+    reject_reason?: string;
     admin_role?: 'super_admin' | 'user_admin' | 'ai_admin';
   };
 };
@@ -220,6 +221,7 @@ export class UsersService {
             ? new Date(doctor.verifiedAt).toISOString()
             : undefined,
           verification_status: doctor.verificationStatus,
+          reject_reason: doctor.rejectReason,
         };
       }
 

@@ -87,6 +87,7 @@ export class AdminService {
     // Cập nhật trạng thái
     doctor.verificationStatus = DoctorVerificationStatus.APPROVED;
     doctor.verifiedAt = new Date();
+    doctor.rejectReason = undefined;
 
     const updated = await doctor.save();
     console.log('✅ DOCTOR VERIFIED:', updated._id);
@@ -102,7 +103,6 @@ export class AdminService {
     adminId: string,
     dto: RejectDoctorDto,
   ) {
-    void dto;
     // Kiểm tra người duyệt là admin
     const admin = await this.userModel.findById(adminId);
     if (!admin || admin.role !== UserRole.ADMIN) {
@@ -124,6 +124,7 @@ export class AdminService {
     // Cập nhật trạng thái
     doctor.verificationStatus = DoctorVerificationStatus.REJECTED;
     doctor.verifiedAt = new Date();
+    doctor.rejectReason = dto.reason;
 
     const updated = await doctor.save();
     return (await updated.populate('userId')).toObject({ versionKey: false });
