@@ -5,6 +5,7 @@ export type ActionCardItem = {
   title: string;
   icon: ReactNode;
   iconColor?: string;
+  disabled?: boolean;
   onHandle: () => void;
 };
 
@@ -50,8 +51,9 @@ export function ActionCard({
           <li key={item.id}>
             <button
               type="button"
-              onClick={item.onHandle}
-              className="flex cursor-pointer w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-gray-50"
+              onClick={item.disabled ? undefined : item.onHandle}
+              disabled={item.disabled}
+              className="flex cursor-pointer w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span
                 className={`inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 ${item.iconColor ?? "text-slate-600"}`}

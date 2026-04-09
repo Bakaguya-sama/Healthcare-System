@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -44,6 +44,16 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import {
+  useGetDocumentList,
+  useToggleDocumentStatus,
+  useDeleteDocument,
+} from "../hooks/useAiManagement";
+import {
+  createAiDocument,
+  uploadAiDocumentFile,
+} from "../services/ai-management.service";
+import { showToast } from "@repo/ui/components/ui/toasts";
 
 type TabSwitch = "doc" | "words";
 type DocumentStatus = "processing" | "error" | "active" | "inactive";
@@ -59,86 +69,6 @@ type DocumentItem = {
   createdAt: string;
   isEnabled: boolean;
 };
-
-const MOCK_DOCUMENTS: DocumentItem[] = [
-  {
-    id: "doc-1",
-    title: "Clinical Guidelines 2025",
-    fileUrl:
-      "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    fileType: "pdf",
-    status: "active",
-    uploadedBy: "Admin1",
-    createdAt: "Mar 1, 2026",
-    isEnabled: true,
-  },
-  {
-    id: "doc-2",
-    title: "COVID-19 Treatment Protocol",
-    fileUrl:
-      "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    fileType: "pdf",
-    status: "active",
-    uploadedBy: "Dr. Chen",
-    createdAt: "Feb 22, 2026",
-    isEnabled: false,
-  },
-  {
-    id: "doc-3",
-    title: "Drug Interaction Reference",
-    fileUrl:
-      "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    fileType: "docx",
-    status: "processing",
-    uploadedBy: "Admin1",
-    createdAt: "Feb 15, 2026",
-    isEnabled: false,
-  },
-  {
-    id: "doc-4",
-    title: "Mental Health Assessment Tool",
-    fileUrl:
-      "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    fileType: "docx",
-    status: "error",
-    uploadedBy: "Dr. Nguyen",
-    createdAt: "Jan 5, 2026",
-    isEnabled: false,
-  },
-  {
-    id: "doc-5",
-    title: "Emergency Response Manual",
-    fileUrl:
-      "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    fileType: "pdf",
-    status: "inactive",
-    uploadedBy: "Admin1",
-    createdAt: "Dec 20, 2025",
-    isEnabled: false,
-  },
-  {
-    id: "doc-6",
-    title: "Pediatric Care Handbook",
-    fileUrl:
-      "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    fileType: "pdf",
-    status: "active",
-    uploadedBy: "Dr. Nari",
-    createdAt: "Jan 30, 2026",
-    isEnabled: true,
-  },
-  {
-    id: "doc-7",
-    title: "Surgical Best Practices",
-    fileUrl:
-      "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    fileType: "pdf",
-    status: "active",
-    uploadedBy: "Dr. Hays",
-    createdAt: "Jan 18, 2026",
-    isEnabled: false,
-  },
-];
 
 const INITIAL_BLACKLIST_WORDS = [
   "spam",
@@ -249,7 +179,6 @@ function DocumentPreviewModal({
 
 export function AIManagement() {
   const [tab, setTab] = useState<TabSwitch>("doc");
-  const [docList, setDocList] = useState<DocumentItem[]>(MOCK_DOCUMENTS);
   const [searchDoc, setSearchDoc] = useState("");
   const [selectedType, setSelectedType] = useState<"all" | DocumentType>("all");
   const [selectedStatus, setSelectedStatus] = useState<"all" | DocumentStatus>(
@@ -259,6 +188,7 @@ export function AIManagement() {
   const [openActionFor, setOpenActionFor] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [blacklistWords, setBlacklistWords] = useState<string[]>(
     INITIAL_BLACKLIST_WORDS,
@@ -267,6 +197,30 @@ export function AIManagement() {
   const [newWord, setNewWord] = useState("");
 
   const inputFileRef = useRef<HTMLInputElement | null>(null);
+
+  const {
+    data: documentData,
+    isLoading,
+    error: loadError,
+    refresh,
+  } = useGetDocumentList();
+  const { toggleStatus, isLoading: isToggling } = useToggleDocumentStatus();
+  const { deleteDoc, isLoading: isDeleting } = useDeleteDocument();
+
+  const isProcessing = isToggling || isDeleting || isUploading;
+
+  const remoteDocList = useMemo(
+    () => documentData?.documentList ?? [],
+    [documentData],
+  );
+
+  const docList = remoteDocList;
+
+  useEffect(() => {
+    if (loadError) {
+      showToast.error(loadError);
+    }
+  }, [loadError]);
 
   const filteredDocs = useMemo(() => {
     return docList.filter((doc) => {
@@ -321,27 +275,57 @@ export function AIManagement() {
     setOpenActionFor(null);
   };
 
-  const handleDelete = (id: string) => {
-    setDocList((prev) => prev.filter((doc) => doc.id !== id));
-    setOpenActionFor(null);
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await deleteDoc(id);
+      if (!res) {
+        return;
+      }
+
+      setOpenActionFor(null);
+
+      showToast.success("Delete successfully!");
+      void refresh();
+    } catch (error) {
+      showToast.error(
+        error instanceof Error ? error.message : "Failed to delete",
+      );
+    }
   };
 
-  const handleToggleEnable = (id: string) => {
-    setDocList((prev) =>
-      prev.map((doc) => {
-        if (doc.id !== id) return doc;
-        const nextEnabled = !doc.isEnabled;
-        return {
-          ...doc,
-          isEnabled: nextEnabled,
-          status: nextEnabled ? "active" : "inactive",
-        };
-      }),
-    );
-    setOpenActionFor(null);
+  const handleToggleEnable = async (id: string) => {
+    try {
+      const targetDoc = docList.find((doc) => doc.id === id);
+      if (!targetDoc) {
+        return;
+      }
+
+      const nextEnabled = !targetDoc.isEnabled;
+      const nextStatus: DocumentStatus = nextEnabled ? "active" : "inactive";
+
+      const res = await toggleStatus(id, nextStatus);
+      if (!res) {
+        return;
+      }
+
+      setOpenActionFor(null);
+      showToast.success(
+        nextEnabled ? "Document activated" : "Document deactivated",
+      );
+      void refresh();
+    } catch (error) {
+      showToast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to change document status",
+      );
+    }
   };
 
   const getActionItems = (doc: DocumentItem): ActionCardItem[] => {
+    const canMutate = !isProcessing;
+    const canDelete = !isProcessing;
+
     return [
       {
         id: `view-${doc.id}`,
@@ -360,12 +344,14 @@ export function AIManagement() {
         title: "Delete",
         icon: <Trash2 className="h-4 w-4" />,
         iconColor: "text-red-600",
+        disabled: !canDelete,
         onHandle: () => handleDelete(doc.id),
       },
       {
         id: `toggle-${doc.id}`,
-        title: doc.isEnabled ? "Activate" : "Deactivate",
+        title: doc.isEnabled ? "Deactivate" : "Activate",
         icon: <CircleSlash className="h-4 w-4" />,
+        disabled: !canMutate,
         onHandle: () => handleToggleEnable(doc.id),
       },
     ];
@@ -378,25 +364,46 @@ export function AIManagement() {
   const handleUploadFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const createdAt = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    void (async () => {
+      setIsUploading(true);
 
-    const newDocs: DocumentItem[] = Array.from(files).map((file, index) => ({
-      id: `doc-upload-${Date.now()}-${index}`,
-      title: file.name,
-      fileUrl: URL.createObjectURL(file),
-      fileType: getFileTypeFromName(file.name),
-      status: "processing",
-      uploadedBy: "Admin",
-      createdAt,
-      isEnabled: false,
-    }));
+      try {
+        let createdCount = 0;
 
-    setDocList((prev) => [...newDocs, ...prev]);
-    setCurrentPage(1);
+        for (const file of Array.from(files)) {
+          const uploadResult = await uploadAiDocumentFile(file);
+          const uploadedFile = uploadResult.data.files[0];
+
+          if (!uploadedFile?.secureUrl && !uploadedFile?.url) {
+            throw new Error(
+              `Upload succeeded but no URL returned for ${file.name}`,
+            );
+          }
+
+          await createAiDocument({
+            title: file.name,
+            fileUrl: uploadedFile.secureUrl ?? uploadedFile.url,
+            fileType: getFileTypeFromName(file.name),
+          });
+
+          createdCount += 1;
+        }
+
+        showToast.success(
+          createdCount === 1
+            ? "Document uploaded successfully"
+            : `${createdCount} documents uploaded successfully`,
+        );
+        setCurrentPage(1);
+        void refresh();
+      } catch (error) {
+        showToast.error(
+          error instanceof Error ? error.message : "Failed to upload documents",
+        );
+      } finally {
+        setIsUploading(false);
+      }
+    })();
   };
 
   const addBlacklistWord = () => {
@@ -583,6 +590,7 @@ export function AIManagement() {
                     type="button"
                     className="h-9 rounded-full bg-lime-500 px-4 text-white hover:bg-lime-600"
                     onClick={handleChooseLocalFile}
+                    disabled={isProcessing}
                   >
                     <Upload className="mr-1 h-4 w-4" />
                     Upload New Document
