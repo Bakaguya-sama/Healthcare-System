@@ -254,13 +254,17 @@ function ReportDetailModal({
 }
 
 export function ViolationReport() {
-  const [reportList, setReportList] = useState<ViolationReportItem[]>([]);
+  const [reportOverrides, setReportOverrides] = useState<
+    Record<
+      string,
+      Partial<Pick<ViolationReportItem, "status" | "accountStatus">>
+    >
+  >({});
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ReportStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | ReportType>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedReport, setSelectedReport] =
-    useState<ViolationReportItem | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const itemsPerPage = 8;
   const {
@@ -279,6 +283,35 @@ export function ViolationReport() {
     isLoading: isBanningUser,
     error: banUserError,
   } = useBanUser();
+
+  useEffect(() => {
+    void loadReportList();
+  }, [loadReportList]);
+
+  const reportList = useMemo(() => {
+    if (!reportListResponse) {
+      return [] as ViolationReportItem[];
+    }
+
+    return reportListResponse.reportListReceiver.map((item) => ({
+      id: item.id,
+      reportedUserId: item.reportedUserId,
+      reporterName: item.reporterName,
+      reportedAccount: item.reportedAccount,
+      reportType: item.reportType,
+      reason: item.reason,
+      status: reportOverrides[item.id]?.status ?? item.status,
+      accountStatus:
+        reportOverrides[item.id]?.accountStatus ?? item.accountStatus,
+      createdAt: item.createdAt,
+    }));
+  }, [reportListResponse, reportOverrides]);
+
+  const selectedReport = useMemo(
+    () => reportList.find((item) => item.id === selectedReportId) ?? null,
+    [reportList, selectedReportId],
+  );
+
   const {
     data: selectedReportedUserProfile,
     isLoading: isLoadingSelectedReportedUser,
@@ -286,30 +319,6 @@ export function ViolationReport() {
     selectedReport?.reportedUserId ?? null,
     isModalOpen && Boolean(selectedReport?.reportedUserId),
   );
-
-  useEffect(() => {
-    void loadReportList();
-  }, [loadReportList]);
-
-  useEffect(() => {
-    if (!reportListResponse) {
-      return;
-    }
-
-    setReportList(
-      reportListResponse.reportListReceiver.map((item) => ({
-        id: item.id,
-        reportedUserId: item.reportedUserId,
-        reporterName: item.reporterName,
-        reportedAccount: item.reportedAccount,
-        reportType: item.reportType,
-        reason: item.reason,
-        status: item.status,
-        accountStatus: item.accountStatus,
-        createdAt: item.createdAt,
-      })),
-    );
-  }, [reportListResponse]);
 
   const filteredReports = useMemo(() => {
     return reportList.filter((report) => {
@@ -341,7 +350,7 @@ export function ViolationReport() {
   const pendingCount = reportList.filter((x) => x.status === "pending").length;
 
   const openReportModal = (report: ViolationReportItem) => {
-    setSelectedReport(report);
+    setSelectedReportId(report.id);
     setIsModalOpen(true);
   };
 
@@ -363,14 +372,13 @@ export function ViolationReport() {
       return;
     }
 
-    setReportList((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: nextStatus } : item,
-      ),
-    );
-    setSelectedReport((prev) =>
-      prev && prev.id === id ? { ...prev, status: nextStatus } : prev,
-    );
+    setReportOverrides((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        status: nextStatus,
+      },
+    }));
   };
 
   const handleBanUser = async (id: string) => {
@@ -392,18 +400,14 @@ export function ViolationReport() {
       return;
     }
 
-    setReportList((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, accountStatus: "banned", status: "resolved" }
-          : item,
-      ),
-    );
-    setSelectedReport((prev) =>
-      prev && prev.id === id
-        ? { ...prev, accountStatus: "banned", status: "resolved" }
-        : prev,
-    );
+    setReportOverrides((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        accountStatus: "banned",
+        status: "resolved",
+      },
+    }));
   };
 
   const canBanSelectedUser =
@@ -674,7 +678,10 @@ export function ViolationReport() {
           report={selectedReport}
           isOpen={isModalOpen}
           canBan={canBanSelectedUser}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedReportId(null);
+          }}
           onToggleResolved={handleToggleResolved}
           onBanUser={handleBanUser}
           isUpdating={isChangingReportStatus || isBanningUser}
