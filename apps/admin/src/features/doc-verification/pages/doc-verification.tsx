@@ -59,28 +59,46 @@ function FilePreviewComponent({ file }: { file: VerificationFile }) {
 
   if (isImage) {
     return (
-      <img
-        src={file.url}
-        alt={file.name}
-        className="w-full h-full object-contain rounded-lg"
-      />
+      <div className="w-full h-full flex flex-col gap-3">
+        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <img
+            src={file.url}
+            alt={file.name}
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-xs text-slate-600">{file.name}</p>
+          <a
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs text-white transition hover:bg-brand-dark"
+          >
+            Open in new tab
+          </a>
+        </div>
+      </div>
     );
   }
 
   if (file.type === "pdf") {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-4 rounded-lg bg-slate-50 border border-slate-200">
-        <div className="text-6xl">📄</div>
-        <p className="text-slate-700 font-semibold">{file.name}</p>
-        <p className="text-sm text-slate-500">PDF Document</p>
-        <a
-          href={file.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition"
-        >
-          Open in new tab
-        </a>
+      <div className="w-full h-full flex flex-col gap-3">
+        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <iframe src={file.url} title={file.name} className="h-full w-full" />
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-xs text-slate-600">{file.name}</p>
+          <a
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs text-white transition hover:bg-brand-dark"
+          >
+            Open in new tab
+          </a>
+        </div>
       </div>
     );
   }
