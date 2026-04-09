@@ -1,33 +1,17 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { DocumentStatus } from '../entities/ai-document.entity';
 import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
 
 export class CreateAiDocumentDto {
-  @ApiProperty({ description: 'Document title' })
-  @IsNotEmpty()
-  @IsString()
-  title: string;
-
   @ApiProperty({
     description:
-      '🌥️ Cloudinary URL only. Upload via POST /upload/single first with folder=healthcare/ai/documents, then use returned URL here',
-    example:
-      'https://res.cloudinary.com/healthcare/raw/upload/healthcare/ai/documents/guideline.pdf',
+      'Document title (optional). If omitted, backend uses original filename',
+    required: false,
   })
-  @IsNotEmpty()
-  @IsCloudinaryUrl()
-  fileUrl: string;
-
-  @ApiProperty({ description: 'File type (pdf, docx, txt, etc)' })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  fileType: string;
+  title?: string;
 }
 
 export class UpdateAiDocumentDto {

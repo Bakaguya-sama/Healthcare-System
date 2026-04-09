@@ -15,29 +15,45 @@ import {
   UpdateAiDocumentDto,
   QueryAiDocumentDto,
 } from './dto/create-ai-document.dto';
+import { CloudinaryService } from '../../core/services/cloudinary.service';
 
 @Injectable()
 export class AiDocumentsService {
   constructor(
     @InjectModel(AiDocument.name)
     private aiDocumentModel: Model<AiDocumentDocument>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(
     userId: string,
+    file: Express.Multer.File,
     createDto: CreateAiDocumentDto,
   ): Promise<AiDocument> {
     try {
+      if (!file) {
+        throw new BadRequestException('No file provided');
+      }
+
+      const uploadResult = await this.cloudinaryService.uploadFile(
+        file,
+        'healthcare/ai/knowledge-base',
+        'document',
+      );
+
+      const fileType = this.resolveFileType(file.originalname);
       const document = new this.aiDocumentModel({
-        ...createDto,
+        title: createDto.title?.trim() || file.originalname,
+        fileUrl: uploadResult.secureUrl,
+        fileType,
+        publicId: uploadResult.publicId,
         uploadedBy: new Types.ObjectId(userId),
         status: DocumentStatus.PROCESSING,
       });
       return await document.save();
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to create AI document: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new BadRequestException(`Failed to create AI document: ${message}`);
     }
   }
 
@@ -53,17 +69,20 @@ export class AiDocumentsService {
       sortOrder = -1,
     } = query;
 
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
 
     if (status) filter.status = status;
     if (search) {
       filter.$or = [{ title: { $regex: search, $options: 'i' } }];
     }
 
+    const normalizedSortOrder: 1 | -1 = sortOrder === 1 ? 1 : -1;
+    const sort = { [sortBy]: normalizedSortOrder };
+
     const skip = (page - 1) * limit;
     const data = await this.aiDocumentModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort(sort)
       .skip(skip)
       .limit(limit)
       .exec();
@@ -90,16 +109,27 @@ export class AiDocumentsService {
     _userId: string,
     updateDto: UpdateAiDocumentDto,
   ): Promise<AiDocument> {
-    const document = await this.findById(documentId);
+    void _userId;
+    const document = await this.aiDocumentModel.findByIdAndUpdate(
+      new Types.ObjectId(documentId),
+      { $set: updateDto },
+      { new: true, runValidators: true },
+    );
 
-    Object.assign(document, updateDto);
-    return await document.save();
+    if (!document) {
+      throw new NotFoundException(
+        `AI Document with ID ${documentId} not found`,
+      );
+    }
+
+    return document;
   }
 
   async indexDocument(
     documentId: string,
     totalChunks: number,
   ): Promise<AiDocument> {
+    void totalChunks;
     const document = await this.aiDocumentModel.findByIdAndUpdate(
       new Types.ObjectId(documentId),
       {
@@ -135,6 +165,7 @@ export class AiDocumentsService {
     documentId: string,
     _userId: string,
   ): Promise<AiDocument> {
+    void _userId;
     const document = await this.findById(documentId);
 
     document.status = DocumentStatus.INACTIVE;
@@ -142,7 +173,12 @@ export class AiDocumentsService {
   }
 
   async delete(documentId: string, _userId: string): Promise<AiDocument> {
-    await this.findById(documentId);
+    void _userId;
+    const existing = await this.findById(documentId);
+
+    if (existing.publicId) {
+      await this.cloudinaryService.deleteFile(existing.publicId, 'document');
+    }
 
     const deleted = await this.aiDocumentModel.findByIdAndDelete(
       new Types.ObjectId(documentId),
@@ -156,6 +192,12 @@ export class AiDocumentsService {
   }
 
   async deleteById(documentId: string): Promise<AiDocument> {
+    const existing = await this.findById(documentId);
+
+    if (existing.publicId) {
+      await this.cloudinaryService.deleteFile(existing.publicId, 'document');
+    }
+
     const document = await this.aiDocumentModel.findByIdAndDelete(
       new Types.ObjectId(documentId),
     );
@@ -176,5 +218,19 @@ export class AiDocumentsService {
       })
       .limit(10)
       .exec();
+  }
+
+  private resolveFileType(fileName: string): string {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+
+    if (!extension) {
+      return 'txt';
+    }
+
+    if (['pdf', 'doc', 'docx', 'txt'].includes(extension)) {
+      return extension;
+    }
+
+    return 'txt';
   }
 }

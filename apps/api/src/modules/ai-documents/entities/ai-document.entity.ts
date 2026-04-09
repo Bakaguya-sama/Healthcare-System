@@ -21,6 +21,9 @@ export class AiDocument extends Document {
   @Prop({ required: true })
   fileType: string;
 
+  @Prop({required: true})
+  publicId: string;
+
   @Prop({ required: true, enum: Object.values(DocumentStatus), default: DocumentStatus.PROCESSING })
   status: DocumentStatus;
 

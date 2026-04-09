@@ -13,10 +13,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import {
-  FileInterceptor,
-  FilesInterceptor,
-} from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -39,13 +36,13 @@ import { UserRole } from '../../modules/users/enums/user-role.enum';
 
 /**
  * 📤 FILE UPLOAD CONTROLLER
- * 
+ *
  * Xử lý upload file/ảnh lên Cloudinary
- * 
+ *
  * 🔒 ROLE RESTRICTION:
  * - Only SUPER_ADMIN & AI_ADMIN can upload/delete files
  * - Other roles: 403 Forbidden
- * 
+ *
  * ENDPOINTS:
  * - POST /upload/single - Upload 1 file (ADMIN ONLY)
  * - POST /upload/multiple - Upload nhiều files (ADMIN ONLY)
@@ -63,15 +60,15 @@ export class UploadController {
 
   /**
    * 📤 UPLOAD SINGLE FILE
-   * 
+   *
    * 🔒 ADMIN ONLY: super_admin, ai_admin
-   * 
+   *
    * USAGE:
    * const formData = new FormData();
    * formData.append('file', fileInput.files[0]);
    * formData.append('folder', 'healthcare/profiles');
    * formData.append('fileType', 'image');
-   * 
+   *
    * fetch('/api/v1/upload/single', {
    *   method: 'POST',
    *   headers: { Authorization: 'Bearer token' },
@@ -148,9 +145,9 @@ export class UploadController {
 
   /**
    * 📤 UPLOAD MULTIPLE FILES
-   * 
+   *
    * 🔒 ADMIN ONLY: super_admin, ai_admin
-   * 
+   *
    * USAGE:
    * const formData = new FormData();
    * formData.append('files', fileInput.files[0]);
@@ -227,9 +224,9 @@ export class UploadController {
 
   /**
    * 🔍 GET FILE INFO
-   * 
+   *
    * 🔒 ADMIN ONLY
-   * 
+   *
    * Endpoint: GET /upload/info?publicId=healthcare/profiles/filename.pdf
    * (Query parameter instead of path to avoid path-to-regexp issues)
    */
@@ -242,7 +239,7 @@ export class UploadController {
     }
 
     this.logger.log(`🔍 Getting file info for: ${publicId}`);
-    
+
     const fileInfo = await this.cloudinaryService.getFileInfo(publicId);
 
     if (!fileInfo) {
@@ -268,11 +265,11 @@ export class UploadController {
   async debugListFiles() {
     this.logger.log('📋 Listing all Cloudinary resources...');
     const resources = await this.cloudinaryService.listAllResources();
-    
+
     return {
       statusCode: 200,
       message: `Found ${resources.length} resources`,
-      data: resources.map(r => ({
+      data: resources.map((r) => ({
         publicId: r.public_id,
         size: r.bytes,
         format: r.format,
@@ -283,9 +280,9 @@ export class UploadController {
 
   /**
    * 🗑️ DELETE FILE
-   * 
+   *
    * 🔒 ADMIN ONLY
-   * 
+   *
    * Endpoint: DELETE /upload/delete?publicId=healthcare/profiles/filename.pdf
    * (Query parameter instead of path to avoid path-to-regexp issues)
    */
@@ -315,7 +312,7 @@ export class UploadController {
     }
 
     this.logger.log(`🗑️ Deleting file: ${publicId}`);
-    
+
     const result = await this.cloudinaryService.deleteFile(
       publicId,
       body?.fileType || 'document',
@@ -332,7 +329,7 @@ export class UploadController {
 
   /**
    * 🗑️ DELETE MULTIPLE FILES
-   * 
+   *
    * 🔒 ADMIN ONLY
    */
   @Post('delete-multiple')
@@ -378,16 +375,16 @@ export class UploadController {
 
   /**
    * 👤 UPLOAD AVATAR
-   * 
+   *
    * 🔒 USER (own user) or ADMIN
    * Specialized endpoint for user profile avatar upload
-   * 
+   *
    * Usage:
    * - Regular user: POST /upload/avatar (uploads own avatar)
    * - Admin: POST /upload/avatar (can upload for other users)
-   * 
+   *
    * Returns: { file: { url, secureUrl, size } }
-   * 
+   *
    * Workflow:
    * 1. Call this endpoint to get avatar URL
    * 2. Use returned URL in PATCH /users/me { avatarUrl: url }
@@ -439,11 +436,14 @@ export class UploadController {
       'image',
     );
 
-    this.logger.log(`✅ Avatar uploaded for user ${userId}: ${result.publicId}`);
+    this.logger.log(
+      `✅ Avatar uploaded for user ${userId}: ${result.publicId}`,
+    );
 
     return {
       statusCode: 201,
-      message: 'Avatar uploaded successfully. Now update your profile with this URL.',
+      message:
+        'Avatar uploaded successfully. Now update your profile with this URL.',
       data: {
         files: [
           {
@@ -462,17 +462,17 @@ export class UploadController {
 
   /**
    * 📄 UPLOAD DOCTOR VERIFICATION DOCUMENTS
-   * 
+   *
    * 🔒 DOCTOR (own docs) or ADMIN
    * Specialized endpoint for doctor verification document upload
    * Supports batch upload of credentials (max 5 files)
-   * 
+   *
    * Usage:
    * - Doctor: POST /upload/doctor-verification (uploads own verification docs)
    * - Admin: POST /upload/doctor-verification (can upload for other doctors)
-   * 
+   *
    * Returns: { files: [{ url, secureUrl, size }, ...] }
-   * 
+   *
    * Workflow:
    * 1. Call this endpoint to upload 2-5 certificate files
    * 2. Get array of URLs from response
@@ -495,7 +495,8 @@ export class UploadController {
             type: 'string',
             format: 'binary',
           },
-          description: 'Verification documents (pdf, doc, docx) - max 5 files, 50MB each',
+          description:
+            'Verification documents (pdf, doc, docx) - max 5 files, 50MB each',
         },
       },
       required: ['files'],

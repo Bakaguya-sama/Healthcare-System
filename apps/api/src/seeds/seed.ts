@@ -100,7 +100,8 @@ async function seedDatabase() {
         dateOfBirth: new Date('1990-05-15'),
         role: 'patient',
         phoneNumber: '0912345678',
-        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient1-avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient1-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -120,7 +121,8 @@ async function seedDatabase() {
         dateOfBirth: new Date('1992-08-22'),
         role: 'patient',
         phoneNumber: '0912345679',
-        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient2-avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient2-avatar.jpg',
         accountStatus: 'active',
         isOnline: true,
         address: {
@@ -140,7 +142,8 @@ async function seedDatabase() {
         dateOfBirth: new Date('1988-12-01'),
         role: 'patient',
         phoneNumber: '0912345680',
-        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient3-avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/patient3-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -163,7 +166,8 @@ async function seedDatabase() {
         dateOfBirth: new Date('1985-03-10'),
         role: 'doctor',
         phoneNumber: '0912345681',
-        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor1-avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor1-avatar.jpg',
         accountStatus: 'active',
         isOnline: true,
         address: {
@@ -183,7 +187,8 @@ async function seedDatabase() {
         dateOfBirth: new Date('1987-07-25'),
         role: 'doctor',
         phoneNumber: '0912345682',
-        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor2-avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor2-avatar.jpg',
         accountStatus: 'active',
         isOnline: true,
         address: {
@@ -203,7 +208,8 @@ async function seedDatabase() {
         dateOfBirth: new Date('1984-11-18'),
         role: 'doctor',
         phoneNumber: '0912345683',
-        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor3-avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/doctor3-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -226,7 +232,8 @@ async function seedDatabase() {
         dateOfBirth: new Date('1990-01-01'),
         role: 'admin',
         phoneNumber: '0912345684',
-        avatarUrl: 'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/admin-avatar.jpg',
+        avatarUrl:
+          'https://res.cloudinary.com/healthcare-app/image/upload/healthcare/profiles/admin-avatar.jpg',
         accountStatus: 'active',
         isOnline: false,
         address: {
@@ -510,7 +517,8 @@ async function seedDatabase() {
         content: 'Let me check your vaccination records',
         attachments: [
           {
-            fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/chat/attachments/immunization_chart.pdf',
+            fileUrl:
+              'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/chat/attachments/immunization_chart.pdf',
             fileName: 'immunization_chart.pdf',
             fileSize: 245000,
             mimeType: 'application/pdf',
@@ -602,22 +610,28 @@ async function seedDatabase() {
     const aiDocuments = await aiDocumentModel.insertMany([
       {
         title: 'Cardiology Treatment Guidelines 2026',
-        fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/cardiology_guidelines.pdf',
+        fileUrl:
+          'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/cardiology_guidelines.pdf',
         fileType: 'pdf',
+        publicId: 'healthcare/ai/documents/cardiology_guidelines',
         status: 'active',
         uploadedBy: admins[0]._id,
       },
       {
         title: 'Pediatric Care Manual',
-        fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/pediatric_manual.docx',
+        fileUrl:
+          'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/pediatric_manual.docx',
         fileType: 'docx',
+        publicId: 'healthcare/ai/documents/pediatric_manual',
         status: 'processing',
         uploadedBy: admins[0]._id,
       },
       {
         title: 'Neurology Diagnostic Criteria',
-        fileUrl: 'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/neurology_criteria.pdf',
+        fileUrl:
+          'https://res.cloudinary.com/healthcare-app/raw/upload/healthcare/ai/documents/neurology_criteria.pdf',
         fileType: 'pdf',
+        publicId: 'healthcare/ai/documents/neurology_criteria',
         status: 'active',
         uploadedBy: admins[0]._id,
       },

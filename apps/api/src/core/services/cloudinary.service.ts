@@ -16,7 +16,7 @@ export interface CloudinaryUploadResult {
 /**
  * 🌥️ CLOUDINARY SERVICE
  * Quản lý upload file/ảnh lên Cloudinary cloud storage
- * 
+ *
  * Features:
  * - Upload ảnh (jpg, png)
  * - Upload document (pdf, doc, docx)
@@ -51,12 +51,12 @@ export class CloudinaryService {
 
   /**
    * 📤 UPLOAD SINGLE FILE (ảnh hoặc document)
-   * 
+   *
    * @param file - Express file object từ Multer
    * @param folder - Folder trong Cloudinary (vd: "healthcare/documents")
    * @param fileType - "image" | "document" (xác định cách xử lý)
    * @returns CloudinaryUploadResult
-   * 
+   *
    * KIẾN THỨC:
    * - Cloudinary auto-xóa temp file sau upload
    * - Lưu lại publicId để delete later
@@ -92,7 +92,7 @@ export class CloudinaryService {
     return new Promise((resolve, reject) => {
       // ✅ BƯỚC 4: Stream file to Cloudinary
       const publicIdName = `${Date.now()}-${file.originalname}`;
-      
+
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder, // Organize files by folder
@@ -117,7 +117,9 @@ export class CloudinaryService {
           if (!result) {
             this.logger.error(`❌ No result from Cloudinary upload`);
             return reject(
-              new BadRequestException('Upload failed: No response from Cloudinary'),
+              new BadRequestException(
+                'Upload failed: No response from Cloudinary',
+              ),
             );
           }
 
@@ -140,30 +142,32 @@ export class CloudinaryService {
 
       // ✅ BƯỚC 6: Pipe file data to stream
       const stream = Readable.from(file.buffer);
-      
+
       // Add error handlers
       uploadStream.on('error', (error) => {
         this.logger.error(`❌ Stream error:`, error);
         reject(new BadRequestException(`Stream error: ${error.message}`));
       });
-      
+
       stream.on('error', (error) => {
         this.logger.error(`❌ Source stream error:`, error);
-        reject(new BadRequestException(`Source stream error: ${error.message}`));
+        reject(
+          new BadRequestException(`Source stream error: ${error.message}`),
+        );
       });
-      
+
       stream.pipe(uploadStream);
     });
   }
 
   /**
    * 📤 UPLOAD MULTIPLE FILES (batch upload)
-   * 
+   *
    * @param files - Array of Express file objects
    * @param folder - Cloudinary folder
    * @param fileType - "image" | "document"
    * @returns Array<CloudinaryUploadResult>
-   * 
+   *
    * Dùng khi một lúc upload nhiều file
    * (VD: Doctor up 3 chứng chỉ lúc verify account)
    */
@@ -185,9 +189,13 @@ export class CloudinaryService {
       try {
         const result = await this.uploadFile(files[i], folder, fileType);
         results.push(result);
-        this.logger.log(`[${i + 1}/${files.length}] ✅ ${files[i].originalname}`);
+        this.logger.log(
+          `[${i + 1}/${files.length}] ✅ ${files[i].originalname}`,
+        );
       } catch (error) {
-        this.logger.error(`[${i + 1}/${files.length}] ❌ ${files[i].originalname}`);
+        this.logger.error(
+          `[${i + 1}/${files.length}] ❌ ${files[i].originalname}`,
+        );
         throw error;
       }
     }
@@ -197,10 +205,10 @@ export class CloudinaryService {
 
   /**
    * 🗑️ DELETE FILE từ Cloudinary
-   * 
+   *
    * @param publicId - Public ID của file (lưu khi upload)
    * @param fileType - "image" | "document"
-   * 
+   *
    * DÙNG KHI:
    * - User xóa document
    * - Admin xóa profile picture
@@ -226,9 +234,7 @@ export class CloudinaryService {
           message: `File ${publicId} deleted successfully`,
         };
       } else {
-        this.logger.warn(
-          `⚠️ File not found or already deleted: ${publicId}`,
-        );
+        this.logger.warn(`⚠️ File not found or already deleted: ${publicId}`);
         return {
           success: false,
           message: `File ${publicId} not found`,
@@ -242,7 +248,7 @@ export class CloudinaryService {
 
   /**
    * 📋 DELETE MULTIPLE FILES
-   * 
+   *
    * @param publicIds - Array of public IDs
    * @param fileType - "image" | "document"
    */
@@ -283,7 +289,7 @@ export class CloudinaryService {
         max_results: 500,
         type: 'upload',
       });
-      
+
       return result.resources;
     } catch (error) {
       this.logger.error(`❌ Failed to list resources: ${error.message}`);
@@ -293,10 +299,10 @@ export class CloudinaryService {
 
   /**
    * �📊 GET FILE INFO từ Cloudinary
-   * 
+   *
    * @param publicId - Public ID của file (full path từ folder)
    * @returns File metadata
-   * 
+   *
    * Dùng để kiểm tra file có tồn tại hay không
    */
   async getFileInfo(publicId: string) {
@@ -320,7 +326,7 @@ export class CloudinaryService {
         // Fallback: try auto resource type
         try {
           const result = await cloudinary.api.resource(publicId);
-          
+
           return {
             publicId: result.public_id,
             url: result.url,
