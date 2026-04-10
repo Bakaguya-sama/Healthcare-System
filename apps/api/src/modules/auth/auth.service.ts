@@ -10,7 +10,12 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './entities/user.schema';
-import { Doctor, DoctorDocument, DoctorVerificationStatus } from '../users/entities/doctor.schema';
+import {
+  Doctor,
+  DoctorDocument,
+  DoctorVerificationStatus,
+} from '../users/entities/doctor.schema';
+import { Admin, AdminDocument } from '../admins/entities/admin.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -23,6 +28,7 @@ export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
+    @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -102,8 +108,7 @@ export class AuthService {
 
     // Kiểm tra mật khẩu cũ
     const isMatch = await bcrypt.compare(dto.oldPassword, user.password);
-    if (!isMatch)
-      throw new BadRequestException('Old password is incorrect');
+    if (!isMatch) throw new BadRequestException('Old password is incorrect');
 
     // Hash mật khẩu mới
     const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
@@ -175,8 +180,31 @@ export class AuthService {
    * 🔑 LẤY THÔNG TIN USER TỪ TOKEN
    */
   async getProfile(userId: string) {
-    const user = await this.userModel.findById(userId).select('-password -refreshToken -otpCode');
+    const user = await this.userModel
+      .findById(userId)
+      .select('-password -refreshToken -otpCode');
+
     if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.role === UserRole.DOCTOR) {
+      const doctor = await this.doctorModel.findOne({ userId: user._id });
+
+      return {
+        ...user.toObject(),
+        doctorProfile: doctor ? doctor.toObject() : null,
+      };
+    }
+
+    if (user.role === UserRole.ADMIN) {
+      const admin = await this.adminModel.findOne({ userId: user._id });
+
+      return {
+        ...user.toObject(),
+        adminProfile: admin ? admin.toObject() : null,
+      };
+    }
+
+    // Patient: keep current behavior
     return user;
   }
 

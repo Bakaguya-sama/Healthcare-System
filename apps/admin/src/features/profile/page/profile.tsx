@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -18,8 +18,12 @@ import {
   Stethoscope,
   UserRound,
 } from "lucide-react";
-
-type UserRole = "admin" | "patient" | "doctor";
+import { showToast } from "@repo/ui/components/ui/toasts";
+import { useProfile } from "../hooks/useProfile";
+import type {
+  ProfileDataReceiver,
+  UserRole,
+} from "../services/profile.service";
 
 type VerificationDoc = {
   id: string;
@@ -277,39 +281,31 @@ function DoctorRoleSection({
 }
 
 export function Profile({ role = "admin", onSave }: ProfileProps) {
+  const {
+    data: profileData,
+    isLoading,
+    error,
+    save: saveProfile,
+  } = useProfile();
+
   const [savedAvatarUrl, setSavedAvatarUrl] = useState<string>("");
   const [savedValues, setSavedValues] = useState<ProfileFormValues>({
-    fullName: "Alexandra Chen",
-    email: "admin@medi.com",
-    phone: "+84 912 345 678",
-    gender: "Female",
-    street: "142 Le Loi Street, Apt 5B",
-    ward: "Ben Thanh Ward",
-    district: "District 1",
-    city: "Ho Chi Minh City",
-    adminAssignedRole: "Super Admin",
-    yearsOfExperience: "8",
-    specialty: "Cardiology",
-    workplace: "Central Medical Hospital",
+    fullName: "",
+    email: "",
+    phone: "",
+    gender: "",
+    street: "",
+    ward: "",
+    district: "",
+    city: "",
+    adminAssignedRole: "",
+    yearsOfExperience: "",
+    specialty: "",
+    workplace: "",
   });
   const [savedVerificationDocs, setSavedVerificationDocs] = useState<
     VerificationDoc[]
-  >([
-    {
-      id: "doc-1",
-      name: "Medical_License.pdf",
-      uploadedAt: "Mar 3, 2026",
-      fileUrl:
-        "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    },
-    {
-      id: "doc-2",
-      name: "Specialist_Certificate.jpg",
-      uploadedAt: "Mar 8, 2026",
-      fileUrl:
-        "https://dummyimage.com/1200x800/e2e8f0/475569&text=Doctor+Document",
-    },
-  ]);
+  >([]);
 
   const [draftAvatarUrl, setDraftAvatarUrl] = useState<string>(savedAvatarUrl);
   const [draftValues, setDraftValues] =
@@ -321,7 +317,8 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
-  const roleMeta = ROLE_META[role];
+  const activeRole = profileData?.role ?? role;
+  const roleMeta = ROLE_META[activeRole];
   const avatarInitials = useMemo(
     () => initialsFromName(draftValues.fullName || "User"),
     [draftValues.fullName],
@@ -342,6 +339,57 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
     savedValues,
     savedVerificationDocs,
   ]);
+
+  useEffect(() => {
+    if (!profileData) {
+      return;
+    }
+
+    const nextValues: ProfileFormValues = {
+      fullName: profileData.fullName,
+      email: profileData.email,
+      phone: profileData.phone,
+      gender: profileData.gender,
+      street: profileData.street,
+      ward: profileData.ward,
+      district: profileData.district,
+      city: profileData.city,
+      adminAssignedRole: profileData.adminAssignedRole ?? "",
+      yearsOfExperience: profileData.yearsOfExperience ?? "",
+      specialty: profileData.specialty ?? "",
+      workplace: profileData.workplace ?? "",
+    };
+
+    const nextDocs: VerificationDoc[] = (profileData.documentsUrl ?? []).map(
+      (fileUrl, index) => {
+        const pathPart = fileUrl.split("/").pop() ?? "document";
+        const cleanName = pathPart.split("?")[0] || `document-${index + 1}`;
+
+        return {
+          id: `server-doc-${index}`,
+          name: cleanName,
+          uploadedAt: "From server",
+          fileUrl,
+        };
+      },
+    );
+
+    setSavedAvatarUrl(profileData.avatarUrl ?? "");
+    setSavedValues(nextValues);
+    setSavedVerificationDocs(nextDocs);
+
+    setDraftAvatarUrl(profileData.avatarUrl ?? "");
+    setDraftValues(nextValues);
+    setDraftVerificationDocs(nextDocs);
+  }, [profileData]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    showToast.error(error);
+  }, [error]);
 
   const onFieldChange = <K extends keyof ProfileFormValues>(
     key: K,
@@ -408,20 +456,63 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
     setIsSaving(true);
     try {
-      await onSave?.({
-        role,
-        values: draftValues,
-        avatarUrl: draftAvatarUrl,
-        verificationDocs: draftVerificationDocs,
-      });
+      if (onSave) {
+        await onSave({
+          role: activeRole,
+          values: draftValues,
+          avatarUrl: draftAvatarUrl,
+          verificationDocs: draftVerificationDocs,
+        });
+      } else {
+        const payload: ProfileDataReceiver = {
+          id: profileData?.id ?? "",
+          isOnline: profileData?.isOnline ?? false,
+          role: activeRole,
+          avatarUrl: draftAvatarUrl,
+          fullName: draftValues.fullName,
+          email: draftValues.email,
+          phone: draftValues.phone,
+          gender: draftValues.gender,
+          street: draftValues.street,
+          ward: draftValues.ward,
+          district: draftValues.district,
+          city: draftValues.city,
+          adminAssignedRole: draftValues.adminAssignedRole,
+          yearsOfExperience: draftValues.yearsOfExperience,
+          specialty: draftValues.specialty,
+          workplace: draftValues.workplace,
+          documentsUrl: draftVerificationDocs
+            .map((doc) => doc.fileUrl)
+            .filter((url) => /^https?:\/\//.test(url)),
+        };
+
+        await saveProfile(payload);
+      }
 
       setSavedAvatarUrl(draftAvatarUrl);
       setSavedValues(draftValues);
       setSavedVerificationDocs(draftVerificationDocs);
+      showToast.success("Profile updated successfully");
+    } catch (saveError) {
+      showToast.error(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save profile",
+      );
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (isLoading && !profileData) {
+    return (
+      <div className="w-full p-6">
+        <div className="mx-auto max-w-5xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full p-6">
@@ -435,7 +526,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
                 className="h-24 w-24 rounded-full border-2 border-white object-cover shadow-md"
               />
             ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-3xl font-bold text-white shadow-md">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-violet-500 text-3xl font-bold text-white shadow-md">
                 {avatarInitials || "U"}
               </div>
             )}
@@ -618,11 +709,11 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
             </Field>
           </FieldGroup>
 
-          {role === "admin" ? (
+          {activeRole === "admin" ? (
             <AdminRoleSection assignedRole={draftValues.adminAssignedRole} />
           ) : null}
 
-          {role === "doctor" ? (
+          {activeRole === "doctor" ? (
             <DoctorRoleSection
               values={draftValues}
               verificationDocs={draftVerificationDocs}

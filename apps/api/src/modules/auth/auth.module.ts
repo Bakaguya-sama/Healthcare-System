@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User, UserSchema } from './entities/user.schema';
 import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
+import { Admin, AdminSchema } from '../admins/entities/admin.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -26,6 +27,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Doctor.name, schema: DoctorSchema },
+      { name: Admin.name, schema: AdminSchema },
     ]),
   ],
   controllers: [AuthController],

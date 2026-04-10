@@ -11,7 +11,7 @@ import { UserManagement } from "./features/user-management/pages/user-management
 import { DocumentVerification } from "./features/doc-verification/pages/doc-verification";
 import { ViolationReport } from "./features/violation-report/pages/violation-report";
 import { AIManagement } from "./features/ai_management/pages/ai_management";
-import { Profile } from "@repo/ui/pages/profile";
+import { Profile } from "./features/profile/page/profile";
 
 function Page({ title }: { title: string }) {
   return (

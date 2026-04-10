@@ -7,7 +7,8 @@
   "include": [
     "src",
     "../../apps/client/src/components/ui/authen_header.tsx",
-    "../../apps/client/src/features/chat/window/chat-window.tsx"
+    "../../apps/client/src/features/chat/window/chat-window.tsx",
+    "../../apps/admin/src/features/profile/page/profile.tsx"
   ],
   "exclude": ["node_modules", "dist"]
 }
