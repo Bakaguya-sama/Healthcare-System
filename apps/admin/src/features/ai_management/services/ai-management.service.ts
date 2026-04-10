@@ -3,33 +3,9 @@ import { api } from "@/lib/api";
 type DocumentStatus = "processing" | "error" | "active" | "inactive";
 type DocumentType = "pdf" | "doc" | "docx" | "txt";
 
-type UploadFileType = "image" | "document";
-
-type CloudinaryUploadResponse = {
-  statusCode: number;
-  message: string;
-  data: {
-    files: Array<{
-      originalName: string;
-      publicId: string;
-      url: string;
-      secureUrl: string;
-      size: number;
-    }>;
-    uploadedAt: string;
-    totalSize: number;
-  };
-};
-
-type CreateDocumentPayload = {
-  title: string;
-  fileUrl: string;
-  fileType: DocumentType;
-};
-
 type DocumentItem = {
   id: string;
-  title?: string;
+  title: string;
   fileUrl: string;
   fileType: DocumentType;
   status: DocumentStatus;
@@ -76,7 +52,7 @@ function mapApitoUi(item: ApiDocumentItem): DocumentItem | null {
 
   return {
     id: item._id,
-    title: item.title,
+    title: item.title ?? "Untitled document",
     fileUrl: item.fileUrl,
     fileType: item.fileType,
     status: item.status,
@@ -96,39 +72,21 @@ export async function getDocumentList(): Promise<DocumentListReceiver> {
   };
 }
 
-function getDocumentTypeFromName(fileName: string): DocumentType {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-  if (ext === "pdf") return "pdf";
-  if (ext === "doc") return "doc";
-  if (ext === "docx") return "docx";
-  return "txt";
-}
-
-function getUploadFileType(fileName: string): UploadFileType {
-  return getDocumentTypeFromName(fileName) === "pdf" ? "document" : "document";
-}
-
-export async function uploadAiDocumentFile(file: File) {
+export async function createAiDocument(file: File, title?: string) {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("folder", "healthcare/ai/knowledge-base");
-  formData.append("fileType", getUploadFileType(file.name));
 
-  const response = await api.post<CloudinaryUploadResponse>(
-    "/upload/single",
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+  const normalizedTitle = title?.trim();
+  if (normalizedTitle) {
+    formData.append("title", normalizedTitle);
+  }
+
+  const response = await api.post<ApiDocumentItem>("/ai-documents", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
     },
-  );
+  });
 
-  return response.data;
-}
-
-export async function createAiDocument(payload: CreateDocumentPayload) {
-  const response = await api.post<ApiDocumentItem>("/ai-documents", payload);
   return response.data;
 }
 

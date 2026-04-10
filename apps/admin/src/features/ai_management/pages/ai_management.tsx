@@ -49,10 +49,7 @@ import {
   useToggleDocumentStatus,
   useDeleteDocument,
 } from "../hooks/useAiManagement";
-import {
-  createAiDocument,
-  uploadAiDocumentFile,
-} from "../services/ai-management.service";
+import { createAiDocument } from "../services/ai-management.service";
 import { showToast } from "@repo/ui/components/ui/toasts";
 
 type TabSwitch = "doc" | "words";
@@ -80,7 +77,6 @@ const INITIAL_BLACKLIST_WORDS = [
   "violence",
   "scam",
   "clickbait",
-  "hate-speech",
 ];
 
 function getStatusClassName(status: DocumentStatus) {
@@ -101,14 +97,6 @@ function getStatusLabel(status: DocumentStatus) {
   if (status === "inactive") return "Inactive";
   if (status === "processing") return "Processing";
   return "Error";
-}
-
-function getFileTypeFromName(fileName: string): DocumentType {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-  if (ext === "pdf") return "pdf";
-  if (ext === "doc") return "doc";
-  if (ext === "docx") return "docx";
-  return "txt";
 }
 
 function DocumentPreviewModal({
@@ -200,7 +188,6 @@ export function AIManagement() {
 
   const {
     data: documentData,
-    isLoading,
     error: loadError,
     refresh,
   } = useGetDocumentList();
@@ -371,20 +358,7 @@ export function AIManagement() {
         let createdCount = 0;
 
         for (const file of Array.from(files)) {
-          const uploadResult = await uploadAiDocumentFile(file);
-          const uploadedFile = uploadResult.data.files[0];
-
-          if (!uploadedFile?.secureUrl && !uploadedFile?.url) {
-            throw new Error(
-              `Upload succeeded but no URL returned for ${file.name}`,
-            );
-          }
-
-          await createAiDocument({
-            title: file.name,
-            fileUrl: uploadedFile.secureUrl ?? uploadedFile.url,
-            fileType: getFileTypeFromName(file.name),
-          });
+          await createAiDocument(file, file.name);
 
           createdCount += 1;
         }
