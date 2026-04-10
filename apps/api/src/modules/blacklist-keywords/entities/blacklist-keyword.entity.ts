@@ -7,14 +7,15 @@ export class BlacklistKeyword extends Document {
   @ApiProperty({ description: 'Keyword ID' })
   declare _id: Types.ObjectId;
 
-  @Prop({ required: true, type: [String], default: [] })
-  @ApiProperty({ description: 'Array of blocked keywords/phrases', type: [String] })
-  word_list: string[];
+  @Prop({ required: true, unique: true, trim: true, lowercase: true })
+  @ApiProperty({ description: 'Blacklist keyword' })
+  keyword: string;
 }
 
-export const BlacklistKeywordSchema = SchemaFactory.createForClass(BlacklistKeyword);
+export const BlacklistKeywordSchema =
+  SchemaFactory.createForClass(BlacklistKeyword);
 
 export type BlacklistKeywordDocument = BlacklistKeyword & Document;
 
 // Create indexes
-BlacklistKeywordSchema.index({ word_list: 'text' });
+BlacklistKeywordSchema.index({ keyword: 'text' });

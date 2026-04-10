@@ -586,19 +586,17 @@ async function seedDatabase() {
     // 14. SEED BLACKLIST KEYWORDS
     // ==========================================
     console.log('🚫 Creating blacklist keywords...');
-    const blacklistKeywords = await blacklistKeywordModel.insertMany([
-      {
-        wordList: [
-          'spam',
-          'abuse',
-          'harassment',
-          'inappropriate',
-          'offensive',
-          'vulgar',
-          'hate',
-        ],
-      },
-    ]);
+    const blacklistKeywords = await blacklistKeywordModel.insertMany(
+      [
+        'spam',
+        'abuse',
+        'harassment',
+        'inappropriate',
+        'offensive',
+        'vulgar',
+        'hate',
+      ].map((keyword) => ({ keyword })),
+    );
     console.log(
       `✅ Created ${blacklistKeywords.length} blacklist keyword entries\n`,
     );

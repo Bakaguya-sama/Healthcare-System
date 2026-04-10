@@ -1,25 +1,18 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsArray,
-} from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateBlacklistKeywordDto {
-  @ApiProperty({ description: 'Array of keywords/phrases to block', type: [String] })
+  @ApiProperty({ description: 'Keyword/phrase to block' })
   @IsNotEmpty()
-  @IsArray()
-  @IsString({ each: true })
-  word_list: string[];
+  @IsString()
+  keyword: string;
 }
 
 export class UpdateBlacklistKeywordDto {
-  @ApiProperty({ description: 'Array of keywords/phrases to block', type: [String], required: false })
+  @ApiProperty({ description: 'Keyword/phrase to block', required: false })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  word_list?: string[];
+  @IsString()
+  keyword?: string;
 }
 
 export class QueryBlacklistKeywordDto {
