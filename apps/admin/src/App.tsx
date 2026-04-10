@@ -24,7 +24,7 @@ function Page({ title }: { title: string }) {
 function App() {
   return (
     <>
-      <ToastContainer />
+      <ToastContainer position="top-right" toastStyle={{ zIndex: 9999 }} />
       <BrowserRouter>
         <Routes>
           {/* Authentication */}

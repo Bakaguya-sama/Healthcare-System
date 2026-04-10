@@ -50,6 +50,11 @@ import {
   useDeleteDocument,
 } from "../hooks/useAiManagement";
 import { createAiDocument } from "../services/ai-management.service";
+import {
+  useGetKeywords,
+  useAddKeyword,
+  useDeleteKeyword,
+} from "../hooks/useBlacklistKeywords";
 import { showToast } from "@repo/ui/components/ui/toasts";
 
 type TabSwitch = "doc" | "words";
@@ -66,18 +71,6 @@ type DocumentItem = {
   createdAt: string;
   isEnabled: boolean;
 };
-
-const INITIAL_BLACKLIST_WORDS = [
-  "spam",
-  "insult",
-  "fake-news",
-  "harassment",
-  "misinformation",
-  "abuse",
-  "violence",
-  "scam",
-  "clickbait",
-];
 
 function getStatusClassName(status: DocumentStatus) {
   if (status === "active") {
@@ -178,9 +171,6 @@ export function AIManagement() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const [blacklistWords, setBlacklistWords] = useState<string[]>(
-    INITIAL_BLACKLIST_WORDS,
-  );
   const [searchWord, setSearchWord] = useState("");
   const [newWord, setNewWord] = useState("");
 
@@ -194,7 +184,17 @@ export function AIManagement() {
   const { toggleStatus, isLoading: isToggling } = useToggleDocumentStatus();
   const { deleteDoc, isLoading: isDeleting } = useDeleteDocument();
 
-  const isProcessing = isToggling || isDeleting || isUploading;
+  const {
+    data: keywordData,
+    error: keywordLoadError,
+    refresh: refreshKeyword,
+  } = useGetKeywords();
+  const { submitAddKeyword, isLoading: isAdding } = useAddKeyword();
+  const { submitDeleteKeyword, isLoading: isDeletingKeyword } =
+    useDeleteKeyword();
+
+  const isProcessing =
+    isToggling || isDeleting || isUploading || isAdding || isDeletingKeyword;
 
   const remoteDocList = useMemo(
     () => documentData?.documentList ?? [],
@@ -203,11 +203,27 @@ export function AIManagement() {
 
   const docList = remoteDocList;
 
+  const keywordList = useMemo(
+    () => keywordData?.keywordList ?? [],
+    [keywordData],
+  );
+
+  const blacklistWords = useMemo(
+    () => keywordList.map((item) => item.keyword),
+    [keywordList],
+  );
+
   useEffect(() => {
     if (loadError) {
       showToast.error(loadError);
     }
   }, [loadError]);
+
+  useEffect(() => {
+    if (keywordLoadError) {
+      showToast.error(keywordLoadError);
+    }
+  }, [keywordLoadError]);
 
   const filteredDocs = useMemo(() => {
     return docList.filter((doc) => {
@@ -235,9 +251,9 @@ export function AIManagement() {
 
   const filteredWords = useMemo(() => {
     const q = searchWord.trim().toLowerCase();
-    if (!q) return blacklistWords;
-    return blacklistWords.filter((word) => word.toLowerCase().includes(q));
-  }, [blacklistWords, searchWord]);
+    if (!q) return keywordList;
+    return keywordList.filter((item) => item.keyword.toLowerCase().includes(q));
+  }, [keywordList, searchWord]);
 
   const totalDocuments = docList.length;
   const activeDocuments = docList.filter((x) => x.status === "active").length;
@@ -384,12 +400,46 @@ export function AIManagement() {
     const sanitized = newWord.trim().toLowerCase();
     if (!sanitized) return;
     if (blacklistWords.includes(sanitized)) return;
-    setBlacklistWords((prev) => [sanitized, ...prev]);
-    setNewWord("");
+
+    void (async () => {
+      try {
+        const res = await submitAddKeyword(sanitized);
+        if (!res) {
+          showToast.error("Failed to add keyword.");
+          return;
+        }
+
+        showToast.success("Keyword added successfully");
+        void refreshKeyword();
+      } catch (error) {
+        showToast.error(
+          error instanceof Error ? error.message : "Failed to add keyword",
+        );
+      } finally {
+        setNewWord("");
+      }
+    })();
   };
 
-  const removeBlacklistWord = (word: string) => {
-    setBlacklistWords((prev) => prev.filter((item) => item !== word));
+  const removeBlacklistWord = (id: string) => {
+    void (async () => {
+      try {
+        const res = await submitDeleteKeyword(id);
+        if (!res) {
+          showToast.error(
+            "Failed to remove keyword. Please login and try again.",
+          );
+          return;
+        }
+
+        showToast.success("Keyword removed successfully");
+        void refreshKeyword();
+      } catch (error) {
+        showToast.error(
+          error instanceof Error ? error.message : "Failed to remove keyword",
+        );
+      }
+    })();
   };
 
   return (
@@ -796,17 +846,17 @@ export function AIManagement() {
 
               <div className="flex flex-wrap gap-2">
                 {filteredWords.length > 0 ? (
-                  filteredWords.map((word) => (
+                  filteredWords.map((item) => (
                     <span
-                      key={word}
+                      key={item.id}
                       className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-sm font-medium text-red-500"
                     >
                       <Ban className="h-3.5 w-3.5" />
-                      {word}
+                      {item.keyword}
                       <button
                         type="button"
                         className="rounded p-0.5 text-red-300 transition hover:bg-red-100 hover:text-red-500"
-                        onClick={() => removeBlacklistWord(word)}
+                        onClick={() => removeBlacklistWord(item.id)}
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
