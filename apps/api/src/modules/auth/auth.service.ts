@@ -23,6 +23,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ConfirmOtpDto } from './dto/confirm-otp.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
+import { NodemailerService } from './nodemailer.service';
 import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
@@ -33,6 +34,7 @@ export class AuthService {
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private nodemailerService: NodemailerService,
   ) {}
 
   /**
@@ -158,8 +160,7 @@ export class AuthService {
       otpExpiresAt,
     });
 
-    // TODO: Gửi OTP qua email (dùng nodemailer hoặc SendGrid)
-    console.log(`[DEV] OTP for ${dto.email}: ${otpCode}`);
+    await this.nodemailerService.sendOtpEmail(dto.email, otpCode);
 
     return {
       message: 'OTP sent to email',

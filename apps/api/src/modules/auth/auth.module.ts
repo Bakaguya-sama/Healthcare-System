@@ -9,6 +9,7 @@ import { User, UserSchema } from './entities/user.schema';
 import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
 import { Admin, AdminSchema } from '../admins/entities/admin.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { NodemailerService } from './nodemailer.service';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, NodemailerService],
   exports: [JwtModule, PassportModule],
 })
 export class AuthModule {}

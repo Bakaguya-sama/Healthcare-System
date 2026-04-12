@@ -11,12 +11,13 @@ export type ForgotPasswordResponse = {
 export async function submitForgotPassword(
   payload: ForgotPasswordPayload,
 ): Promise<ForgotPasswordResponse> {
-  const response = await api.post<ForgotPasswordResponse>(
-    "/auth/forgot-password",
-    {
-      email: payload.email,
-    },
-  );
+  await api.post<ForgotPasswordResponse>("/auth/forgot-password", {
+    email: payload.email,
+  });
+
+  const response = await api.post<ForgotPasswordResponse>("/auth/send-otp", {
+    email: payload.email,
+  });
 
   return response.data;
 }
