@@ -1,11 +1,14 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ChangePasswordDto {
-  @ApiProperty({ example: 'OldPass123!' })
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
   @IsString()
-  @MinLength(8)
-  oldPassword: string;
+  otpCode: string;
 
   @ApiProperty({ example: 'NewPass456!' })
   @IsString()

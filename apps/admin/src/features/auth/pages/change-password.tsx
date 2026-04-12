@@ -9,109 +9,124 @@ import {
 } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { Lock } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { useChangePassword } from "../hooks/useChangePassword";
 
 interface ChangePasswordProps {
-  /** Xử lý submit — nhận email và password */
   onSubmit?: (values: {
     password: string;
-    confirmed_password: string;
+    confirmedPassword: string;
   }) => void | Promise<void>;
-  /** Đang loading (disable nút, hiện spinner) */
   isLoading?: boolean;
-  /** Thông báo lỗi từ server */
   error?: string;
-  /** Label cho nút submit */
   submitLabel?: string;
-  /** Link quên mật khẩu */
-  email?: string;
 }
 
 interface ChangePasswordErrors {
   password?: string;
-  confirmed_password?: string;
+  confirmedPassword?: string;
 }
 
 export function ChangePassword({
   onSubmit,
-  isLoading = false,
-  error,
+  isLoading: propIsLoading = false,
+  error: propError,
   submitLabel = "Confirm",
-  email = "example@gmail.com",
 }: ChangePasswordProps) {
+  const navigate = useNavigate();
+  const { changePassword, isLoading, error } = useChangePassword();
+
   const [password, setPassword] = useState("");
-  const [confirmed_password, setConfirmedPassword] = useState("");
-  const [internalLoading, setInternalLoading] = useState(false);
+  const [confirmedPassword, setConfirmedPassword] = useState("");
+
   const [touched, setTouched] = useState({
     password: false,
-    confirmed_password: false,
+    confirmedPassword: false,
   });
   const [localErrors, setLocalErrors] = useState<ChangePasswordErrors>({});
 
-  async function handleChangePassword(values: {
-    password: string;
-    confirmed_password: string;
-  }) {
-    // Placeholder: thay phần này bằng call API đổi mật khẩu khi backend sẵn sàng.
-    console.log("[TODO] Change password payload", values);
-  }
-
   function validate(values: {
     password: string;
-    confirmed_password: string;
+    confirmedPassword: string;
   }): ChangePasswordErrors {
     const nextErrors: ChangePasswordErrors = {};
 
     if (!values.password.trim()) {
-      nextErrors.password = "Please enter your password.";
-    } else if (values.password.trim().length < 6) {
-      nextErrors.password = "Your password must have at least 6 characters.";
+      nextErrors.password = "Please enter your new password.";
+    } else if (values.password.trim().length < 8) {
+      nextErrors.password = "New password must have at least 8 characters.";
     }
 
-    if (!values.confirmed_password.trim()) {
-      nextErrors.confirmed_password = "Please confirm your password.";
-    } else if (values.confirmed_password.trim() !== values.password.trim()) {
-      nextErrors.confirmed_password = "Your password does not match.";
+    if (!values.confirmedPassword.trim()) {
+      nextErrors.confirmedPassword = "Please confirm your new password.";
+    } else if (values.confirmedPassword.trim() !== values.password.trim()) {
+      nextErrors.confirmedPassword = "Your password does not match.";
     }
 
     return nextErrors;
   }
 
-  function handleBlur(field: "password" | "confirmed_password") {
+  function handleBlur(field: keyof typeof touched) {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    setLocalErrors(validate({ password, confirmed_password }));
+    setLocalErrors(validate({ password, confirmedPassword }));
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    const nextErrors = validate({ password, confirmed_password });
+    const nextErrors = validate({ password, confirmedPassword });
     setLocalErrors(nextErrors);
-    setTouched({ password: true, confirmed_password: true });
+    setTouched({ password: true, confirmedPassword: true });
 
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
-    const submitHandler = onSubmit ?? handleChangePassword;
-
     try {
-      setInternalLoading(true);
-      await submitHandler({ password, confirmed_password });
-    } finally {
-      setInternalLoading(false);
+      if (onSubmit) {
+        await onSubmit({ password, confirmedPassword });
+      } else {
+        const email = localStorage.getItem("resetPasswordEmail");
+        const otpCode = localStorage.getItem("resetPasswordOtp");
+
+        if (!email || !otpCode) {
+          throw new Error(
+            "Missing email or OTP. Please restart from Forgot Password.",
+          );
+        }
+
+        await changePassword({
+          email,
+          otpCode,
+          newPassword: password,
+        });
+      }
+
+      localStorage.removeItem("resetPasswordEmail");
+      localStorage.removeItem("resetPasswordOtp");
+      showToast.success("Password reset successfully");
+      navigate("/login");
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Failed to reset password";
+      showToast.error(message);
     }
   }
 
   const passwordError = touched.password ? localErrors.password : undefined;
-  const confirmedPasswordError = touched.confirmed_password
-    ? localErrors.confirmed_password
+  const confirmedPasswordError = touched.confirmedPassword
+    ? localErrors.confirmedPassword
     : undefined;
-  const submitting = isLoading || internalLoading;
+
+  const submitting = isLoading || propIsLoading;
+  const displayError = error || propError;
 
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
@@ -123,13 +138,12 @@ export function ChangePassword({
           </h1>
 
           <p className="text-center text-lg text-black font-light ">
-            Enter your new password for{" "}
-            <span className="text-brand font-bold">{email}</span>.
+            Set a new password for your account.
           </p>
 
-          {error && (
+          {displayError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayError}
             </div>
           )}
 
@@ -150,7 +164,7 @@ export function ChangePassword({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onBlur={() => handleBlur("password")}
-                    placeholder="Enter your password"
+                    placeholder="Enter your new password"
                     disabled={submitting}
                     className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
                   />
@@ -160,7 +174,7 @@ export function ChangePassword({
 
               <Field className="gap-2">
                 <FieldLabel
-                  htmlFor="confirmed_password"
+                  htmlFor="confirmedPassword"
                   className="text-lg font-medium text-[#1E1E1E]"
                 >
                   Confirm password
@@ -168,12 +182,12 @@ export function ChangePassword({
                 <FieldControl invalid={Boolean(confirmedPasswordError)}>
                   <Lock className="h-5 w-5 shrink-0 text-muted-foreground" />
                   <Input
-                    id="confirmed_password"
+                    id="confirmedPassword"
                     type="password"
-                    value={confirmed_password}
+                    value={confirmedPassword}
                     onChange={(e) => setConfirmedPassword(e.target.value)}
-                    onBlur={() => handleBlur("confirmed_password")}
-                    placeholder="Re-enter your password"
+                    onBlur={() => handleBlur("confirmedPassword")}
+                    placeholder="Re-enter your new password"
                     disabled={submitting}
                     className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
                   />

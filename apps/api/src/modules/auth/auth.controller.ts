@@ -14,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ConfirmOtpDto } from './dto/confirm-otp.dto';
+import { SendOtpDto } from './dto/send-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
@@ -83,38 +84,44 @@ export class AuthController {
 
   /**
    * 🔐 POST /auth/change-password
-   * Đổi mật khẩu (yêu cầu JWT & mật khẩu cũ)
+   * Đặt lại mật khẩu bằng email + OTP
    */
   @Post('change-password')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đổi mật khẩu' })
-  async changePassword(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: ChangePasswordDto,
-  ) {
-    return this.authService.changePassword(userId, dto);
+  @ApiOperation({ summary: 'Đặt lại mật khẩu bằng email + OTP' })
+  async changePassword(@Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(dto);
   }
 
   /**
    * 🆘 POST /auth/forgot-password
-   * Quên mật khẩu - gửi OTP qua email
+   * Quên mật khẩu - kiểm tra email tồn tại
    */
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Gửi OTP để đặt lại mật khẩu' })
+  @ApiOperation({ summary: 'Kiểm tra email trước khi gửi OTP' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
   /**
+   * 📨 POST /auth/send-otp
+   * Gửi OTP qua email
+   */
+  @Post('send-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gửi OTP qua email' })
+  async sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto);
+  }
+
+  /**
    * ✅ POST /auth/confirm-otp
-   * Xác nhận OTP và đặt lại mật khẩu
+   * Xác nhận OTP
    */
   @Post('confirm-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xác nhận OTP và đặt lại mật khẩu' })
+  @ApiOperation({ summary: 'Xác nhận OTP' })
   async confirmOtp(@Body() dto: ConfirmOtpDto) {
     return this.authService.confirmOtp(dto);
   }

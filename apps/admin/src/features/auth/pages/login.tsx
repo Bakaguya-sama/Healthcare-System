@@ -13,7 +13,8 @@ import { FormEvent, useState } from "react";
 import { Lock, User } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { useLogin } from "../hooks/useLogin";
 
 interface LoginFormProps {
   /** Xử lý submit — nhận email và password */
@@ -38,22 +39,19 @@ interface LoginFormErrors {
 
 export function LogIn({
   onSubmit,
-  isLoading = false,
-  error,
+  isLoading: propIsLoading = false,
+  error: propError,
   submitLabel = "Log in",
   forgotPasswordHref,
 }: LoginFormProps) {
+  const navigate = useNavigate();
+  const { login, isLoading, error, data } = useLogin();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [internalLoading, setInternalLoading] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false });
   const [localErrors, setLocalErrors] = useState<LoginFormErrors>({});
-
-  async function handleLogin(values: { email: string; password: string }) {
-    // Placeholder: thay phần này bằng call API login khi backend sẵn sàng.
-    console.log("[TODO] Login payload", values);
-  }
 
   function validate(values: {
     email: string;
@@ -92,19 +90,36 @@ export function LogIn({
       return;
     }
 
-    const submitHandler = onSubmit ?? handleLogin;
-
     try {
-      setInternalLoading(true);
-      await submitHandler({ email: email.trim(), password });
-    } finally {
-      setInternalLoading(false);
+      if (onSubmit) {
+        await onSubmit({ email: email.trim(), password });
+      } else {
+        const response = await login({ email: email.trim(), password });
+
+        if (response && response.accessToken) {
+          // Store tokens in localStorage
+          localStorage.setItem("accessToken", response.accessToken);
+          localStorage.setItem("refreshToken", response.refreshToken);
+
+          if (rememberMe) {
+            localStorage.setItem("rememberedEmail", response.user.email);
+          }
+
+          showToast.success(`Welcome, ${response.user.fullName}!`);
+          navigate("/");
+        }
+      }
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error ? submitError.message : "Login failed";
+      showToast.error(message);
     }
   }
 
   const emailError = touched.email ? localErrors.email : undefined;
   const passwordError = touched.password ? localErrors.password : undefined;
-  const submitting = isLoading || internalLoading;
+  const submitting = isLoading || propIsLoading;
+  const displayError = error || propError;
 
   return (
     <>
@@ -116,9 +131,9 @@ export function LogIn({
               Sign in
             </h1>
 
-            {error && (
+            {displayError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                {error}
+                {displayError}
               </div>
             )}
 
@@ -192,6 +207,9 @@ export function LogIn({
 
                   <a
                     href={forgotPasswordHref}
+                    onClick={() => {
+                      navigate("/forget-password");
+                    }}
                     className="text-base font-medium text-brand hover:text-brand-hover cursor-pointer"
                   >
                     Forget your password?

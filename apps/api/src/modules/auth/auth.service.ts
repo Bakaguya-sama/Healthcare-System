@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -21,6 +22,7 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ConfirmOtpDto } from './dto/confirm-otp.dto';
+import { SendOtpDto } from './dto/send-otp.dto';
 import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
@@ -102,21 +104,29 @@ export class AuthService {
   /**
    * 🔐 ĐỔI MẬT KHẨU
    */
-  async changePassword(userId: string, dto: ChangePasswordDto) {
-    const user = await this.userModel.findById(userId);
-    if (!user) throw new UnauthorizedException('User not found');
+  async changePassword(dto: ChangePasswordDto) {
+    const user: UserDocument | null = await this.userModel
+      .findOne({ email: dto.email })
+      .exec();
+    if (!user) throw new NotFoundException('Email not found');
 
-    // Kiểm tra mật khẩu cũ
-    const isMatch = await bcrypt.compare(dto.oldPassword, user.password);
-    if (!isMatch) throw new BadRequestException('Old password is incorrect');
+    if (user.otpCode !== dto.otpCode) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+      throw new BadRequestException('OTP expired');
+    }
 
     // Hash mật khẩu mới
     const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
-    await this.userModel.findByIdAndUpdate(userId, {
+    await this.userModel.findByIdAndUpdate(user._id, {
       password: hashedPassword,
+      otpCode: null,
+      otpExpiresAt: null,
     });
 
-    return { message: 'Password changed successfully' };
+    return { message: 'Password reset successfully' };
   }
 
   /**
@@ -124,7 +134,19 @@ export class AuthService {
    */
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.userModel.findOne({ email: dto.email });
-    if (!user) throw new BadRequestException('Email not found');
+    if (!user) throw new NotFoundException('Email not found');
+
+    return {
+      message: 'Email is valid. You can request OTP now.',
+    };
+  }
+
+  /**
+   * 📨 GỬI OTP
+   */
+  async sendOtp(dto: SendOtpDto) {
+    const user = await this.userModel.findOne({ email: dto.email });
+    if (!user) throw new NotFoundException('Email not found');
 
     // Tạo OTP ngẫu nhiên
     const otpCode = Math.random().toString().slice(2, 8);
@@ -141,8 +163,6 @@ export class AuthService {
 
     return {
       message: 'OTP sent to email',
-      // Chỉ cho test: bỏ ở production
-      otpCode, // ❌ KHÔNG trả OTP cho client ở production!
     };
   }
 
@@ -151,7 +171,7 @@ export class AuthService {
    */
   async confirmOtp(dto: ConfirmOtpDto) {
     const user = await this.userModel.findOne({ email: dto.email });
-    if (!user) throw new BadRequestException('Email not found');
+    if (!user) throw new NotFoundException('Email not found');
 
     // Kiểm tra OTP
     if (user.otpCode !== dto.otpCode) {
@@ -163,17 +183,7 @@ export class AuthService {
       throw new BadRequestException('OTP expired');
     }
 
-    // Hash mật khẩu mới
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
-
-    // Cập nhật mật khẩu và xóa OTP
-    await this.userModel.findByIdAndUpdate(user._id, {
-      password: hashedPassword,
-      otpCode: null,
-      otpExpiresAt: null,
-    });
-
-    return { message: 'Password reset successfully' };
+    return { message: 'OTP verified successfully' };
   }
 
   /**

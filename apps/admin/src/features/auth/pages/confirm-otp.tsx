@@ -9,11 +9,13 @@ import {
 } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { Mail } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { useConfirmOtp } from "../hooks/useConfirmOtp";
 
 interface ConfirmOTPProps {
   onSubmit?: (otp: string) => void | Promise<void>;
@@ -28,27 +30,29 @@ interface ConfirmOTPErrors {
 
 export function ConfirmOTP({
   onSubmit,
-  isLoading = false,
-  error,
+  isLoading: propIsLoading = false,
+  error: propError,
   submitLabel = "Verify OTP",
 }: ConfirmOTPProps) {
-  const [otp, setOTP] = useState("");
-  const [internalLoading, setInternalLoading] = useState(false);
-  const [touched, setTouched] = useState({ otp: false });
-  const [localErrors, setLocalErrors] = useState<ConfirmOTPErrors>({});
+  const navigate = useNavigate();
+  const { confirmOtp, isLoading, error } = useConfirmOtp();
 
-  async function handleConfirmOtp(values: { otp: string }) {
-    // Placeholder: thay phần này bằng call API xác thực OTP khi backend sẵn sàng.
-    console.log("[TODO] Confirm OTP payload", values);
-  }
+  const [otp, setOTP] = useState("");
+
+  const [touched, setTouched] = useState({
+    otp: false,
+  });
+  const [localErrors, setLocalErrors] = useState<ConfirmOTPErrors>({});
 
   function validate(values: { otp: string }): ConfirmOTPErrors {
     const nextErrors: ConfirmOTPErrors = {};
+
     if (!values.otp.trim()) {
       nextErrors.otp = "Please enter the OTP.";
     } else if (!/^\d{4,8}$/.test(values.otp.trim())) {
-      nextErrors.otp = "OTP must be 4–8 digits.";
+      nextErrors.otp = "OTP must be 4-8 digits.";
     }
+
     return nextErrors;
   }
 
@@ -68,19 +72,41 @@ export function ConfirmOTP({
       return;
     }
 
-    const submitHandler =
-      onSubmit ?? ((nextOtp: string) => handleConfirmOtp({ otp: nextOtp }));
-
     try {
-      setInternalLoading(true);
-      await submitHandler(otp.trim());
-    } finally {
-      setInternalLoading(false);
+      if (onSubmit) {
+        await onSubmit(otp.trim());
+      } else {
+        const email = localStorage.getItem("resetPasswordEmail");
+
+        if (!email) {
+          throw new Error(
+            "Missing email. Please restart from Forgot Password.",
+          );
+        }
+
+        await confirmOtp({
+          email,
+          otpCode: otp.trim(),
+        });
+
+        localStorage.setItem("resetPasswordOtp", otp.trim());
+      }
+
+      showToast.success("OTP verified. Please set your new password.");
+      navigate("/change-password");
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Failed to verify OTP";
+      showToast.error(message);
     }
   }
 
   const otpError = touched.otp ? localErrors.otp : undefined;
-  const submitting = isLoading || internalLoading;
+  const submitting = isLoading || propIsLoading;
+  const displayError = error || propError;
+
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
       <AuthenticationHeader />
@@ -94,9 +120,9 @@ export function ConfirmOTP({
             Enter the code from our email sent to you.
           </p>
 
-          {error && (
+          {displayError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayError}
             </div>
           )}
 

@@ -9,11 +9,13 @@ import {
 } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { Mail } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { useForgotPassword } from "../hooks/useForgotPassword";
 
 interface ForgetPasswordProps {
   onSubmit?: (email: string) => void | Promise<void>;
@@ -28,19 +30,16 @@ interface ForgetPasswordErrors {
 
 export function ForgetPassword({
   onSubmit,
-  isLoading = false,
-  error,
+  isLoading: propIsLoading = false,
+  error: propError,
   submitLabel = "Verify email",
 }: ForgetPasswordProps) {
+  const navigate = useNavigate();
+  const { sendOtp, isLoading, error } = useForgotPassword();
+
   const [email, setEmail] = useState("");
-  const [internalLoading, setInternalLoading] = useState(false);
   const [touched, setTouched] = useState({ email: false });
   const [localErrors, setLocalErrors] = useState<ForgetPasswordErrors>({});
-
-  async function handleForgetPassword(values: { email: string }) {
-    // Placeholder: thay phần này bằng call API quên mật khẩu khi backend sẵn sàng.
-    console.log("[TODO] Forget password payload", values);
-  }
 
   function validate(values: { email: string }): ForgetPasswordErrors {
     const nextErrors: ForgetPasswordErrors = {};
@@ -70,20 +69,29 @@ export function ForgetPassword({
       return;
     }
 
-    const submitHandler =
-      onSubmit ??
-      ((nextEmail: string) => handleForgetPassword({ email: nextEmail }));
-
     try {
-      setInternalLoading(true);
-      await submitHandler(email.trim());
-    } finally {
-      setInternalLoading(false);
+      if (onSubmit) {
+        await onSubmit(email.trim());
+      } else {
+        await sendOtp({ email: email.trim() });
+      }
+
+      localStorage.setItem("resetPasswordEmail", email.trim());
+      showToast.success("OTP has been sent to your email");
+      navigate("/confirm-otp");
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Failed to send OTP";
+      showToast.error(message);
     }
   }
 
   const emailError = touched.email ? localErrors.email : undefined;
-  const submitting = isLoading || internalLoading;
+  const submitting = isLoading || propIsLoading;
+  const displayError = error || propError;
+
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
       <AuthenticationHeader />
@@ -97,9 +105,9 @@ export function ForgetPassword({
             Enter your email to receive OTP.
           </p>
 
-          {error && (
+          {displayError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayError}
             </div>
           )}
 

@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ConfirmOtpDto {
@@ -9,9 +9,4 @@ export class ConfirmOtpDto {
   @ApiProperty({ example: '123456' })
   @IsString()
   otpCode: string;
-
-  @ApiProperty({ example: 'NewPass456!' })
-  @IsString()
-  @MinLength(8)
-  newPassword: string;
 }
