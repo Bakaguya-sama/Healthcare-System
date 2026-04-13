@@ -131,6 +131,7 @@ export function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [openActionUserId, setOpenActionUserId] = useState<string | null>(null);
+  const [openActionRect, setOpenActionRect] = useState<DOMRect | null>(null);
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
   const [newAdminFullName, setNewAdminFullName] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -159,6 +160,18 @@ export function UserManagement() {
   const handleCloseProfileModal = () => {
     setProfileModalOpen(false);
     setSelectedUserId(null);
+  };
+
+  const handleToggleActionMenu = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    userId: string,
+  ) => {
+    const nextIsOpen = openActionUserId !== userId;
+
+    setOpenActionUserId(nextIsOpen ? userId : null);
+    setOpenActionRect(
+      nextIsOpen ? event.currentTarget.getBoundingClientRect() : null,
+    );
   };
 
   useEffect(() => {
@@ -198,6 +211,7 @@ export function UserManagement() {
       const target = event.target as HTMLElement;
       if (!target.closest('[data-actions-root="true"]')) {
         setOpenActionUserId(null);
+        setOpenActionRect(null);
       }
     };
 
@@ -348,18 +362,21 @@ export function UserManagement() {
   const goToPage = (page: number) => {
     setCurrentPage(Math.min(Math.max(page, 1), totalPages));
     setOpenActionUserId(null);
+    setOpenActionRect(null);
   };
 
   const changeRole = (role: UserRole | "all") => {
     setSelectedRole(role);
     setCurrentPage(1);
     setOpenActionUserId(null);
+    setOpenActionRect(null);
   };
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
     setCurrentPage(1);
     setOpenActionUserId(null);
+    setOpenActionRect(null);
   };
 
   const handleToggleStatus = async (userId: string) => {
@@ -393,6 +410,7 @@ export function UserManagement() {
         ),
       );
       setOpenActionUserId(null);
+      setOpenActionRect(null);
       showToast.success(
         currentUser.status === "active"
           ? "User banned successfully"
@@ -433,6 +451,7 @@ export function UserManagement() {
       await refresh();
       setCurrentPage(1);
       setOpenActionUserId(null);
+      setOpenActionRect(null);
     } catch (createError) {
       showToast.error(createError);
     }
@@ -700,10 +719,8 @@ export function UserManagement() {
                         <button
                           type="button"
                           className="h-6 w-6 cursor-pointer rounded-md p-1 transition-colors hover:bg-slate-100"
-                          onClick={() =>
-                            setOpenActionUserId((prev) =>
-                              prev === user.id ? null : user.id,
-                            )
+                          onClick={(event) =>
+                            handleToggleActionMenu(event, user.id)
                           }
                         >
                           <MoreHorizontal className="h-4 w-4" />
@@ -713,6 +730,7 @@ export function UserManagement() {
                           <ActionCard
                             onClickOutside={() => setOpenActionUserId(null)}
                             actions={createActionList(user)}
+                            anchorRect={openActionRect}
                           />
                         ) : null}
                       </div>

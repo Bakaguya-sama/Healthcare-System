@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -167,6 +168,7 @@ export function AIManagement() {
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [openActionFor, setOpenActionFor] = useState<string | null>(null);
+  const [openActionRect, setOpenActionRect] = useState<DOMRect | null>(null);
   const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -175,6 +177,18 @@ export function AIManagement() {
   const [newWord, setNewWord] = useState("");
 
   const inputFileRef = useRef<HTMLInputElement | null>(null);
+
+  const handleToggleActionMenu = (
+    event: MouseEvent<HTMLButtonElement>,
+    docId: string,
+  ) => {
+    const nextIsOpen = openActionFor !== docId;
+
+    setOpenActionFor(nextIsOpen ? docId : null);
+    setOpenActionRect(
+      nextIsOpen ? event.currentTarget.getBoundingClientRect() : null,
+    );
+  };
 
   const {
     data: documentData,
@@ -218,6 +232,12 @@ export function AIManagement() {
       showToast.error(loadError);
     }
   }, [loadError]);
+
+  useEffect(() => {
+    if (!openActionFor) {
+      setOpenActionRect(null);
+    }
+  }, [openActionFor]);
 
   useEffect(() => {
     if (keywordLoadError) {
@@ -682,10 +702,8 @@ export function AIManagement() {
                               <button
                                 type="button"
                                 className="rounded-md p-1 text-slate-500 transition hover:bg-slate-100"
-                                onClick={() => {
-                                  setOpenActionFor((prev) =>
-                                    prev === doc.id ? null : doc.id,
-                                  );
+                                onClick={(event) => {
+                                  handleToggleActionMenu(event, doc.id);
                                 }}
                               >
                                 <Ellipsis className="h-4 w-4" />
@@ -694,7 +712,11 @@ export function AIManagement() {
                               {openActionFor === doc.id ? (
                                 <ActionCard
                                   actions={actions}
-                                  onClickOutside={() => setOpenActionFor(null)}
+                                  onClickOutside={() => {
+                                    setOpenActionFor(null);
+                                    setOpenActionRect(null);
+                                  }}
+                                  anchorRect={openActionRect}
                                 />
                               ) : null}
                             </div>
