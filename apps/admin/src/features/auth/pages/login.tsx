@@ -9,7 +9,7 @@ import {
 } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
-import { FormEvent, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Lock, User } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
@@ -45,7 +45,7 @@ export function LogIn({
   forgotPasswordHref,
 }: LoginFormProps) {
   const navigate = useNavigate();
-  const { login, isLoading, error, data } = useLogin();
+  const { login, isLoading, error } = useLogin();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -97,10 +97,6 @@ export function LogIn({
         const response = await login({ email: email.trim(), password });
 
         if (response && response.accessToken) {
-          // Store tokens in localStorage
-          localStorage.setItem("accessToken", response.accessToken);
-          localStorage.setItem("refreshToken", response.refreshToken);
-
           if (rememberMe) {
             localStorage.setItem("rememberedEmail", response.user.email);
           }

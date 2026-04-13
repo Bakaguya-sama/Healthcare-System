@@ -4,6 +4,8 @@
   "private": true,
   "exports": {
     "./*": "./src/*.tsx",
+    "./store/*": "./src/store/*.ts",
+    "./types/*": "./src/types/*.ts",
     "./auth/*": "./src/auth/*.tsx",
     "./lib/utils": "./src/lib/utils.ts"
   },
@@ -34,6 +36,7 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
     "react-toastify": "^11.0.5",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zustand": "^5.0.12"
   }
 }

@@ -12,16 +12,47 @@ import { DocumentVerification } from "./features/doc-verification/pages/doc-veri
 import { ViolationReport } from "./features/violation-report/pages/violation-report";
 import { AIManagement } from "./features/ai_management/pages/ai_management";
 import { Profile } from "./features/profile/page/profile";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { useEffect, useState } from "react";
+import { useLogout } from "./features/auth/hooks/useLogout";
 
-function Page({ title }: { title: string }) {
-  return (
-    <main className="flex-1 overflow-auto p-6">
-      <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-    </main>
-  );
+function ProtectedRoutes() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { logout } = useLogout();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Layout onLogout={logout} />;
 }
 
 function App() {
+  const [hasHydrated, setHasHydrated] = useState(
+    useAuthStore.persist.hasHydrated(),
+  );
+
+  useEffect(() => {
+    const unsubscribeHydrate = useAuthStore.persist.onHydrate(() => {
+      setHasHydrated(false);
+    });
+
+    const unsubscribeFinishHydration = useAuthStore.persist.onFinishHydration(
+      () => {
+        setHasHydrated(true);
+      },
+    );
+
+    return () => {
+      unsubscribeHydrate();
+      unsubscribeFinishHydration();
+    };
+  }, []);
+
+  if (!hasHydrated) {
+    return null;
+  }
+
   return (
     <>
       <ToastContainer position="top-right" toastStyle={{ zIndex: 9999 }} />
@@ -33,7 +64,7 @@ function App() {
           <Route path="/confirm-otp" element={<ConfirmOTP />} />
           <Route path="/change-password" element={<ChangePassword />} />
 
-          <Route element={<Layout userRole="admin" />}>
+          <Route element={<ProtectedRoutes />}>
             <Route index element={<Overview />} />
             <Route path="/user-management" element={<UserManagement />} />
             <Route

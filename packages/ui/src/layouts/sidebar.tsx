@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Cross,
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
 import { cn } from "../lib/utils";
 import { UserAvatar } from "../components/ui/user-avatar";
 import { useState } from "react";
+import { useAuthStore } from "../store/useAuthStore";
 
 const menuItems = {
   admin: [
@@ -96,14 +97,24 @@ export type UserRole = keyof typeof menuItems;
 
 type SidebarProps = {
   userRole: UserRole;
+  onLogout?: () => Promise<void> | void;
 };
 
-export function Sidebar({ userRole }: SidebarProps) {
-  // TODO: handle userRole
+export function Sidebar({ userRole, onLogout }: SidebarProps) {
+  const user = useAuthStore((state) => state.user);
+  const clearAuthState = useAuthStore((state) => state.logout);
+  const navigate = useNavigate();
 
   const [shrunk, setShrunk] = useState(false);
   const roleItems = menuItems[userRole] ?? [];
-  const onLogOut = () => {};
+  const onLogOut = async () => {
+    try {
+      await onLogout?.();
+    } finally {
+      clearAuthState();
+      navigate("/login", { replace: true });
+    }
+  };
 
   return (
     <aside
@@ -213,11 +224,11 @@ export function Sidebar({ userRole }: SidebarProps) {
             : "px-4 flex items-center gap-3",
         )}
       >
-        <UserAvatar name="Huy Vu" isOnline={true} />
+        <UserAvatar name={user?.name || "User"} isOnline={true} />
         {!shrunk && (
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">
-              Huy Vu
+              {user?.name || "Unknown User"}
             </p>
           </div>
         )}
