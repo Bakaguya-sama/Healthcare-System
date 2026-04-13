@@ -28,6 +28,13 @@ export function useLogin() {
 
     try {
       const res = await submitLogin(payload);
+
+      if (res.user.role !== "admin") {
+        const message = "Cannot log in as another role.";
+        setError(message);
+        throw new Error(message);
+      }
+
       setData(res);
       return res;
     } catch (loginError) {
