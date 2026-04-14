@@ -22,6 +22,11 @@ import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
 import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
+import {
+  Admin,
+  AdminDocument,
+  AdminRole,
+} from '../admins/entities/admin.entity';
 
 @Injectable()
 export class AdminService {
@@ -29,6 +34,7 @@ export class AdminService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
+    @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
   ) {}
 
   // ============================================
@@ -152,6 +158,24 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
+    const currentAdmin = await this.adminModel.findOne({
+      userId: new Types.ObjectId(adminId),
+    });
+
+    if (
+      !currentAdmin ||
+      !currentAdmin.adminRole ||
+      currentAdmin.adminRole === AdminRole.AI_ADMIN
+    ) {
+      throw new BadRequestException(
+        'Only super admins or user admins can ban.',
+      );
+    }
+
+    if (userId === adminId) {
+      throw new BadRequestException('Cannot modify your account.');
+    }
+
     if (user.accountStatus === AccountStatus.BANNED) {
       throw new BadRequestException('Account is already banned');
     }
@@ -177,6 +201,24 @@ export class AdminService {
     const user = await this.userModel.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    const currentAdmin = await this.adminModel.findOne({
+      userId: new Types.ObjectId(adminId),
+    });
+
+    if (
+      !currentAdmin ||
+      !currentAdmin.adminRole ||
+      currentAdmin.adminRole === AdminRole.AI_ADMIN
+    ) {
+      throw new BadRequestException(
+        'Only super admins or user admins can unlock.',
+      );
+    }
+
+    if (userId === adminId) {
+      throw new BadRequestException('Cannot modify your account.');
     }
 
     if (user.accountStatus !== AccountStatus.BANNED) {

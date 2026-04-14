@@ -5,6 +5,11 @@ import { AdminService } from './admin.service';
 import { User, UserSchema } from '../auth/entities/user.schema';
 import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
 import { Session, SessionSchema } from '../sessions/entities/session.entity';
+import {
+  Admin,
+  AdminDocument,
+  AdminSchema,
+} from '../admins/entities/admin.entity';
 
 @Module({
   imports: [
@@ -12,6 +17,7 @@ import { Session, SessionSchema } from '../sessions/entities/session.entity';
       { name: User.name, schema: UserSchema },
       { name: Doctor.name, schema: DoctorSchema },
       { name: Session.name, schema: SessionSchema },
+      { name: Admin.name, schema: AdminSchema },
     ]),
   ],
   controllers: [AdminController],

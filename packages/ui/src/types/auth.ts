@@ -2,11 +2,12 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "doctor" | "patient";
+  role: AppRole;
   adminRole?: AdminRole;
   avatar?: string;
 }
 
+export type AppRole = "admin" | "doctor" | "patient";
 export type AdminRole = "ai_admin" | "user_admin" | "super_admin";
 
 export interface AuthState {

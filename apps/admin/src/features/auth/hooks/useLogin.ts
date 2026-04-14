@@ -6,6 +6,7 @@ import {
 } from "../services/login.service";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import type { User } from "@repo/ui/types/auth";
+import { getCurrentAdmin } from "../services/get-current-admin.service";
 
 export function useLogin() {
   const [isLoading, setLoading] = useState(false);
@@ -40,18 +41,29 @@ export function useLogin() {
           throw new Error(message);
         }
 
+        localStorage.setItem("accessToken", res.accessToken);
+        localStorage.setItem("refreshToken", res.refreshToken);
+
+        const currentAdmin = await getCurrentAdmin();
+
         const normalizedUser: User = {
           id: res.user.id,
           email: res.user.email,
           name: res.user.fullName,
           role: "admin",
           avatar: res.user.avatarUrl,
+          adminRole: currentAdmin.adminRole,
         };
 
         setUser(normalizedUser, res.accessToken, res.refreshToken);
+
         setData(res);
         return res;
       } catch (loginError) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        useAuthStore.getState().logout();
+
         const message =
           loginError instanceof Error
             ? loginError.message

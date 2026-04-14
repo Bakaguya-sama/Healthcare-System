@@ -21,6 +21,12 @@ import {
 import { UserRole } from '../users/enums/user-role.enum';
 import * as bcrypt from 'bcrypt';
 
+type AdminListFilter = {
+  adminRole?: AdminRole;
+};
+
+type AdminSort = Record<string, 1 | -1>;
+
 @Injectable()
 export class AdminsService {
   constructor(
@@ -31,7 +37,7 @@ export class AdminsService {
   ) {}
 
   /**
-   * 📝 TẠO HỒSƠ ADMIN MỚI (SUPER_ADMIN ONLY)
+   * 📝 TẠO HỒ SƠ ADMIN MỚI (SUPER_ADMIN ONLY)
    */
   async create(currentAdminUserId: string, dto: CreateAdminDto) {
     // Check if current user is super admin
@@ -125,15 +131,16 @@ export class AdminsService {
       );
     }
 
-    const filter: any = {};
+    const filter: AdminListFilter = {};
 
     if (query.adminRole) {
       filter.adminRole = query.adminRole;
     }
 
     const skip = (query.page - 1) * query.limit;
-    const sort: any = {};
-    sort[query.sortBy || 'createdAt'] = query.sortOrder || -1;
+    const sort: AdminSort = {};
+    const sortOrder: 1 | -1 = query.sortOrder === 1 ? 1 : -1;
+    sort[query.sortBy || 'createdAt'] = sortOrder;
 
     const [data, total] = await Promise.all([
       this.adminModel
@@ -174,14 +181,25 @@ export class AdminsService {
       userId: new Types.ObjectId(currentAdminUserId),
     });
 
-    if (!currentAdmin || currentAdmin.adminRole !== AdminRole.SUPER_ADMIN) {
+    if (!currentAdmin || currentAdmin.adminRole === AdminRole.AI_ADMIN) {
       throw new ForbiddenException(
-        'Only super admins can update admin accounts',
+        'Only super admins or user admins can update admin accounts',
       );
     }
 
     if (!Types.ObjectId.isValid(adminId)) {
       throw new BadRequestException('Invalid admin ID');
+    }
+
+    const targetAdmin = await this.adminModel.findById(
+      new Types.ObjectId(adminId),
+    );
+    if (!targetAdmin) {
+      throw new NotFoundException('Admin profile not found');
+    }
+
+    if (targetAdmin.userId.toString() === currentAdminUserId) {
+      throw new BadRequestException('Cannot modify your account.');
     }
 
     const admin = await this.adminModel.findByIdAndUpdate(
@@ -207,6 +225,8 @@ export class AdminsService {
    * 📝 GHI LẠI ACTION LOG
    */
   async logAction(userId: string, action: string) {
+    void action;
+
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
     }
@@ -231,14 +251,25 @@ export class AdminsService {
       userId: new Types.ObjectId(currentAdminUserId),
     });
 
-    if (!currentAdmin || currentAdmin.adminRole !== AdminRole.SUPER_ADMIN) {
+    if (!currentAdmin || currentAdmin.adminRole === AdminRole.AI_ADMIN) {
       throw new ForbiddenException(
-        'Only super admins can delete admin accounts',
+        'Only super admins or user admins can delete admin accounts',
       );
     }
 
     if (!Types.ObjectId.isValid(adminId)) {
       throw new BadRequestException('Invalid admin ID');
+    }
+
+    const targetAdmin = await this.adminModel.findById(
+      new Types.ObjectId(adminId),
+    );
+    if (!targetAdmin) {
+      throw new NotFoundException('Admin profile not found');
+    }
+
+    if (targetAdmin.userId.toString() === currentAdminUserId) {
+      throw new BadRequestException('Cannot modify your account.');
     }
 
     const result = await this.adminModel.findByIdAndDelete(

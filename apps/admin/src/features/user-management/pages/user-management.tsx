@@ -55,6 +55,7 @@ import type {
   ReportActor,
   ReportType,
 } from "@repo/ui/components/complex-modal/ReportModal";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
 
 type UserRole = "patient" | "doctor" | "admin";
 type UserStatus = "active" | "banned";
@@ -156,6 +157,8 @@ export function UserManagement() {
     [baseUsers, localUsers],
   );
   const selectedUser = users.find((user) => user.id === selectedUserId);
+
+  const currentAdmin = useAuthStore((state) => state.user);
 
   const handleCloseProfileModal = () => {
     setProfileModalOpen(false);
@@ -460,6 +463,8 @@ export function UserManagement() {
   };
 
   const createActionList = (user: UserRecord): ActionCardItem[] => {
+    const isSelf = currentAdmin?.id === user.id;
+
     const actions: ActionCardItem[] = [
       {
         id: `${user.id}-view-profile`,
@@ -470,7 +475,10 @@ export function UserManagement() {
           setProfileModalOpen(true);
         },
       },
-      {
+    ];
+
+    if (!isSelf) {
+      actions.push({
         id: `${user.id}-lock-unlock`,
         title: user.status === "active" ? "Lock user" : "Unlock user",
         icon:
@@ -482,10 +490,10 @@ export function UserManagement() {
         iconColor:
           user.status === "active" ? "text-red-700" : "text-emerald-700",
         onHandle: () => void handleToggleStatus(user.id),
-      },
-    ];
+      });
+    }
 
-    if (user.role === "admin") {
+    if (!isSelf && user.role === "admin") {
       actions.splice(1, 0, {
         id: `${user.id}-assign-role`,
         title: `Assign role (${getAdminRoleLabel(user.assigned_role)})`,

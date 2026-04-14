@@ -19,36 +19,9 @@ import { cn } from "../lib/utils";
 import { UserAvatar } from "../components/ui/user-avatar";
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
+import { type AdminRole, type AppRole } from "../types/auth";
 
-const menuItems = {
-  admin: [
-    { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/" },
-    {
-      id: "user_management",
-      label: "User Management",
-      icon: Users,
-      path: "/user-management",
-    },
-    {
-      id: "doc_verification",
-      label: "Doc Verification",
-      icon: FileCheck,
-      path: "/doc-verification",
-    },
-    {
-      id: "ai_knowledge_base",
-      label: "AI Knowledge Base",
-      icon: BookOpen,
-      path: "/ai-knowledge-base",
-    },
-    {
-      id: "violation_reports",
-      label: "Violation Reports",
-      icon: ShieldAlert,
-      path: "/violation-reports",
-    },
-    { id: "profile", label: "Profile", icon: CircleUser, path: "/profile" },
-  ],
+const clientMenuItems = {
   doctor: [
     {
       id: "doctor-overview",
@@ -93,20 +66,92 @@ const menuItems = {
   ],
 };
 
-export type UserRole = keyof typeof menuItems;
+const adminMenuItems = {
+  super_admin: [
+    { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/" },
+    {
+      id: "user_management",
+      label: "User Management",
+      icon: Users,
+      path: "/user-management",
+    },
+    {
+      id: "doc_verification",
+      label: "Doc Verification",
+      icon: FileCheck,
+      path: "/doc-verification",
+    },
+    {
+      id: "ai_knowledge_base",
+      label: "AI Knowledge Base",
+      icon: BookOpen,
+      path: "/ai-knowledge-base",
+    },
+    {
+      id: "violation_reports",
+      label: "Violation Reports",
+      icon: ShieldAlert,
+      path: "/violation-reports",
+    },
+    { id: "profile", label: "Profile", icon: CircleUser, path: "/profile" },
+  ],
+  ai_admin: [
+    { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/" },
+    {
+      id: "ai_knowledge_base",
+      label: "AI Knowledge Base",
+      icon: BookOpen,
+      path: "/ai-knowledge-base",
+    },
+    { id: "profile", label: "Profile", icon: CircleUser, path: "/profile" },
+  ],
+  user_admin: [
+    { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/" },
+    {
+      id: "user_management",
+      label: "User Management",
+      icon: Users,
+      path: "/user-management",
+    },
+    {
+      id: "doc_verification",
+      label: "Doc Verification",
+      icon: FileCheck,
+      path: "/doc-verification",
+    },
+    {
+      id: "violation_reports",
+      label: "Violation Reports",
+      icon: ShieldAlert,
+      path: "/violation-reports",
+    },
+    { id: "profile", label: "Profile", icon: CircleUser, path: "/profile" },
+  ],
+};
+
+export type SidebarRole = AppRole;
 
 type SidebarProps = {
-  userRole: UserRole;
+  userRole: SidebarRole;
+  adminRole?: AdminRole;
   onLogout?: () => Promise<void> | void;
 };
 
-export function Sidebar({ userRole, onLogout }: SidebarProps) {
+export function Sidebar({
+  userRole,
+  adminRole = "user_admin",
+  onLogout,
+}: SidebarProps) {
   const user = useAuthStore((state) => state.user);
   const clearAuthState = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
-
   const [shrunk, setShrunk] = useState(false);
-  const roleItems = menuItems[userRole] ?? [];
+
+  const roleItems =
+    userRole === "admin"
+      ? (adminMenuItems[adminRole ?? "user_admin"] ?? [])
+      : clientMenuItems[userRole];
+
   const onLogOut = async () => {
     try {
       await onLogout?.();
@@ -123,7 +168,6 @@ export function Sidebar({ userRole, onLogout }: SidebarProps) {
         shrunk ? "w-20" : "w-64",
       )}
     >
-      {/* Logo */}
       <div className={cn("py-5", shrunk ? "px-4" : "px-6")}>
         <div
           className={cn(
@@ -139,7 +183,11 @@ export function Sidebar({ userRole, onLogout }: SidebarProps) {
               </p>
               <p className="text-sm text-center text-[#6B7280] font-semibold">
                 {userRole === "admin"
-                  ? "MediAdmin"
+                  ? adminRole === "super_admin"
+                    ? "Super Admin"
+                    : adminRole === "ai_admin"
+                      ? "AI Admin"
+                      : "User Admin"
                   : userRole === "doctor"
                     ? "Medidoctor"
                     : ""}
@@ -149,7 +197,6 @@ export function Sidebar({ userRole, onLogout }: SidebarProps) {
         </div>
       </div>
 
-      {/* Menu */}
       <nav
         className={cn("flex-1 overflow-y-auto py-5", shrunk ? "px-2" : "px-4")}
       >
@@ -215,7 +262,6 @@ export function Sidebar({ userRole, onLogout }: SidebarProps) {
         </ul>
       </nav>
 
-      {/* User Info */}
       <div
         className={cn(
           "border-t py-4",
