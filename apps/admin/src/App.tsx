@@ -15,6 +15,54 @@ import { Profile } from "./features/profile/page/profile";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import { useEffect, useState } from "react";
 import { useLogout } from "./features/auth/hooks/useLogout";
+import { ConfirmationModal } from "@repo/ui/components/complex-modal/ConfirmationModal";
+import { useNavigate } from "react-router-dom";
+
+function SessionExpiredModal() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState(
+    "Session expired. Please log in again!",
+  );
+  const navigate = useNavigate();
+  const clearAuthState = useAuthStore((state) => state.logout);
+
+  useEffect(() => {
+    const handleSessionExpired = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string }>;
+      setMessage(
+        customEvent.detail?.message ?? "Session expired. Please log in again!",
+      );
+      setIsOpen(true);
+    };
+
+    window.addEventListener("auth:session-expired", handleSessionExpired);
+
+    return () => {
+      window.removeEventListener("auth:session-expired", handleSessionExpired);
+    };
+  }, []);
+
+  const handleConfirm = async () => {
+    setIsOpen(false);
+    clearAuthState();
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    navigate("/login", { replace: true });
+  };
+
+  return (
+    <ConfirmationModal
+      isOpen={isOpen}
+      onClose={() => setIsOpen(false)}
+      onConfirm={handleConfirm}
+      title="Session expired"
+      message={message}
+      confirmText="Log in again"
+      cancelText="Close"
+      variant="warning"
+    />
+  );
+}
 
 function ProtectedRoutes() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -57,6 +105,7 @@ function App() {
     <>
       <ToastContainer position="top-right" toastStyle={{ zIndex: 9999 }} />
       <BrowserRouter>
+        <SessionExpiredModal />
         <Routes>
           {/* Authentication */}
           <Route path="/login" element={<LogIn />} />
