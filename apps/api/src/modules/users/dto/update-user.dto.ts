@@ -56,6 +56,14 @@ export class UpdateUserDto {
   @IsCloudinaryUrl()
   avatarUrl?: string;
 
+  @ApiProperty({
+    required: false,
+    description: 'Cloudinary publicId of avatar',
+  })
+  @IsOptional()
+  @IsString()
+  avatarPublicId?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

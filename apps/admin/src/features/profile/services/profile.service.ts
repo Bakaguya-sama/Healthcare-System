@@ -12,6 +12,7 @@ export interface ProfileDataReceiver {
   id: string;
   isOnline: boolean;
   avatarUrl?: string;
+  avatarPublicId?: string;
   fullName: string;
   role: UserRole;
   email: string;
@@ -73,6 +74,7 @@ type UserProfileResponse = {
   dateOfBirth?: string;
   phoneNumber?: string;
   avatarUrl?: string;
+  avatarPublicId?: string;
   address?: ApiAddress;
   __v?: number;
   createdAt?: string;
@@ -86,6 +88,7 @@ type UpdateMyProfilePayload = {
   phoneNumber: string;
   gender: string;
   avatarUrl?: string;
+  avatarPublicId?: string;
   specialty?: string;
   workplace?: string;
   verificationDocuments?: string[];
@@ -174,6 +177,7 @@ export function mapApiProfileToUiProfile(
     id: payload._id,
     isOnline: Boolean(payload.isOnline),
     avatarUrl: payload.avatarUrl,
+    avatarPublicId: payload.avatarPublicId,
     fullName: payload.fullName ?? "",
     role: payload.role,
     email: payload.email ?? "",
@@ -211,11 +215,24 @@ export async function uploadProfileAvatar(file: File, role: UserRole) {
     formData,
   );
 
-  return (
-    response.data.data.files[0]?.secureUrl ??
-    response.data.data.files[0]?.url ??
-    ""
+  return {
+    avatarUrl:
+      response.data.data.files[0]?.secureUrl ??
+      response.data.data.files[0]?.url ??
+      "",
+    avatarPublicId: response.data.data.files[0]?.publicId ?? "",
+  };
+}
+
+export async function deleteProfileAvatar(publicId: string) {
+  const response = await api.delete(
+    `/upload/delete?publicId=${encodeURIComponent(publicId)}`,
+    {
+      data: { fileType: "image" },
+    },
   );
+
+  return response;
 }
 
 export async function updateMyProfile(payload: ProfileDataReceiver) {
@@ -224,6 +241,7 @@ export async function updateMyProfile(payload: ProfileDataReceiver) {
     phoneNumber: payload.phone,
     gender: payload.gender.toLowerCase(),
     avatarUrl: payload.avatarUrl,
+    avatarPublicId: payload.avatarPublicId,
     address: {
       street: payload.street,
       ward: payload.ward,

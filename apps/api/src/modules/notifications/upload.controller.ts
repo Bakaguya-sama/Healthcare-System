@@ -272,8 +272,8 @@ export class UploadController {
    * (Query parameter instead of path to avoid path-to-regexp issues)
    */
   @Delete('delete')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Xóa file từ Cloudinary (ADMIN ONLY)' })
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT)
+  @ApiOperation({ summary: 'Xóa file từ Cloudinary' })
   @ApiBody({
     description: 'File type (tùy chọn)',
     schema: {

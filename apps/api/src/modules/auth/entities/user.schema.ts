@@ -50,6 +50,9 @@ export class User {
   @Prop({ required: false })
   avatarUrl?: string;
 
+  @Prop({ required: false })
+  avatarPublicId?: string;
+
   @Prop({
     type: {
       street: String,

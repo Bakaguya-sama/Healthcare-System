@@ -16,6 +16,7 @@ import {
   Plus,
   ShieldUser,
   Stethoscope,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { showToast } from "@repo/ui/components/ui/toasts";
@@ -24,7 +25,10 @@ import type {
   ProfileDataReceiver,
   UserRole,
 } from "../services/profile.service";
-import { uploadProfileAvatar } from "../services/profile.service";
+import {
+  uploadProfileAvatar,
+  deleteProfileAvatar,
+} from "../services/profile.service";
 
 type VerificationDoc = {
   id: string;
@@ -290,6 +294,8 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
     save: saveProfile,
   } = useProfile();
 
+  const previousAvatarPublicId = profileData?.avatarPublicId ?? null;
+
   const [savedAvatarUrl, setSavedAvatarUrl] = useState<string>("");
   const [savedValues, setSavedValues] = useState<ProfileFormValues>({
     fullName: "",
@@ -312,6 +318,8 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
   const [draftAvatarUrl, setDraftAvatarUrl] = useState<string>(savedAvatarUrl);
   const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
+  const [isAvatarMarkedForRemoval, setIsAvatarMarkedForRemoval] =
+    useState(false);
   const [draftValues, setDraftValues] =
     useState<ProfileFormValues>(savedValues);
   const [draftVerificationDocs, setDraftVerificationDocs] = useState<
@@ -384,6 +392,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
     setSavedVerificationDocs(nextDocs);
 
     setDraftAvatarUrl(profileData.avatarUrl ?? "");
+    setIsAvatarMarkedForRemoval(false);
     setDraftValues(nextValues);
     setDraftVerificationDocs(nextDocs);
   }, [profileData]);
@@ -405,8 +414,18 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
   const handleAvatarUpload = (file: File | null) => {
     if (!file) return;
+    setIsAvatarMarkedForRemoval(false);
     setDraftAvatarFile(file);
     setDraftAvatarUrl(URL.createObjectURL(file));
+  };
+
+  const handleAvatarRemove = () => {
+    const hasPersistedAvatar = Boolean(
+      savedAvatarUrl || previousAvatarPublicId,
+    );
+    setDraftAvatarUrl("");
+    setDraftAvatarFile(null);
+    setIsAvatarMarkedForRemoval(hasPersistedAvatar);
   };
 
   const handleAddVerificationDocs = (files: FileList | null) => {
@@ -454,6 +473,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
   const handleDiscardChanges = () => {
     setDraftAvatarUrl(savedAvatarUrl);
     setDraftAvatarFile(null);
+    setIsAvatarMarkedForRemoval(false);
     setDraftValues(savedValues);
     setDraftVerificationDocs(savedVerificationDocs);
   };
@@ -464,16 +484,21 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
     setIsSaving(true);
     try {
       let avatarUrlToSave = savedAvatarUrl;
+      let avatarPublicIdToSave = profileData?.avatarPublicId ?? "";
 
       if (draftAvatarFile) {
-        const uploadedAvatarUrl = await uploadProfileAvatar(
+        const uploadedAvatar = await uploadProfileAvatar(
           draftAvatarFile,
           activeRole,
         );
 
-        if (uploadedAvatarUrl) {
-          avatarUrlToSave = uploadedAvatarUrl;
+        if (uploadedAvatar.avatarUrl) {
+          avatarUrlToSave = uploadedAvatar.avatarUrl;
+          avatarPublicIdToSave = uploadedAvatar.avatarPublicId;
         }
+      } else if (isAvatarMarkedForRemoval) {
+        avatarUrlToSave = "";
+        avatarPublicIdToSave = "";
       } else if (draftAvatarUrl && !draftAvatarUrl.startsWith("blob:")) {
         avatarUrlToSave = draftAvatarUrl;
       }
@@ -491,6 +516,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
           isOnline: profileData?.isOnline ?? false,
           role: activeRole,
           avatarUrl: avatarUrlToSave,
+          avatarPublicId: avatarPublicIdToSave || undefined,
           fullName: draftValues.fullName,
           email: draftValues.email,
           phone: draftValues.phone,
@@ -512,9 +538,22 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
         await saveProfile(payload);
       }
 
+      if (
+        draftAvatarFile &&
+        previousAvatarPublicId &&
+        previousAvatarPublicId !== avatarPublicIdToSave
+      ) {
+        await deleteProfileAvatar(previousAvatarPublicId);
+      }
+
+      if (isAvatarMarkedForRemoval && previousAvatarPublicId) {
+        await deleteProfileAvatar(previousAvatarPublicId);
+      }
+
       setSavedAvatarUrl(avatarUrlToSave);
       setDraftAvatarUrl(avatarUrlToSave);
       setDraftAvatarFile(null);
+      setIsAvatarMarkedForRemoval(false);
       setSavedValues(draftValues);
       setSavedVerificationDocs(draftVerificationDocs);
       showToast.success("Profile updated successfully");
@@ -548,7 +587,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
               <img
                 src={draftAvatarUrl}
                 alt="Profile avatar"
-                className="h-24 w-24 rounded-full border-2 border-white object-cover shadow-md"
+                className="h-40 w-40 rounded-full border-2 border-white object-cover shadow-md"
               />
             ) : (
               <div className="flex h-24 w-24 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-violet-500 text-3xl font-bold text-white shadow-md">
@@ -563,6 +602,18 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
             >
               <Camera className="h-4 w-4" />
             </button>
+
+            {draftAvatarUrl ? (
+              <button
+                type="button"
+                className="cursor-pointer absolute top-26 -right-5 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white bg-red-600 text-white shadow-sm hover:bg-red-500"
+                onClick={handleAvatarRemove}
+                aria-label="Remove avatar"
+                title="Remove avatar"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            ) : null}
 
             <input
               ref={avatarInputRef}

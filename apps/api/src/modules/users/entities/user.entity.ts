@@ -35,6 +35,9 @@ export class UserEntity {
   @Prop()
   avatarUrl?: string;
 
+  @Prop()
+  avatarPublicId?: string;
+
   @Prop({ enum: AccountStatus, default: AccountStatus.ACTIVE })
   accountStatus: AccountStatus;
 

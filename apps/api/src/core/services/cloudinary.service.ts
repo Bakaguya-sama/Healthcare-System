@@ -96,7 +96,7 @@ export class CloudinaryService {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder, // Organize files by folder
-          resource_type: fileType === 'image' ? 'auto' : 'raw', // 'raw' for documents
+          resource_type: fileType === 'image' ? 'image' : 'raw', // 'raw' for documents
           public_id: publicIdName, // Without extension - Cloudinary will add it
           overwrite: true,
           type: 'upload',
@@ -224,7 +224,7 @@ export class CloudinaryService {
 
     try {
       const result = await cloudinary.uploader.destroy(publicId, {
-        resource_type: fileType === 'image' ? 'auto' : 'raw',
+        resource_type: fileType === 'image' ? 'image' : 'raw',
       });
 
       if (result.result === 'ok') {
