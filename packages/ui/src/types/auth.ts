@@ -18,6 +18,7 @@ export interface AuthState {
 
   // Actions
   setUser: (user: User, token: string, refreshToken: string) => void;
+  updateCurrentUser: (payload: Partial<User>) => void;
   logout: () => void;
   hydrate: () => void;
 }

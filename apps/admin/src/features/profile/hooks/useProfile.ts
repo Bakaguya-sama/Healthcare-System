@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import {
   getMyProfile,
   type ProfileDataReceiver,
@@ -10,6 +11,7 @@ export function useProfile() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const updateCurrentUser = useAuthStore((state) => state.updateCurrentUser);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -31,27 +33,35 @@ export function useProfile() {
     }
   }, []);
 
-  const save = useCallback(async (payload: ProfileDataReceiver) => {
-    setIsSaving(true);
-    setError(null);
+  const save = useCallback(
+    async (payload: ProfileDataReceiver) => {
+      setIsSaving(true);
+      setError(null);
 
-    try {
-      console.log(payload);
-      await updateMyProfile(payload);
-      const latest = await getMyProfile();
-      setData(latest);
-      return latest;
-    } catch (saveError) {
-      const message =
-        saveError instanceof Error
-          ? saveError.message
-          : "Failed to save profile";
-      setError(message);
-      throw saveError;
-    } finally {
-      setIsSaving(false);
-    }
-  }, []);
+      try {
+        console.log(payload);
+        await updateMyProfile(payload);
+        const latest = await getMyProfile();
+        setData(latest);
+        updateCurrentUser({
+          name: latest.fullName,
+          avatar: latest.avatarUrl,
+          email: latest.email,
+        });
+        return latest;
+      } catch (saveError) {
+        const message =
+          saveError instanceof Error
+            ? saveError.message
+            : "Failed to save profile";
+        setError(message);
+        throw saveError;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [updateCurrentUser],
+  );
 
   useEffect(() => {
     void refresh();

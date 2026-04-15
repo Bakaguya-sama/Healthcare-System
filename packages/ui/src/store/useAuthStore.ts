@@ -18,6 +18,16 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
         }),
 
+      updateCurrentUser: (payload: Partial<User>) =>
+        set((state) => ({
+          user: state.user
+            ? {
+                ...state.user,
+                ...payload,
+              }
+            : state.user,
+        })),
+
       logout: () =>
         set({
           user: null,
