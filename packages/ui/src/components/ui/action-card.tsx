@@ -68,6 +68,7 @@ export function ActionCard({
   const card = (
     <div
       ref={cardRef}
+      data-actions-root="true"
       style={style}
       className={`right-0 top-8 z-50 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-xl ${className}`}
     >

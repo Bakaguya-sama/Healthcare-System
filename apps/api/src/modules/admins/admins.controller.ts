@@ -69,11 +69,11 @@ export class AdminsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cập nhật hồ sơ admin (SUPER_ADMIN)' })
   async update(
-    @CurrentUser('sub') userId: string,
-    @Param('id') adminId: string,
+    @CurrentUser('sub') currentAdminUserId: string,
+    @Param('id') adminUserId: string,
     @Body() dto: UpdateAdminDto,
   ) {
-    return this.adminsService.update(userId, adminId, dto);
+    return this.adminsService.update(currentAdminUserId, adminUserId, dto);
   }
 
   /**
@@ -86,9 +86,9 @@ export class AdminsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xóa hồ sơ admin (SUPER_ADMIN)' })
   async delete(
-    @CurrentUser('sub') userId: string,
-    @Param('id') adminId: string,
+    @CurrentUser('sub') currentAdminUserId: string,
+    @Param('id') adminUserId: string,
   ) {
-    return this.adminsService.delete(userId, adminId);
+    return this.adminsService.delete(currentAdminUserId, adminUserId);
   }
 }

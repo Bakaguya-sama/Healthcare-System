@@ -103,17 +103,46 @@ export class UsersService {
     return parts.length > 0 ? parts.join(', ') : '-';
   }
 
+  private normalizeDoctorUserIds(
+    doctors: Array<{ userId?: Types.ObjectId | string | null }>,
+  ): Types.ObjectId[] {
+    const uniqueIds = new Set<string>();
+
+    for (const doctor of doctors) {
+      if (!doctor?.userId) {
+        continue;
+      }
+
+      const idAsString = doctor.userId.toString();
+      if (!Types.ObjectId.isValid(idAsString)) {
+        continue;
+      }
+
+      uniqueIds.add(idAsString);
+    }
+
+    return Array.from(uniqueIds, (id) => new Types.ObjectId(id));
+  }
+
   async findAll() {
     const approvedDoctors = await this.doctorModel
       .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
-      .select('userId -_id')
-      .lean<{ userId: Types.ObjectId }[]>();
+      .select('userId specialty -_id')
+      .lean<
+        {
+          userId?: Types.ObjectId | string | null;
+          specialty?: string;
+        }[]
+      >();
 
-    const approvedDoctorUserIds = approvedDoctors.map(
-      (doctor) => doctor.userId,
+    const approvedDoctorUserIds = this.normalizeDoctorUserIds(approvedDoctors);
+    const specialtyByDoctorUserId = new Map<string, string | undefined>(
+      approvedDoctors
+        .filter((doctor) => doctor.userId)
+        .map((doctor) => [doctor.userId!.toString(), doctor.specialty]),
     );
 
-    return this.userModel
+    const users = await this.userModel
       .find({
         $or: [
           { role: { $ne: UserRole.DOCTOR } },
@@ -124,29 +153,55 @@ export class UsersService {
         ],
       })
       .select('-password -refreshToken');
+
+    return users.map((user) => {
+      const userObject = user.toObject();
+
+      if (userObject.role !== UserRole.DOCTOR) {
+        return userObject;
+      }
+
+      return {
+        ...userObject,
+        specialty: specialtyByDoctorUserId.get(userObject._id.toString()),
+      };
+    });
   }
 
   async findDoctors() {
     const approvedDoctors = await this.doctorModel
       .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
-      .select('userId -_id')
-      .lean<{ userId: Types.ObjectId }[]>();
+      .select('userId specialty -_id')
+      .lean<
+        {
+          userId?: Types.ObjectId | string | null;
+          specialty?: string;
+        }[]
+      >();
 
-    const approvedDoctorUserIds = approvedDoctors.map(
-      (doctor) => doctor.userId,
+    const approvedDoctorUserIds = this.normalizeDoctorUserIds(approvedDoctors);
+    const specialtyByDoctorUserId = new Map<string, string | undefined>(
+      approvedDoctors
+        .filter((doctor) => doctor.userId)
+        .map((doctor) => [doctor.userId!.toString(), doctor.specialty]),
     );
 
     if (approvedDoctorUserIds.length === 0) {
       return [];
     }
 
-    return this.userModel
+    const doctorUsers = await this.userModel
       .find({
         role: UserRole.DOCTOR,
         accountStatus: AccountStatus.ACTIVE,
         _id: { $in: approvedDoctorUserIds },
       })
       .select('-password -refreshToken');
+
+    return doctorUsers.map((doctorUser) => ({
+      ...doctorUser.toObject(),
+      specialty: specialtyByDoctorUserId.get(doctorUser._id.toString()),
+    }));
   }
 
   async findById(id: string) {

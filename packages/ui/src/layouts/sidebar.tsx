@@ -280,7 +280,7 @@ export function Sidebar({
         )}
         <button
           onClick={onLogOut}
-          className="text-gray-400 hover:text-gray-700 shrink-0"
+          className="cursor-pointer text-gray-400 hover:text-gray-700 shrink-0"
           title="Log out"
         >
           <LogOut className="w-4 h-4" />

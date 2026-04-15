@@ -173,7 +173,7 @@ export class AdminsService {
    */
   async update(
     currentAdminUserId: string,
-    adminId: string,
+    userId: string,
     dto: UpdateAdminDto,
   ) {
     // Check if current user is super admin
@@ -187,13 +187,13 @@ export class AdminsService {
       );
     }
 
-    if (!Types.ObjectId.isValid(adminId)) {
-      throw new BadRequestException('Invalid admin ID');
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID');
     }
 
-    const targetAdmin = await this.adminModel.findById(
-      new Types.ObjectId(adminId),
-    );
+    const targetAdmin = await this.adminModel.findOne({
+      userId: new Types.ObjectId(userId),
+    });
     if (!targetAdmin) {
       throw new NotFoundException('Admin profile not found');
     }
@@ -203,7 +203,7 @@ export class AdminsService {
     }
 
     const admin = await this.adminModel.findByIdAndUpdate(
-      new Types.ObjectId(adminId),
+      targetAdmin._id,
       {
         adminRole: dto.adminRole,
       },
@@ -245,7 +245,7 @@ export class AdminsService {
   /**
    * 🗑️ XÓA HỒ SƠ ADMIN
    */
-  async delete(currentAdminUserId: string, adminId: string) {
+  async delete(currentAdminUserId: string, userId: string) {
     // Check if current user is super admin
     const currentAdmin = await this.adminModel.findOne({
       userId: new Types.ObjectId(currentAdminUserId),
@@ -257,13 +257,13 @@ export class AdminsService {
       );
     }
 
-    if (!Types.ObjectId.isValid(adminId)) {
-      throw new BadRequestException('Invalid admin ID');
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID');
     }
 
-    const targetAdmin = await this.adminModel.findById(
-      new Types.ObjectId(adminId),
-    );
+    const targetAdmin = await this.adminModel.findOne({
+      userId: new Types.ObjectId(userId),
+    });
     if (!targetAdmin) {
       throw new NotFoundException('Admin profile not found');
     }
@@ -272,9 +272,7 @@ export class AdminsService {
       throw new BadRequestException('Cannot modify your account.');
     }
 
-    const result = await this.adminModel.findByIdAndDelete(
-      new Types.ObjectId(adminId),
-    );
+    const result = await this.adminModel.findByIdAndDelete(targetAdmin._id);
 
     if (!result) {
       throw new NotFoundException('Admin profile not found');

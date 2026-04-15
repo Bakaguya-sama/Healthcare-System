@@ -40,6 +40,7 @@ type ApiUser = {
   accountStatus?: UserStatus;
   createdAt?: string;
   address?: ApiAddress;
+  specialty?: string;
 };
 
 type ApiDoctorRecord = {
@@ -103,6 +104,7 @@ function mapApiUserToUiUser(user: ApiUser): UserManagementUser | null {
     joined: resolveJoinedDate(user.createdAt),
     role: user.role,
     status: user.accountStatus ?? "active",
+    specialty: user.specialty,
   };
 }
 
@@ -140,32 +142,6 @@ export async function getUserManagement(): Promise<UserManagement> {
     }
 
     mergedUsers.set(mapped.id, mapped);
-  }
-
-  for (const pendingDoctor of pendingVerificationsResponse.data) {
-    const pendingUser =
-      typeof pendingDoctor.userId === "string"
-        ? ({ _id: pendingDoctor.userId, role: "doctor" as UserRole } as ApiUser)
-        : pendingDoctor.userId;
-
-    if (!pendingUser) {
-      continue;
-    }
-
-    const mappedPendingUser = mapApiUserToUiUser({
-      ...pendingUser,
-      role: pendingUser.role ?? "doctor",
-    });
-
-    if (!mappedPendingUser) {
-      continue;
-    }
-
-    const existing = mergedUsers.get(mappedPendingUser.id);
-    mergedUsers.set(mappedPendingUser.id, {
-      ...(existing ?? mappedPendingUser),
-      specialty: pendingDoctor.specialty ?? existing?.specialty,
-    });
   }
 
   const adminProfiles = adminProfilesResponse.data.data?.admins ?? [];

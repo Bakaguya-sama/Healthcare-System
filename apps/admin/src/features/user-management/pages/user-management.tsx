@@ -148,14 +148,19 @@ export function UserManagement() {
     selectedUserId,
     isProfileModalOpen,
   );
+
   const baseUsers = useMemo(
     () => usersData.userList.map(mapUserToRecord),
     [usersData.userList],
   );
+
   const users = useMemo(
     () => mergeUsers(baseUsers, localUsers),
     [baseUsers, localUsers],
   );
+
+  console.log(users);
+
   const selectedUser = users.find((user) => user.id === selectedUserId);
 
   const currentAdmin = useAuthStore((state) => state.user);
@@ -383,6 +388,7 @@ export function UserManagement() {
   };
 
   const handleToggleStatus = async (userId: string) => {
+    console.log("Change status");
     const currentUser = users.find((item) => item.id === userId);
 
     if (!currentUser) {
@@ -428,17 +434,15 @@ export function UserManagement() {
     }
   };
 
-  const handleAssignAdminRole = async (userId: string) => {
+  const handleAssignAdminRole = async (
+    userId: string,
+    nextRole: AdminAssignedRole,
+  ) => {
     const currentUser = users.find((item) => item.id === userId);
 
     if (!currentUser || currentUser.role !== "admin") {
       return;
     }
-
-    const currentRole = currentUser.assigned_role ?? "user_admin";
-    const currentRoleIndex = ADMIN_ROLE_ORDER.indexOf(currentRole);
-    const nextRole =
-      ADMIN_ROLE_ORDER[(currentRoleIndex + 1) % ADMIN_ROLE_ORDER.length];
 
     try {
       await changeAdminRole({
@@ -455,8 +459,13 @@ export function UserManagement() {
       setCurrentPage(1);
       setOpenActionUserId(null);
       setOpenActionRect(null);
+      showToast.success(`Role updated to ${getAdminRoleLabel(nextRole)}`);
     } catch (createError) {
-      showToast.error(createError);
+      showToast.error(
+        createError instanceof Error
+          ? createError.message
+          : "Failed to update admin role",
+      );
     }
 
     setOpenActionUserId(null);
@@ -494,13 +503,18 @@ export function UserManagement() {
     }
 
     if (!isSelf && user.role === "admin") {
-      actions.splice(1, 0, {
-        id: `${user.id}-assign-role`,
-        title: `Assign role (${getAdminRoleLabel(user.assigned_role)})`,
+      const currentRole = user.assigned_role ?? "user_admin";
+      const roleActions: ActionCardItem[] = ADMIN_ROLE_ORDER.filter(
+        (role) => role !== currentRole,
+      ).map((role) => ({
+        id: `${user.id}-assign-role-${role}`,
+        title: `${getAdminRoleLabel(role)}`,
         icon: <ArrowLeftRight className="h-4 w-4" />,
         iconColor: "text-indigo-700",
-        onHandle: () => handleAssignAdminRole(user.id),
-      });
+        onHandle: () => handleAssignAdminRole(user.id, role),
+      }));
+
+      actions.splice(1, 0, ...roleActions);
     }
 
     return actions;
