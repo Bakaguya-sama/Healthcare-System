@@ -36,6 +36,7 @@ export function useProfile() {
     setError(null);
 
     try {
+      console.log(payload);
       await updateMyProfile(payload);
       const latest = await getMyProfile();
       setData(latest);

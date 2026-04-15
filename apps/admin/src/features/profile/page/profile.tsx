@@ -51,6 +51,7 @@ type ProfileFormValues = {
   ward: string;
   district: string;
   city: string;
+  country: string;
   adminAssignedRole: string;
   yearsOfExperience: string;
   specialty: string;
@@ -298,6 +299,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
     ward: "",
     district: "",
     city: "",
+    country: "",
     adminAssignedRole: "",
     yearsOfExperience: "",
     specialty: "",
@@ -354,6 +356,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
       ward: profileData.ward,
       district: profileData.district,
       city: profileData.city,
+      country: profileData.country,
       adminAssignedRole: profileData.adminAssignedRole ?? "",
       yearsOfExperience: profileData.yearsOfExperience ?? "",
       specialty: profileData.specialty ?? "",
@@ -477,6 +480,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
           ward: draftValues.ward,
           district: draftValues.district,
           city: draftValues.city,
+          country: draftValues.country,
           adminAssignedRole: draftValues.adminAssignedRole,
           yearsOfExperience: draftValues.yearsOfExperience,
           specialty: draftValues.specialty,
@@ -533,7 +537,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
             <button
               type="button"
-              className="absolute -bottom-1 -right-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white bg-slate-900 text-white shadow-sm hover:bg-slate-700"
+              className="cursor-pointer absolute -bottom-1 -right-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white bg-slate-900 text-white shadow-sm hover:bg-slate-700"
               onClick={() => avatarInputRef.current?.click()}
             >
               <Camera className="h-4 w-4" />
@@ -691,7 +695,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
               </FieldControl>
             </Field>
 
-            <Field className="gap-1.5 md:col-span-2">
+            <Field className="gap-1.5">
               <FieldLabel
                 htmlFor="city"
                 className="text-xs uppercase tracking-wide text-slate-500"
@@ -703,6 +707,23 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
                   id="city"
                   value={draftValues.city}
                   onChange={(e) => onFieldChange("city", e.target.value)}
+                  className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
+                />
+              </FieldControl>
+            </Field>
+
+            <Field className="gap-1.5">
+              <FieldLabel
+                htmlFor="country"
+                className="text-xs uppercase tracking-wide text-slate-500"
+              >
+                Country
+              </FieldLabel>
+              <FieldControl>
+                <Input
+                  id="country"
+                  value={draftValues.country}
+                  onChange={(e) => onFieldChange("country", e.target.value)}
                   className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
                 />
               </FieldControl>

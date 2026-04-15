@@ -1,17 +1,44 @@
 import {
   IsString,
   IsOptional,
-  IsUrl,
-  IsPhoneNumber,
   IsDateString,
   IsArray,
   IsNumber,
   IsBoolean,
   Min,
   Max,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
+
+class UpdateAddressDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  street?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  ward?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  country?: string;
+}
 
 export class UpdateUserDto {
   @ApiProperty({ required: false })
@@ -43,6 +70,12 @@ export class UpdateUserDto {
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
+
+  @ApiProperty({ required: false, type: UpdateAddressDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateAddressDto)
+  address?: UpdateAddressDto;
 
   @ApiProperty({ required: false, description: 'Doctor only: specialty' })
   @IsOptional()

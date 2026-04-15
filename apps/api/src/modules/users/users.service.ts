@@ -367,10 +367,58 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto) {
+    const existingUser = await this.userModel.findById(id);
+    if (!existingUser) throw new NotFoundException('User not found');
+
+    const {
+      specialty,
+      workplace,
+      verificationDocuments,
+      experienceYears,
+      averageRating,
+      ...userUpdatePayload
+    } = dto;
+    void averageRating;
+
+    if (existingUser.role === UserRole.DOCTOR) {
+      const doctorUpdatePayload: {
+        specialty?: string;
+        workplace?: string;
+        verificationDocuments?: string[];
+        experienceYears?: number;
+      } = {};
+
+      if (specialty !== undefined) {
+        doctorUpdatePayload.specialty = specialty;
+      }
+
+      if (workplace !== undefined) {
+        doctorUpdatePayload.workplace = workplace;
+      }
+
+      if (verificationDocuments !== undefined) {
+        doctorUpdatePayload.verificationDocuments = verificationDocuments;
+      }
+
+      if (experienceYears !== undefined) {
+        doctorUpdatePayload.experienceYears = experienceYears;
+      }
+
+      if (Object.keys(doctorUpdatePayload).length > 0) {
+        await this.doctorModel.findOneAndUpdate(
+          { userId: new Types.ObjectId(id) },
+          doctorUpdatePayload,
+          { new: true, upsert: true, setDefaultsOnInsert: true },
+        );
+      }
+    }
+
     const user = await this.userModel
-      .findByIdAndUpdate(id, dto, { new: true })
+      .findByIdAndUpdate(id, userUpdatePayload, { new: true })
       .select('-password -refreshToken');
+
     if (!user) throw new NotFoundException('User not found');
+
     return user;
   }
 

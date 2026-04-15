@@ -21,6 +21,7 @@ export interface ProfileDataReceiver {
   ward: string;
   district: string;
   city: string;
+  country: string;
   adminAssignedRole?: string;
   yearsOfExperience?: string;
   documentsUrl?: string[];
@@ -85,11 +86,16 @@ type UpdateMyProfilePayload = {
   phoneNumber: string;
   gender: string;
   avatarUrl?: string;
+  specialty?: string;
+  workplace?: string;
+  verificationDocuments?: string[];
+  experienceYears?: number;
   address: {
     street: string;
     ward: string;
     district: string;
     city: string;
+    country: string;
   };
 };
 
@@ -144,6 +150,7 @@ export function mapApiProfileToUiProfile(
     ward: payload.address?.ward ?? "",
     district: payload.address?.district ?? "",
     city: payload.address?.city ?? "",
+    country: payload.address?.country ?? "",
     adminAssignedRole: normalizeAdminRole(adminProfile?.adminRole),
     yearsOfExperience:
       doctorProfile?.experienceYears != null
@@ -171,8 +178,28 @@ export async function updateMyProfile(payload: ProfileDataReceiver) {
       ward: payload.ward,
       district: payload.district,
       city: payload.city,
+      country: payload.country,
     },
   };
+
+  if (payload.role === "doctor") {
+    body.specialty = payload.specialty?.trim() || undefined;
+    body.workplace = payload.workplace?.trim() || undefined;
+
+    if (payload.yearsOfExperience?.trim()) {
+      const years = Number(payload.yearsOfExperience);
+      if (Number.isFinite(years) && years >= 0) {
+        body.experienceYears = years;
+      }
+    }
+
+    const verificationDocuments = (payload.documentsUrl ?? []).filter((url) =>
+      /^https?:\/\//.test(url),
+    );
+    if (verificationDocuments.length > 0) {
+      body.verificationDocuments = verificationDocuments;
+    }
+  }
 
   await api.patch("/users/me", body);
 }
