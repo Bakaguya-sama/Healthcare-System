@@ -3,6 +3,9 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export enum FileUploadFolderType {
   PROFILE_IMAGES = 'healthcare/profiles',
+  PROFILE_IMAGES_ADMIN = 'healthcare/avatars/admin',
+  PROFILE_IMAGES_DOCTOR = 'healthcare/avatars/doctor',
+  PROFILE_IMAGES_PATIENT = 'healthcare/avatars/patient',
   DOCTOR_VERIFICATION = 'healthcare/doctors/verification',
   HEALTH_DOCUMENTS = 'healthcare/documents/health',
   MEDICAL_RECORDS = 'healthcare/documents/records',
@@ -12,7 +15,7 @@ export enum FileUploadFolderType {
 
 /**
  * 📤 FILE UPLOAD DTO
- * 
+ *
  * Dùng khi upload file qua endpoint
  * File data sẽ được lấy từ multipart form-data (Multer)
  */

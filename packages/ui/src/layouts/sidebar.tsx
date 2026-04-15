@@ -270,7 +270,11 @@ export function Sidebar({
             : "px-4 flex items-center gap-3",
         )}
       >
-        <UserAvatar name={user?.name || "User"} isOnline={true} />
+        <UserAvatar
+          name={user?.name || "User"}
+          url={user?.avatar}
+          isOnline={true}
+        />
         {!shrunk && (
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">

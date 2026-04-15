@@ -34,21 +34,6 @@ import {
 } from './dto/upload-file.dto';
 import { UserRole } from '../../modules/users/enums/user-role.enum';
 
-/**
- * 📤 FILE UPLOAD CONTROLLER
- *
- * Xử lý upload file/ảnh lên Cloudinary
- *
- * 🔒 ROLE RESTRICTION:
- * - Only SUPER_ADMIN & AI_ADMIN can upload/delete files
- * - Other roles: 403 Forbidden
- *
- * ENDPOINTS:
- * - POST /upload/single - Upload 1 file (ADMIN ONLY)
- * - POST /upload/multiple - Upload nhiều files (ADMIN ONLY)
- * - GET /upload/:publicId - Get file info (ADMIN ONLY)
- * - DELETE /upload/:publicId - Delete file (ADMIN ONLY)
- */
 @ApiTags('upload')
 @Controller('upload')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -76,7 +61,7 @@ export class UploadController {
    * });
    */
   @Post('single')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload 1 file lên Cloudinary' })
   @ApiConsumes('multipart/form-data')
@@ -156,7 +141,7 @@ export class UploadController {
    * formData.append('fileType', 'document');
    */
   @Post('multiple')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT)
   @UseInterceptors(FilesInterceptor('files', 10)) // Max 10 files
   @ApiOperation({ summary: 'Upload nhiều files lên Cloudinary' })
   @ApiConsumes('multipart/form-data')

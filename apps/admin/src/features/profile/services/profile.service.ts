@@ -99,6 +99,27 @@ type UpdateMyProfilePayload = {
   };
 };
 
+type UploadFolder =
+  | "healthcare/avatars/admin"
+  | "healthcare/avatars/doctor"
+  | "healthcare/avatars/patient";
+
+type CloudinaryUploadResponse = {
+  statusCode: number;
+  message: string;
+  data: {
+    files: Array<{
+      originalName: string;
+      publicId: string;
+      url: string;
+      secureUrl: string;
+      size: number;
+    }>;
+    uploadedAt: string;
+    totalSize: number;
+  };
+};
+
 function capitalize(value?: string) {
   if (!value) {
     return "";
@@ -129,6 +150,18 @@ function normalizeAdminRole(value?: AdminRole) {
     .split("_")
     .map((part) => capitalize(part))
     .join(" ");
+}
+
+function resolveAvatarUploadFolder(role: UserRole): UploadFolder {
+  if (role === "doctor") {
+    return "healthcare/avatars/doctor";
+  }
+
+  if (role === "patient") {
+    return "healthcare/avatars/patient";
+  }
+
+  return "healthcare/avatars/admin";
 }
 
 export function mapApiProfileToUiProfile(
@@ -165,6 +198,24 @@ export function mapApiProfileToUiProfile(
 export async function getMyProfile() {
   const res = await api.get<UserProfileResponse>("/auth/me");
   return mapApiProfileToUiProfile(res.data);
+}
+
+export async function uploadProfileAvatar(file: File, role: UserRole) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", resolveAvatarUploadFolder(role));
+  formData.append("fileType", "image");
+
+  const response = await api.post<CloudinaryUploadResponse>(
+    "/upload/single",
+    formData,
+  );
+
+  return (
+    response.data.data.files[0]?.secureUrl ??
+    response.data.data.files[0]?.url ??
+    ""
+  );
 }
 
 export async function updateMyProfile(payload: ProfileDataReceiver) {

@@ -24,6 +24,7 @@ import type {
   ProfileDataReceiver,
   UserRole,
 } from "../services/profile.service";
+import { uploadProfileAvatar } from "../services/profile.service";
 
 type VerificationDoc = {
   id: string;
@@ -310,6 +311,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
   >([]);
 
   const [draftAvatarUrl, setDraftAvatarUrl] = useState<string>(savedAvatarUrl);
+  const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
   const [draftValues, setDraftValues] =
     useState<ProfileFormValues>(savedValues);
   const [draftVerificationDocs, setDraftVerificationDocs] = useState<
@@ -403,6 +405,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
   const handleAvatarUpload = (file: File | null) => {
     if (!file) return;
+    setDraftAvatarFile(file);
     setDraftAvatarUrl(URL.createObjectURL(file));
   };
 
@@ -450,6 +453,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
   const handleDiscardChanges = () => {
     setDraftAvatarUrl(savedAvatarUrl);
+    setDraftAvatarFile(null);
     setDraftValues(savedValues);
     setDraftVerificationDocs(savedVerificationDocs);
   };
@@ -459,11 +463,26 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
 
     setIsSaving(true);
     try {
+      let avatarUrlToSave = savedAvatarUrl;
+
+      if (draftAvatarFile) {
+        const uploadedAvatarUrl = await uploadProfileAvatar(
+          draftAvatarFile,
+          activeRole,
+        );
+
+        if (uploadedAvatarUrl) {
+          avatarUrlToSave = uploadedAvatarUrl;
+        }
+      } else if (draftAvatarUrl && !draftAvatarUrl.startsWith("blob:")) {
+        avatarUrlToSave = draftAvatarUrl;
+      }
+
       if (onSave) {
         await onSave({
           role: activeRole,
           values: draftValues,
-          avatarUrl: draftAvatarUrl,
+          avatarUrl: avatarUrlToSave,
           verificationDocs: draftVerificationDocs,
         });
       } else {
@@ -471,7 +490,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
           id: profileData?.id ?? "",
           isOnline: profileData?.isOnline ?? false,
           role: activeRole,
-          avatarUrl: draftAvatarUrl,
+          avatarUrl: avatarUrlToSave,
           fullName: draftValues.fullName,
           email: draftValues.email,
           phone: draftValues.phone,
@@ -493,7 +512,9 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
         await saveProfile(payload);
       }
 
-      setSavedAvatarUrl(draftAvatarUrl);
+      setSavedAvatarUrl(avatarUrlToSave);
+      setDraftAvatarUrl(avatarUrlToSave);
+      setDraftAvatarFile(null);
       setSavedValues(draftValues);
       setSavedVerificationDocs(draftVerificationDocs);
       showToast.success("Profile updated successfully");
