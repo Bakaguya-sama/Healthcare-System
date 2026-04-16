@@ -43,10 +43,10 @@ type ApiUser = {
   specialty?: string;
 };
 
-type ApiDoctorRecord = {
-  userId?: ApiUser | string;
-  specialty?: string;
-};
+// type ApiDoctorRecord = {
+//   userId?: ApiUser | string;
+//   specialty?: string;
+// };
 
 type ApiAdminRecord = {
   _id?: string;
@@ -62,6 +62,42 @@ export type ApiBanUser = {
 
 export type ApiUnbanUser = {
   id: string;
+};
+
+export type VerificationStatus = "pending" | "approved" | "rejected";
+type User = {
+  _id: string;
+  email: string;
+  fullName: string;
+  phoneNumber?: string;
+};
+
+type ApiDoctor = {
+  _id: string;
+  userId: User;
+  specialty?: string;
+  workplace?: string;
+  verificationDocuments?: string[];
+  experienceYears?: number;
+  verificationStatus: VerificationStatus;
+  rejectReason?: string;
+  createdAt: string;
+};
+
+type ApiDoctorApplicationsResponse = {
+  data: ApiDoctor[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+  summary: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
 };
 
 function resolveId(record: { _id?: string; id?: string }) {
@@ -87,6 +123,32 @@ function resolveJoinedDate(value?: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+async function fetchAllPendingDoctorApplications(): Promise<ApiDoctor[]> {
+  const limit = 100;
+  let page = 1;
+  let pages = 1;
+  const allDoctors: ApiDoctor[] = [];
+
+  while (page <= pages) {
+    const response = await api.get<ApiDoctorApplicationsResponse>(
+      "/admin/doctors/applications",
+      {
+        params: {
+          status: "pending",
+          page,
+          limit,
+        },
+      },
+    );
+
+    allDoctors.push(...response.data.data);
+    pages = Math.max(1, response.data.pagination.pages || 1);
+    page += 1;
+  }
+
+  return allDoctors;
 }
 
 function mapApiUserToUiUser(user: ApiUser): UserManagementUser | null {
@@ -129,7 +191,7 @@ export async function getUserManagement(): Promise<UserManagement> {
   ] = await Promise.all([
     api.get<ApiUser[]>("/users"),
     api.get<ApiUser[]>("/users/doctors"),
-    api.get<ApiDoctorRecord[]>("/admin/doctors/pending"),
+    fetchAllPendingDoctorApplications(),
     api.get<{ data?: { admins?: ApiAdminRecord[] } }>("/admins"),
   ]);
 
@@ -183,7 +245,7 @@ export async function getUserManagement(): Promise<UserManagement> {
   return {
     totalUser: userList.length,
     activeDoctors: activeDoctorsResponse.data.length,
-    pendingVerifications: pendingVerificationsResponse.data.length,
+    pendingVerifications: pendingVerificationsResponse.length,
     bannedUsers,
     userList,
   };

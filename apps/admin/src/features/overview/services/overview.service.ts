@@ -13,7 +13,6 @@ export interface OverviewSummary {
     totalUsers: number[];
     activeDoctors: number[];
     aiChatSessions: number[];
-    pendingVerifications: number[];
   };
   weekly: {
     labels: string[];
@@ -21,6 +20,41 @@ export interface OverviewSummary {
     violationReports: number[];
   };
 }
+export type VerificationStatus = "pending" | "approved" | "rejected";
+type User = {
+  _id: string;
+  email: string;
+  fullName: string;
+  phoneNumber?: string;
+};
+
+type ApiDoctor = {
+  _id: string;
+  userId: User;
+  specialty?: string;
+  workplace?: string;
+  verificationDocuments?: string[];
+  experienceYears?: number;
+  verificationStatus: VerificationStatus;
+  rejectReason?: string;
+  createdAt: string;
+};
+
+type ApiDoctorApplicationsResponse = {
+  data: ApiDoctor[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+  summary: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+};
 
 type CreatedAtRecord = {
   createdAt?: string;
@@ -107,6 +141,32 @@ function buildDailyCounts(items: CreatedAtRecord[], dayKeys: string[]) {
   return dayKeys.map((dayKey) => dailyCounter.get(dayKey) ?? 0);
 }
 
+async function fetchAllPendingDoctorApplications(): Promise<ApiDoctor[]> {
+  const limit = 100;
+  let page = 1;
+  let pages = 1;
+  const allDoctors: ApiDoctor[] = [];
+
+  while (page <= pages) {
+    const response = await api.get<ApiDoctorApplicationsResponse>(
+      "/admin/doctors/applications",
+      {
+        params: {
+          status: "pending",
+          page,
+          limit,
+        },
+      },
+    );
+
+    allDoctors.push(...response.data.data);
+    pages = Math.max(1, response.data.pagination.pages || 1);
+    page += 1;
+  }
+
+  return allDoctors;
+}
+
 export async function getOverviewSummary(): Promise<OverviewSummary> {
   const monthKeys = getMonthKeysLast8Months();
   const dayKeys = getDayKeysLast7Days();
@@ -118,7 +178,7 @@ export async function getOverviewSummary(): Promise<OverviewSummary> {
     usersResponse,
     doctorsResponse,
     aiChatSessionsResponse,
-    pendingVerificationsResponse,
+    pendingDoctors,
     doctorSessionResponse,
     violationReportResponse,
   ] = await Promise.all([
@@ -132,7 +192,7 @@ export async function getOverviewSummary(): Promise<OverviewSummary> {
         toDate: rangeEnd,
       },
     }),
-    api.get<UserListResponse>("/admin/doctors/pending"),
+    fetchAllPendingDoctorApplications(),
     api.get<AdminSessionsResponse>("/admin/sessions", {
       params: {
         page: 1,
@@ -170,10 +230,7 @@ export async function getOverviewSummary(): Promise<OverviewSummary> {
     aiChatSessionsResponse.data.data,
     monthKeys,
   );
-  const monthlyPendingVerifications = buildMonthlyCounts(
-    pendingVerificationsResponse.data,
-    monthKeys,
-  );
+
   const weeklyDoctorSessions = buildDailyCounts(
     doctorSessionsLast7Days,
     dayKeys,
@@ -184,7 +241,7 @@ export async function getOverviewSummary(): Promise<OverviewSummary> {
     totalUsers: usersResponse.data.length,
     activeDoctors: doctorsResponse.data.length,
     aiChatSessions: aiChatSessionsResponse.data.total,
-    pendingVerifications: pendingVerificationsResponse.data.length,
+    pendingVerifications: pendingDoctors.length,
     doctorSessions: doctorSessionResponse.data.pagination.total,
     violationReports: violationReportResponse.data.total,
     monthly: {
@@ -195,7 +252,6 @@ export async function getOverviewSummary(): Promise<OverviewSummary> {
       totalUsers: monthlyTotalUsers,
       activeDoctors: monthlyActiveDoctors,
       aiChatSessions: monthlyAiSessions,
-      pendingVerifications: monthlyPendingVerifications,
     },
     weekly: {
       labels: dayKeys.map((dayKey) => {
