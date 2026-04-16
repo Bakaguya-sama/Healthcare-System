@@ -43,6 +43,7 @@ import { useReportList } from "../hooks/useReportManagement";
 import { useChangeReportStatus } from "../hooks/useChangeReportStatus";
 import { useViewProfile } from "@/features/shared/hooks/useProfile";
 import { useBanUser } from "@/features/user-management/hooks/useUserManagement";
+import { showToast } from "@repo/ui/components/ui/toasts";
 
 type ReportType =
   | "harassment"
@@ -266,6 +267,7 @@ export function ViolationReport() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmittingBan, setIsSubmittingBan] = useState(false);
   const itemsPerPage = 8;
   const {
     response: reportListResponse,
@@ -284,8 +286,18 @@ export function ViolationReport() {
     error: banUserError,
   } = useBanUser();
 
+  const modalLoading =
+    isChangingReportStatus || isBanningUser || isSubmittingBan;
+
   useEffect(() => {
-    void loadReportList();
+    const fetchReports = async () => {
+      const loaded = await loadReportList();
+      if (loaded === null) {
+        showToast.error("Failed to load violation reports");
+      }
+    };
+
+    void fetchReports();
   }, [loadReportList]);
 
   const reportList = useMemo(() => {
@@ -363,25 +375,34 @@ export function ViolationReport() {
     const nextStatus: ReportStatus =
       currentReport.status === "pending" ? "resolved" : "pending";
 
-    const updated = await changeReportStatus({
-      id,
-      status: nextStatus,
-    });
-
-    if (!updated) {
-      return;
-    }
-
-    setReportOverrides((prev) => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
+    try {
+      const updated = await changeReportStatus({
+        id,
         status: nextStatus,
-      },
-    }));
+      });
+
+      if (!updated) {
+        showToast.error("Failed to update report status");
+        return;
+      }
+
+      setReportOverrides((prev) => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          status: nextStatus,
+        },
+      }));
+    } catch {
+      showToast.error("Failed to update report status");
+    }
   };
 
   const handleBanUser = async (id: string) => {
+    if (isSubmittingBan || isBanningUser) {
+      return;
+    }
+
     if (selectedReportedUserProfile?.account_status === "banned") {
       return;
     }
@@ -391,27 +412,37 @@ export function ViolationReport() {
       return;
     }
 
-    const response = await submitBanUser({
-      id: targetReport.reportedUserId,
-      reason: `Violation report ${id}`,
-    });
+    setIsSubmittingBan(true);
+    try {
+      const response = await submitBanUser({
+        id: targetReport.reportedUserId,
+        reason: `Violation report ${id}`,
+      });
 
-    if (!response) {
-      return;
+      if (!response) {
+        showToast.error(banUserError || "Cannot ban this user!");
+        return;
+      }
+
+      setReportOverrides((prev) => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          accountStatus: "banned",
+          status: "resolved",
+        },
+      }));
+      showToast.success("User banned successfully!");
+    } catch {
+      showToast.error("Cannot ban this user!");
+    } finally {
+      setIsSubmittingBan(false);
     }
-
-    setReportOverrides((prev) => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        accountStatus: "banned",
-        status: "resolved",
-      },
-    }));
   };
 
   const canBanSelectedUser =
-    selectedReportedUserProfile?.account_status === "active" &&
+    selectedReport?.accountStatus === "active" &&
+    selectedReportedUserProfile?.account_status !== "banned" &&
     !isLoadingSelectedReportedUser;
 
   return (
@@ -584,7 +615,7 @@ export function ViolationReport() {
                           size="sm"
                           className="rounded-lg text-xs"
                           onClick={() => openReportModal(report)}
-                          disabled={isChangingReportStatus || isBanningUser}
+                          disabled={modalLoading}
                         >
                           View
                         </Button>
@@ -684,7 +715,7 @@ export function ViolationReport() {
           }}
           onToggleResolved={handleToggleResolved}
           onBanUser={handleBanUser}
-          isUpdating={isChangingReportStatus || isBanningUser}
+          isUpdating={modalLoading}
         />
       </div>
     </div>

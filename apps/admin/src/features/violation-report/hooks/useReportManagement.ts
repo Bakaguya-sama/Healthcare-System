@@ -16,6 +16,7 @@ export function useReportList() {
     try {
       const res = await getReportList();
       setResponse(res);
+      return res;
     } catch (reportError) {
       setError(
         reportError instanceof Error
