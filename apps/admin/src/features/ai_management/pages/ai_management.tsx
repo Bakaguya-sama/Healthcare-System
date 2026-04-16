@@ -345,8 +345,11 @@ export function AIManagement() {
     }
   };
 
-  const getActionItems = (doc: DocumentItem): ActionCardItem[] => {
-    const canMutate = !isProcessing;
+  const getActionItems = (
+    doc: DocumentItem,
+    isDocAvailable: boolean = false,
+  ): ActionCardItem[] => {
+    const canMutate = !isProcessing && isDocAvailable;
     const canDelete = !isProcessing;
 
     return [
@@ -665,7 +668,9 @@ export function AIManagement() {
                 <TableBody>
                   {paginatedDocs.length > 0 ? (
                     paginatedDocs.map((doc) => {
-                      const actions = getActionItems(doc);
+                      const availableDoc =
+                        doc.status === "active" || doc.status === "inactive";
+                      const actions = getActionItems(doc, availableDoc);
                       return (
                         <TableRow key={doc.id}>
                           <TableCell className="px-3 py-3">

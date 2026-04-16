@@ -11,6 +11,10 @@ import {
   DocumentStatus,
 } from './entities/ai-document.entity';
 import {
+  AiDocumentChunk,
+  AiDocumentChunkDocument,
+} from '../ai-document-chunks/entities/ai-document-chunk.entity';
+import {
   CreateAiDocumentDto,
   UpdateAiDocumentDto,
   QueryAiDocumentDto,
@@ -22,6 +26,8 @@ export class AiDocumentsService {
   constructor(
     @InjectModel(AiDocument.name)
     private aiDocumentModel: Model<AiDocumentDocument>,
+    @InjectModel(AiDocumentChunk.name)
+    private aiDocumentChunkModel: Model<AiDocumentChunkDocument>,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
@@ -174,40 +180,11 @@ export class AiDocumentsService {
 
   async delete(documentId: string, _userId: string): Promise<AiDocument> {
     void _userId;
-    const existing = await this.findById(documentId);
-
-    if (existing.publicId) {
-      await this.cloudinaryService.deleteFile(existing.publicId, 'document');
-    }
-
-    const deleted = await this.aiDocumentModel.findByIdAndDelete(
-      new Types.ObjectId(documentId),
-    );
-    if (!deleted) {
-      throw new NotFoundException(
-        `AI Document with ID ${documentId} not found`,
-      );
-    }
-    return deleted;
+    return this.deleteWithCascade(documentId);
   }
 
   async deleteById(documentId: string): Promise<AiDocument> {
-    const existing = await this.findById(documentId);
-
-    if (existing.publicId) {
-      await this.cloudinaryService.deleteFile(existing.publicId, 'document');
-    }
-
-    const document = await this.aiDocumentModel.findByIdAndDelete(
-      new Types.ObjectId(documentId),
-    );
-
-    if (!document) {
-      throw new NotFoundException(
-        `AI Document with ID ${documentId} not found`,
-      );
-    }
-    return document;
+    return this.deleteWithCascade(documentId);
   }
 
   async search(query: string): Promise<AiDocument[]> {
@@ -232,5 +209,38 @@ export class AiDocumentsService {
     }
 
     return 'txt';
+  }
+
+  private async deleteWithCascade(documentId: string): Promise<AiDocument> {
+    const existing = await this.findById(documentId);
+    const documentObjectId = new Types.ObjectId(documentId);
+
+    if (existing.publicId) {
+      const cloudinaryDeleteResult = await this.cloudinaryService.deleteFile(
+        existing.publicId,
+        'document',
+      );
+
+      if (!cloudinaryDeleteResult.success) {
+        throw new BadRequestException(
+          `Failed to delete file on Cloudinary: ${cloudinaryDeleteResult.message}`,
+        );
+      }
+    }
+
+    await this.aiDocumentChunkModel.deleteMany({
+      documentId: documentObjectId,
+    });
+
+    const deleted =
+      await this.aiDocumentModel.findByIdAndDelete(documentObjectId);
+
+    if (!deleted) {
+      throw new NotFoundException(
+        `AI Document with ID ${documentId} not found`,
+      );
+    }
+
+    return deleted;
   }
 }
