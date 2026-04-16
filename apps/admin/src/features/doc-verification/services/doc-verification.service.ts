@@ -9,6 +9,13 @@ export type VerificationFile = {
 
 export type VerificationStatus = "pending" | "approved" | "rejected";
 
+export type DoctorApplicationQuery = {
+  status?: VerificationStatus;
+  page?: number;
+  limit?: number;
+  search?: string;
+};
+
 export type DocumentItemReceiver = {
   id: string;
   name: string;
@@ -42,8 +49,36 @@ type ApiDoctor = {
   createdAt: string;
 };
 
+type ApiDoctorApplicationsResponse = {
+  data: ApiDoctor[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+  summary: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+};
+
 export interface DoctorDocumentList {
   doctorDocumentList: DocumentItemReceiver[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+  summary: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
 }
 
 function resolveJoinedDate(value?: string) {
@@ -92,15 +127,27 @@ function mapApitoUi(item: ApiDoctor): DocumentItemReceiver | null {
   };
 }
 
-export async function getDoctorDocuments(): Promise<DoctorDocumentList> {
-  const doctorDocumentResponse = await api.get<ApiDoctor[]>(
-    "/admin/doctors/pending",
+export async function getDoctorDocuments(
+  query: DoctorApplicationQuery = {},
+): Promise<DoctorDocumentList> {
+  const doctorDocumentResponse = await api.get<ApiDoctorApplicationsResponse>(
+    "/admin/doctors/applications",
+    {
+      params: {
+        status: query.status,
+        page: query.page,
+        limit: query.limit,
+        search: query.search,
+      },
+    },
   );
 
   return {
-    doctorDocumentList: doctorDocumentResponse.data
+    doctorDocumentList: doctorDocumentResponse.data.data
       .map(mapApitoUi)
       .filter((item): item is DocumentItemReceiver => item !== null),
+    pagination: doctorDocumentResponse.data.pagination,
+    summary: doctorDocumentResponse.data.summary,
   };
 }
 

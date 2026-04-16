@@ -22,6 +22,7 @@ import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
 import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
+import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
 import {
   Admin,
   AdminDocument,
@@ -42,16 +43,93 @@ export class AdminService {
   // ============================================
 
   /**
-   * 👨‍⚕️ GET /admin/doctors/pending
-   * Admin xem danh sách bác sĩ chờ duyệt
+   * 👨‍⚕️ GET /admin/doctors/applications
+   * Admin xem danh sách đơn duyệt bác sĩ (pending/approved/rejected)
    */
-  async getPendingDoctors() {
-    return this.doctorModel
-      .find({
+  async getDoctorApplication(query: QueryDoctorApplicationsDto) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+    const skip = (page - 1) * limit;
+    const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
+    const status = query.status;
+    const search = query.search?.trim();
+
+    const filter: {
+      verificationStatus?: DoctorVerificationStatus;
+      userId?: { $in: Types.ObjectId[] };
+    } = {};
+
+    if (status) {
+      filter.verificationStatus = status;
+    }
+
+    if (search) {
+      const regex = new RegExp(search, 'i');
+      const matchedUsers = await this.userModel
+        .find({
+          $or: [{ fullName: regex }, { email: regex }],
+        })
+        .select('_id');
+
+      const userIds = matchedUsers.map((user) => user._id);
+      if (userIds.length === 0) {
+        return {
+          data: [],
+          pagination: {
+            total: 0,
+            page,
+            limit,
+            pages: 0,
+          },
+          summary: {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+          },
+        };
+      }
+
+      filter.userId = { $in: userIds };
+    }
+
+    const [data, total, pending, approved, rejected] = await Promise.all([
+      this.doctorModel
+        .find(filter)
+        .populate('userId', '-password -refreshToken')
+        .sort({ createdAt: sortOrder })
+        .limit(limit)
+        .skip(skip),
+      this.doctorModel.countDocuments(filter),
+      this.doctorModel.countDocuments({
+        ...(filter.userId ? { userId: filter.userId } : {}),
         verificationStatus: DoctorVerificationStatus.PENDING,
-      })
-      .populate('userId', '-password -refreshToken')
-      .sort({ createdAt: -1 });
+      }),
+      this.doctorModel.countDocuments({
+        ...(filter.userId ? { userId: filter.userId } : {}),
+        verificationStatus: DoctorVerificationStatus.APPROVED,
+      }),
+      this.doctorModel.countDocuments({
+        ...(filter.userId ? { userId: filter.userId } : {}),
+        verificationStatus: DoctorVerificationStatus.REJECTED,
+      }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+      summary: {
+        total: pending + approved + rejected,
+        pending,
+        approved,
+        rejected,
+      },
+    };
   }
 
   /**

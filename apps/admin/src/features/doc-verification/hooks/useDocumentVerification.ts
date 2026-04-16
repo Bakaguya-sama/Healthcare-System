@@ -3,10 +3,11 @@ import {
   getDoctorDocuments,
   approveDoctorDocument,
   rejectDoctorDocument,
+  type DoctorApplicationQuery,
   type DoctorDocumentList,
 } from "../services/doc-verification.service";
 
-export function useGetDoctorDocuments() {
+export function useGetDoctorDocuments(query: DoctorApplicationQuery) {
   const [isLoading, setLoading] = useState(false);
   const [data, setData] = useState<DoctorDocumentList | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +17,7 @@ export function useGetDoctorDocuments() {
     setError(null);
 
     try {
-      const res = await getDoctorDocuments();
+      const res = await getDoctorDocuments(query);
       setData(res);
     } catch (loadError) {
       setError(
@@ -27,7 +28,7 @@ export function useGetDoctorDocuments() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [query]);
 
   useEffect(() => {
     void loadList();

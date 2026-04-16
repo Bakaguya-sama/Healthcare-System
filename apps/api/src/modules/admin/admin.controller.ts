@@ -21,6 +21,7 @@ import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
 import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
+import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -35,14 +36,14 @@ export class AdminController {
   // ============================================
 
   /**
-   * 👨‍⚕️ GET /admin/doctors/pending
-   * Lấy danh sách bác sĩ chờ duyệt
+   * 👨‍⚕️ GET /admin/doctors/application
+   * Lấy danh sách đơn tham gia của bác sĩ.
    */
-  @Get('doctors/pending')
+  @Get('doctors/applications')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy danh sách bác sĩ chờ duyệt' })
-  async getPendingDoctors() {
-    return this.adminService.getPendingDoctors();
+  @ApiOperation({ summary: 'Lấy danh sách đơn tham gia của bác sĩ' })
+  async getDoctorApplication(@Query() query: QueryDoctorApplicationsDto) {
+    return this.adminService.getDoctorApplication(query);
   }
 
   /**

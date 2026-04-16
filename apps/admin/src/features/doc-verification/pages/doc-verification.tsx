@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import {
   Table,
@@ -364,12 +364,24 @@ export function DocumentVerification() {
     Record<string, Partial<Pick<DocumentRecord, "status" | "rejectionReason">>>
   >({});
 
+  const itemsPerPage = 10;
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
+  const requestQuery = useMemo(
+    () => ({
+      status: selectedStatus === "all" ? undefined : selectedStatus,
+      page: currentPage,
+      limit: itemsPerPage,
+      search: deferredSearchQuery || undefined,
+    }),
+    [selectedStatus, currentPage, itemsPerPage, deferredSearchQuery],
+  );
+
   const {
     data: documentData,
     isLoading,
     error: loadError,
     refresh,
-  } = useGetDoctorDocuments();
+  } = useGetDoctorDocuments(requestQuery);
   const { approve, isLoading: isApproving } = useApproveDoctor();
   const { reject, isLoading: isRejecting } = useRejectDoctor();
 
@@ -388,6 +400,9 @@ export function DocumentVerification() {
     [documents, statusOverrides],
   );
 
+  const summary = documentData?.summary;
+  const pagination = documentData?.pagination;
+
   const statusFilters: {
     key: Exclude<StatusFilter, "all">;
     label: string;
@@ -396,42 +411,23 @@ export function DocumentVerification() {
     {
       key: "pending",
       label: "Pending",
-      count: mergedDocuments.filter((d) => d.status === "pending").length,
+      count: summary?.pending ?? 0,
     },
     {
       key: "approved",
       label: "Approved",
-      count: mergedDocuments.filter((d) => d.status === "approved").length,
+      count: summary?.approved ?? 0,
     },
     {
       key: "rejected",
       label: "Rejected",
-      count: mergedDocuments.filter((d) => d.status === "rejected").length,
+      count: summary?.rejected ?? 0,
     },
   ];
-
-  const itemsPerPage = 10;
-
-  // Filter documents
-  const filteredDocuments = mergedDocuments.filter((doc) => {
-    const matchesStatus =
-      selectedStatus === "all" || doc.status === selectedStatus;
-    const matchesSearch =
-      doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedDocuments = filteredDocuments.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const totalPages = Math.max(1, pagination?.pages ?? 1);
 
   // Count by status
-  const pendingCount = statusFilters[0].count;
+  const pendingCount = summary?.pending ?? 0;
 
   useEffect(() => {
     if (loadError) {
@@ -577,7 +573,7 @@ export function DocumentVerification() {
                   variant="outline"
                   className="ml-1 h-4 px-1.5 text-[10px] leading-none"
                 >
-                  {mergedDocuments.length}
+                  {summary?.total ?? 0}
                 </Badge>
               </Button>
             </div>
@@ -626,8 +622,8 @@ export function DocumentVerification() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedDocuments.length > 0 ? (
-                paginatedDocuments.map((doc) => (
+              {mergedDocuments.length > 0 ? (
+                mergedDocuments.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell className="px-3 py-3">
                       <div className="flex items-center gap-3">
@@ -705,7 +701,7 @@ export function DocumentVerification() {
 
           <div className="flex flex-col gap-3 border-t border-slate-200 px-3 py-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <p>
-              Showing {paginatedDocuments.length} of {filteredDocuments.length}{" "}
+              Showing {mergedDocuments.length} of {pagination?.total ?? 0}{" "}
               results
             </p>
 
