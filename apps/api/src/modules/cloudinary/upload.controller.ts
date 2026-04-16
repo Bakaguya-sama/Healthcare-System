@@ -32,7 +32,7 @@ import {
   FileUploadFolderType,
   UploadResponse,
 } from './dto/upload-file.dto';
-import { UserRole } from '../../modules/users/enums/user-role.enum';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @ApiTags('upload')
 @Controller('upload')

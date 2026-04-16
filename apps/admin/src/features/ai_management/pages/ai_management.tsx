@@ -57,6 +57,7 @@ import {
   useDeleteKeyword,
 } from "../hooks/useBlacklistKeywords";
 import { showToast } from "@repo/ui/components/ui/toasts";
+import { Spinner } from "@repo/ui/components/ui/spinner";
 
 type TabSwitch = "doc" | "words";
 type DocumentStatus = "processing" | "error" | "active" | "inactive";
@@ -466,7 +467,18 @@ export function AIManagement() {
   };
 
   return (
-    <div className="w-full p-6">
+    <div className="relative w-full p-6">
+      {isProcessing ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center rounded-3xl bg-white/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-lg">
+            <Spinner size="md" />
+            <p className="text-sm font-medium text-slate-700">
+              Processing changes...
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
         <div className="mb-5">
           <h1 className="text-3xl font-semibold text-slate-900">

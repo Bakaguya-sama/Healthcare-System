@@ -6,8 +6,11 @@ import type { JwtModuleOptions } from '@nestjs/jwt';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsGateway } from './notifications.gateway';
-import { UploadController } from './upload.controller';
-import { Notification, NotificationSchema } from './entities/notification.entity';
+import { UploadController } from '../cloudinary/upload.controller';
+import {
+  Notification,
+  NotificationSchema,
+} from './entities/notification.entity';
 import { CloudinaryService } from '../../core/services/cloudinary.service';
 
 @Module({
@@ -35,4 +38,3 @@ import { CloudinaryService } from '../../core/services/cloudinary.service';
   exports: [NotificationsService, NotificationsGateway, CloudinaryService],
 })
 export class NotificationsModule {}
-

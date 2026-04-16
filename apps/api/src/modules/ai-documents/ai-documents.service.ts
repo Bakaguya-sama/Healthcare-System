@@ -56,6 +56,9 @@ export class AiDocumentsService {
         uploadedBy: new Types.ObjectId(userId),
         status: DocumentStatus.PROCESSING,
       });
+
+      // Create chunks
+
       return await document.save();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
