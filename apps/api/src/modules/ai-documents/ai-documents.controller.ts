@@ -32,6 +32,7 @@ import { Roles } from '../../core/decorators/roles.decorator';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import type { UserPayload } from '../auth/auth.payload';
 import { UserRole } from '../users/enums/user-role.enum';
+import type { UploadableFile } from '../../core/services/cloudinary.service';
 
 @ApiTags('AI Documents')
 @ApiBearerAuth()
@@ -67,7 +68,7 @@ export class AiDocumentsController {
   })
   async create(
     @CurrentUser() user: UserPayload,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: UploadableFile,
     @Body() createDto: CreateAiDocumentDto,
   ) {
     if (!file) {
@@ -132,5 +133,11 @@ export class AiDocumentsController {
     @Param('id') documentId: string,
   ) {
     return this.aiDocumentsService.delete(documentId, user.id);
+  }
+
+  @Post(':id/rag-ingesting')
+  @Roles(UserRole.ADMIN)
+  async ragIngesting(@Param('id') documentId: string): Promise<never> {
+    return await this.aiDocumentsService.ragIngesting(documentId);
   }
 }

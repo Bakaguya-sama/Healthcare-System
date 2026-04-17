@@ -42,6 +42,21 @@ export class AtlasVectorStoreService implements IVectorStoreService {
       );
     }
 
+    const invalidVectorIndex = input.vectors.findIndex(
+      (vector) =>
+        !Array.isArray(vector) ||
+        vector.length === 0 ||
+        vector.some(
+          (value) => typeof value !== 'number' || Number.isNaN(value),
+        ),
+    );
+
+    if (invalidVectorIndex !== -1) {
+      throw new BadRequestException(
+        `Invalid embedding vector at index ${invalidVectorIndex}`,
+      );
+    }
+
     const documentObjectId = new Types.ObjectId(input.documentId);
 
     await this.aiDocumentChunkModel.deleteMany({

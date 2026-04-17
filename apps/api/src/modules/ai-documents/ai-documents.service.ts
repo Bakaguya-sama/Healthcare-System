@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -20,6 +21,8 @@ import {
   QueryAiDocumentDto,
 } from './dto/create-ai-document.dto';
 import { CloudinaryService } from '../../core/services/cloudinary.service';
+import type { UploadableFile } from '../../core/services/cloudinary.service';
+import { RagIngestionService } from '../rag/services/rag-ingestion.service';
 
 @Injectable()
 export class AiDocumentsService {
@@ -29,11 +32,12 @@ export class AiDocumentsService {
     @InjectModel(AiDocumentChunk.name)
     private aiDocumentChunkModel: Model<AiDocumentChunkDocument>,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly ragIngestionService: RagIngestionService,
   ) {}
 
   async create(
     userId: string,
-    file: Express.Multer.File,
+    file: UploadableFile,
     createDto: CreateAiDocumentDto,
   ): Promise<AiDocument> {
     try {
@@ -57,13 +61,55 @@ export class AiDocumentsService {
         status: DocumentStatus.PROCESSING,
       });
 
-      // Create chunks
+      await document.save();
 
-      return await document.save();
+      try {
+        await this.ragIngestionService.handleRAG({
+          documentId: document._id.toString(),
+          file,
+          metadata: {
+            uploadedBy: userId,
+            title: document.title,
+            fileType: document.fileType,
+          },
+        });
+
+        document.status = DocumentStatus.ACTIVE;
+        await document.save();
+      } catch (ingestError: unknown) {
+        document.status = DocumentStatus.ERROR;
+        await document.save();
+
+        const ingestMessage =
+          ingestError instanceof Error
+            ? ingestError.message
+            : 'Unknown ingestion error';
+
+        throw new InternalServerErrorException(
+          `Document uploaded but ingestion failed: ${ingestMessage}`,
+        );
+      }
+
+      return document;
     } catch (error: unknown) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new BadRequestException(`Failed to create AI document: ${message}`);
     }
+  }
+
+  async ragIngesting(documentId: string): Promise<never> {
+    await this.findById(documentId);
+
+    throw new BadRequestException(
+      'Manual re-ingesting requires file payload and is not implemented yet. Ingestion is triggered automatically on create.',
+    );
   }
 
   async findAll(

@@ -6,15 +6,17 @@ import { AiDocument, AiDocumentSchema } from './entities/ai-document.entity';
 import { CloudinaryService } from '../../core/services/cloudinary.service';
 import {
   AiDocumentChunk,
-  AiDocumentChunkDocument,
   AiDocumentChunkSchema,
 } from '../ai-document-chunks/entities/ai-document-chunk.entity';
+import { RagModule } from '../rag/rag.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: AiDocument.name, schema: AiDocumentSchema },
       { name: AiDocumentChunk.name, schema: AiDocumentChunkSchema },
     ]),
+    RagModule,
   ],
   controllers: [AiDocumentsController],
   providers: [AiDocumentsService, CloudinaryService],

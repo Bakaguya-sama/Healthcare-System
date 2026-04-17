@@ -20,6 +20,7 @@ export class RagIngestionService implements IRagIngestionService {
   ) {}
 
   async handleRAG(input: IngestInputType): Promise<IngestOutputType> {
+    // chunking
     const chunks = await this.chunkingService.splitFile(input.file, {
       fileName: input.file.originalname,
       metadata: {
@@ -28,6 +29,7 @@ export class RagIngestionService implements IRagIngestionService {
       },
     });
 
+    // embedding, returning vector number[][]
     const textsForEmbedding = chunks
       .map((chunk) => chunk.content.trim())
       .filter(Boolean);
@@ -45,6 +47,7 @@ export class RagIngestionService implements IRagIngestionService {
       );
     }
 
+    // upsert to vector store
     const upsertResult = await this.vectorStoreService.upsertDocumentChunks({
       documentId: input.documentId,
       chunks,

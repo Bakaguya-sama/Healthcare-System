@@ -71,3 +71,10 @@ export class QueryAiDocumentDto {
   @IsOptional()
   sortOrder?: number = -1;
 }
+
+export class TriggerRagIngestingDto {
+  @ApiProperty({ required: true })
+  @IsOptional()
+  @IsString()
+  id?: string;
+}

@@ -36,8 +36,8 @@ export class ChunkingService implements IChunkingService {
       throw new BadRequestException('Document text is empty');
     }
 
-    const chunkSize = options.chunkSize ?? 800;
-    const chunkOverlap = options.chunkOverlap ?? 120;
+    const chunkSize = options.chunkSize ?? 1200;
+    const chunkOverlap = options.chunkOverlap ?? 200;
     const minChunkSize = options.minChunkSize ?? 160;
 
     const paragraphs = this.extractParagraphs(normalizedText);
@@ -110,11 +110,10 @@ export class ChunkingService implements IChunkingService {
     },
   ): Promise<ChunkPayload[]> {
     const chunks: ChunkPayload[] = [];
-    const recursiveSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: options.chunkSize,
-      chunkOverlap: options.chunkOverlap,
-      separators: ['\n\n', '\n', '. ', ' ', ''],
-    });
+    const recursiveSplitter = this.createRecursiveSplitter(
+      options.chunkSize,
+      options.chunkOverlap,
+    );
 
     let buffer = '';
 
@@ -152,8 +151,12 @@ export class ChunkingService implements IChunkingService {
           flushBuffer();
         }
 
-        const fallbackChunks =
-          await recursiveSplitter.splitText(normalizedParagraph);
+        const fallbackChunks = await this.splitLargeParagraphBySentence(
+          normalizedParagraph,
+          options.chunkSize,
+          options.chunkOverlap,
+          recursiveSplitter,
+        );
 
         for (const fallbackChunk of fallbackChunks) {
           const content = fallbackChunk.trim();
@@ -220,5 +223,105 @@ export class ChunkingService implements IChunkingService {
         chunkIndex: index,
       },
     }));
+  }
+
+  private createRecursiveSplitter(
+    chunkSize: number,
+    chunkOverlap: number,
+  ): RecursiveCharacterTextSplitter {
+    return new RecursiveCharacterTextSplitter({
+      chunkSize,
+      chunkOverlap,
+      separators: ['\n\n', '\n', '. ', '; ', ': ', ' ', ''],
+    });
+  }
+
+  private async splitLargeParagraphBySentence(
+    paragraph: string,
+    chunkSize: number,
+    chunkOverlap: number,
+    recursiveSplitter: RecursiveCharacterTextSplitter,
+  ): Promise<string[]> {
+    const sentences = this.splitIntoSentences(paragraph);
+
+    if (sentences.length <= 1) {
+      const coarseChunks = await recursiveSplitter.splitText(paragraph);
+      return coarseChunks.map((part) => part.trim()).filter(Boolean);
+    }
+
+    const chunks: string[] = [];
+    let current = '';
+
+    for (const sentence of sentences) {
+      const normalizedSentence = sentence.trim();
+      if (!normalizedSentence) {
+        continue;
+      }
+
+      if (normalizedSentence.length > chunkSize) {
+        if (current.trim()) {
+          chunks.push(current.trim());
+          current = '';
+        }
+
+        const oversizedParts =
+          await recursiveSplitter.splitText(normalizedSentence);
+        chunks.push(
+          ...oversizedParts.map((part) => part.trim()).filter(Boolean),
+        );
+        continue;
+      }
+
+      const candidate = current
+        ? `${current} ${normalizedSentence}`
+        : normalizedSentence;
+
+      if (candidate.length <= chunkSize) {
+        current = candidate;
+        continue;
+      }
+
+      if (current.trim()) {
+        chunks.push(current.trim());
+      }
+
+      current = this.createOverlapPrefix(
+        chunks[chunks.length - 1],
+        normalizedSentence,
+        chunkOverlap,
+        chunkSize,
+      );
+    }
+
+    if (current.trim()) {
+      chunks.push(current.trim());
+    }
+
+    return chunks;
+  }
+
+  private splitIntoSentences(paragraph: string): string[] {
+    return paragraph
+      .split(/(?<=[.!?…])\s+|\n+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
+  }
+
+  private createOverlapPrefix(
+    previousChunk: string | undefined,
+    sentence: string,
+    overlap: number,
+    chunkSize: number,
+  ): string {
+    if (!previousChunk || overlap <= 0) {
+      return sentence;
+    }
+
+    const overlapPrefix = previousChunk
+      .slice(Math.max(0, previousChunk.length - overlap))
+      .trim();
+
+    const candidate = overlapPrefix ? `${overlapPrefix} ${sentence}` : sentence;
+    return candidate.length <= chunkSize ? candidate : sentence;
   }
 }

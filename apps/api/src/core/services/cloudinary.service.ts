@@ -13,6 +13,13 @@ export interface CloudinaryUploadResult {
   uploadedAt: Date;
 }
 
+export type UploadableFile = {
+  originalname: string;
+  mimetype?: string;
+  buffer: Buffer;
+  size: number;
+};
+
 /**
  * 🌥️ CLOUDINARY SERVICE
  * Quản lý upload file/ảnh lên Cloudinary cloud storage
@@ -63,7 +70,7 @@ export class CloudinaryService {
    * - URL có thể dùng trong img tag hoặc download link
    */
   async uploadFile(
-    file: Express.Multer.File,
+    file: UploadableFile,
     folder: string,
     fileType: 'image' | 'document' = 'document',
   ): Promise<CloudinaryUploadResult> {
@@ -172,7 +179,7 @@ export class CloudinaryService {
    * (VD: Doctor up 3 chứng chỉ lúc verify account)
    */
   async uploadMultiple(
-    files: Express.Multer.File[],
+    files: UploadableFile[],
     folder: string,
     fileType: 'image' | 'document' = 'document',
   ): Promise<CloudinaryUploadResult[]> {
@@ -242,7 +249,9 @@ export class CloudinaryService {
       }
     } catch (error) {
       this.logger.error(`❌ Delete failed for ${publicId}:`, error);
-      throw new BadRequestException(`Delete failed: ${error.message}`);
+      const message =
+        error instanceof Error ? error.message : 'Unknown deletion error';
+      throw new BadRequestException(`Delete failed: ${message}`);
     }
   }
 
@@ -292,7 +301,9 @@ export class CloudinaryService {
 
       return result.resources;
     } catch (error) {
-      this.logger.error(`❌ Failed to list resources: ${error.message}`);
+      const message =
+        error instanceof Error ? error.message : 'Unknown listing error';
+      this.logger.error(`❌ Failed to list resources: ${message}`);
       return [];
     }
   }
@@ -341,7 +352,9 @@ export class CloudinaryService {
         }
       }
     } catch (error) {
-      this.logger.error(`❌ Error retrieving file info: ${error.message}`);
+      const message =
+        error instanceof Error ? error.message : 'Unknown retrieval error';
+      this.logger.error(`❌ Error retrieving file info: ${message}`);
       return null;
     }
   }
