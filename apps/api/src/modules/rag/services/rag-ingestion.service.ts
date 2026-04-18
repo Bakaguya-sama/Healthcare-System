@@ -20,6 +20,10 @@ export class RagIngestionService implements IRagIngestionService {
   ) {}
 
   async handleRAG(input: IngestInputType): Promise<IngestOutputType> {
+    this.logger.log(
+      `RAG start: documentId=${input.documentId}, file=${input.file.originalname}`,
+    );
+
     // chunking
     const chunks = await this.chunkingService.splitFile(input.file, {
       fileName: input.file.originalname,
@@ -28,6 +32,10 @@ export class RagIngestionService implements IRagIngestionService {
         ...(input.metadata ?? {}),
       },
     });
+
+    this.logger.log(
+      `RAG chunking done: documentId=${input.documentId}, chunks=${chunks.length}`,
+    );
 
     // embedding, returning vector number[][]
     const textsForEmbedding = chunks
@@ -40,6 +48,10 @@ export class RagIngestionService implements IRagIngestionService {
 
     const vectors =
       await this.embeddingService.generateEmbeddings(textsForEmbedding);
+
+    this.logger.log(
+      `RAG embedding done: documentId=${input.documentId}, vectors=${vectors.length}`,
+    );
 
     if (vectors.length !== textsForEmbedding.length) {
       throw new BadRequestException(

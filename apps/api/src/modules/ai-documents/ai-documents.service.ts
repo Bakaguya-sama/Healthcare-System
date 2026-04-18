@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -26,6 +27,8 @@ import { RagIngestionService } from '../rag/services/rag-ingestion.service';
 
 @Injectable()
 export class AiDocumentsService {
+  private readonly logger = new Logger(AiDocumentsService.name);
+
   constructor(
     @InjectModel(AiDocument.name)
     private aiDocumentModel: Model<AiDocumentDocument>,
@@ -45,10 +48,18 @@ export class AiDocumentsService {
         throw new BadRequestException('No file provided');
       }
 
+      this.logger.log(
+        `Creating AI document: file=${file.originalname}, size=${file.size ?? file.buffer?.length ?? 0} bytes`,
+      );
+
       const uploadResult = await this.cloudinaryService.uploadFile(
         file,
         'healthcare/ai/knowledge-base',
         'document',
+      );
+
+      this.logger.log(
+        `Cloudinary upload success: publicId=${uploadResult.publicId}`,
       );
 
       const fileType = this.resolveFileType(file.originalname);
@@ -63,7 +74,15 @@ export class AiDocumentsService {
 
       await document.save();
 
+      this.logger.log(
+        `Document metadata saved: id=${document._id.toString()}, status=${document.status}`,
+      );
+
       try {
+        this.logger.log(
+          `Starting RAG ingestion for document id=${document._id.toString()}`,
+        );
+
         await this.ragIngestionService.handleRAG({
           documentId: document._id.toString(),
           file,
@@ -76,6 +95,10 @@ export class AiDocumentsService {
 
         document.status = DocumentStatus.ACTIVE;
         await document.save();
+
+        this.logger.log(
+          `RAG ingestion completed: id=${document._id.toString()}, status=${document.status}`,
+        );
       } catch (ingestError: unknown) {
         document.status = DocumentStatus.ERROR;
         await document.save();
@@ -84,6 +107,11 @@ export class AiDocumentsService {
           ingestError instanceof Error
             ? ingestError.message
             : 'Unknown ingestion error';
+
+        this.logger.error(
+          `RAG ingestion failed for document id=${document._id.toString()}: ${ingestMessage}`,
+          ingestError instanceof Error ? ingestError.stack : undefined,
+        );
 
         throw new InternalServerErrorException(
           `Document uploaded but ingestion failed: ${ingestMessage}`,
@@ -96,10 +124,15 @@ export class AiDocumentsService {
         error instanceof BadRequestException ||
         error instanceof InternalServerErrorException
       ) {
+        this.logger.error(
+          `Create AI document failed: ${error.message}`,
+          error.stack,
+        );
         throw error;
       }
 
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Create AI document failed: ${message}`);
       throw new BadRequestException(`Failed to create AI document: ${message}`);
     }
   }
