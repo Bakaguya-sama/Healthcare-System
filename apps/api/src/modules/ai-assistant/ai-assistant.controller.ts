@@ -238,28 +238,4 @@ export class AiAssistantController {
       query,
     );
   }
-
-  /**
-   * RAG API 1: Nạp kiến thức y khoa
-   */
-  @Post('knowledge-base/seed')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Nạp dữ liệu y tế vào Vector DB (FAISS)' })
-  async seedKnowledgeBase() {
-    return this.aiAssistantService.seedMedicalKnowledgeBase();
-  }
-
-  /**
-   * RAG API 2: Test tìm kiếm thông tin
-   */
-  @Get('knowledge-base/test-search')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Test tìm kiếm nội dung y tế trong Vector DB' })
-  @ApiQuery({
-    name: 'q',
-    description: 'Câu hỏi cần tìm kiếm (VD: Làm sao khi bị cúm?)',
-  })
-  async testVectorSearch(@Query('q') query: string) {
-    return this.aiAssistantService.testVectorSearch(query);
-  }
 }

@@ -4,15 +4,10 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
-  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
-import { MongoDBAtlasVectorSearch } from '@langchain/mongodb';
 
 import {
   AiConversation,
@@ -28,46 +23,26 @@ import {
   UpdateConversationDto,
   QueryConversationDto,
 } from './dto/conversation.dto';
-import {
-  AiDocumentChunk,
-  AiDocumentChunkDocument,
-} from '../ai-document-chunks/entities/ai-document-chunk.entity';
-
-const SYSTEM_PROMPT = `Bạn là Trợ lý Y tế Thông minh của ứng dụng HealthcareApp.
-
-🎯 MỤC TIÊU CỐT LÕI:
-- Giải đáp thắc mắc về sức khỏe, triệu chứng, và đọc hiểu chỉ số xét nghiệm.
-- Ưu tiên sử dụng "Tài liệu y khoa tham khảo" được cung cấp để trả lời. Nếu không có tài liệu, hãy từ chối trả lời (tuyệt đối không trả lời nếu không có kiến thức hoặc kiến thức không đủ nhiều).
-- TỪ CHỐI trả lời mọi chủ đề không liên quan đến y tế/sức khỏe (Ví dụ: lập trình, chính trị, toán học...).
-
-🛑 QUY TẮC AN TOÀN (BẮT BUỘC):
-1. KHÔNG chẩn đoán xác định bệnh thay cho bác sĩ.
-2. KHÔNG kê đơn thuốc, liều lượng hoặc phác đồ điều trị.
-3. LUÔN thêm câu cảnh báo đối với tình trạng nguy hiểm: "Đây chỉ là tư vấn tham khảo. Hãy đến ngay cơ sở y tế để được bác sĩ thăm khám trực tiếp."
-
-📝 ĐỊNH DẠNG:
-- Trả lời bằng tiếng Việt, giọng điệu chuyên nghiệp, thấu cảm và lịch sự.
-- Ngắn gọn, sử dụng gạch đầu dòng (bullet points) hoặc in đậm để dễ đọc.`;
-
-const EMBEDDING_MODEL = 'gemini-embedding-001';
-const MEDICAL_KNOWLEDGE_GAP_RESPONSE =
-  'Hiện tại tôi chưa có đủ kiến thức từ nguồn dữ liệu đã được xác thực để trả lời chính xác câu hỏi này. Bạn nên tham khảo bác sĩ hoặc cơ sở y tế để được tư vấn chuyên môn.';
+import { RagRetrievalService } from '../rag/services/rag-retrieval.service';
+import { ContextBuilderService } from '../rag/services/context-builder.service';
+import { Citation } from '../rag/interfaces/context-builder.interface';
+import { MedicalAnsweringService } from './services/medical-answering.service';
+import { PromptBuilderService } from './services/prompt-builder.service';
+import { LlmGatewayService } from './services/llm-gateway.service';
 
 @Injectable()
-export class AiAssistantService implements OnModuleInit {
+export class AiAssistantService {
   private readonly logger = new Logger(AiAssistantService.name);
-  private genAI: GoogleGenerativeAI;
-
-  // RAG với MongoDB
-  private vectorStore: MongoDBAtlasVectorSearch;
-  private embeddings: GoogleGenerativeAIEmbeddings;
 
   constructor(
     @InjectModel(AiConversation.name)
     private aiConversationModel: Model<AiConversationDocument>,
-    @InjectModel(AiDocumentChunk.name)
-    private aiDocumentChunkModel: Model<AiDocumentChunkDocument>,
     private configService: ConfigService,
+    private readonly ragRetrievalService: RagRetrievalService,
+    private readonly contextBuilderService: ContextBuilderService,
+    private readonly medicalAnsweringService: MedicalAnsweringService,
+    private readonly promptBuilderService: PromptBuilderService,
+    private readonly llmGatewayService: LlmGatewayService,
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     this.logger.log(
@@ -80,162 +55,101 @@ export class AiAssistantService implements OnModuleInit {
         '[AI Assistant] WARNING: GEMINI_API_KEY is not properly configured',
       );
     }
+  }
 
+  private async buildRagContext(query: string): Promise<{
+    context: string | null;
+    hasRelevantSource: boolean;
+    citations: Citation[];
+    confidence: number;
+  }> {
     try {
-      this.genAI = new GoogleGenerativeAI(apiKey || '');
-
-      // Initializing embedding for FAISS
-      this.embeddings = new GoogleGenerativeAIEmbeddings({
-        apiKey: apiKey || '',
-        modelName: EMBEDDING_MODEL,
+      const retrieval = await this.ragRetrievalService.retrieve({
+        query,
+        limit: 3,
+        minScore: 0.85,
       });
 
-      // Vector store se duoc khoi tao trong onModuleInit sau khi ket noi DB on dinh.
-    } catch (error) {
-      console.error('[AI Assistant] Failed to initialize Gemini AI:', error);
-    }
-  }
-
-  // private tryInitializeVectorStore(): boolean {
-  //   if (this.vectorStore) {
-  //     return true;
-  //   }
-
-  //   const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-  //   if (!apiKey || apiKey === 'dev_key_placeholder') {
-  //     this.logger.warn(
-  //       '⚠️ GEMINI_API_KEY is missing. Vector Store will not be initialized.',
-  //     );
-  //     return false;
-  //   }
-
-  //   if (!this.embeddings) {
-  //     this.embeddings = new GoogleGenerativeAIEmbeddings({
-  //       apiKey,
-  //       modelName: 'text-embedding-004',
-  //     });
-  //   }
-
-  //   const nativeDb = this.aiDocumentChunkModel.db?.db;
-  //   if (!nativeDb) {
-  //     this.logger.warn(
-  //       'MongoDB native db is not ready yet. Deferring Vector Store init.',
-  //     );
-  //     return false;
-  //   }
-
-  //   const nativeCollection = nativeDb.collection(
-  //     this.aiDocumentChunkModel.collection.name,
-  //   );
-
-  //   this.vectorStore = new MongoDBAtlasVectorSearch(this.embeddings, {
-  //     collection: nativeCollection as any,
-  //     indexName: 'vector_index',
-  //     textKey: 'content',
-  //     embeddingKey: 'embedding',
-  //   });
-
-  //   this.logger.log('✅ MongoDB Vector Store initialized successfully');
-  //   return true;
-  // }
-
-  private tryInitializeAtlasVectorStore(): boolean {
-    if (this.vectorStore) {
-      return true;
-    }
-
-    if (!this.embeddings) {
-      this.logger.warn(
-        '⚠️ GEMINI_API_KEY bị thiếu. Không thể khởi tạo Vector Store.',
-      );
-      return false;
-    }
-
-    const nativeDb = this.aiDocumentChunkModel.db?.db;
-    const collectionName = this.aiDocumentChunkModel.collection?.name;
-
-    if (!nativeDb || !collectionName) {
-      this.logger.warn(
-        '⚠️ MongoDB native collection chưa sẵn sàng. Sẽ thử lại khi gọi API.',
-      );
-      return false;
-    }
-
-    try {
-      const nativeCollection = nativeDb.collection(collectionName);
-      this.logger.log(
-        `[AI Assistant] Atlas target: db=${nativeDb.databaseName}, collection=${collectionName}`,
-      );
-
-      this.vectorStore = new MongoDBAtlasVectorSearch(this.embeddings, {
-        collection: nativeCollection as unknown as any,
-        indexName: 'vector_index',
-        textKey: 'content',
-        embeddingKey: 'embedding',
+      const builtContext = this.contextBuilderService.build({
+        hits: retrieval.hits,
+        tokenBudget: 1200,
       });
 
-      this.logger.log(
-        '✅ MongoDBAtlasVectorSearch đã khởi tạo thành công với native collection.',
+      const topScore = retrieval.hits[0]?.score ?? null;
+      const confidence = this.medicalAnsweringService.estimateConfidence(
+        topScore,
+        builtContext.citations.length,
       );
-      return true;
+      const hasRelevantSource = Boolean(builtContext.context);
+
+      if (!hasRelevantSource) {
+        return {
+          context: null,
+          hasRelevantSource: false,
+          citations: [],
+          confidence: 0,
+        };
+      }
+
+      const scoreSummary = retrieval.hits
+        .map(
+          (hit, index) =>
+            `  [${index + 1}] Score ${hit.score.toFixed(4)}: ${hit.content.substring(0, 50)}...`,
+        )
+        .join('\n');
+
+      this.logger.log(
+        `[AI Assistant] RAG Query="${query}"\n${scoreSummary}\nPassed threshold (${retrieval.threshold.toFixed(2)}): ${retrieval.hits.length}`,
+      );
+
+      return {
+        context: builtContext.context,
+        hasRelevantSource,
+        citations: builtContext.citations,
+        confidence,
+      };
     } catch (error) {
-      this.logger.error('❌ Lỗi khởi tạo MongoDBAtlasVectorSearch:', error);
-      return false;
+      this.logger.warn(
+        '[AI Assistant] Truy van RAG that bai, tiep tuc tra loi khong co context.',
+      );
+      this.logger.error('[AI Assistant] RAG retrieval error:', error);
+      return {
+        context: null,
+        hasRelevantSource: false,
+        citations: [],
+        confidence: 0,
+      };
     }
   }
 
-  private isValidEmbeddingVector(vector: unknown): vector is number[] {
-    return (
-      Array.isArray(vector) &&
-      vector.length > 0 &&
-      vector.every((n) => typeof n === 'number' && !Number.isNaN(n))
-    );
-  }
+  private shouldFallbackWithoutContext(question: string): boolean {
+    const normalized = question.trim().toLowerCase();
+    const words = normalized.split(/\s+/).filter(Boolean);
 
-  private async generateEmbeddings(texts: string[]): Promise<number[][]> {
-    // Try LangChain embeddings first.
-    const vectors = await this.embeddings.embedDocuments(texts);
-    const invalidVectorIndex = vectors.findIndex(
-      (v) => !this.isValidEmbeddingVector(v),
-    );
+    const vaguePatterns = [
+      'la gi',
+      'là gì',
+      'nhu the nao',
+      'như thế nào',
+      'co sao khong',
+      'có sao không',
+      'duoc khong',
+      'được không',
+      'tu van',
+      'tư vấn',
+      'giup toi',
+      'giúp tôi',
+      'nen lam gi',
+      'nên làm gì',
+      'lam sao',
+      'làm sao',
+    ];
 
-    if (invalidVectorIndex === -1 && vectors.length === texts.length) {
-      return vectors;
-    }
-
-    this.logger.warn(
-      '[AI Assistant] LangChain embeddings trả về rỗng/không hợp lệ, chuyển sang Google embedContent trực tiếp.',
-    );
-
-    const embeddingModel = this.genAI.getGenerativeModel({
-      model: EMBEDDING_MODEL,
-    });
-
-    const fallbackVectors = await Promise.all(
-      texts.map(async (text, index) => {
-        const response = await embeddingModel.embedContent(text);
-        const values = response.embedding?.values;
-
-        if (!this.isValidEmbeddingVector(values)) {
-          throw new BadRequestException(
-            `Embedding trả về rỗng/không hợp lệ tại chunk index ${index}.`,
-          );
-        }
-
-        return values;
-      }),
+    const hasVaguePattern = vaguePatterns.some((pattern) =>
+      normalized.includes(pattern),
     );
 
-    return fallbackVectors;
-  }
-
-  private isMedicalQuery(query: string): boolean {
-    const lowerQuery = query.toLowerCase();
-    const medicalKeywords = [
-      'benh',
-      'bệnh',
-      'trieu chung',
-      'triệu chứng',
+    const explicitMedicalSignals = [
       'sot',
       'sốt',
       'ho',
@@ -243,126 +157,30 @@ export class AiAssistantService implements OnModuleInit {
       'đau',
       'kho tho',
       'khó thở',
-      'chay mau',
-      'chảy máu',
-      'xuat huyet',
-      'xuất huyết',
-      'cum',
-      'cúm',
-      'dengue',
-      'influenza',
-      'fever',
-      'symptom',
-      'disease',
-      'ran',
-      'răng',
-      'nha',
-      'nha khoa',
-      'ran lung',
-      'rang lung',
-      'ho',
-      'sore throat',
-      'viêm',
-      'nhek',
-      'nhức',
-      'chảy máu',
-      'máu',
-      'bệnh tật',
-      'vết thương',
-      'cơn đau',
-      'chóng mặt',
-      'buồn nôn',
-      'nôn',
-      'tiêu chảy',
-      'táo bón',
-      'ghế',
-      'tiểu tiện',
-      'tiểu',
-      'tinh trùng',
-      'mất ngủ',
-      'mất ngủ',
+      'xet nghiem',
+      'xét nghiệm',
+      'chi so',
+      'chỉ số',
+      'huyet ap',
+      'huyết áp',
+      'nhip tim',
+      'nhịp tim',
+      'spo2',
+      'duong huyet',
+      'đường huyết',
+      'trieu chung',
+      'triệu chứng',
     ];
 
-    return medicalKeywords.some((keyword) => lowerQuery.includes(keyword));
-  }
+    const hasExplicitSignal = explicitMedicalSignals.some((signal) =>
+      normalized.includes(signal),
+    );
 
-  private async buildRagContext(query: string): Promise<{
-    context: string | null;
-    hasRelevantSource: boolean;
-  }> {
-    if (!this.vectorStore && !this.tryInitializeAtlasVectorStore()) {
-      this.logger.warn(
-        '[AI Assistant] Vector Store chưa sẵn sàng, bỏ qua RAG cho lượt trả lời này.',
-      );
-      return { context: null, hasRelevantSource: false };
-    }
+    const looksAmbiguous = words.length <= 8 || hasVaguePattern;
 
-    try {
-      const vectorStoreWithScore = this.vectorStore as unknown as {
-        similaritySearchWithScore?: (
-          queryText: string,
-          k?: number,
-        ) => Promise<Array<[any, number]>>;
-      };
-
-      let results: any[] = [];
-
-      // 🎯 Ưu tiên sử dụng similaritySearchWithScore để có score filtering
-      if (
-        typeof vectorStoreWithScore.similaritySearchWithScore === 'function'
-      ) {
-        const scoredResults =
-          await vectorStoreWithScore.similaritySearchWithScore(query, 3);
-
-        // 🚨 STRICT THRESHOLD: 0.85 (để tránh false positives từ word overlap)
-        const SCORE_THRESHOLD = 0.85;
-        const filteredByScore = scoredResults.filter(
-          ([, score]) => typeof score === 'number' && score >= SCORE_THRESHOLD,
-        );
-
-        // 📊 DEBUG LOGGING - hiển thị tất cả scores
-        const scoreDetails = scoredResults
-          .map(
-            ([doc, score], idx) =>
-              `  [${idx + 1}] Score ${(score as number).toFixed(4)}: ${(doc.pageContent as string).substring(0, 50)}...`,
-          )
-          .join('\n');
-
-        this.logger.log(
-          `[AI Assistant] RAG Query="${query}"\n${scoreDetails}\nPassed threshold (${SCORE_THRESHOLD.toFixed(2)}): ${filteredByScore.length}/${scoredResults.length}`,
-        );
-
-        // Chỉ sử dụng results nếu vượt qua score threshold
-        results = filteredByScore.map(([doc]) => doc);
-      } else {
-        // Fallback: sử dụng unfiltered search nếu similaritySearchWithScore không có
-        results = await this.vectorStore.similaritySearch(query, 3);
-      }
-
-      if (!results.length) {
-        return { context: null, hasRelevantSource: false };
-      }
-
-      const contextBlocks = results
-        .map((doc, index) => `[Nguon ${index + 1}] ${doc.pageContent}`)
-        .join('\n\n');
-
-      return {
-        context: `Du lieu tham khao tu Vector DB:\n${contextBlocks}`,
-        hasRelevantSource: true,
-      };
-    } catch (error) {
-      this.logger.warn(
-        '[AI Assistant] Truy van RAG that bai, tiep tuc tra loi khong co context.',
-      );
-      this.logger.error('[AI Assistant] RAG retrieval error:', error);
-      return { context: null, hasRelevantSource: false };
-    }
-  }
-
-  // 🟢 HÀM NÀY CHẠY TỰ ĐỘNG SAU KHI NESTJS KHỞI ĐỘNG XONG
-  onModuleInit() {
-    this.tryInitializeAtlasVectorStore();
+    // No context + explicit medical signal => strict safe fallback.
+    // No context + ambiguous question => allow LLM to ask clarifying questions.
+    return hasExplicitSignal || !looksAmbiguous;
   }
 
   /**
@@ -434,12 +252,17 @@ export class AiAssistantService implements OnModuleInit {
     });
 
     const ragContext = await this.buildRagContext(dto.message);
-    const isMedicalRelatedQuestion = this.isMedicalQuery(dto.message);
 
-    if (isMedicalRelatedQuestion && !ragContext.hasRelevantSource) {
+    if (
+      !ragContext.hasRelevantSource &&
+      this.shouldFallbackWithoutContext(dto.message)
+    ) {
+      const knowledgeGapResponse =
+        this.medicalAnsweringService.getKnowledgeGapResponse();
+
       conversation.messages.push({
         role: MessageRole.ASSISTANT,
-        content: MEDICAL_KNOWLEDGE_GAP_RESPONSE,
+        content: knowledgeGapResponse,
         timestamp: new Date(),
       });
 
@@ -453,41 +276,31 @@ export class AiAssistantService implements OnModuleInit {
         data: {
           conversationId: conversation._id,
           userMessage: dto.message,
-          aiResponse: MEDICAL_KNOWLEDGE_GAP_RESPONSE,
+          aiResponse: knowledgeGapResponse,
           messageCount: conversation.messageCount,
           groundedByRag: false,
+          citations: [],
+          confidence: 0,
         },
       };
     }
 
-    // Get AI response
-    const model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_PROMPT,
-    });
-
-    // Chuyển đổi role cho phù hợp với yêu cầu của Gemini API
-    const chatHistory = conversation.messages.map((m) => {
-      let mappedRole = m.role.toString();
-      // Nếu role trong DB là 'assistant', chuyển thành 'model' cho Gemini
-      if (mappedRole === 'assistant' || mappedRole === MessageRole.ASSISTANT) {
-        mappedRole = 'model';
-      }
-      return {
-        role: mappedRole,
-        parts: [{ text: m.content }],
-      };
-    });
-
-    const chat = model.startChat({ history: chatHistory.slice(0, -1) });
+    const chatHistory = this.promptBuilderService.buildChatHistory(
+      conversation.messages,
+    );
 
     try {
-      const userPromptForModel = ragContext
-        ? `${dto.message}\n\n${ragContext.context}\n\nHuong dan: Chi su dung thong tin tham khao neu phu hop va khong mau thuan quy tac an toan y te.`
-        : dto.message;
+      const userPromptForModel = this.promptBuilderService.buildUserPrompt({
+        question: dto.message,
+        ragContext: ragContext.hasRelevantSource ? ragContext.context : null,
+      });
 
-      const result = await chat.sendMessage(userPromptForModel);
-      const aiResponse = result.response.text();
+      const aiResponse = await this.llmGatewayService.generateMedicalAnswer({
+        modelName: 'gemini-2.5-flash',
+        systemInstruction: this.promptBuilderService.getSystemPrompt(),
+        history: chatHistory.slice(0, -1),
+        userPrompt: userPromptForModel,
+      });
 
       // Add AI response to history
       conversation.messages.push({
@@ -511,6 +324,9 @@ export class AiAssistantService implements OnModuleInit {
           userMessage: dto.message,
           aiResponse,
           messageCount: conversation.messageCount,
+          groundedByRag: ragContext.hasRelevantSource,
+          citations: ragContext.citations,
+          confidence: ragContext.confidence,
         },
       };
     } catch (error) {
@@ -531,50 +347,6 @@ export class AiAssistantService implements OnModuleInit {
 
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
-
-      // If quota exceeded, use mock response for development
-      if (
-        errorMessage.includes('429') ||
-        errorMessage.includes('Quota exceeded')
-      ) {
-        console.warn(
-          '[AI Assistant] Gemini API quota exceeded. Using mock response for development.',
-        );
-
-        const mockResponses = [
-          'Dựa vào triệu chứng bạn mô tả, tôi khuyến nghị bạn nên: 1) Ghi chép lại các triệu chứng chi tiết, 2) Đo nhiệt độ và huyết áp, 3) Liên hệ với bác sĩ để được tư vấn chuyên môn. Các triệu chứng này cần được kiểm tra kỹ lưỡng.',
-          'Tôi hiểu rằng bạn đang lo lắng về sức khỏe. Để đưa ra lời khuyên tốt nhất, bạn nên: 1) Nêu rõ thêm các triệu chứng, 2) Cho biết thời gian bắt đầu, 3) Nếu có bệnh lý nền. Hãy gặp bác sĩ sớm nhất có thể.',
-          'Cảm ơn bạn đã chia sẻ thông tin sức khỏe. Dựa vào lời mô tả, điều quan trọng là: 1) Theo dõi các triệu chứng thêm, 2) Giữ vệ sinh cá nhân tốt, 3) Uống đủ nước, 4) Liên hệ bác sĩ ngay nếu tình trạng xấu đi. Sức khỏe của bạn là ưu tiên hàng đầu.',
-          'Tôi chỉ có thể cung cấp thông tin tổng quát. Để được chẩn đoán chính xác, bạn cần gặp bác sĩ chuyên khoa. Trong lúc chờ, hãy: 1) Ghi chép chi tiết triệu chứng, 2) Rước lịch sử y tế cá nhân và gia đình, 3) Chuẩn bị các câu hỏi cho bác sĩ.',
-        ];
-
-        const mockResponse =
-          mockResponses[Math.floor(Math.random() * mockResponses.length)];
-
-        // Add mock AI response to history
-        conversation.messages.push({
-          role: MessageRole.ASSISTANT,
-          content: mockResponse,
-          timestamp: new Date(),
-        });
-
-        conversation.messageCount = conversation.messages.length;
-        conversation.lastMessageAt = new Date();
-        await conversation.save();
-
-        return {
-          statusCode: 200,
-          message:
-            'Message processed successfully (Mock response - API quota exceeded)',
-          data: {
-            conversationId: conversation._id,
-            userMessage: dto.message,
-            aiResponse: mockResponse,
-            messageCount: conversation.messageCount,
-            isDevelopmentMock: true,
-          },
-        };
-      }
 
       throw new BadRequestException(
         `AI service error: ${errorMessage}. Make sure your Gemini API Key is valid and quota is available.`,
@@ -1023,124 +795,5 @@ export class AiAssistantService implements OnModuleInit {
         pages: Math.ceil(total / query.limit),
       },
     };
-  }
-
-  /**
-   * 📚 RAG BƯỚC 1: NẠP DỮ LIỆU Y KHOA VÀO MONGODB(VECTOR DB)
-   */
-  async seedMedicalKnowledgeBase() {
-    this.logger.log(
-      '[AI Assistant] Bắt đầu nạp dữ liệu y khoa vào Vector DB...',
-    );
-
-    if (!this.vectorStore && !this.tryInitializeAtlasVectorStore()) {
-      throw new BadRequestException(
-        'MongoDB Atlas Vector Store chưa sẵn sàng. Kiểm tra kết nối DB, API key, và thử lại.',
-      );
-    }
-
-    // Dữ liệu mẫu (Sau này bạn có thể gọi từ DB bảng ai_documents ra)
-    const sampleMedicalData = `
-    Bệnh Sốt Xuất Huyết (Dengue Fever):
-    Triệu chứng cơ bản: Sốt cao đột ngột 39-40 độ C, kéo dài 2-7 ngày. Đau đầu dữ dội vùng trán, nhức hai hố mắt. Có chấm xuất huyết ở dưới da, chảy máu chân răng hoặc chảy máu cam.
-    Cách xử lý tại nhà: Uống nhiều nước (Oresol, nước trái cây). Dùng thuốc hạ sốt Paracetamol. Tuyệt đối không dùng Aspirin hay Ibuprofen vì gây chảy máu.
-    
-    Bệnh Cúm A (Influenza A):
-    Triệu chứng: Sốt, ớn lạnh, ho, đau họng, chảy nước mũi, nghẹt mũi, đau nhức cơ bắp và mệt mỏi nghiêm trọng.
-    Cách xử lý: Nghỉ ngơi ngơi nhiều, uống nhiều nước ấm. Có thể sử dụng thuốc giảm ho, thuốc xịt mũi không kê đơn. Nếu khó thở phải đến bệnh viện ngay.
-    `;
-
-    const textSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 500,
-      chunkOverlap: 50,
-    });
-
-    const docs = await textSplitter.createDocuments([sampleMedicalData]);
-    this.logger.log(`Đã băm tài liệu thành ${docs.length} đoạn nhỏ.`);
-
-    try {
-      const texts = docs.map((d) => d.pageContent);
-      const vectors = await this.generateEmbeddings(texts);
-
-      if (vectors.length !== texts.length) {
-        throw new BadRequestException(
-          'Không thể tạo embedding hợp lệ: số lượng vector không khớp với số lượng đoạn văn bản.',
-        );
-      }
-
-      const embeddingDimension = vectors[0].length;
-      this.logger.log(
-        `[AI Assistant] Embedding được tạo thành công: chunks=${vectors.length}, dimension=${embeddingDimension}`,
-      );
-
-      const beforeEmbeddingCount =
-        await this.aiDocumentChunkModel.collection.countDocuments({
-          $expr: { $gt: [{ $size: '$embedding' }, 0] },
-        });
-
-      const now = new Date();
-      const payload = texts.map((content, index) => ({
-        content,
-        embedding: vectors[index],
-        chunkIndex: index,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      }));
-
-      const insertResult =
-        await this.aiDocumentChunkModel.collection.insertMany(payload);
-
-      const afterEmbeddingCount =
-        await this.aiDocumentChunkModel.collection.countDocuments({
-          $expr: { $gt: [{ $size: '$embedding' }, 0] },
-        });
-
-      this.logger.log(
-        `[AI Assistant] Inserted docs: ${insertResult.insertedCount}. Embedding docs trước seed: ${beforeEmbeddingCount}, sau seed: ${afterEmbeddingCount}`,
-      );
-
-      if (afterEmbeddingCount <= beforeEmbeddingCount) {
-        throw new BadRequestException(
-          'Seed chạy xong nhưng không thấy embedding mới trong collection Atlas.',
-        );
-      }
-
-      this.logger.log(
-        'Hoàn tất! Đã lưu Database vào MongoDB Atlas Vector Search.',
-      );
-      return {
-        statusCode: 200,
-        message: 'Đã nạp kiến thức vào MongoDB Atlas thành công!',
-      };
-    } catch (error) {
-      this.logger.error('Lỗi khi nạp vào MongoDB Vector:', error);
-      throw new BadRequestException('Không thể lưu vào MongoDB Vector Search.');
-    }
-  }
-
-  /**
-   * 🔍 RAG BƯỚC 2: TÌM KIẾM KIẾN THỨC THEO CÂU HỎI
-   */
-  async testVectorSearch(query: string) {
-    if (!this.vectorStore && !this.tryInitializeAtlasVectorStore()) {
-      throw new BadRequestException(
-        'MongoDB Atlas Vector Store chưa được khởi tạo. Hãy kiểm tra Atlas Vector Index và kết nối DB.',
-      );
-    }
-
-    try {
-      const results = await this.vectorStore.similaritySearch(query, 2);
-      return {
-        statusCode: 200,
-        query: query,
-        results: results.map((r) => r.pageContent),
-      };
-    } catch (error) {
-      this.logger.error('Lỗi tìm kiếm Vector:', error);
-      throw new BadRequestException(
-        'Lỗi tìm kiếm dữ liệu. Vui lòng đảm bảo bạn đã tạo Vector Index trên MongoDB Atlas.',
-      );
-    }
   }
 }

@@ -5,6 +5,8 @@ import { RagIngestionService } from './services/rag-ingestion.service';
 import { TextExtractionService } from './services/text-extraction.service';
 import { EmbeddingService } from './services/google-embedding.service';
 import { AtlasVectorStoreService } from './services/atlas-vector-store.service';
+import { RagRetrievalService } from './services/rag-retrieval.service';
+import { ContextBuilderService } from './services/context-builder.service';
 import {
   AiDocumentChunk,
   AiDocumentChunkSchema,
@@ -20,6 +22,8 @@ import {
     ChunkingService,
     TextExtractionService,
     RagIngestionService,
+    RagRetrievalService,
+    ContextBuilderService,
     EmbeddingService,
     AtlasVectorStoreService,
   ],
@@ -27,6 +31,8 @@ import {
     ChunkingService,
     TextExtractionService,
     RagIngestionService,
+    RagRetrievalService,
+    ContextBuilderService,
     EmbeddingService,
     AtlasVectorStoreService,
   ],
