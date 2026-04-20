@@ -414,6 +414,7 @@ export function AIManagement() {
         showToast.error(
           error instanceof Error ? error.message : "Failed to upload documents",
         );
+        void refresh();
       } finally {
         setIsUploading(false);
       }

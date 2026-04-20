@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  HttpException,
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -113,6 +114,13 @@ export class AiDocumentsService {
           ingestError instanceof Error ? ingestError.stack : undefined,
         );
 
+        if (ingestError instanceof HttpException) {
+          throw new HttpException(
+            `Document uploaded but ingestion failed: ${ingestMessage}`,
+            ingestError.getStatus(),
+          );
+        }
+
         throw new InternalServerErrorException(
           `Document uploaded but ingestion failed: ${ingestMessage}`,
         );
@@ -121,6 +129,7 @@ export class AiDocumentsService {
       return document;
     } catch (error: unknown) {
       if (
+        error instanceof HttpException ||
         error instanceof BadRequestException ||
         error instanceof InternalServerErrorException
       ) {

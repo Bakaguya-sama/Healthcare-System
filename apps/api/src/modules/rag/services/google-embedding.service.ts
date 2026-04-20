@@ -14,6 +14,8 @@ const EMBEDDING_MODEL = 'gemini-embedding-001';
 const EMBEDDING_BATCH_SIZE = 64;
 const MAX_BATCH_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 8000;
+const MAX_FALLBACK_ATTEMPTS = 5;
+const FALLBACK_MIN_INTERVAL_MS = 1200;
 
 @Injectable()
 export class EmbeddingService implements IEmbeddingService {
@@ -22,6 +24,7 @@ export class EmbeddingService implements IEmbeddingService {
   private genAI: GoogleGenerativeAI | null = null;
   private langChainDocumentEmbeddingDisabled = false;
   private fallbackModeLogged = false;
+  private lastFallbackRequestAt = 0;
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -195,9 +198,13 @@ export class EmbeddingService implements IEmbeddingService {
 
     const fallbackVectors: number[][] = [];
 
-    for (const text of texts) {
-      const response = await embeddingModel.embedContent(text);
-      const values = response.embedding?.values;
+    for (let index = 0; index < texts.length; index++) {
+      const text = texts[index];
+      const values = await this.embedSingleWithRetry(
+        embeddingModel,
+        text,
+        `fallback ${index + 1}/${texts.length}`,
+      );
       const normalizedVector = this.normalizeEmbeddingVector(values);
 
       if (!normalizedVector) {
@@ -210,6 +217,47 @@ export class EmbeddingService implements IEmbeddingService {
     }
 
     return fallbackVectors;
+  }
+
+  private async embedSingleWithRetry(
+    embeddingModel: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+    text: string,
+    context: string,
+  ): Promise<unknown> {
+    for (let attempt = 1; attempt <= MAX_FALLBACK_ATTEMPTS; attempt++) {
+      try {
+        await this.waitBeforeFallbackRequest();
+        const response = await embeddingModel.embedContent(text);
+        return response.embedding?.values;
+      } catch (error) {
+        if (
+          !this.isRateLimitError(error) ||
+          attempt === MAX_FALLBACK_ATTEMPTS
+        ) {
+          throw error;
+        }
+
+        const retryDelayMs = this.extractRetryDelayMs(error) + attempt * 300;
+        this.logger.warn(
+          `Rate limit on ${context}, attempt ${attempt}/${MAX_FALLBACK_ATTEMPTS}. Retrying in ${retryDelayMs}ms.`,
+        );
+        await this.sleep(retryDelayMs);
+      }
+    }
+
+    throw new HttpException(
+      'Embedding fallback retry attempts exceeded',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+
+  private async waitBeforeFallbackRequest(): Promise<void> {
+    const elapsed = Date.now() - this.lastFallbackRequestAt;
+    const waitMs = FALLBACK_MIN_INTERVAL_MS - elapsed;
+    if (waitMs > 0) {
+      await this.sleep(waitMs);
+    }
+    this.lastFallbackRequestAt = Date.now();
   }
 
   private chunkTexts(texts: string[], batchSize: number): string[][] {
@@ -253,7 +301,13 @@ export class EmbeddingService implements IEmbeddingService {
 
   private isRateLimitError(error: unknown): boolean {
     const message = error instanceof Error ? error.message : String(error);
-    return message.includes('429') || message.toLowerCase().includes('quota');
+    const lowerMessage = message.toLowerCase();
+    return (
+      message.includes('429') ||
+      lowerMessage.includes('quota') ||
+      lowerMessage.includes('resource exhausted') ||
+      lowerMessage.includes('too many requests')
+    );
   }
 
   private extractRetryDelayMs(error: unknown): number {
