@@ -67,7 +67,7 @@ export class AiAssistantService {
       const retrieval = await this.ragRetrievalService.retrieve({
         query,
         limit: 3,
-        minScore: 0.85,
+        minScore: 0.75,
       });
 
       const builtContext = this.contextBuilderService.build({
@@ -253,47 +253,35 @@ export class AiAssistantService {
 
     const ragContext = await this.buildRagContext(dto.message);
 
-    if (
-      !ragContext.hasRelevantSource &&
-      this.shouldFallbackWithoutContext(dto.message)
-    ) {
-      const knowledgeGapResponse =
-        this.medicalAnsweringService.getKnowledgeGapResponse();
-
-      conversation.messages.push({
-        role: MessageRole.ASSISTANT,
-        content: knowledgeGapResponse,
-        timestamp: new Date(),
-      });
-
-      conversation.messageCount = conversation.messages.length;
-      conversation.lastMessageAt = new Date();
-      await conversation.save();
-
-      return {
-        statusCode: 200,
-        message: 'Message processed successfully',
-        data: {
-          conversationId: conversation._id,
-          userMessage: dto.message,
-          aiResponse: knowledgeGapResponse,
-          messageCount: conversation.messageCount,
-          groundedByRag: false,
-          citations: [],
-          confidence: 0,
-        },
-      };
-    }
-
     const chatHistory = this.promptBuilderService.buildChatHistory(
       conversation.messages,
     );
 
     try {
-      const userPromptForModel = this.promptBuilderService.buildUserPrompt({
-        question: dto.message,
-        ragContext: ragContext.hasRelevantSource ? ragContext.context : null,
-      });
+      let userPromptForModel = '';
+
+      if (
+        !ragContext.hasRelevantSource &&
+        this.shouldFallbackWithoutContext(dto.message)
+      ) {
+        userPromptForModel = `
+Hệ thống dữ liệu y khoa nội bộ hiện chưa có thông tin chính xác 100% cho trường hợp này. 
+Tuy nhiên, người dùng đang mô tả triệu chứng: "${dto.message}".
+
+Hãy đóng vai trò là một trợ lý y tế sơ bộ (Triage Assistant). Nhiệm vụ của bạn:
+1. Thể hiện sự thấu cảm với tình trạng sức khỏe hiện tại của họ.
+2. Đặt 2 đến 3 câu hỏi tường tận để khai thác thêm bệnh sử (Ví dụ: Triệu chứng này xuất hiện từ khi nào? Có kèm theo biểu hiện lạ nào khác không? Cường độ ra sao?).
+3. Đưa ra các biện pháp giảm nhẹ triệu chứng tạm thời và an toàn (như uống nhiều nước, nghỉ ngơi).
+4. Kèm theo một lời nhắc nhở nhẹ nhàng: "Để chẩn đoán chính xác nhất, bạn nên tham khảo ý kiến bác sĩ chuyên khoa".
+
+TUYỆT ĐỐI KHÔNG chẩn đoán bệnh cụ thể hoặc kê đơn thuốc đặc trị lúc này.
+        `.trim();
+      } else {
+        userPromptForModel = this.promptBuilderService.buildUserPrompt({
+          question: dto.message,
+          ragContext: ragContext.hasRelevantSource ? ragContext.context : null,
+        });
+      }
 
       const aiResponse = await this.llmGatewayService.generateMedicalAnswer({
         modelName: 'gemini-2.5-flash',
