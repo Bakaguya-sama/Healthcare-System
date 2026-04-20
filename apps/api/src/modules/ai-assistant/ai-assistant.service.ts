@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  HttpException,
   NotFoundException,
   ForbiddenException,
   Logger,
@@ -284,7 +285,7 @@ TUYỆT ĐỐI KHÔNG chẩn đoán bệnh cụ thể hoặc kê đơn thuốc �
       }
 
       const aiResponse = await this.llmGatewayService.generateMedicalAnswer({
-        modelName: 'gemini-2.5-flash',
+        modelName: 'gemini-2.5-flash-lite',
         systemInstruction: this.promptBuilderService.getSystemPrompt(),
         history: chatHistory.slice(0, -1),
         userPrompt: userPromptForModel,
@@ -335,6 +336,13 @@ TUYỆT ĐỐI KHÔNG chẩn đoán bệnh cụ thể hoặc kê đơn thuốc �
 
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
+
+      if (error instanceof HttpException) {
+        throw new HttpException(
+          `AI service error: ${errorMessage}`,
+          error.getStatus(),
+        );
+      }
 
       throw new BadRequestException(
         `AI service error: ${errorMessage}. Make sure your Gemini API Key is valid and quota is available.`,
