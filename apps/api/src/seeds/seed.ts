@@ -588,13 +588,41 @@ async function seedDatabase() {
     console.log('🚫 Creating blacklist keywords...');
     const blacklistKeywords = await blacklistKeywordModel.insertMany(
       [
-        'spam',
-        'abuse',
-        'harassment',
-        'inappropriate',
-        'offensive',
-        'vulgar',
-        'hate',
+        'chữa bách bệnh',
+        'cam kết khỏi 100%',
+        'chắc chắn khỏi',
+        'thần dược',
+        'thuốc tiên',
+        'phương pháp bí truyền',
+        'đảm bảo hết bệnh',
+        'không cần đi khám',
+        'không cần đến bệnh viện',
+
+        'bạn chắc chắn bị',
+        'kết luận là',
+        'tôi chẩn đoán bạn',
+        'tự mua thuốc',
+        'uống kháng sinh này',
+        'đơn thuốc của bạn là',
+
+        'ngừng uống thuốc',
+        'bỏ phác đồ',
+        'không cần phẫu thuật đâu',
+        'chữa ung thư bằng',
+        'tự phá thai',
+
+        'tự tử',
+        'chết đi',
+        'giết người',
+        'tự sát',
+
+        'ma túy',
+        'mua bán nội tạng',
+        'thuốc lắc',
+        'cần sa',
+
+        'đồ ngu',
+        'thằng điên',
       ].map((keyword) => ({ keyword })),
     );
     console.log(

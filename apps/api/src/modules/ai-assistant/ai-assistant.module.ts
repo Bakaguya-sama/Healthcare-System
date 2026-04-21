@@ -10,10 +10,12 @@ import { RagModule } from '../rag/rag.module';
 import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
+import { BlacklistKeywordsModule } from '../blacklist-keywords/blacklist-keywords.module';
 
 @Module({
   imports: [
     RagModule,
+    BlacklistKeywordsModule,
     MongooseModule.forFeature([
       { name: AiConversation.name, schema: AiConversationSchema },
     ]),
