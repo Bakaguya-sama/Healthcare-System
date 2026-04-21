@@ -11,6 +11,7 @@ import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
 import { BlacklistKeywordsModule } from '../blacklist-keywords/blacklist-keywords.module';
+import { CloudinaryService } from '../../core/services/cloudinary.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { BlacklistKeywordsModule } from '../blacklist-keywords/blacklist-keyword
     MedicalAnsweringService,
     PromptBuilderService,
     LlmGatewayService,
+    CloudinaryService,
   ],
 })
 export class AiAssistantModule {}

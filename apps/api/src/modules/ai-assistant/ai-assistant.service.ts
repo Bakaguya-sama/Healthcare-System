@@ -30,6 +30,14 @@ import { Citation } from '../rag/interfaces/context-builder.interface';
 import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
+import { CloudinaryService } from '../../core/services/cloudinary.service';
+
+type UploadedMedicalImage = {
+  mimetype?: string;
+  originalname: string;
+  buffer: Buffer;
+  size: number;
+};
 
 @Injectable()
 export class AiAssistantService {
@@ -44,6 +52,7 @@ export class AiAssistantService {
     private readonly medicalAnsweringService: MedicalAnsweringService,
     private readonly promptBuilderService: PromptBuilderService,
     private readonly llmGatewayService: LlmGatewayService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     this.logger.log(
@@ -68,7 +77,7 @@ export class AiAssistantService {
       const retrieval = await this.ragRetrievalService.retrieve({
         query,
         limit: 3,
-        minScore: 0.65,
+        minScore: 0.85,
       });
 
       const builtContext = this.contextBuilderService.build({
@@ -227,6 +236,44 @@ export class AiAssistantService {
     return isKnowledgePattern && !hasSymptomMarkers;
   }
 
+  private validateMedicalImage(file: UploadedMedicalImage): void {
+    if (!file.mimetype?.startsWith('image/')) {
+      throw new BadRequestException('Only image files are supported');
+    }
+  }
+
+  private async uploadConversationImage(
+    conversationId: string,
+    file: UploadedMedicalImage,
+  ): Promise<{
+    publicId: string;
+    secureUrl: string;
+    fileType: 'image';
+    mimeType: string;
+    originalName: string;
+    size: number;
+    base64Data: string;
+  }> {
+    this.validateMedicalImage(file);
+
+    const folder = `healthcare/chat/ai/attachments/${conversationId}`;
+    const uploadResult = await this.cloudinaryService.uploadFile(
+      file,
+      folder,
+      'image',
+    );
+
+    return {
+      publicId: uploadResult.publicId,
+      secureUrl: uploadResult.secureUrl,
+      fileType: 'image',
+      mimeType: file.mimetype ?? 'image/jpeg',
+      originalName: file.originalname,
+      size: file.size,
+      base64Data: file.buffer.toString('base64'),
+    };
+  }
+
   /**
    * 🎯 START NEW CONVERSATION
    */
@@ -266,6 +313,7 @@ export class AiAssistantService {
     userId: string,
     conversationId: string,
     dto: AiSendMessageDto,
+    image?: UploadedMedicalImage,
   ) {
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
@@ -288,14 +336,44 @@ export class AiAssistantService {
       );
     }
 
+    const normalizedMessage = dto.message?.trim() ?? '';
+    if (!normalizedMessage && !image) {
+      throw new BadRequestException('Message text or image is required');
+    }
+
+    const uploadedImage = image
+      ? await this.uploadConversationImage(conversationId, image)
+      : null;
+
+    const messageContent = normalizedMessage || 'Người dùng gửi ảnh y khoa';
+
     // Add user message to history
     conversation.messages.push({
       role: MessageRole.USER,
-      content: dto.message,
+      content: messageContent,
       timestamp: new Date(),
+      attachments: uploadedImage
+        ? [
+            {
+              publicId: uploadedImage.publicId,
+              secureUrl: uploadedImage.secureUrl,
+              fileType: uploadedImage.fileType,
+              mimeType: uploadedImage.mimeType,
+              originalName: uploadedImage.originalName,
+              size: uploadedImage.size,
+            },
+          ]
+        : undefined,
     });
 
-    const ragContext = await this.buildRagContext(dto.message);
+    const ragContext = normalizedMessage
+      ? await this.buildRagContext(normalizedMessage)
+      : {
+          context: null,
+          hasRelevantSource: false,
+          citations: [],
+          confidence: 0,
+        };
 
     const chatHistory = this.promptBuilderService.buildChatHistory(
       conversation.messages,
@@ -303,29 +381,34 @@ export class AiAssistantService {
 
     try {
       let userPromptForModel = '';
+      const promptSubject = normalizedMessage || 'ảnh y khoa đính kèm';
 
-      if (!ragContext.hasRelevantSource) {
+      if (uploadedImage) {
+        userPromptForModel = `Người dùng gửi ảnh y khoa để phân tích${normalizedMessage ? ` cùng mô tả: "${normalizedMessage}"` : ''}.
+            Hãy:
+            1. Mô tả các dấu hiệu quan sát được trong ảnh bằng ngôn ngữ dễ hiểu.
+            2. Nêu các khả năng cần lưu ý ở mức tham khảo (không chẩn đoán xác định).
+            3. Đề xuất bước tiếp theo an toàn (theo dõi, xét nghiệm, hoặc đi khám).
+            4. Nếu chất lượng ảnh không đủ, hãy nói rõ giới hạn và yêu cầu ảnh rõ hơn.`;
+      } else if (!ragContext.hasRelevantSource) {
         // Phân loại ý định câu hỏi khi RAG không tìm thấy nguồn
-        if (this.isKnowledgeSeekingQuery(dto.message)) {
+        if (this.isKnowledgeSeekingQuery(promptSubject)) {
           // LUỒNG 1: Câu hỏi kiến thức - Trả lời từ kiến thức chung của LLM
-          userPromptForModel = `Người dùng hỏi về kiến thức y khoa: "${dto.message}".
-
-Tài liệu nội bộ hiện không có thông tin cụ thể. Hãy trả lời dựa trên kiến thức y khoa chuyên môn của bạn, nhưng PHẢI kèm theo lưu ý: "Đây là thông tin tham khảo chung từ kiến thức y khoa. Để được xác nhận chính xác, vui lòng tham khảo ý kiến bác sĩ chuyên khoa."`;
-        } else if (this.shouldFallbackWithoutContext(dto.message)) {
+          userPromptForModel = `Người dùng hỏi về kiến thức y khoa: "${promptSubject}".Tài liệu nội bộ hiện không có thông tin cụ thể. Hãy trả lời dựa trên kiến thức y khoa chuyên môn của bạn, nhưng PHẢI kèm theo lưu ý: "Đây là thông tin tham khảo chung từ kiến thức y khoa. Để được xác nhận chính xác, vui lòng tham khảo ý kiến bác sĩ chuyên khoa."`;
+        } else if (this.shouldFallbackWithoutContext(promptSubject)) {
           // LUỒNG 2: Câu hỏi triệu chứng - Dùng Triage động
           userPromptForModel =
             await this.promptBuilderService.buildDynamicTriagePrompt(
-              dto.message,
+              promptSubject,
             );
         } else {
           // LUỒNG 3: Câu hỏi mơ hồ - Để LLM tự hỏi làm rõ
-          userPromptForModel = `Người dùng đang hỏi: "${dto.message}".
-
-Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi làm rõ để hiểu rõ hơn ý muốn của họ, rồi cung cấp hướng dẫn sơ bộ. Nếu người dùng mô tả triệu chứng cụ thể, hãy đóng vai một trợ lý y tế sơ bộ (Triage Assistant) để giúp họ hiểu tình trạng sức khỏe hiện tại.`;
+          userPromptForModel = `Người dùng đang hỏi: "${promptSubject}".
+          Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi làm rõ để hiểu rõ hơn ý muốn của họ, rồi cung cấp hướng dẫn sơ bộ. Nếu người dùng mô tả triệu chứng cụ thể, hãy đóng vai một trợ lý y tế sơ bộ (Triage Assistant) để giúp họ hiểu tình trạng sức khỏe hiện tại.`;
         }
       } else {
         userPromptForModel = this.promptBuilderService.buildUserPrompt({
-          question: dto.message,
+          question: promptSubject,
           ragContext: ragContext.hasRelevantSource ? ragContext.context : null,
         });
       }
@@ -338,6 +421,12 @@ Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi l
         systemInstruction,
         history: chatHistory.slice(0, -1),
         userPrompt: userPromptForModel,
+        userImage: uploadedImage
+          ? {
+              mimeType: uploadedImage.mimeType,
+              base64Data: uploadedImage.base64Data,
+            }
+          : undefined,
       });
 
       // Add AI response to history
@@ -350,7 +439,7 @@ Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi l
       conversation.messageCount = conversation.messages.length;
       conversation.lastMessageAt = new Date();
       conversation.totalTokensUsed +=
-        Math.ceil(dto.message.length / 4) + Math.ceil(aiResponse.length / 4);
+        Math.ceil(messageContent.length / 4) + Math.ceil(aiResponse.length / 4);
 
       await conversation.save();
 
@@ -359,7 +448,13 @@ Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi l
         message: 'Message processed successfully',
         data: {
           conversationId: conversation._id,
-          userMessage: dto.message,
+          userMessage: messageContent,
+          attachment: uploadedImage
+            ? {
+                publicId: uploadedImage.publicId,
+                secureUrl: uploadedImage.secureUrl,
+              }
+            : null,
           aiResponse,
           messageCount: conversation.messageCount,
           groundedByRag: ragContext.hasRelevantSource,
@@ -369,6 +464,20 @@ Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi l
       };
     } catch (error) {
       console.error('[AI Assistant] Gemini API Error:', error);
+
+      if (uploadedImage?.publicId) {
+        try {
+          await this.cloudinaryService.deleteFile(
+            uploadedImage.publicId,
+            'image',
+          );
+        } catch (cleanupError) {
+          this.logger.warn(
+            `[AI Assistant] Failed to cleanup image ${uploadedImage.publicId} after AI error`,
+          );
+          this.logger.error('[AI Assistant] Cleanup error:', cleanupError);
+        }
+      }
 
       const apiKey = this.configService.get<string>('GEMINI_API_KEY');
       console.log('[AI Assistant] Current API Key status:', {

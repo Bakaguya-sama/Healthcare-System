@@ -16,6 +16,10 @@ export type GenerateMedicalAnswerInput = {
   systemInstruction: string;
   history: Array<{ role: string; parts: Array<{ text: string }> }>;
   userPrompt: string;
+  userImage?: {
+    mimeType: string;
+    base64Data: string;
+  };
 };
 
 @Injectable()
@@ -34,7 +38,19 @@ export class LlmGatewayService {
     });
 
     const chat = model.startChat({ history: input.history });
-    const result = await this.sendMessageWithRetry(chat, input.userPrompt);
+    const messagePayload = input.userImage
+      ? [
+          { text: input.userPrompt },
+          {
+            inlineData: {
+              mimeType: input.userImage.mimeType,
+              data: input.userImage.base64Data,
+            },
+          },
+        ]
+      : input.userPrompt;
+
+    const result = await this.sendMessageWithRetry(chat, messagePayload);
     const text = result.response.text();
 
     if (!text?.trim()) {
@@ -44,10 +60,7 @@ export class LlmGatewayService {
     return text;
   }
 
-  private async sendMessageWithRetry(
-    chat: { sendMessage: (message: string) => Promise<any> },
-    userPrompt: string,
-  ): Promise<any> {
+  private async sendMessageWithRetry(chat: any, userPrompt: any): Promise<any> {
     for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
       try {
         return await chat.sendMessage(userPrompt);

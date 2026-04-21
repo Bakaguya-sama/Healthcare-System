@@ -22,10 +22,20 @@ export enum SentimentType {
   URGENT = 'urgent',
 }
 
+export interface MessageAttachment {
+  publicId: string;
+  secureUrl: string;
+  fileType: 'image';
+  mimeType: string;
+  originalName: string;
+  size: number;
+}
+
 export interface ConversationMessage {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  attachments?: MessageAttachment[];
   sentiment?: SentimentType;
   tokens?: number;
 }
@@ -85,7 +95,12 @@ export class AiConversation {
   @Prop({ type: String, maxlength: 500 })
   ratingComment?: string;
 
-  @Prop({ type: String, enum: ['draft', 'active', 'completed', 'archived'], default: 'active', index: true })
+  @Prop({
+    type: String,
+    enum: ['draft', 'active', 'completed', 'archived'],
+    default: 'active',
+    index: true,
+  })
   status: 'draft' | 'active' | 'completed' | 'archived';
 
   @Prop({ type: Date })
@@ -103,7 +118,8 @@ export class AiConversation {
 
 export type AiConversationDocument = AiConversation & Document;
 
-export const AiConversationSchema = SchemaFactory.createForClass(AiConversation);
+export const AiConversationSchema =
+  SchemaFactory.createForClass(AiConversation);
 
 // Indexes
 AiConversationSchema.index({ userId: 1, createdAt: -1 });

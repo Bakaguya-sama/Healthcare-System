@@ -3,16 +3,12 @@ import {
   IsNotEmpty,
   IsOptional,
   IsArray,
-  IsMongoId,
   MaxLength,
   MinLength,
   IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  ConversationType,
-  MessageRole,
-} from '../entities/ai-conversation.entity';
+import { ConversationType } from '../entities/ai-conversation.entity';
 
 export class StartConversationDto {
   @ApiProperty({
@@ -42,13 +38,14 @@ export class StartConversationDto {
 export class AiSendMessageDto {
   @ApiProperty({
     example: 'Huyết áp 140/90 có nguy hiểm không?',
-    description: 'Message content to send to AI',
+    description:
+      'Message content to send to AI (optional if image is provided)',
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(2000)
-  message: string;
+  message?: string;
 
   @ApiProperty({ required: false, example: 'symptom_analysis' })
   @IsOptional()

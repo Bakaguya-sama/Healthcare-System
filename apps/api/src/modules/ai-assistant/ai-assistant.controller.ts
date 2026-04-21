@@ -8,15 +8,20 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { AiAssistantService } from './ai-assistant.service';
 import {
@@ -55,14 +60,42 @@ export class AiAssistantController {
    */
   @Post('conversations/:conversationId/message')
   @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('image'))
   @ApiOperation({ summary: 'Gửi tin nhắn cho AI trong cuộc trò chuyện' })
   @ApiParam({ name: 'conversationId', description: 'ID của cuộc trò chuyện' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        conversationType: {
+          type: 'string',
+          enum: [
+            'health_inquiry',
+            'symptom_analysis',
+            'health_education',
+            'test_result_explanation',
+            'medication_info',
+            'general_consultation',
+          ],
+        },
+        image: { type: 'string', format: 'binary' },
+      },
+    },
+  })
   async sendMessage(
     @CurrentUser('sub') userId: string,
     @Param('conversationId') conversationId: string,
     @Body() dto: AiSendMessageDto,
+    @UploadedFile() image?: any,
   ) {
-    return this.aiAssistantService.sendMessage(userId, conversationId, dto);
+    return this.aiAssistantService.sendMessage(
+      userId,
+      conversationId,
+      dto,
+      image,
+    );
   }
 
   /**
