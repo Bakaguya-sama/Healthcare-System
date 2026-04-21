@@ -9,11 +9,11 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -60,7 +60,7 @@ export class AiAssistantController {
    */
   @Post('conversations/:conversationId/message')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FilesInterceptor('images', 5))
   @ApiOperation({ summary: 'Gửi tin nhắn cho AI trong cuộc trò chuyện' })
   @ApiParam({ name: 'conversationId', description: 'ID của cuộc trò chuyện' })
   @ApiConsumes('multipart/form-data')
@@ -80,7 +80,10 @@ export class AiAssistantController {
             'general_consultation',
           ],
         },
-        image: { type: 'string', format: 'binary' },
+        images: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
       },
     },
   })
@@ -88,13 +91,13 @@ export class AiAssistantController {
     @CurrentUser('sub') userId: string,
     @Param('conversationId') conversationId: string,
     @Body() dto: AiSendMessageDto,
-    @UploadedFile() image?: any,
+    @UploadedFiles() images?: any[],
   ) {
     return this.aiAssistantService.sendMessage(
       userId,
       conversationId,
       dto,
-      image,
+      images,
     );
   }
 

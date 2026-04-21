@@ -39,6 +39,16 @@ type UploadedMedicalImage = {
   size: number;
 };
 
+type UploadedImageMetadata = {
+  publicId: string;
+  secureUrl: string;
+  fileType: 'image';
+  mimeType: string;
+  originalName: string;
+  size: number;
+  base64Data: string;
+};
+
 @Injectable()
 export class AiAssistantService {
   private readonly logger = new Logger(AiAssistantService.name);
@@ -242,36 +252,34 @@ export class AiAssistantService {
     }
   }
 
-  private async uploadConversationImage(
+  private async uploadConversationImages(
     conversationId: string,
-    file: UploadedMedicalImage,
-  ): Promise<{
-    publicId: string;
-    secureUrl: string;
-    fileType: 'image';
-    mimeType: string;
-    originalName: string;
-    size: number;
-    base64Data: string;
-  }> {
-    this.validateMedicalImage(file);
-
+    files: UploadedMedicalImage[],
+  ): Promise<UploadedImageMetadata[]> {
     const folder = `healthcare/chat/ai/attachments/${conversationId}`;
-    const uploadResult = await this.cloudinaryService.uploadFile(
-      file,
-      folder,
-      'image',
-    );
+    const uploadedFiles: UploadedImageMetadata[] = [];
 
-    return {
-      publicId: uploadResult.publicId,
-      secureUrl: uploadResult.secureUrl,
-      fileType: 'image',
-      mimeType: file.mimetype ?? 'image/jpeg',
-      originalName: file.originalname,
-      size: file.size,
-      base64Data: file.buffer.toString('base64'),
-    };
+    for (const file of files) {
+      this.validateMedicalImage(file);
+
+      const uploadResult = await this.cloudinaryService.uploadFile(
+        file,
+        folder,
+        'image',
+      );
+
+      uploadedFiles.push({
+        publicId: uploadResult.publicId,
+        secureUrl: uploadResult.secureUrl,
+        fileType: 'image',
+        mimeType: file.mimetype ?? 'image/jpeg',
+        originalName: file.originalname,
+        size: file.size,
+        base64Data: file.buffer.toString('base64'),
+      });
+    }
+
+    return uploadedFiles;
   }
 
   /**
@@ -313,7 +321,7 @@ export class AiAssistantService {
     userId: string,
     conversationId: string,
     dto: AiSendMessageDto,
-    image?: UploadedMedicalImage,
+    images?: UploadedMedicalImage[],
   ) {
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
@@ -337,13 +345,16 @@ export class AiAssistantService {
     }
 
     const normalizedMessage = dto.message?.trim() ?? '';
-    if (!normalizedMessage && !image) {
+    const normalizedImages = (images ?? []).filter(Boolean);
+
+    if (!normalizedMessage && normalizedImages.length === 0) {
       throw new BadRequestException('Message text or image is required');
     }
 
-    const uploadedImage = image
-      ? await this.uploadConversationImage(conversationId, image)
-      : null;
+    const uploadedImages =
+      normalizedImages.length > 0
+        ? await this.uploadConversationImages(conversationId, normalizedImages)
+        : [];
 
     const messageContent = normalizedMessage || 'Người dùng gửi ảnh y khoa';
 
@@ -352,18 +363,17 @@ export class AiAssistantService {
       role: MessageRole.USER,
       content: messageContent,
       timestamp: new Date(),
-      attachments: uploadedImage
-        ? [
-            {
+      attachments:
+        uploadedImages.length > 0
+          ? uploadedImages.map((uploadedImage) => ({
               publicId: uploadedImage.publicId,
               secureUrl: uploadedImage.secureUrl,
               fileType: uploadedImage.fileType,
               mimeType: uploadedImage.mimeType,
               originalName: uploadedImage.originalName,
               size: uploadedImage.size,
-            },
-          ]
-        : undefined,
+            }))
+          : undefined,
     });
 
     const ragContext = normalizedMessage
@@ -383,8 +393,8 @@ export class AiAssistantService {
       let userPromptForModel = '';
       const promptSubject = normalizedMessage || 'ảnh y khoa đính kèm';
 
-      if (uploadedImage) {
-        userPromptForModel = `Người dùng gửi ảnh y khoa để phân tích${normalizedMessage ? ` cùng mô tả: "${normalizedMessage}"` : ''}.
+      if (uploadedImages.length > 0) {
+        userPromptForModel = `Người dùng gửi ${uploadedImages.length} ảnh y khoa để phân tích${normalizedMessage ? ` cùng mô tả: "${normalizedMessage}"` : ''}.
             Hãy:
             1. Mô tả các dấu hiệu quan sát được trong ảnh bằng ngôn ngữ dễ hiểu.
             2. Nêu các khả năng cần lưu ý ở mức tham khảo (không chẩn đoán xác định).
@@ -421,12 +431,13 @@ export class AiAssistantService {
         systemInstruction,
         history: chatHistory.slice(0, -1),
         userPrompt: userPromptForModel,
-        userImage: uploadedImage
-          ? {
-              mimeType: uploadedImage.mimeType,
-              base64Data: uploadedImage.base64Data,
-            }
-          : undefined,
+        userImages:
+          uploadedImages.length > 0
+            ? uploadedImages.map((uploadedImage) => ({
+                mimeType: uploadedImage.mimeType,
+                base64Data: uploadedImage.base64Data,
+              }))
+            : undefined,
       });
 
       // Add AI response to history
@@ -449,12 +460,10 @@ export class AiAssistantService {
         data: {
           conversationId: conversation._id,
           userMessage: messageContent,
-          attachment: uploadedImage
-            ? {
-                publicId: uploadedImage.publicId,
-                secureUrl: uploadedImage.secureUrl,
-              }
-            : null,
+          attachments: uploadedImages.map((uploadedImage) => ({
+            publicId: uploadedImage.publicId,
+            secureUrl: uploadedImage.secureUrl,
+          })),
           aiResponse,
           messageCount: conversation.messageCount,
           groundedByRag: ragContext.hasRelevantSource,
@@ -465,17 +474,19 @@ export class AiAssistantService {
     } catch (error) {
       console.error('[AI Assistant] Gemini API Error:', error);
 
-      if (uploadedImage?.publicId) {
-        try {
-          await this.cloudinaryService.deleteFile(
-            uploadedImage.publicId,
-            'image',
-          );
-        } catch (cleanupError) {
-          this.logger.warn(
-            `[AI Assistant] Failed to cleanup image ${uploadedImage.publicId} after AI error`,
-          );
-          this.logger.error('[AI Assistant] Cleanup error:', cleanupError);
+      if (uploadedImages.length > 0) {
+        for (const uploadedImage of uploadedImages) {
+          try {
+            await this.cloudinaryService.deleteFile(
+              uploadedImage.publicId,
+              'image',
+            );
+          } catch (cleanupError) {
+            this.logger.warn(
+              `[AI Assistant] Failed to cleanup image ${uploadedImage.publicId} after AI error`,
+            );
+            this.logger.error('[AI Assistant] Cleanup error:', cleanupError);
+          }
         }
       }
 

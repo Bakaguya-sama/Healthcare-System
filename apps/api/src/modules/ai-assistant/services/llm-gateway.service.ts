@@ -16,10 +16,26 @@ export type GenerateMedicalAnswerInput = {
   systemInstruction: string;
   history: Array<{ role: string; parts: Array<{ text: string }> }>;
   userPrompt: string;
-  userImage?: {
+  userImages?: Array<{
     mimeType: string;
     base64Data: string;
+  }>;
+};
+
+type MessagePayload =
+  | string
+  | Array<
+      { text: string } | { inlineData: { mimeType: string; data: string } }
+    >;
+
+type ChatResult = {
+  response: {
+    text(): string;
   };
+};
+
+type ChatClient = {
+  sendMessage(request: MessagePayload): Promise<ChatResult>;
 };
 
 @Injectable()
@@ -37,18 +53,19 @@ export class LlmGatewayService {
       systemInstruction: input.systemInstruction,
     });
 
-    const chat = model.startChat({ history: input.history });
-    const messagePayload = input.userImage
-      ? [
-          { text: input.userPrompt },
-          {
-            inlineData: {
-              mimeType: input.userImage.mimeType,
-              data: input.userImage.base64Data,
-            },
-          },
-        ]
-      : input.userPrompt;
+    const chat = model.startChat({ history: input.history }) as ChatClient;
+    const messagePayload: MessagePayload =
+      input.userImages && input.userImages.length > 0
+        ? [
+            { text: input.userPrompt },
+            ...input.userImages.map((image) => ({
+              inlineData: {
+                mimeType: image.mimeType,
+                data: image.base64Data,
+              },
+            })),
+          ]
+        : input.userPrompt;
 
     const result = await this.sendMessageWithRetry(chat, messagePayload);
     const text = result.response.text();
@@ -60,7 +77,10 @@ export class LlmGatewayService {
     return text;
   }
 
-  private async sendMessageWithRetry(chat: any, userPrompt: any): Promise<any> {
+  private async sendMessageWithRetry(
+    chat: ChatClient,
+    userPrompt: MessagePayload,
+  ): Promise<ChatResult> {
     for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
       try {
         return await chat.sendMessage(userPrompt);
