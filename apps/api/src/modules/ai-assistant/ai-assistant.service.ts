@@ -68,7 +68,7 @@ export class AiAssistantService {
       const retrieval = await this.ragRetrievalService.retrieve({
         query,
         limit: 3,
-        minScore: 0.75,
+        minScore: 0.65,
       });
 
       const builtContext = this.contextBuilderService.build({
@@ -184,6 +184,49 @@ export class AiAssistantService {
     return hasExplicitSignal || !looksAmbiguous;
   }
 
+  private isKnowledgeSeekingQuery(question: string): boolean {
+    const normalized = question.trim().toLowerCase();
+
+    const knowledgePatterns = [
+      'la gi',
+      'là gì',
+      'dinh nghia',
+      'định nghĩa',
+      'tai sao',
+      'tại sao',
+      'co che',
+      'cơ chế',
+      'nguyen nhan',
+      'nguyên nhân',
+      'phan biet',
+      'phân biệt',
+      'la loai gi',
+      'là loại gì',
+      'khac nhau nhu the nao',
+      'khác nhau như thế nào',
+      'gom nhat',
+      'gồm những gì',
+      'bao gom',
+      'bao gồm',
+    ];
+
+    const hasSymptomMarkers =
+      normalized.includes('bi') ||
+      normalized.includes('bị') ||
+      normalized.includes('toi co') ||
+      normalized.includes('tôi có') ||
+      normalized.includes('toi cam thay') ||
+      normalized.includes('tôi cảm thấy') ||
+      normalized.includes('dang') ||
+      normalized.includes('đang');
+
+    const isKnowledgePattern = knowledgePatterns.some((pattern) =>
+      normalized.includes(pattern),
+    );
+
+    return isKnowledgePattern && !hasSymptomMarkers;
+  }
+
   /**
    * 🎯 START NEW CONVERSATION
    */
@@ -261,22 +304,25 @@ export class AiAssistantService {
     try {
       let userPromptForModel = '';
 
-      if (
-        !ragContext.hasRelevantSource &&
-        this.shouldFallbackWithoutContext(dto.message)
-      ) {
-        userPromptForModel = `
-          Hệ thống dữ liệu y khoa nội bộ hiện chưa có thông tin chính xác 100% cho trường hợp này. 
-          Tuy nhiên, người dùng đang mô tả triệu chứng: "${dto.message}".
+      if (!ragContext.hasRelevantSource) {
+        // Phân loại ý định câu hỏi khi RAG không tìm thấy nguồn
+        if (this.isKnowledgeSeekingQuery(dto.message)) {
+          // LUỒNG 1: Câu hỏi kiến thức - Trả lời từ kiến thức chung của LLM
+          userPromptForModel = `Người dùng hỏi về kiến thức y khoa: "${dto.message}".
 
-          Hãy đóng vai trò là một trợ lý y tế sơ bộ (Triage Assistant). Nhiệm vụ của bạn:
-          1. Thể hiện sự thấu cảm với tình trạng sức khỏe hiện tại của họ.
-          2. Đặt 2 đến 3 câu hỏi tường tận để khai thác thêm bệnh sử (Ví dụ: Triệu chứng này xuất hiện từ khi nào? Có kèm theo biểu hiện lạ nào khác không? Cường độ ra sao?).
-          3. Đưa ra các biện pháp giảm nhẹ triệu chứng tạm thời và an toàn (như uống nhiều nước, nghỉ ngơi).
-          4. Kèm theo một lời nhắc nhở nhẹ nhàng: "Để chẩn đoán chính xác nhất, bạn nên tham khảo ý kiến bác sĩ chuyên khoa".
+Tài liệu nội bộ hiện không có thông tin cụ thể. Hãy trả lời dựa trên kiến thức y khoa chuyên môn của bạn, nhưng PHẢI kèm theo lưu ý: "Đây là thông tin tham khảo chung từ kiến thức y khoa. Để được xác nhận chính xác, vui lòng tham khảo ý kiến bác sĩ chuyên khoa."`;
+        } else if (this.shouldFallbackWithoutContext(dto.message)) {
+          // LUỒNG 2: Câu hỏi triệu chứng - Dùng Triage động
+          userPromptForModel =
+            await this.promptBuilderService.buildDynamicTriagePrompt(
+              dto.message,
+            );
+        } else {
+          // LUỒNG 3: Câu hỏi mơ hồ - Để LLM tự hỏi làm rõ
+          userPromptForModel = `Người dùng đang hỏi: "${dto.message}".
 
-          TUYỆT ĐỐI KHÔNG chẩn đoán bệnh cụ thể hoặc kê đơn thuốc đặc trị lúc này.
-        `.trim();
+Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi làm rõ để hiểu rõ hơn ý muốn của họ, rồi cung cấp hướng dẫn sơ bộ. Nếu người dùng mô tả triệu chứng cụ thể, hãy đóng vai một trợ lý y tế sơ bộ (Triage Assistant) để giúp họ hiểu tình trạng sức khỏe hiện tại.`;
+        }
       } else {
         userPromptForModel = this.promptBuilderService.buildUserPrompt({
           question: dto.message,
