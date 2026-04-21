@@ -60,7 +60,9 @@ export class AiAssistantController {
    */
   @Post('conversations/:conversationId/message')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FilesInterceptor('images', 5))
+  @UseInterceptors(
+    FilesInterceptor('images', parseInt(process.env.MAX_IMAGES || '5')),
+  )
   @ApiOperation({ summary: 'Gửi tin nhắn cho AI trong cuộc trò chuyện' })
   @ApiParam({ name: 'conversationId', description: 'ID của cuộc trò chuyện' })
   @ApiConsumes('multipart/form-data')
