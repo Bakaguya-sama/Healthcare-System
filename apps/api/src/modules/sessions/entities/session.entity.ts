@@ -8,7 +8,6 @@ export enum SessionStatus {
   ACTIVE = 'active',
   COMPLETED = 'completed',
   REJECTED = 'rejected',
-  CANCELLED = 'cancelled',
 }
 
 @Schema({ timestamps: true })

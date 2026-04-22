@@ -51,7 +51,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!senderId) return;
 
     // Map string to SenderType enum
-    const senderType = data.senderType === 'doctor' ? SenderType.DOCTOR : SenderType.PATIENT;
+    const senderType =
+      data.senderType === 'doctor' ? SenderType.DOCTOR : SenderType.PATIENT;
 
     const dto: SendMessageDto = {
       doctorSessionId: data.doctorSessionId,
@@ -76,12 +77,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     if (!client.userId) return;
 
-    const result = await this.chatService.getSessionMessages(data.doctorSessionId, {
-      page: 1,
-      limit: 50,
-      sortBy: 'sentAt',
-      sortOrder: -1 as 1 | -1,
-    });
+    const result = await this.chatService.getSessionMessages(
+      data.doctorSessionId,
+      {
+        page: 1,
+        limit: 50,
+        sortBy: 'sentAt',
+        sortOrder: -1 as 1 | -1,
+      },
+    );
     client.emit('session_messages', result);
   }
 }

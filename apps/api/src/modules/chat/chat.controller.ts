@@ -10,15 +10,20 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiParam,
+  ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
-import { SendMessageDto } from './dto/send-message.dto';
+import { SendMessageDto, UploadedAttachment } from './dto/send-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
@@ -28,6 +33,16 @@ import { CurrentUser } from '../../core/decorators/current-user.decorator';
 @UseGuards(JwtAuthGuard)
 @Controller('chat')
 export class ChatController {
+  private static readonly allowedAttachmentMimeTypes = new Set<string>([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ]);
+
   constructor(private readonly chatService: ChatService) {}
 
   /**
@@ -35,12 +50,58 @@ export class ChatController {
    */
   @Post('send')
   @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FilesInterceptor(
+      'attachments',
+      parseInt(process.env.MAX_CHAT_ATTACHMENTS || '5', 10),
+      {
+        limits: {
+          fileSize: parseInt(
+            process.env.MAX_CHAT_ATTACHMENT_SIZE_BYTES || '15728640',
+            10,
+          ),
+        },
+        fileFilter: (_req, file, callback) => {
+          if (
+            ChatController.allowedAttachmentMimeTypes.has(file.mimetype || '')
+          ) {
+            callback(null, true);
+            return;
+          }
+
+          callback(
+            new Error(
+              `Unsupported file type: ${file.mimetype}. Allowed: images, pdf, doc, docx`,
+            ),
+            false,
+          );
+        },
+      },
+    ),
+  )
   @ApiOperation({ summary: 'Gửi tin nhắn mới' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['doctorSessionId', 'senderType', 'content'],
+      properties: {
+        doctorSessionId: { type: 'string' },
+        senderType: { type: 'string', enum: ['patient', 'doctor'] },
+        content: { type: 'string' },
+        attachments: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
   async sendMessage(
     @CurrentUser('sub') userId: string,
     @Body() dto: SendMessageDto,
+    @UploadedFiles() attachments?: UploadedAttachment[],
   ) {
-    return this.chatService.sendMessage(userId, dto);
+    return this.chatService.sendMessage(userId, dto, attachments);
   }
 
   /**
@@ -57,7 +118,12 @@ export class ChatController {
     @Query('sortBy') sortBy: string = 'sentAt',
     @Query('sortOrder') sortOrder: 1 | -1 = -1,
   ) {
-    return this.chatService.getSessionMessages(sessionId, { page, limit, sortBy, sortOrder });
+    return this.chatService.getSessionMessages(sessionId, {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
   }
 
   /**

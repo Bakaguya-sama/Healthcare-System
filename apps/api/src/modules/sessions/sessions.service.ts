@@ -154,7 +154,9 @@ export class SessionsService {
       !this.isUserMatch(session.patientId, userId) &&
       !this.isUserMatch(session.doctorId, userId)
     ) {
-      throw new ForbiddenException('You are not authorized to view this session');
+      throw new ForbiddenException(
+        'You are not authorized to view this session',
+      );
     }
 
     return {
@@ -183,17 +185,17 @@ export class SessionsService {
       !this.isUserMatch(session.patientId, userId) &&
       !this.isUserMatch(session.doctorId, userId)
     ) {
-      throw new ForbiddenException('You are not authorized to update this session');
+      throw new ForbiddenException(
+        'You are not authorized to update this session',
+      );
     }
 
-    // Cannot update completed or cancelled sessions
+    // Cannot update completed or rejected sessions
     if (
       session.status === SessionStatus.COMPLETED ||
-      session.status === SessionStatus.CANCELLED
+      session.status === SessionStatus.REJECTED
     ) {
-      throw new BadRequestException(
-        `Cannot update ${session.status} session`,
-      );
+      throw new BadRequestException(`Cannot update ${session.status} session`);
     }
 
     Object.assign(session, dto);
@@ -259,7 +261,10 @@ export class SessionsService {
     }
 
     // Accept PENDING or ACTIVE status
-    if (session.status !== SessionStatus.PENDING && session.status !== SessionStatus.ACTIVE) {
+    if (
+      session.status !== SessionStatus.PENDING &&
+      session.status !== SessionStatus.ACTIVE
+    ) {
       throw new BadRequestException('Session is not available for starting');
     }
 
@@ -327,19 +332,21 @@ export class SessionsService {
       !this.isUserMatch(session.patientId, userId) &&
       !this.isUserMatch(session.doctorId, userId)
     ) {
-      throw new ForbiddenException('You are not authorized to cancel this session');
+      throw new ForbiddenException(
+        'You are not authorized to cancel this session',
+      );
     }
 
     if (session.status === SessionStatus.COMPLETED) {
       throw new BadRequestException('Cannot cancel completed session');
     }
 
-    session.status = SessionStatus.CANCELLED;
+    session.status = SessionStatus.REJECTED;
     await session.save();
 
     return {
       statusCode: 200,
-      message: 'Session cancelled successfully',
+      message: 'Session rejected successfully',
       data: session,
     };
   }
@@ -363,12 +370,14 @@ export class SessionsService {
       !this.isUserMatch(session.patientId, userId) &&
       !this.isUserMatch(session.doctorId, userId)
     ) {
-      throw new ForbiddenException('You are not authorized to reschedule this session');
+      throw new ForbiddenException(
+        'You are not authorized to reschedule this session',
+      );
     }
 
     if (
       session.status === SessionStatus.COMPLETED ||
-      session.status === SessionStatus.CANCELLED
+      session.status === SessionStatus.REJECTED
     ) {
       throw new BadRequestException('Cannot reschedule this session');
     }
