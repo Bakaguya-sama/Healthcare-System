@@ -19,6 +19,13 @@ import {
 } from '../sessions/entities/session.entity';
 import { CloudinaryService } from 'src/core/services/cloudinary.service';
 
+type MessageDbAttachment = {
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+};
+
 @Injectable()
 export class ChatService {
   private static readonly maxImageSizeBytes = 10 * 1024 * 1024;
@@ -110,7 +117,26 @@ export class ChatService {
   }
 
   /**
-   * 📝 SEND MESSAGE
+   * � GET SESSION DETAILS (with user verification)
+   */
+  async getSessionDetails(sessionId: string, userId: string) {
+    if (!Types.ObjectId.isValid(sessionId) || !Types.ObjectId.isValid(userId)) {
+      return null;
+    }
+
+    const sessionObjectId = new Types.ObjectId(sessionId);
+    const userObjectId = new Types.ObjectId(userId);
+
+    const session = await this.sessionModel.findOne({
+      _id: sessionObjectId,
+      $or: [{ patientId: userObjectId }, { doctorId: userObjectId }],
+    });
+
+    return session;
+  }
+
+  /**
+   * �📝 SEND MESSAGE
    */
   async sendMessage(
     senderId: string,
@@ -140,13 +166,28 @@ export class ChatService {
       );
     }
 
-    const uploadedFiles =
-      attachments && attachments.length > 0
-        ? await this.uploadConversationFiles(
-            sessionObjectId.toString(),
-            attachments,
-          )
-        : [];
+    let attachmentsForDb: MessageDbAttachment[] = [];
+
+    if (attachments && attachments.length > 0) {
+      const uploadedFiles = await this.uploadConversationFiles(
+        sessionObjectId.toString(),
+        attachments,
+      );
+
+      attachmentsForDb = uploadedFiles.map((file) => ({
+        fileUrl: file.fileUrl,
+        fileName: file.fileName,
+        fileSize: file.size,
+        mimeType: file.mimeType,
+      }));
+    } else if (dto.attachments && dto.attachments.length > 0) {
+      attachmentsForDb = dto.attachments.map((att) => ({
+        fileUrl: att.fileUrl,
+        fileName: att.fileName,
+        fileSize: att.size ?? 0,
+        mimeType: att.mimeType,
+      }));
+    }
 
     if (session.status === SessionStatus.COMPLETED) {
       throw new BadRequestException('Cannot send message in completed session');
@@ -167,15 +208,7 @@ export class ChatService {
       senderId: senderObjectId,
       senderType: dto.senderType,
       content: dto.content,
-      attachments:
-        uploadedFiles.length > 0
-          ? uploadedFiles.map((uploadedFile) => ({
-              fileUrl: uploadedFile.fileUrl,
-              fileName: uploadedFile.fileName,
-              fileSize: uploadedFile.size,
-              mimeType: uploadedFile.mimeType,
-            }))
-          : [],
+      attachments: attachmentsForDb.length > 0 ? attachmentsForDb : [],
       sentAt: new Date(),
     });
 

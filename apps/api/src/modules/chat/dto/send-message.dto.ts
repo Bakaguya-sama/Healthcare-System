@@ -5,8 +5,14 @@ import {
   IsEnum,
   MinLength,
   MaxLength,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsUrl,
+  IsNumber,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { SenderType } from '../entities/message.entity';
 
 export type UploadedAttachment = {
@@ -24,6 +30,31 @@ export type UploadedAttachmentMetadata = {
   fileName: string;
   size: number;
 };
+
+export class MessageAttachmentDto {
+  @ApiProperty({
+    description: 'URL của file đã được upload lên Cloudinary',
+    example: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+  })
+  @IsUrl()
+  @IsNotEmpty()
+  fileUrl!: string;
+
+  @ApiProperty({ description: 'Tên file gốc', example: 'sample.jpg' })
+  @IsString()
+  @IsNotEmpty()
+  fileName!: string;
+
+  @ApiProperty({ description: 'Kích thước file (bytes)', example: 12345 })
+  @IsNumber()
+  @IsOptional()
+  size?: number;
+
+  @ApiProperty({ description: 'Loại MIME của file', example: 'image/jpeg' })
+  @IsString()
+  @IsNotEmpty()
+  mimeType!: string;
+}
 
 export class SendMessageDto {
   @ApiProperty({ example: '65e456def789abc012345678' })
@@ -50,4 +81,16 @@ export class SendMessageDto {
   @MinLength(1)
   @MaxLength(5000)
   content!: string;
+
+  @ApiProperty({
+    type: [MessageAttachmentDto],
+    required: false,
+    description:
+      'Mảng thông tin các file đính kèm đã được upload. Dùng cho WebSocket.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MessageAttachmentDto)
+  attachments?: MessageAttachmentDto[];
 }

@@ -12,6 +12,7 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFiles,
+  Req,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -27,6 +28,7 @@ import { SendMessageDto, UploadedAttachment } from './dto/send-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
+import { ChatGateway } from './chat.gateway';
 
 @ApiTags('chat')
 @ApiBearerAuth()
@@ -43,7 +45,10 @@ export class ChatController {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ]);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   /**
    * API 1: Send Message
@@ -100,8 +105,16 @@ export class ChatController {
     @CurrentUser('sub') userId: string,
     @Body() dto: SendMessageDto,
     @UploadedFiles() attachments?: UploadedAttachment[],
+    @Req() req: any,
   ) {
-    return this.chatService.sendMessage(userId, dto, attachments);
+    const result = await this.chatService.sendMessage(userId, dto, attachments);
+
+    const message = result.data || result;
+    this.chatGateway.server
+      .to(dto.doctorSessionId)
+      .emit('new_message', message);
+
+    return result;
   }
 
   /**
