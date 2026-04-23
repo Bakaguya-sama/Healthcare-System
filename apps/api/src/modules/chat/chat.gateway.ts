@@ -12,7 +12,6 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
-import { SenderType } from './entities/message.entity';
 import { JwtService } from '@nestjs/jwt'; // Giả sử bạn dùng @nestjs/jwt
 interface AuthSocket extends Socket {
   userId?: string;
@@ -31,7 +30,6 @@ export class ChatGateway
   private readonly logger = new Logger(ChatGateway.name);
   private connectedUsers = new Map<string, string>(); // userId -> socketId
 
-  // Giả sử bạn đã có JwtService được cung cấp trong module
   constructor(
     private readonly chatService: ChatService,
     private readonly jwtService: JwtService,

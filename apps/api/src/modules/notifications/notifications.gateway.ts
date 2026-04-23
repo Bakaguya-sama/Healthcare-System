@@ -6,8 +6,9 @@ import {
   OnGatewayDisconnect,
   ConnectedSocket,
   MessageBody,
+  OnGatewayInit,
 } from '@nestjs/websockets';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -15,23 +16,28 @@ import { Notification } from '../notifications/entities/notification.entity';
 
 /**
  * 🔌 WEBSOCKET GATEWAY FOR NOTIFICATIONS
- * 
+ *
  * KIẾN THỨC:
  * - Client kết nối qua Socket.IO (WebSocket protocol)
  * - Mỗi user có một room = userId (để broadcast specific)
  * - Notification được push real-time khi có event
- * 
+ *
  * FLOW:
  * 1. Client connect → auth via JWT → join room `user_${userId}`
  * 2. Khi có notification → emit event đến room đó
  * 3. Client nhận → UI update ngay (không cần refresh)
- * 
+ *
  * USES:
  * - Health metric alert (huyết áp cao)
  * - Session request (bác sĩ request tư vấn)
  * - Appointment reminder
  * - Document verification status
  */
+
+interface AuthSocket extends Socket {
+  userId?: string;
+}
+
 @WebSocketGateway({
   cors: {
     origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173'],
@@ -41,7 +47,8 @@ import { Notification } from '../notifications/entities/notification.entity';
   transports: ['websocket', 'polling'], // Fallback to polling nếu WebSocket fail
 })
 export class NotificationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -55,112 +62,127 @@ export class NotificationsGateway
 
   /**
    * 🔗 CLIENT CONNECT
-   * 
+   *
    * Validate JWT token từ query params
    * Join user vào room dựa trên userId
-   * 
+   *
    * CLIENT CODE:
    * const socket = io('http://localhost:3000/notifications', {
    *   query: { token: 'jwt_token_here' },
    *   auth: { token: 'jwt_token_here' }
    * });
    */
-  async handleConnection(socket: Socket) {
+
+  afterInit() {
+    this.logger.log('Notifications gateway initialized');
+  }
+
+  async handleConnection(client: AuthSocket) {
     try {
-      // ✅ BƯỚC 1: Extract token từ request
-      const token = socket.handshake.auth.token ||
-        socket.handshake.query.token as string;
+      // ✅ BƯỚC 1: Lấy token từ nhiều nguồn để tăng tính tương thích
+      let token: string | undefined = client.handshake.auth.token;
+
+      // Fallback 1: Lấy từ query params (hữu ích cho Postman cũ)
+      if (
+        !token &&
+        client.handshake.query &&
+        typeof client.handshake.query.token === 'string'
+      ) {
+        this.logger.log('Found token in query parameter.');
+        token = client.handshake.query.token;
+      }
+
+      // Fallback 2: Lấy từ headers (giống luồng /chat)
+      if (!token && client.handshake.headers.authorization) {
+        this.logger.log('Found token in Authorization header.');
+        token = client.handshake.headers.authorization.split(' ')[1];
+      }
 
       if (!token) {
         this.logger.warn(`❌ Connection rejected: No token provided`);
-        socket.disconnect(true);
-        return;
+        return client.disconnect(true);
       }
 
       // ✅ BƯỚC 2: Verify JWT token
-      let decoded: any;
       try {
-        decoded = this.jwtService.verify(token);
+        const payload = await this.jwtService.verifyAsync(token);
+        const userId = payload.sub;
+        if (!userId) {
+          this.logger.warn(`Connection rejected: Invalid token payload.`);
+          return client.disconnect();
+        }
+
+        client.userId = userId;
+
+        // ✅ BƯỚC 3: Join user to room
+        client.join(`user_${userId}`);
+
+        // ✅ BƯỚC 4: Track user connections
+        if (!this.connectedUsers.has(userId)) {
+          this.connectedUsers.set(userId, new Set());
+        }
+        this.connectedUsers.get(userId)!.add(client.id);
+
+        this.logger.log(
+          `✅ User ${userId} connected. Total sockets: ${
+            this.connectedUsers.get(userId)!.size
+          }`,
+        );
+
+        // ✅ BƯỚC 5: Emit welcome message
+        client.emit('connected', {
+          message: 'Connected to notification service',
+          userId,
+          socketId: client.id,
+          timestamp: new Date().toISOString(),
+        });
       } catch (error) {
-        this.logger.warn(`❌ Invalid token: ${error.message}`);
-        socket.disconnect(true);
-        return;
+        this.logger.error(`Authentication error: ${error.message}`);
+        return client.disconnect();
       }
-
-      const userId = decoded.sub;
-
-      // ✅ BƯỚC 3: Join user to room
-      socket.join(`user_${userId}`);
-
-      // ✅ BƯỚC 4: Track user connections
-      if (!this.connectedUsers.has(userId)) {
-        this.connectedUsers.set(userId, new Set());
-      }
-      this.connectedUsers.get(userId)!.add(socket.id);
-
-      this.logger.log(
-        `✅ User ${userId} connected. Total sockets: ${
-          this.connectedUsers.get(userId)!.size
-        }`,
-      );
-
-      // ✅ BƯỚC 5: Emit welcome message
-      socket.emit('connected', {
-        message: 'Connected to notification service',
-        userId,
-        socketId: socket.id,
-        timestamp: new Date(),
-      });
     } catch (error) {
       this.logger.error('Connection error:', error);
-      socket.disconnect(true);
+      client.disconnect(true);
     }
   }
 
   /**
    * 🔌 CLIENT DISCONNECT
    */
-  handleDisconnect(socket: Socket) {
-    try {
-      const token = socket.handshake.auth.token ||
-        socket.handshake.query.token as string;
+  handleDisconnect(client: AuthSocket) {
+    // ✅ Sử dụng userId đã được lưu trên socket, đáng tin cậy hơn nhiều
+    const userId = client.userId;
+    if (userId && this.connectedUsers.has(userId)) {
+      const userSockets = this.connectedUsers.get(userId)!;
+      userSockets.delete(client.id);
 
-      if (token) {
-        const decoded = this.jwtService.verify(token);
-        const userId = decoded.sub;
+      this.logger.log(
+        `🔌 User ${userId} disconnected. Socket: ${client.id}. Sockets remaining: ${userSockets.size}`,
+      );
 
-        if (this.connectedUsers.has(userId)) {
-          this.connectedUsers.get(userId)!.delete(socket.id);
-
-          if (this.connectedUsers.get(userId)!.size === 0) {
-            this.connectedUsers.delete(userId);
-          }
-        }
-
-        this.logger.log(`✅ User ${userId} disconnected. Socket: ${socket.id}`);
+      if (userSockets.size === 0) {
+        this.connectedUsers.delete(userId);
+        this.logger.log(`⭕ User ${userId} is now fully offline.`);
       }
-    } catch (error) {
-      this.logger.error('Disconnect error:', error);
     }
   }
 
   /**
    * 📥 SUBSCRIBE MESSAGE: mark-as-read
-   * 
+   *
    * Client gửi event để mark notification là read
-   * 
+   *
    * CLIENT CODE:
    * socket.emit('mark-as-read', { notificationId: '...' });
    */
   @SubscribeMessage('mark-as-read')
   async handleMarkAsRead(
-    @ConnectedSocket() socket: Socket,
+    @ConnectedSocket() client: AuthSocket,
     @MessageBody() data: { notificationId: string },
   ) {
     try {
-      const token = socket.handshake.auth.token as string;
-      const decoded = this.jwtService.verify(token);
-      const userId = decoded.sub;
+      const userId = client.userId;
+      if (!userId) return;
 
       this.logger.log(
         `📖 Marking notification as read: ${data.notificationId}`,
@@ -170,7 +192,7 @@ export class NotificationsGateway
       await this.notificationsService.markAsRead(userId, data.notificationId);
 
       // ✅ Emit back to client for UI update
-      socket.emit('notification-marked', {
+      client.emit('notification-marked', {
         notificationId: data.notificationId,
         status: 'read',
       });
@@ -178,32 +200,34 @@ export class NotificationsGateway
       return { success: true };
     } catch (error) {
       this.logger.error('Mark as read error:', error);
-      socket.emit('error', { message: 'Failed to mark notification' });
+      client.emit('mark_as_read_error', {
+        message: 'Failed to mark notification as read',
+      });
     }
   }
 
   /**
    * 📥 SUBSCRIBE MESSAGE: typing-indicator
-   * 
+   *
    * Để biết user đang gõ pesan (tùy chọn)
    */
-  @SubscribeMessage('typing')
-  handleTyping(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { conversationId: string; isTyping: boolean },
-  ) {
-    // Broadcast to others in same conversation
-    socket.to(`conversation_${data.conversationId}`).emit('user-typing', {
-      socketId: socket.id,
-      isTyping: data.isTyping,
-    });
-  }
+  // @SubscribeMessage('typing')
+  // handleTyping(
+  //   @ConnectedSocket() socket: Socket,
+  //   @MessageBody() data: { conversationId: string; isTyping: boolean },
+  // ) {
+  //   // Broadcast to others in same conversation
+  //   socket.to(`conversation_${data.conversationId}`).emit('user-typing', {
+  //     socketId: socket.id,
+  //     isTyping: data.isTyping,
+  //   });
+  // }
 
   /**
    * 📤 SEND NOTIFICATION TO USER
-   * 
+   *
    * Gọi từ service khác (VD: SessionsService)
-   * 
+   *
    * USAGE:
    * this.notificationsGateway.sendNotificationToUser(userId, {
    *   title: 'New Session',
@@ -213,20 +237,21 @@ export class NotificationsGateway
    */
   sendNotificationToUser(userId: string, notification: Partial<Notification>) {
     const roomName = `user_${userId}`;
-    
-    this.logger.log(`📤 Sending notification to user ${userId}: ${notification.title}`);
-    
+
+    this.logger.log(
+      `📤 Sending notification to user ${userId}: ${notification.title}`,
+    );
+
     // ✅ Emit to user's room
     this.server.to(roomName).emit('notification', {
       ...notification,
-      timestamp: new Date(),
-      _id: undefined, // Tạm gán trước (DB sẽ set)
+      timestamp: new Date().toISOString(),
     });
   }
 
   /**
    * 📤 BROADCAST NOTIFICATION TO MULTIPLE USERS
-   * 
+   *
    * USAGE:
    * this.notificationsGateway.broadcastNotification(
    *   ['userId1', 'userId2'],
@@ -246,7 +271,7 @@ export class NotificationsGateway
 
   /**
    * 📤 BROADCAST TO ALL CONNECTED USERS
-   * 
+   *
    * USAGE (Admin only):
    * this.notificationsGateway.broadcastToAll({
    *   title: 'System Maintenance',
@@ -258,12 +283,27 @@ export class NotificationsGateway
     this.logger.log(`📢 Broadcasting to ALL users`);
     this.server.emit('notification', {
       ...notification,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     });
   }
 
   /**
-   * 📊 GET CONNECTED USERS COUNT
+   * 📤 Gửi xác nhận đã đọc tất cả thông báo cho một user
+   * @param userId - ID của user
+   */
+  sendMarkAllAsReadConfirmation(userId: string) {
+    const roomName = `user_${userId}`;
+    this.logger.log(
+      `📖 Emitting mark-all-as-read confirmation to user ${userId}`,
+    );
+    this.server.to(roomName).emit('all-notifications-marked', {
+      timestamp: new Date().toISOString(),
+      message: 'All notifications have been marked as read.',
+    });
+  }
+
+  /**
+   * � GET CONNECTED USERS COUNT
    */
   getConnectedUsersCount(): number {
     return this.connectedUsers.size;
@@ -273,8 +313,10 @@ export class NotificationsGateway
    * 📊 CHECK IF USER IS ONLINE
    */
   isUserOnline(userId: string): boolean {
-    return this.connectedUsers.has(userId) && 
-      this.connectedUsers.get(userId)!.size > 0;
+    return (
+      this.connectedUsers.has(userId) &&
+      this.connectedUsers.get(userId)!.size > 0
+    );
   }
 
   /**

@@ -105,7 +105,6 @@ export class ChatController {
     @CurrentUser('sub') userId: string,
     @Body() dto: SendMessageDto,
     @UploadedFiles() attachments?: UploadedAttachment[],
-    @Req() req: any,
   ) {
     const result = await this.chatService.sendMessage(userId, dto, attachments);
 

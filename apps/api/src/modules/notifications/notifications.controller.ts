@@ -49,13 +49,10 @@ export class NotificationsController {
 
     // ✅ Emit WebSocket notification real-time cho user nhận
     if (result.data) {
-      this.notificationsGateway.sendNotificationToUser(dto.userId, {
-        userId: result.data.userId,
-        type: result.data.type,
-        title: result.data.title,
-        message: result.data.message,
-        isRead: result.data.isRead,
-      });
+      this.notificationsGateway.sendNotificationToUser(
+        dto.userId,
+        result.data.toObject(), // Chuyển Mongoose Document thành Plain Object
+      );
     }
 
     return result;
@@ -85,7 +82,13 @@ export class NotificationsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đánh dấu tất cả thông báo là đã đọc' })
   async markAllAsRead(@CurrentUser('sub') userId: string) {
-    return this.notificationsService.markAllAsRead(userId);
+    const result = await this.notificationsService.markAllAsRead(userId);
+
+    if (result.data && result.data.modifiedCount > 0) {
+      this.notificationsGateway.sendMarkAllAsReadConfirmation(userId);
+    }
+
+    return result;
   }
 
   /**

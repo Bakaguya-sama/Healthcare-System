@@ -36,11 +36,7 @@ type SocketNotificationPayload = {
   createdAt?: string;
 };
 
-const SOCKET_NOTIFICATION_EVENTS = [
-  "notification:created",
-  "notification:new",
-  "new_notification",
-];
+const SOCKET_NOTIFICATION_EVENT = "notification";
 
 function extractApiNotifications(
   data: NotificationResponse,
@@ -64,6 +60,9 @@ export function useNotificationSync(userId: string | null) {
 
     const token = localStorage.getItem("access_token");
     if (!token) return;
+
+    // DEBUG: Kiểm tra giá trị của token
+    console.log("Attempting to connect notification socket with token:", token);
 
     const pushIfNewCritical = (alert: SocketNotificationPayload) => {
       const alertId = alert._id ?? alert.id;
@@ -113,30 +112,34 @@ export function useNotificationSync(userId: string | null) {
       }
     };
 
-    const socket: Socket = io(SOCKET_BASE_URL, {
+    // QUAN TRỌNG: Kết nối đến đúng namespace /notifications
+    const socket: Socket = io(`${SOCKET_BASE_URL}/notifications`, {
       path: "/socket.io",
       transports: ["websocket"],
       auth: { token, userId },
-      query: { userId },
       withCredentials: true,
+    });
+
+    socket.on("connect", () => {
+      console.log("✅ Notification socket connected:", socket.id);
     });
 
     socket.on("connect_error", (error) => {
       console.error("Notification socket connection error:", error.message);
     });
 
-    for (const eventName of SOCKET_NOTIFICATION_EVENTS) {
-      socket.on(eventName, (payload: SocketNotificationPayload) => {
+    socket.on(
+      SOCKET_NOTIFICATION_EVENT,
+      (payload: SocketNotificationPayload) => {
+        console.log("📬 Received new notification via socket:", payload);
         pushIfNewCritical(payload);
-      });
-    }
+      },
+    );
 
     bootstrapNotifications();
 
     return () => {
-      for (const eventName of SOCKET_NOTIFICATION_EVENTS) {
-        socket.off(eventName);
-      }
+      socket.off(SOCKET_NOTIFICATION_EVENT);
       socket.disconnect();
     };
   }, [userId, setCurrentAlert, hasBeenDisplayed]);
