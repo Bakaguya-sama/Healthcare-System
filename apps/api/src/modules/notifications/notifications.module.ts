@@ -11,7 +11,7 @@ import {
   Notification,
   NotificationSchema,
 } from './entities/notification.entity';
-import { CloudinaryService } from '../../core/services/cloudinary.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Module({
   imports: [

@@ -76,6 +76,9 @@ export class User {
 
   @Prop({ required: false })
   otpExpiresAt?: Date;
+
+  @Prop({ required: false })
+  banReason?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

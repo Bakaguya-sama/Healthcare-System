@@ -17,7 +17,7 @@ import {
   SessionDocument,
   SessionStatus,
 } from '../sessions/entities/session.entity';
-import { CloudinaryService } from 'src/core/services/cloudinary.service';
+import { CloudinaryService } from 'src/modules/cloudinary/cloudinary.service';
 
 type MessageDbAttachment = {
   fileUrl: string;

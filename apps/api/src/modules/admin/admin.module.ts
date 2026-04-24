@@ -5,11 +5,8 @@ import { AdminService } from './admin.service';
 import { User, UserSchema } from '../auth/entities/user.schema';
 import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
 import { Session, SessionSchema } from '../sessions/entities/session.entity';
-import {
-  Admin,
-  AdminDocument,
-  AdminSchema,
-} from '../admins/entities/admin.entity';
+import { Admin, AdminSchema } from '../admins/entities/admin.entity';
+import { NodemailerService } from '../nodemailer/nodemailer.service';
 
 @Module({
   imports: [
@@ -21,7 +18,7 @@ import {
     ]),
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, NodemailerService],
   exports: [AdminService],
 })
 export class AdminModule {}

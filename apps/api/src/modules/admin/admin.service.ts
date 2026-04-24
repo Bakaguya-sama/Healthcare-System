@@ -28,6 +28,7 @@ import {
   AdminDocument,
   AdminRole,
 } from '../admins/entities/admin.entity';
+import { NodemailerService } from '../nodemailer/nodemailer.service';
 
 @Injectable()
 export class AdminService {
@@ -36,6 +37,7 @@ export class AdminService {
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
+    private nodemailerService: NodemailerService,
   ) {}
 
   // ============================================
@@ -164,8 +166,8 @@ export class AdminService {
       throw new NotFoundException('Doctor not found');
     }
 
-    if (doctor.verificationStatus !== DoctorVerificationStatus.PENDING) {
-      throw new BadRequestException('Doctor is not in pending status');
+    if (doctor.verificationStatus === DoctorVerificationStatus.APPROVED) {
+      throw new BadRequestException('Doctor is already approved!');
     }
 
     // Cập nhật trạng thái
@@ -174,6 +176,14 @@ export class AdminService {
     doctor.rejectReason = undefined;
 
     const updated = await doctor.save();
+
+    // Lấy thông tin user của bác sĩ để gửi email
+    const doctorUserDetails = await this.userModel.findById(doctorUserId);
+    if (!doctorUserDetails) {
+      throw new NotFoundException('User account for this doctor not found.');
+    }
+
+    await this.nodemailerService.sendApproveEmail(doctorUserDetails.email);
     console.log('✅ DOCTOR VERIFIED:', updated._id);
     return (await updated.populate('userId')).toObject({ versionKey: false });
   }
@@ -201,8 +211,8 @@ export class AdminService {
       throw new NotFoundException('Doctor not found');
     }
 
-    if (doctor.verificationStatus !== DoctorVerificationStatus.PENDING) {
-      throw new BadRequestException('Doctor is not in pending status');
+    if (doctor.verificationStatus === DoctorVerificationStatus.REJECTED) {
+      throw new BadRequestException('Doctor is already rejected!');
     }
 
     // Cập nhật trạng thái
@@ -211,6 +221,17 @@ export class AdminService {
     doctor.rejectReason = dto.reason;
 
     const updated = await doctor.save();
+
+    const doctorUserDetails = await this.userModel.findById(doctorUserId);
+    if (!doctorUserDetails) {
+      throw new NotFoundException('User account for this doctor not found.');
+    }
+
+    await this.nodemailerService.sendRejectEmail(
+      doctorUserDetails.email,
+      dto.reason,
+    );
+
     return (await updated.populate('userId')).toObject({ versionKey: false });
   }
 
@@ -259,8 +280,12 @@ export class AdminService {
     }
 
     user.accountStatus = AccountStatus.BANNED;
+    user.banReason = dto.reason;
 
     const updated = await user.save();
+
+    await this.nodemailerService.sendBanEmail(user.email, dto.reason);
+
     return updated.toObject({ versionKey: false });
   }
 
@@ -304,8 +329,11 @@ export class AdminService {
     }
 
     user.accountStatus = AccountStatus.ACTIVE;
+    user.banReason = '';
 
     const updated = await user.save();
+
+    await this.nodemailerService.sendUnbanEmail(user.email);
     return updated.toObject({ versionKey: false });
   }
 

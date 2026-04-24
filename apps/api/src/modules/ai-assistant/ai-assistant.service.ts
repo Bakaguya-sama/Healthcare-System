@@ -30,7 +30,7 @@ import { Citation } from '../rag/interfaces/context-builder.interface';
 import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
-import { CloudinaryService } from '../../core/services/cloudinary.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 type UploadedMedicalImage = {
   mimetype?: string;

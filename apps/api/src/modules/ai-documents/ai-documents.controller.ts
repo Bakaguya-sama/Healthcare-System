@@ -32,7 +32,7 @@ import { Roles } from '../../core/decorators/roles.decorator';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import type { UserPayload } from '../auth/auth.payload';
 import { UserRole } from '../users/enums/user-role.enum';
-import type { UploadableFile } from '../../core/services/cloudinary.service';
+import type { UploadableFile } from '../cloudinary/cloudinary.service';
 
 @ApiTags('AI Documents')
 @ApiBearerAuth()

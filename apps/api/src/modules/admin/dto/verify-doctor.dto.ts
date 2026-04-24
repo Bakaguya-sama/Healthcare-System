@@ -2,10 +2,10 @@ import { IsString, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class VerifyDoctorDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Verification notes from admin',
     required: false,
-    maxLength: 500
+    maxLength: 500,
   })
   @IsString()
   @IsOptional()

@@ -5,7 +5,7 @@ import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
 import { Message, MessageSchema } from './entities/message.entity';
 import { Session, SessionSchema } from '../sessions/entities/session.entity';
-import { CloudinaryService } from '../../core/services/cloudinary.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';

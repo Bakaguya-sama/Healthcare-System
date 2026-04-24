@@ -22,8 +22,8 @@ import {
   UpdateAiDocumentDto,
   QueryAiDocumentDto,
 } from './dto/create-ai-document.dto';
-import { CloudinaryService } from '../../core/services/cloudinary.service';
-import type { UploadableFile } from '../../core/services/cloudinary.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import type { UploadableFile } from '../cloudinary/cloudinary.service';
 import { RagIngestionService } from '../rag/services/rag-ingestion.service';
 
 @Injectable()

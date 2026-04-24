@@ -23,7 +23,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ConfirmOtpDto } from './dto/confirm-otp.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
-import { NodemailerService } from './nodemailer.service';
+import { NodemailerService } from '../nodemailer/nodemailer.service';
 import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
