@@ -426,6 +426,12 @@ export class AiAssistantService {
       const systemInstruction =
         await this.promptBuilderService.getSystemPrompt();
 
+      // const userPromptForModel =
+      //   this.promptBuilderService.buildUnifiedMedicalPrompt(
+      //     dto.message,
+      //     ragContext.hasRelevantSource ? ragContext.context : '',
+      //   );
+
       const aiResponse = await this.llmGatewayService.generateMedicalAnswer({
         modelName: 'gemini-2.5-flash-lite',
         systemInstruction,
@@ -440,10 +446,27 @@ export class AiAssistantService {
             : undefined,
       });
 
+      // 🟢 BƯỚC XỬ LÝ CHAIN-OF-THOUGHT
+      // 1. (Tùy chọn) In ra log backend để Dev dễ debug xem AI đang nghĩ gì
+      const thinkMatch = aiResponse.match(/<think>([\s\S]*?)<\/think>/);
+      if (thinkMatch) {
+        this.logger.debug(`[AI Thoughts]:\n${thinkMatch[1].trim()}`);
+      }
+
+      // 2. Xóa bỏ hoàn toàn khối <think>...</think> để lấy câu trả lời sạch
+      const cleanAiResponse = aiResponse
+        .replace(/<think>[\s\S]*?<\/think>/g, '')
+        .trim();
+
+      // Đảm bảo không bị chuỗi rỗng nếu AI lỡ lỗi format
+      const finalAiResponse =
+        cleanAiResponse ||
+        'Xin lỗi, hệ thống đang bận xử lý logic. Vui lòng thử lại.';
+
       // Add AI response to history
       conversation.messages.push({
         role: MessageRole.ASSISTANT,
-        content: aiResponse,
+        content: finalAiResponse,
         timestamp: new Date(),
       });
 
@@ -464,7 +487,7 @@ export class AiAssistantService {
             publicId: uploadedImage.publicId,
             secureUrl: uploadedImage.secureUrl,
           })),
-          aiResponse,
+          finalAiResponse,
           messageCount: conversation.messageCount,
           groundedByRag: ragContext.hasRelevantSource,
           citations: ragContext.citations,
