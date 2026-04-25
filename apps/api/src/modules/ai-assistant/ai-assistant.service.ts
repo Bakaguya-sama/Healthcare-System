@@ -376,8 +376,44 @@ export class AiAssistantService {
           : undefined,
     });
 
-    const ragContext = normalizedMessage
-      ? await this.buildRagContext(normalizedMessage)
+    // BƯỚC 1: Phân tích ảnh (nếu có) để lấy mô tả văn bản
+    let ragQuery = normalizedMessage;
+    let imageDescription = '';
+
+    if (uploadedImages.length > 0) {
+      this.logger.log(
+        `[AI Assistant] Analyzing ${uploadedImages.length} image(s) to generate context...`,
+      );
+      const descriptionPrompt =
+        this.promptBuilderService.getImageDescriptionPrompt();
+
+      try {
+        imageDescription =
+          await this.llmGatewayService.generateImageDescription({
+            modelName: 'gemini-2.5-flash-lite',
+            systemInstruction: descriptionPrompt,
+            userImages: uploadedImages.map((img) => ({
+              mimeType: img.mimeType,
+              base64Data: img.base64Data,
+            })),
+          });
+        this.logger.log(
+          `[AI Assistant] Generated Image Description for RAG: ${imageDescription.substring(0, 100)}...`,
+        );
+        // Kết hợp mô tả ảnh và câu hỏi để làm giàu truy vấn cho RAG
+        ragQuery = `${normalizedMessage} ${imageDescription}`.trim();
+      } catch (error) {
+        this.logger.error(
+          `[AI Assistant] Failed to generate image description. Proceeding with text only.`,
+          error,
+        );
+        ragQuery = normalizedMessage; // Fallback nếu phân tích ảnh lỗi
+      }
+    }
+
+    // BƯỚC 2: Dùng truy vấn đã được làm giàu để tìm kiếm tài liệu RAG
+    const ragContext = ragQuery
+      ? await this.buildRagContext(ragQuery)
       : {
           context: null,
           hasRelevantSource: false,
@@ -391,34 +427,32 @@ export class AiAssistantService {
 
     try {
       let userPromptForModel = '';
-      const promptSubject = normalizedMessage || 'ảnh y khoa đính kèm';
+      // Câu hỏi cuối cùng cho model sẽ bao gồm cả mô tả ảnh (nếu có)
+      const finalQuestionForModel = imageDescription
+        ? `Dựa trên mô tả từ ảnh: "${imageDescription}".\n\nCâu hỏi của người dùng: "${normalizedMessage}"`
+        : normalizedMessage || 'Phân tích ảnh y khoa được đính kèm.';
 
-      if (uploadedImages.length > 0) {
-        userPromptForModel = `Người dùng gửi ${uploadedImages.length} ảnh y khoa để phân tích${normalizedMessage ? ` cùng mô tả: "${normalizedMessage}"` : ''}.
-            Hãy:
-            1. Mô tả các dấu hiệu quan sát được trong ảnh bằng ngôn ngữ dễ hiểu.
-            2. Nêu các khả năng cần lưu ý ở mức tham khảo (không chẩn đoán xác định).
-            3. Đề xuất bước tiếp theo an toàn (theo dõi, xét nghiệm, hoặc đi khám).
-            4. Nếu chất lượng ảnh không đủ, hãy nói rõ giới hạn và yêu cầu ảnh rõ hơn.`;
-      } else if (!ragContext.hasRelevantSource) {
+      // BƯỚC 3: Xây dựng prompt cuối cùng dựa trên việc có context RAG hay không
+      if (!ragContext.hasRelevantSource) {
         // Phân loại ý định câu hỏi khi RAG không tìm thấy nguồn
-        if (this.isKnowledgeSeekingQuery(promptSubject)) {
+        if (this.isKnowledgeSeekingQuery(finalQuestionForModel)) {
           // LUỒNG 1: Câu hỏi kiến thức - Trả lời từ kiến thức chung của LLM
-          userPromptForModel = `Người dùng hỏi về kiến thức y khoa: "${promptSubject}".Tài liệu nội bộ hiện không có thông tin cụ thể. Hãy trả lời dựa trên kiến thức y khoa chuyên môn của bạn, nhưng PHẢI kèm theo lưu ý: "Đây là thông tin tham khảo chung từ kiến thức y khoa. Để được xác nhận chính xác, vui lòng tham khảo ý kiến bác sĩ chuyên khoa."`;
-        } else if (this.shouldFallbackWithoutContext(promptSubject)) {
+          userPromptForModel = `Người dùng hỏi về kiến thức y khoa: "${finalQuestionForModel}".Tài liệu nội bộ hiện không có thông tin cụ thể. Hãy trả lời dựa trên kiến thức y khoa chuyên môn của bạn, nhưng PHẢI kèm theo lưu ý: "Đây là thông tin tham khảo chung từ kiến thức y khoa. Để được xác nhận chính xác, vui lòng tham khảo ý kiến bác sĩ chuyên khoa."`;
+        } else if (this.shouldFallbackWithoutContext(finalQuestionForModel)) {
           // LUỒNG 2: Câu hỏi triệu chứng - Dùng Triage động
           userPromptForModel =
             await this.promptBuilderService.buildDynamicTriagePrompt(
-              promptSubject,
+              finalQuestionForModel,
             );
         } else {
           // LUỒNG 3: Câu hỏi mơ hồ - Để LLM tự hỏi làm rõ
-          userPromptForModel = `Người dùng đang hỏi: "${promptSubject}".
+          userPromptForModel = `Người dùng đang hỏi: "${finalQuestionForModel}".
           Dữ liệu tham khảo nội bộ hiện không đủ. Hãy đặt câu hỏi làm rõ để hiểu rõ hơn ý muốn của họ, rồi cung cấp hướng dẫn sơ bộ. Nếu người dùng mô tả triệu chứng cụ thể, hãy đóng vai một trợ lý y tế sơ bộ (Triage Assistant) để giúp họ hiểu tình trạng sức khỏe hiện tại.`;
         }
       } else {
+        // LUỒNG 4: Có context RAG - Xây dựng prompt đầy đủ
         userPromptForModel = this.promptBuilderService.buildUserPrompt({
-          question: promptSubject,
+          question: finalQuestionForModel,
           ragContext: ragContext.hasRelevantSource ? ragContext.context : null,
         });
       }
@@ -426,24 +460,14 @@ export class AiAssistantService {
       const systemInstruction =
         await this.promptBuilderService.getSystemPrompt();
 
-      // const userPromptForModel =
-      //   this.promptBuilderService.buildUnifiedMedicalPrompt(
-      //     dto.message,
-      //     ragContext.hasRelevantSource ? ragContext.context : '',
-      //   );
-
+      // BƯỚC 4: Gọi LLM để tạo câu trả lời cuối cùng.
+      // Không cần gửi lại ảnh vì thông tin đã được chuyển thành văn bản trong prompt.
       const aiResponse = await this.llmGatewayService.generateMedicalAnswer({
         modelName: 'gemini-2.5-flash-lite',
         systemInstruction,
         history: chatHistory.slice(0, -1),
         userPrompt: userPromptForModel,
-        userImages:
-          uploadedImages.length > 0
-            ? uploadedImages.map((uploadedImage) => ({
-                mimeType: uploadedImage.mimeType,
-                base64Data: uploadedImage.base64Data,
-              }))
-            : undefined,
+        userImages: undefined, // Không gửi lại ảnh ở bước cuối
       });
 
       // 🟢 BƯỚC XỬ LÝ CHAIN-OF-THOUGHT

@@ -165,4 +165,10 @@ Hãy đóng vai Trợ lý Y tế Sơ bộ (Triage Assistant) với tuân thủ c
   // - [Nếu Kể Bệnh mà ĐỦ thông tin]: Thấu cảm -> Nhận định sơ bộ -> Khuyên chăm sóc tại nhà -> Nhắc đi khám bác sĩ.
   //     `.trim();
   //   }
+
+  getImageDescriptionPrompt() {
+    const prompt =
+      'Người dùng gửi các ảnh y khoa sau để phân tích. Hãy: 1. Mô tả các dấu hiệu quan sát được trong ảnh bằng ngôn ngữ dễ hiểu. 2. Nêu các khả năng cần lưu ý ở mức tham khảo (không chẩn đoán xác định). 3. Đề xuất bước tiếp theo an toàn (theo dõi, xét nghiệm, hoặc đi khám). 4. Nếu chất lượng ảnh không đủ, hãy nói rõ giới hạn và yêu cầu ảnh rõ hơn.';
+    return prompt;
+  }
 }

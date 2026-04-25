@@ -22,6 +22,15 @@ export type GenerateMedicalAnswerInput = {
   }>;
 };
 
+export type GenerateMedicalImageDesciptionInput = {
+  modelName: string;
+  systemInstruction: string;
+  userImages: Array<{
+    mimeType: string;
+    base64Data: string;
+  }>;
+};
+
 type MessagePayload =
   | string
   | Array<
@@ -75,6 +84,55 @@ export class LlmGatewayService {
     }
 
     return text;
+  }
+
+  async generateImageDescription(
+    input: GenerateMedicalImageDesciptionInput,
+  ): Promise<string> {
+    const model = this.getClient().getGenerativeModel({
+      model: input.modelName,
+    });
+
+    const imageParts = input.userImages.map((image) => ({
+      inlineData: {
+        mimeType: image.mimeType,
+        data: image.base64Data,
+      },
+    }));
+
+    const payload = [input.systemInstruction, ...imageParts];
+
+    for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
+      try {
+        const result = await model.generateContent(payload);
+        const text = result.response.text();
+        if (!text?.trim()) {
+          throw new BadRequestException(
+            'Mô hình ngôn ngữ trả về mô tả ảnh rỗng',
+          );
+        }
+        return text;
+      } catch (error) {
+        const transient = this.isTransientProviderError(error);
+        const isLastAttempt = attempt === MAX_GENERATE_ATTEMPTS;
+
+        if (!transient || isLastAttempt) {
+          this.logger.error(`[LLM Gateway] Image description error: ${error}`);
+          throw error;
+        }
+
+        const retryDelayMs = this.extractRetryDelayMs(error) + attempt * 500;
+        this.logger.warn(
+          `Gemini generateContent (image) transient error, attempt ${attempt}/${MAX_GENERATE_ATTEMPTS}. Retrying in ${retryDelayMs}ms.`,
+        );
+        await this.sleep(retryDelayMs);
+      }
+    }
+
+    throw new HttpException(
+      'AI provider (image description) retry attempts exceeded',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
   }
 
   private async sendMessageWithRetry(
