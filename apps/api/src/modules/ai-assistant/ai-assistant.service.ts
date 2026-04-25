@@ -427,17 +427,17 @@ export class AiAssistantService {
 
     try {
       let userPromptForModel = '';
-      // Câu hỏi cuối cùng cho model sẽ bao gồm cả mô tả ảnh (nếu có)
-      const finalQuestionForModel = imageDescription
-        ? `Dựa trên mô tả từ ảnh: "${imageDescription}".\n\nCâu hỏi của người dùng: "${normalizedMessage}"`
+      // 💡 FIX: Tạo câu hỏi toàn diện cho LLM, bao gồm cả mô tả ảnh.
+      const finalQuestionForModel = imageDescription.trim()
+        ? `Với mô tả bệnh/dấu hiệu/triệu chứng: "${imageDescription}".\n\nCâu hỏi của bệnh nhân: "${normalizedMessage}"`
         : normalizedMessage || 'Phân tích ảnh y khoa được đính kèm.';
 
-      // BƯỚC 3: Xây dựng prompt cuối cùng dựa trên việc có context RAG hay không
+      // BƯỚC 3: Xây dựng prompt cuối cùng, sử dụng `finalQuestionForModel` đã được làm giàu
       if (!ragContext.hasRelevantSource) {
         // Phân loại ý định câu hỏi khi RAG không tìm thấy nguồn
         if (this.isKnowledgeSeekingQuery(finalQuestionForModel)) {
           // LUỒNG 1: Câu hỏi kiến thức - Trả lời từ kiến thức chung của LLM
-          userPromptForModel = `Người dùng hỏi về kiến thức y khoa: "${finalQuestionForModel}".Tài liệu nội bộ hiện không có thông tin cụ thể. Hãy trả lời dựa trên kiến thức y khoa chuyên môn của bạn, nhưng PHẢI kèm theo lưu ý: "Đây là thông tin tham khảo chung từ kiến thức y khoa. Để được xác nhận chính xác, vui lòng tham khảo ý kiến bác sĩ chuyên khoa."`;
+          userPromptForModel = `Bệnh nhân hỏi về kiến thức y khoa: "${finalQuestionForModel}".Tài liệu nội bộ hiện không có thông tin cụ thể. Hãy trả lời dựa trên kiến thức y khoa chuyên môn của bạn, nhưng PHẢI kèm theo lưu ý: "Đây là thông tin tham khảo chung từ kiến thức y khoa. Để được xác nhận chính xác, vui lòng tham khảo ý kiến bác sĩ chuyên khoa."`;
         } else if (this.shouldFallbackWithoutContext(finalQuestionForModel)) {
           // LUỒNG 2: Câu hỏi triệu chứng - Dùng Triage động
           userPromptForModel =

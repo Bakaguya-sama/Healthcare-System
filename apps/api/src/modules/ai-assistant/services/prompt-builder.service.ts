@@ -168,7 +168,7 @@ Hãy đóng vai Trợ lý Y tế Sơ bộ (Triage Assistant) với tuân thủ c
 
   getImageDescriptionPrompt() {
     const prompt =
-      'Người dùng gửi các ảnh y khoa sau để phân tích. Hãy: 1. Mô tả các dấu hiệu quan sát được trong ảnh bằng ngôn ngữ dễ hiểu. 2. Nêu các khả năng cần lưu ý ở mức tham khảo (không chẩn đoán xác định). 3. Đề xuất bước tiếp theo an toàn (theo dõi, xét nghiệm, hoặc đi khám). 4. Nếu chất lượng ảnh không đủ, hãy nói rõ giới hạn và yêu cầu ảnh rõ hơn.';
+      'Phân tích các hình ảnh y khoa được cung cấp. Hãy mô tả chi tiết và khách quan các dấu hiệu có thể quan sát được. Tập trung vào các đặc điểm như: loại tổn thương (ví dụ: mụn nước, sẩn, mảng đỏ), màu sắc, kích thước, hình dạng, và sự phân bố của chúng trên da. KHÔNG đưa ra chẩn đoán. Mục tiêu là tạo ra một đoạn văn bản mô tả chi tiết để một hệ thống AI khác có thể sử dụng làm ngữ cảnh.';
     return prompt;
   }
 }
