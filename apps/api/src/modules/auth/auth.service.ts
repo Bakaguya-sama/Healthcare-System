@@ -90,20 +90,17 @@ export class AuthService {
       if (urlsToDelete.length > 0) {
         try {
           const publicIdsToDelete = urlsToDelete.map((url) => {
-            const urlParts = url.split('/');
-            const publicIdWithExtension = urlParts
+            // Decode the URL first to handle %20 for spaces
+            const decodedUrl = decodeURIComponent(url);
+            const urlParts = decodedUrl.split('/');
+            const pathWithExtension = urlParts
               .slice(urlParts.indexOf('upload') + 2)
               .join('/');
-            // Extract publicId from URL (e.g., 'folder/file' from '.../v123/folder/file.pdf')
-            return publicIdWithExtension.substring(
-              0,
-              publicIdWithExtension.lastIndexOf('.'),
-            );
+            return pathWithExtension;
           });
-          await this.cloudinaryService.deleteMultiple(
-            publicIdsToDelete,
-            'document',
-          );
+          for (const path of publicIdsToDelete) {
+            await this.cloudinaryService.deleteFile(path, 'document');
+          }
         } catch (error) {
           this.logger.warn(
             `Failed to delete old verification documents for user ${existingUser._id}. Proceeding with registration.`,
