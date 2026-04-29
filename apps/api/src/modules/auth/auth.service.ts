@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -197,6 +198,15 @@ export class AuthService {
 
     if (user.accountStatus === 'banned') {
       throw new UnauthorizedException('Account is banned');
+    }
+
+    if (user.role === UserRole.DOCTOR) {
+      const doctor = await this.doctorModel.findOne({ userId: user._id }); // Sử dụng user._id trực tiếp
+
+      const verificationStatus = doctor?.verificationStatus;
+
+      if (verificationStatus !== 'approved')
+        throw new ForbiddenException('Account is not approved');
     }
 
     return this.generateTokensResponse(user);
