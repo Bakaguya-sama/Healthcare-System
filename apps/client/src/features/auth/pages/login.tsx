@@ -15,6 +15,7 @@ import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import authenImage from "@/features/auth/images/authen_image.png";
 import { useNavigate } from "react-router-dom";
+import { useLogin } from "../hooks/useLogin";
 
 interface LoginFormProps {
   /** Xử lý submit — nhận email và password */
@@ -38,8 +39,8 @@ interface LoginFormErrors {
 
 export function LogIn({
   onSubmit,
-  isLoading = false,
-  error,
+  isLoading: propIsLoading = false,
+  error: propError,
   submitLabel = "Log in",
 }: LoginFormProps) {
   const [email, setEmail] = useState("");
@@ -48,10 +49,27 @@ export function LogIn({
   const [internalLoading, setInternalLoading] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false });
   const [localErrors, setLocalErrors] = useState<LoginFormErrors>({});
+  const { login, isLoading, error } = useLogin();
 
-  async function handleLogin(values: { email: string; password: string }) {
-    // Placeholder: thay phần này bằng call API login khi backend sẵn sàng.
-    console.log("[TODO] Login payload", values);
+  const navigate = useNavigate();
+
+  async function handleLogin(payload: { email: string; password: string }) {
+    try {
+      const res = await login(payload);
+
+      if (res && res.accessToken) {
+        if (rememberMe) {
+          localStorage.setItem("rememberedEmail", res.user.email);
+        }
+
+        showToast.success(`Welcome, ${res.user.fullName}!`);
+        navigate("/");
+      }
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error ? submitError.message : "Login failed";
+      showToast.error(message);
+    }
   }
 
   function validate(values: {
@@ -104,6 +122,7 @@ export function LogIn({
   const emailError = touched.email ? localErrors.email : undefined;
   const passwordError = touched.password ? localErrors.password : undefined;
   const submitting = isLoading || internalLoading;
+  const displayError = error || propError;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -139,9 +158,9 @@ export function LogIn({
             Sign in
           </h1>
 
-          {error && (
+          {displayError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayError}
             </div>
           )}
 

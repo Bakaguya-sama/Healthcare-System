@@ -83,6 +83,7 @@ type DoctorReRegisterSeed = {
   verificationStatus: DoctorVerificationStatus;
   rejectReason: string | null;
   phone: string;
+  fullName: string;
   specialty: string;
   yearsOfExperience: string;
   workplace: string;
@@ -93,6 +94,7 @@ type DoctorReRegisterPrefillApiResponse = {
   email?: string;
   phone?: string;
   phoneNumber?: string;
+  fullName?: string;
   specialty?: string;
   workplace?: string;
   yearsOfExperience?: string | number | null;
@@ -161,7 +163,8 @@ function preprocessReRegisterSeed(
     verificationStatus,
     rejectReason: payload.rejectReason ?? payload.reason ?? null,
     phone: (payload.phone ?? payload.phoneNumber ?? "").trim(),
-    specialty: (payload.specialty ?? "").trim(),
+    fullName: (payload.fullName ?? "").trim(),
+    specialty: payload.specialty ?? "",
     yearsOfExperience: String(yearsOfExperienceRaw ?? "").trim(),
     workplace: (payload.workplace ?? "").trim(),
     existingDocuments,
@@ -178,16 +181,15 @@ function isPdfDocument(document: ExistingVerificationDocument): boolean {
 
 export interface DoctorSignUpValues {
   email: string;
-  phone: string;
+  phoneNumber: string; // Changed from 'phone'
   password: string;
   confirmPassword: string;
+  fullName: string; // Added: Full name for the doctor
   specialty: string;
-  yearsOfExperience: string;
+  experienceYears: number; // Changed to number
   workplace: string;
-  verificationFiles: File[];
-  newFiles: File[];
-  keepDocumentIds: string[];
-  removeDocumentIds: string[];
+  newVerificationDocuments: File[]; // Files to upload
+  existingVerificationDocuments: string[]; // Secure URLs of files to keep
   existingDocuments: ExistingVerificationDocument[];
   verificationStatus: DoctorVerificationStatus | null;
   rejectReason: string | null;
@@ -196,11 +198,12 @@ export interface DoctorSignUpValues {
 
 interface DoctorSignUpErrors {
   email?: string;
-  phone?: string;
+  phoneNumber?: string; // Changed from 'phone'
   password?: string;
   confirmPassword?: string;
+  fullName?: string; // Added
   specialty?: string;
-  yearsOfExperience?: string;
+  experienceYears?: string; // Still string for form input, but will be converted
   workplace?: string;
   verificationFiles?: string;
 }
@@ -221,11 +224,12 @@ export function DoctorSignUp({
   submitLabel = "Submit",
 }: DoctorSignUpProps) {
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(""); // Changed from 'phone'
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [specialty, setSpecialty] = useState("");
-  const [yearsOfExperience, setYearsOfExperience] = useState("");
+  const [fullName, setFullName] = useState(""); // New state for full name
+  const [specialty, setSpecialty] = useState(""); // State for specialty
+  const [experienceYears, setExperienceYears] = useState(""); // State for years of experience (as string from input)
   const [workplace, setWorkplace] = useState("");
   const [verificationFiles, setVerificationFiles] = useState<File[]>([]);
   const [existingDocuments, setExistingDocuments] = useState<
@@ -246,11 +250,12 @@ export function DoctorSignUp({
   );
   const [touched, setTouched] = useState({
     email: false,
-    phone: false,
+    phoneNumber: false, // Changed from 'phone'
     password: false,
     confirmPassword: false,
+    fullName: false,
     specialty: false,
-    yearsOfExperience: false,
+    experienceYears: false, // Changed
     workplace: false,
     verificationFiles: false,
   });
@@ -258,7 +263,6 @@ export function DoctorSignUp({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const submitting = isLoading || internalLoading;
-
   const replacementFiles = Object.values(replacementFilesByDocumentId);
   const newFiles = [...verificationFiles, ...replacementFiles];
 
@@ -271,10 +275,10 @@ export function DoctorSignUp({
       nextErrors.email = "Invalid email.";
     }
 
-    if (!values.phone.trim()) {
-      nextErrors.phone = "Please enter your phone number.";
-    } else if (!/^\d{9,11}$/.test(values.phone.trim())) {
-      nextErrors.phone = "Phone number must be 9-11 digits.";
+    if (!values.phoneNumber.trim()) {
+      nextErrors.phoneNumber = "Please enter your phone number.";
+    } else if (!/^\d{9,11}$/.test(values.phoneNumber.trim())) {
+      nextErrors.phoneNumber = "Phone number must be 9-11 digits.";
     }
 
     if (!values.password) {
@@ -289,45 +293,53 @@ export function DoctorSignUp({
       nextErrors.confirmPassword = "Password do not match!";
     }
 
-    if (!values.specialty) {
+    if (!values.fullName.trim()) {
+      nextErrors.fullName = "Please enter your full name.";
+    }
+
+    if (!values.specialty.trim()) {
       nextErrors.specialty = "Please select your specialty.";
     }
 
-    if (!values.yearsOfExperience.trim()) {
-      nextErrors.yearsOfExperience = "Please enter years of experience.";
-    } else if (!/^\d+$/.test(values.yearsOfExperience.trim())) {
-      nextErrors.yearsOfExperience = "Years of experience must be a number.";
+    if (!values.experienceYears) {
+      nextErrors.experienceYears = "Please enter years of experience.";
+    } else if (!/^\d+$/.test(String(values.experienceYears).trim())) {
+      nextErrors.experienceYears = "Years of experience must be a number.";
     }
 
     if (!values.workplace.trim()) {
       nextErrors.workplace = "Please enter your workplace / hospital.";
     }
 
-    const hasExistingDocumentToKeep = values.keepDocumentIds.length > 0;
-    const hasNewFiles = values.newFiles.length > 0;
+    const hasExistingDocumentToKeep =
+      values.existingVerificationDocuments.length > 0;
+    const hasNewFiles = values.newVerificationDocuments.length > 0;
 
     if (!hasExistingDocumentToKeep && !hasNewFiles) {
       nextErrors.verificationFiles = "Please upload verification documents.";
     }
-
     return nextErrors;
   }
 
   function collectValues(): DoctorSignUpValues {
+    const replacementFiles = Object.values(replacementFilesByDocumentId);
+    const allNewFilesToUpload = [...verificationFiles, ...replacementFiles];
+
+    const keptExistingDocumentUrls = existingDocuments
+      .filter((doc) => !removedDocumentIds.includes(doc.id))
+      .map((doc) => doc.secureUrl);
+
     return {
       email,
-      phone,
-      password,
-      confirmPassword,
+      phoneNumber, // Changed from 'phone'
+      password, // Password is not trimmed
+      confirmPassword, // Confirm password is not trimmed
+      fullName,
       specialty,
-      yearsOfExperience,
+      experienceYears: Number(experienceYears), // Convert to number for payload
       workplace,
-      verificationFiles: newFiles,
-      newFiles,
-      keepDocumentIds: existingDocuments
-        .filter((doc) => !removedDocumentIds.includes(doc.id))
-        .map((doc) => doc.id),
-      removeDocumentIds: removedDocumentIds,
+      newVerificationDocuments: allNewFilesToUpload,
+      existingVerificationDocuments: keptExistingDocumentUrls,
       existingDocuments,
       verificationStatus,
       rejectReason,
@@ -432,9 +444,10 @@ export function DoctorSignUp({
 
       setIsReRegisterMode(true);
 
-      setPhone(seed.phone);
-      setSpecialty(seed.specialty);
-      setYearsOfExperience(seed.yearsOfExperience);
+      setPhoneNumber(seed.phone); // Set phoneNumber from prefill
+      setFullName(seed.fullName); // Set full name from prefill
+      setSpecialty(seed.specialty); // Set specialty from prefill
+      setExperienceYears(seed.yearsOfExperience); // Set years of experience from prefill
       setWorkplace(seed.workplace);
       setExistingDocuments(seed.existingDocuments);
       setRemovedDocumentIds([]);
@@ -449,17 +462,19 @@ export function DoctorSignUp({
       });
       setTouched((prev) => ({
         ...prev,
-        phone: true,
+        phoneNumber: true, // Mark phoneNumber as touched
         specialty: true,
-        yearsOfExperience: true,
+        fullName: true,
+        experienceYears: true, // Mark experienceYears as touched
         workplace: true,
       }));
       setLocalErrors((prev) => ({
         ...prev,
         email: undefined,
-        phone: undefined,
+        phoneNumber: undefined, // Clear phoneNumber error
+        fullName: undefined,
         specialty: undefined,
-        yearsOfExperience: undefined,
+        experienceYears: undefined, // Clear experienceYears error
         workplace: undefined,
         verificationFiles: undefined,
       }));
@@ -502,11 +517,12 @@ export function DoctorSignUp({
     setLocalErrors(nextErrors);
     setTouched({
       email: true,
-      phone: true,
+      phoneNumber: true, // Mark phoneNumber as touched
       password: true,
       confirmPassword: true,
-      specialty: true,
-      yearsOfExperience: true,
+      fullName: true, // Mark fullName as touched
+      specialty: true, // Mark specialty as touched
+      experienceYears: true, // Mark experienceYears as touched
       workplace: true,
       verificationFiles: true,
     });
@@ -521,13 +537,8 @@ export function DoctorSignUp({
 
     try {
       setInternalLoading(true);
-      await onSubmit({
-        ...values,
-        email: values.email.trim(),
-        phone: values.phone.trim(),
-        yearsOfExperience: values.yearsOfExperience.trim(),
-        workplace: values.workplace.trim(),
-      });
+      // onSubmit now receives the full DoctorSignUpValues object
+      await onSubmit(values);
     } finally {
       setInternalLoading(false);
     }
@@ -597,15 +608,19 @@ export function DoctorSignUp({
   }
 
   const emailError = touched.email ? localErrors.email : undefined;
-  const phoneError = touched.phone ? localErrors.phone : undefined;
+  const phoneNumberError = touched.phoneNumber
+    ? localErrors.phoneNumber
+    : undefined; // Changed from 'phoneError'
   const passwordError = touched.password ? localErrors.password : undefined;
   const confirmPasswordError = touched.confirmPassword
     ? localErrors.confirmPassword
     : undefined;
+  const fullNameError = touched.fullName ? localErrors.fullName : undefined;
   const specialtyError = touched.specialty ? localErrors.specialty : undefined;
-  const yearsError = touched.yearsOfExperience
-    ? localErrors.yearsOfExperience
+  const experienceYearsError = touched.experienceYears
+    ? localErrors.experienceYears
     : undefined;
+
   const workplaceError = touched.workplace ? localErrors.workplace : undefined;
   const verificationError = touched.verificationFiles
     ? localErrors.verificationFiles
@@ -697,26 +712,50 @@ export function DoctorSignUp({
 
           <Field className="gap-1.5">
             <FieldLabel
-              htmlFor="doctor-phone"
+              htmlFor="doctor-phoneNumber" // Changed from 'doctor-phone'
               className="text-base text-[#1E1E1E]"
             >
               Phone number
             </FieldLabel>
-            <FieldControl invalid={Boolean(phoneError)}>
+            <FieldControl invalid={Boolean(phoneNumberError)}>
               <Phone className="h-5 w-5 shrink-0 text-[#b5bcc8]" />
               <Input
-                id="doctor-phone"
+                id="doctor-phoneNumber" // Changed from 'doctor-phone'
                 type="tel"
                 autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                onBlur={() => handleBlur("phone")}
+                value={phoneNumber} // Changed from 'phone'
+                onChange={(e) => setPhoneNumber(e.target.value)} // Changed from 'setPhone'
+                onBlur={() => handleBlur("phoneNumber")} // Changed from 'phone'
                 placeholder="Enter your phone number"
                 disabled={submitting}
                 className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
               />
             </FieldControl>
-            <FieldError>{phoneError}</FieldError>
+            <FieldError>{phoneNumberError}</FieldError>
+          </Field>
+
+          <Field className="gap-1.5">
+            <FieldLabel
+              htmlFor="doctor-fullName"
+              className="text-base text-[#1E1E1E]"
+            >
+              Full Name
+            </FieldLabel>
+            <FieldControl invalid={Boolean(fullNameError)}>
+              <User className="h-5 w-5 shrink-0 text-[#b5bcc8]" />
+              <Input
+                id="doctor-fullName"
+                type="text"
+                autoComplete="name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                onBlur={() => handleBlur("fullName")}
+                placeholder="Enter your full name"
+                disabled={submitting}
+                className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
+              />
+            </FieldControl>
+            <FieldError>{fullNameError}</FieldError>
           </Field>
 
           <Field className="gap-1.5">
@@ -780,7 +819,7 @@ export function DoctorSignUp({
                 id="specialty"
                 value={specialty}
                 onChange={(e) => setSpecialty(e.target.value)}
-                onBlur={() => handleBlur("specialty")}
+                onBlur={() => handleBlur("specialty")} // Use handleBlur for specialty
                 disabled={submitting}
                 className="w-full ml-2 appearance-none bg-transparent text-base text-[#394147] outline-none"
               >
@@ -795,23 +834,26 @@ export function DoctorSignUp({
           </Field>
 
           <Field className="gap-1.5">
-            <FieldLabel htmlFor="years" className="text-base text-[#1E1E1E]">
+            <FieldLabel
+              htmlFor="experienceYears"
+              className="text-base text-[#1E1E1E]"
+            >
               Years of Experience
             </FieldLabel>
-            <FieldControl invalid={Boolean(yearsError)}>
+            <FieldControl invalid={Boolean(experienceYearsError)}>
               <Star className="h-5 w-5 shrink-0 text-[#b5bcc8]" />
               <Input
-                id="years"
+                id="experienceYears"
                 type="text"
-                value={yearsOfExperience}
-                onChange={(e) => setYearsOfExperience(e.target.value)}
-                onBlur={() => handleBlur("yearsOfExperience")}
+                value={experienceYears}
+                onChange={(e) => setExperienceYears(e.target.value)}
+                onBlur={() => handleBlur("experienceYears")} // Use handleBlur for experienceYears
                 placeholder="e.g. 8"
                 disabled={submitting}
                 className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
               />
             </FieldControl>
-            <FieldError>{yearsError}</FieldError>
+            <FieldError>{experienceYearsError}</FieldError>
           </Field>
 
           <Field className="gap-1.5">

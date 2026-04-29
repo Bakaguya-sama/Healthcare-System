@@ -1,0 +1,94 @@
+import { useState, useCallback } from "react";
+import {
+  submitLogin,
+  type Login,
+  type ApiLoginResponse,
+} from "../services/login.service";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import type { User } from "@repo/ui/types/auth";
+import axios from "axios";
+
+export function useLogin() {
+  const [isLoading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<ApiLoginResponse | null>(null);
+
+  const setUser = useAuthStore((state) => state.setUser);
+
+  const login = useCallback(
+    async (payload: Login) => {
+      setLoading(true);
+      setError(null);
+
+      if (!payload.email || !payload.email.trim()) {
+        const errorMsg = "Please enter your email";
+        setError(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      if (!payload.password) {
+        const errorMsg = "Please enter your password";
+        setError(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      try {
+        const res = await submitLogin(payload);
+
+        if (res.user.role === "admin")
+          throw new Error("Can't log in as admin.");
+
+        localStorage.setItem("accessToken", res.accessToken);
+        localStorage.setItem("refreshToken", res.refreshToken);
+
+        const normalizedUser: User = {
+          id: res.user.id,
+          email: res.user.email,
+          name: res.user.fullName,
+          role: res.user.role,
+          avatar: res.user.avatarUrl,
+        };
+
+        setUser(normalizedUser, res.accessToken, res.refreshToken);
+
+        setData(res);
+        return res;
+      } catch (loginError) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        useAuthStore.getState().logout();
+
+        // Extract specific error message from Axios error response
+        const message = axios.isAxiosError(loginError)
+          ? (loginError.response?.data as { message?: string | string[] })
+              ?.message
+            ? Array.isArray(
+                (loginError.response?.data as { message?: string | string[] })
+                  ?.message,
+              )
+              ? (
+                  (loginError.response?.data as { message?: string | string[] })
+                    ?.message as string[]
+                ).join(", ")
+              : ((loginError.response?.data as { message?: string | string[] })
+                  ?.message as string)
+            : loginError.message // Fallback to generic Axios message if no specific message in data
+          : loginError instanceof Error
+            ? loginError.message // For non-Axios errors
+            : "Login failed. Please try again.";
+        setError(message);
+        throw loginError;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setUser],
+  );
+
+  return {
+    login,
+    data,
+    isLoading,
+    error,
+  };
+}

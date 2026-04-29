@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -24,10 +25,13 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ConfirmOtpDto } from './dto/confirm-otp.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
@@ -35,36 +39,151 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private nodemailerService: NodemailerService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   /**
    * 📝 ĐĂNG KÝ TÀI KHOẢN MỚI
    */
-  async register(dto: RegisterDto) {
-    const existing = await this.userModel.findOne({ email: dto.email });
-    if (existing) throw new ConflictException('Email already in use');
+  async register(
+    // Update parameter name for clarity
+    dto: RegisterDto,
+    newFilesToUpload?: Express.Multer.File[], // Renamed parameter
+  ) {
+    const existingUser = await this.userModel.findOne({ email: dto.email });
+
+    // Case 1: User exists (handle doctor re-application)
+    if (existingUser) {
+      if (existingUser.role !== UserRole.DOCTOR) {
+        throw new ConflictException(
+          'Email already in use by a non-doctor account.',
+        );
+      }
+
+      const doctorProfile = await this.doctorModel.findOne({
+        userId: existingUser._id,
+      });
+      if (!doctorProfile) {
+        throw new ConflictException(
+          'Doctor profile not found for existing user.',
+        );
+      }
+
+      if (
+        doctorProfile.verificationStatus !== DoctorVerificationStatus.REJECTED
+      ) {
+        throw new ConflictException(
+          `Cannot re-register. Doctor status is: ${doctorProfile.verificationStatus}`,
+        );
+      }
+
+      // --- Logic for re-applying rejected doctor ---
+
+      // Delete old verification files from Cloudinary before uploading new ones
+
+      const allOldUrls = doctorProfile.verificationDocuments || [];
+      const keptUrls = new Set(dto.existingVerificationDocuments || []);
+      const urlsToDelete = allOldUrls.filter((url) => !keptUrls.has(url));
+
+      if (urlsToDelete.length > 0) {
+        try {
+          const publicIdsToDelete = urlsToDelete.map((url) => {
+            const urlParts = url.split('/');
+            const publicIdWithExtension = urlParts
+              .slice(urlParts.indexOf('upload') + 2)
+              .join('/');
+            // Extract publicId from URL (e.g., 'folder/file' from '.../v123/folder/file.pdf')
+            return publicIdWithExtension.substring(
+              0,
+              publicIdWithExtension.lastIndexOf('.'),
+            );
+          });
+          await this.cloudinaryService.deleteMultiple(
+            publicIdsToDelete,
+            'document',
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to delete old verification documents for user ${existingUser._id}. Proceeding with registration.`,
+            error.stack,
+          );
+        }
+      }
+
+      const hashedPassword = await bcrypt.hash(dto.password, 12);
+      existingUser.password = hashedPassword;
+      existingUser.fullName = dto.fullName;
+      existingUser.phoneNumber = dto.phoneNumber;
+      await existingUser.save();
+
+      let finalDocumentUrls: string[] = dto.existingVerificationDocuments || [];
+      if (newFilesToUpload && newFilesToUpload.length > 0) {
+        // Use new parameter
+        const folder = `healthcare/doctors/verification/${existingUser._id}`;
+        const uploadResults = await this.cloudinaryService.uploadMultiple(
+          newFilesToUpload, // Use new parameter
+          folder,
+          'document',
+        );
+        const newlyUploadedUrls = uploadResults.map(
+          (result) => result.secureUrl,
+        );
+        finalDocumentUrls = [...finalDocumentUrls, ...newlyUploadedUrls];
+      }
+
+      doctorProfile.specialty = dto.specialty;
+      doctorProfile.workplace = dto.workplace;
+      doctorProfile.experienceYears = Number(dto.experienceYears);
+      doctorProfile.verificationDocuments = finalDocumentUrls;
+      doctorProfile.verificationStatus = DoctorVerificationStatus.PENDING;
+      doctorProfile.rejectReason = undefined;
+      await doctorProfile.save();
+
+      return this.generateTokensResponse(existingUser);
+    }
+
+    // Case 2: New user registration
+    if (dto.phoneNumber) {
+      const existingPhoneNumber = await this.userModel.findOne({
+        phoneNumber: dto.phoneNumber,
+      });
+      if (existingPhoneNumber)
+        throw new ConflictException('Phone number already in use');
+    }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
-    const user = await this.userModel.create({
+    const newUser = await this.userModel.create({
       email: dto.email,
       password: hashedPassword,
       fullName: dto.fullName,
-      role: dto.role,
-      gender: dto.gender,
-      dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
       phoneNumber: dto.phoneNumber,
-      address: dto.address,
+      role: dto.role,
     });
 
-    // Nếu là bác sĩ, tạo Doctor document
     if (dto.role === UserRole.DOCTOR) {
+      let documentUrls: string[] = [];
+      if (newFilesToUpload && newFilesToUpload.length > 0) {
+        // Use new parameter
+        const folder = `healthcare/doctors/verification/${newUser._id}`;
+        const uploadResults = await this.cloudinaryService.uploadMultiple(
+          newFilesToUpload, // Use new parameter
+          folder,
+          'document',
+        );
+        documentUrls = uploadResults.map((result) => result.secureUrl);
+      }
+
       await this.doctorModel.create({
-        userId: user._id,
+        userId: newUser._id,
         verificationStatus: DoctorVerificationStatus.PENDING,
+        specialty: dto.specialty,
+        workplace: dto.workplace,
+        experienceYears: Number(dto.experienceYears),
+        verificationDocuments: documentUrls,
       });
     }
 
-    return this.generateTokensResponse(user);
+    return this.generateTokensResponse(newUser);
   }
 
   /**

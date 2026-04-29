@@ -8,6 +8,8 @@ import {
   IsPhoneNumber,
   ValidateNested,
   IsDateString,
+  IsNumber,
+  IsArray,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../users/enums/user-role.enum';
@@ -55,29 +57,40 @@ export class RegisterDto {
   @IsString()
   fullName: string;
 
+  @ApiProperty({ example: '+84912345678' })
+  @IsOptional()
+  @ApiProperty()
+  @IsString()
+  phoneNumber?: string;
+
   @ApiProperty({ enum: UserRole, default: UserRole.PATIENT, required: false })
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;
 
-  @ApiProperty({ example: 'male', required: false })
-  @IsOptional()
+  @ApiProperty()
   @IsString()
-  gender?: string;
-
-  @ApiProperty({ example: '1990-01-15', required: false })
   @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  specialty?: string;
 
-  @ApiProperty({ example: '+84912345678', required: false })
+  @ApiProperty()
+  @IsNumber()
   @IsOptional()
+  @Type(() => Number) // Add this for automatic string-to-number conversion
+  experienceYears?: number;
+
+  @ApiProperty()
   @IsString()
-  phoneNumber?: string;
-
-  @ApiProperty({ type: AddressDto, required: false })
   @IsOptional()
-  @ValidateNested()
-  @Type(() => AddressDto)
-  address?: AddressDto;
+  workplace?: string;
+
+  @ApiProperty({ type: [String], default: [] })
+  @IsArray()
+  @IsOptional()
+  verificationDocuments?: string[];
+
+  @ApiProperty({ type: [String], default: [] })
+  @IsArray()
+  @IsOptional()
+  existingVerificationDocuments?: string[];
 }

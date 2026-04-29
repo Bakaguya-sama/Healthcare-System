@@ -4,10 +4,13 @@ import {
   Get,
   Body,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
+  UploadedFiles,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -31,8 +34,14 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'newFilesToUpload', maxCount: 10 }]), // Match new key from frontend
+  )
+  async register(
+    @Body() dto: RegisterDto,
+    @UploadedFiles() files: { newFilesToUpload?: Express.Multer.File[] }, // Match new key from frontend
+  ) {
+    return this.authService.register(dto, files?.newFilesToUpload); // Pass the new files
   }
 
   /**

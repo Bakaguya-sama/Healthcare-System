@@ -10,6 +10,7 @@ import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
 import { Admin, AdminSchema } from '../admins/entities/admin.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { NodemailerService } from '../nodemailer/nodemailer.service';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, NodemailerService],
+  providers: [AuthService, JwtStrategy, NodemailerService, CloudinaryService],
   exports: [JwtModule, PassportModule],
 })
 export class AuthModule {}

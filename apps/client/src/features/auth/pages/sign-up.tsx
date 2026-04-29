@@ -1,105 +1,37 @@
 import { Header } from "@/features/auth/components/authen_header";
-import {
-  DoctorSignUp,
-  type DoctorSignUpValues,
-} from "@/features/auth/components/doctor-sign-up";
-import {
-  PatientSignUp,
-  type PatientSignUpValues,
-} from "@/features/auth/components/patient-sign-up";
+import { DoctorSignUp } from "@/features/auth/components/doctor-sign-up";
+import { PatientSignUp } from "@/features/auth/components/patient-sign-up";
 import { useMemo, useState } from "react";
 import { Cross } from "lucide-react";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import authenImage from "@/features/auth/images/authen_image.png";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSignUpDoctor, useSignUpPatient } from "../hooks/useSignUp";
+import {
+  type SignUpDoctor,
+  type SignUpPatient,
+} from "../services/signup.service";
 
 type SignUpRole = "patient" | "doctor";
-
-const SIGN_UP_API_URL =
-  import.meta.env.VITE_SIGNUP_API_URL ?? "/api/v1/auth/register";
-const RE_REGISTER_API_URL =
-  import.meta.env.VITE_DOCTOR_RE_REGISTER_API_URL ??
-  "/api/v1/auth/doctor/re-register";
-
-interface SignUpApiResponse {
-  message?: string;
-}
-
-async function registerRequest(
-  role: SignUpRole,
-  payload: Record<string, unknown>,
-): Promise<SignUpApiResponse> {
-  const res = await fetch(SIGN_UP_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role, ...payload }),
-  });
-
-  let json: SignUpApiResponse | null = null;
-
-  try {
-    json = (await res.json()) as SignUpApiResponse;
-  } catch {
-    json = null;
-  }
-
-  if (!res.ok) {
-    throw new Error(json?.message ?? "Sign up failed. Please try again.");
-  }
-
-  return json ?? {};
-}
-
-async function reRegisterDoctorRequest(values: DoctorSignUpValues) {
-  const payload = {
-    email: values.email,
-    phoneNumber: values.phone,
-    specialty: values.specialty,
-    yearsOfExperience: Number(values.yearsOfExperience),
-    workplace: values.workplace,
-    // On resubmit, doctor profile should go back to pending for admin re-review.
-    verificationStatus: "pending",
-    rejectReason: null,
-    keepDocumentIds: values.keepDocumentIds,
-    removeDocumentIds: values.removeDocumentIds,
-  };
-
-  const formData = new FormData();
-  formData.append("payload", JSON.stringify(payload));
-  values.newFiles.forEach((file) => {
-    formData.append("newFiles", file);
-  });
-
-  // TODO: Backend for re-register submit will be implemented later.
-  // This FE code prepares request payload for keep/remove/newFiles contract.
-  const res = await fetch(RE_REGISTER_API_URL, {
-    method: "POST",
-    body: formData,
-  });
-
-  let json: SignUpApiResponse | null = null;
-
-  try {
-    json = (await res.json()) as SignUpApiResponse;
-  } catch {
-    json = null;
-  }
-
-  if (!res.ok) {
-    throw new Error(
-      json?.message ??
-        "Re-register API is not available yet. Backend integration is pending.",
-    );
-  }
-
-  return json ?? {};
-}
 
 export function SignUp() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState<string | undefined>();
+  const [internalLoading, setInternalLoading] = useState(false);
+  const [localServerError, setLocalServerError] = useState<
+    string | undefined
+  >();
+
+  const {
+    signUpPatient,
+    isLoading: isPatientSignUpLoadingFromHook,
+    error: patientSignUpErrorFromHook,
+  } = useSignUpPatient();
+  const {
+    signUpDoctor,
+    isLoading: isDoctorSignUpLoadingFromHook,
+    error: doctorSignUpErrorFromHook,
+  } = useSignUpDoctor();
 
   const role: SignUpRole = useMemo(() => {
     return searchParams.get("role") === "doctor" ? "doctor" : "patient";
@@ -109,64 +41,70 @@ export function SignUp() {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("role", nextRole);
     setSearchParams(nextParams, { replace: true });
-    setServerError(undefined);
+    setLocalServerError(undefined);
   }
 
-  async function handlePatientSubmit(values: PatientSignUpValues) {
-    setServerError(undefined);
-    setIsSubmitting(true);
+  async function handlePatientSubmit(payload: SignUpPatient) {
+    setLocalServerError(undefined);
+    setInternalLoading(true);
 
     try {
-      await registerRequest("patient", {
-        email: values.email,
-        phoneNumber: values.phone,
-        password: values.password,
-        confirmPassword: values.confirmPassword,
-      });
+      const signUpPatientPayload: SignUpPatient = {
+        email: payload.email.trim(),
+        password: payload.password,
+        fullName: payload.fullName.trim(),
+        phoneNumber: payload.phoneNumber.trim(),
+      };
+      await signUpPatient(signUpPatientPayload);
       showToast.success("Create patient account successfully.");
       navigate("/login");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Sign up failed.";
-      setServerError(message);
+      const message =
+        patientSignUpErrorFromHook ||
+        (err instanceof Error ? err.message : "Sign up failed.");
+      setLocalServerError(message);
       showToast.error(message);
     } finally {
-      setIsSubmitting(false);
+      setInternalLoading(false);
     }
   }
 
-  async function handleDoctorSubmit(values: DoctorSignUpValues) {
-    setServerError(undefined);
-    setIsSubmitting(true);
+  async function handleDoctorSubmit(payload: SignUpDoctor) {
+    setLocalServerError(undefined);
+    setInternalLoading(true);
 
     try {
-      if (values.isReRegister) {
-        await reRegisterDoctorRequest(values);
-        showToast.success(
-          "Resubmitted successfully. Your verification status is now pending for admin review.",
-        );
-        return;
-      }
+      const signUpDoctorPayload: SignUpDoctor = {
+        email: payload.email.trim(),
+        password: payload.password,
+        fullName: payload.fullName.trim(),
+        phoneNumber: payload.phoneNumber.trim(),
+        specialty: payload.specialty,
+        workplace: payload.workplace.trim(),
+        experienceYears: payload.experienceYears,
+        newVerificationDocuments: payload.newVerificationDocuments,
+        existingVerificationDocuments: payload.existingVerificationDocuments,
+      };
+      console.log(signUpDoctorPayload);
 
-      await registerRequest("doctor", {
-        email: values.email,
-        phoneNumber: values.phone,
-        password: values.password,
-        confirmPassword: values.confirmPassword,
-        specialty: values.specialty,
-        yearsOfExperience: Number(values.yearsOfExperience),
-        workplace: values.workplace,
-        verificationFileNames: values.newFiles.map((file) => file.name),
-      });
+      await signUpDoctor(signUpDoctorPayload);
       showToast.success("Create doctor account successfully.");
       navigate("/login");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Sign up failed.";
-      setServerError(message);
+      const message =
+        doctorSignUpErrorFromHook ||
+        (err instanceof Error ? err.message : "Sign up failed.");
+      setLocalServerError(message);
       showToast.error(message);
     } finally {
-      setIsSubmitting(false);
+      setInternalLoading(false);
     }
   }
+
+  const patientIsSubmitting = isPatientSignUpLoadingFromHook || internalLoading;
+  const patientError = patientSignUpErrorFromHook || localServerError;
+  const doctorIsSubmitting = isDoctorSignUpLoadingFromHook || internalLoading;
+  const doctorError = doctorSignUpErrorFromHook || localServerError;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -177,15 +115,15 @@ export function SignUp() {
           <DoctorSignUp
             onSubmit={handleDoctorSubmit}
             onSwitchRole={() => setRole("patient")}
-            isLoading={isSubmitting}
-            error={serverError}
+            isLoading={doctorIsSubmitting}
+            error={doctorError}
           />
         ) : (
           <PatientSignUp
             onSubmit={handlePatientSubmit}
             onSwitchRole={() => setRole("doctor")}
-            isLoading={isSubmitting}
-            error={serverError}
+            isLoading={patientIsSubmitting}
+            error={patientError}
           />
         )}
 
