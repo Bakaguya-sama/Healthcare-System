@@ -18,7 +18,9 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
+import { Public } from '../../core/decorators/public.decorator'; // Import Public decorator
 import { UserRole } from './enums/user-role.enum';
+import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -39,6 +41,13 @@ export class UsersController {
   @ApiOperation({ summary: 'Lấy danh sách bác sĩ' })
   findDoctors() {
     return this.usersService.findDoctors();
+  }
+
+  @Get('doctor/:email')
+  @Public() // Mark this endpoint as public
+  @ApiOperation({ summary: 'Lấy thông tin bác sĩ dựa vào email' })
+  findDoctorByEmail(@Param('email') email: string): Promise<DoctorPrefillData> {
+    return this.usersService.findDoctorByEmail(email);
   }
 
   @Get('me')

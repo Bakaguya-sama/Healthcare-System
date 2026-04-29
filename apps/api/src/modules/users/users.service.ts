@@ -18,6 +18,7 @@ import { UserRole } from './enums/user-role.enum';
 import { AccountStatus } from './entities/user.entity';
 import { Admin, AdminDocument } from '../admins/entities/admin.entity';
 import { Review, ReviewDocument } from '../reviews/entities/review.entity';
+import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
 import {
   Violation,
   ViolationStatus,
@@ -202,6 +203,36 @@ export class UsersService {
       ...doctorUser.toObject(),
       specialty: specialtyByDoctorUserId.get(doctorUser._id.toString()),
     }));
+  }
+
+  async findDoctorByEmail(email: string): Promise<DoctorPrefillData> {
+    const user = await this.userModel.findOne({ email: email });
+
+    if (!user) {
+      throw new NotFoundException('User not found with this email.');
+    }
+
+    if (user.role !== UserRole.DOCTOR) {
+      throw new NotFoundException('User is not a doctor.');
+    }
+
+    const doctorProfile = await this.doctorModel.findOne({ userId: user._id });
+
+    if (!doctorProfile) {
+      throw new NotFoundException('Doctor profile not found for this user.');
+    }
+
+    return {
+      email: user.email,
+      phoneNumber: user.phoneNumber ?? '', // Ensure phoneNumber is a string
+      fullName: user.fullName,
+      specialty: doctorProfile.specialty,
+      workplace: doctorProfile.workplace,
+      experienceYears: doctorProfile.experienceYears,
+      verificationDocuments: doctorProfile.verificationDocuments,
+      verificationStatus: doctorProfile.verificationStatus,
+      rejectReason: doctorProfile.rejectReason,
+    };
   }
 
   async findById(id: string) {

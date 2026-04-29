@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../users/enums/user-role.enum';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class AddressDto {
   @ApiProperty({ example: '123 Nguyen Hue' })
@@ -92,5 +92,23 @@ export class RegisterDto {
   @ApiProperty({ type: [String], default: [] })
   @IsArray()
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value === ''
+        ? []
+        : value
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+    }
+    return value;
+  })
+  @Type(() => String)
   existingVerificationDocuments?: string[];
 }

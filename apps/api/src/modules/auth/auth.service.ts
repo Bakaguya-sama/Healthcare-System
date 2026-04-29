@@ -81,6 +81,8 @@ export class AuthService {
 
       // Delete old verification files from Cloudinary before uploading new ones
 
+      this.logger.log(dto);
+
       const allOldUrls = doctorProfile.verificationDocuments || [];
       const keptUrls = new Set(dto.existingVerificationDocuments || []);
       const urlsToDelete = allOldUrls.filter((url) => !keptUrls.has(url));

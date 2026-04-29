@@ -23,6 +23,11 @@ import {
   User,
   X,
 } from "lucide-react";
+import { useDoctorPrefillData } from "../hooks/useDoctorPrefillData"; // Import the new hook
+import {
+  type DoctorReRegisterPrefillApiResponse,
+  type DoctorVerificationStatus, // Moved from here
+} from "../services/signup.service"; // Import types from service
 
 export const doctorSpecialty = [
   { id: "general_practitioner", name: "General Practitioner" },
@@ -60,14 +65,10 @@ export const doctorSpecialty = [
   { id: "preventive_medicine", name: "Preventive Medicine" },
 ];
 const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"];
-const MAX_FILE_SIZE_MB = 10;
-const PREFILL_API_URL =
-  import.meta.env.VITE_DOCTOR_PREFILL_API_URL ??
-  "/api/v1/auth/doctor/re-register-prefill";
+const MAX_FILE_SIZE_MB = 10; // Keep this constant
 
-type DoctorVerificationStatus = "rejected" | "pending" | "approved";
-
-type ExistingVerificationDocument = {
+// Moved to signup.service.ts
+export type ExistingVerificationDocument = {
   id: string;
   publicId: string | null;
   originalFilename: string;
@@ -90,24 +91,6 @@ type DoctorReRegisterSeed = {
   existingDocuments: ExistingVerificationDocument[];
 };
 
-type DoctorReRegisterPrefillApiResponse = {
-  email?: string;
-  phone?: string;
-  phoneNumber?: string;
-  fullName?: string;
-  specialty?: string;
-  workplace?: string;
-  yearsOfExperience?: string | number | null;
-  experienceYears?: string | number | null;
-  verificationStatus?: DoctorVerificationStatus;
-  verification_status?: DoctorVerificationStatus;
-  rejectReason?: string | null;
-  reason?: string | null;
-  existingDocuments?: ExistingVerificationDocument[];
-  verificationDocuments?: string[];
-  verification_documents?: string[];
-};
-
 type PrefillNotice = {
   tone: "info" | "success" | "error";
   message: string;
@@ -117,7 +100,7 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function preprocessReRegisterSeed(
+function preprocessDoctorPrefillData( // Renamed function
   payload: DoctorReRegisterPrefillApiResponse,
 ): DoctorReRegisterSeed {
   const verificationStatus =
@@ -262,6 +245,9 @@ export function DoctorSignUp({
   const [localErrors, setLocalErrors] = useState<DoctorSignUpErrors>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const { getDoctorPrefillData, isLoading: isPrefillHookLoading } =
+    useDoctorPrefillData(); // Use the new hook
+
   const submitting = isLoading || internalLoading;
   const replacementFiles = Object.values(replacementFilesByDocumentId);
   const newFiles = [...verificationFiles, ...replacementFiles];
@@ -352,34 +338,6 @@ export function DoctorSignUp({
     setLocalErrors(validate(collectValues()));
   }
 
-  async function fetchDoctorVerificationSeedByEmail(
-    emailValue: string,
-  ): Promise<DoctorReRegisterSeed | null> {
-    const query = encodeURIComponent(emailValue);
-    const response = await fetch(`${PREFILL_API_URL}?email=${query}`);
-
-    if (response.status === 404) {
-      return null;
-    }
-
-    if (!response.ok) {
-      let message = "Failed to load previous registration data.";
-      try {
-        const json = (await response.json()) as { message?: string };
-        if (json.message) {
-          message = json.message;
-        }
-      } catch {
-        // Keep fallback message.
-      }
-      throw new Error(message);
-    }
-
-    const payload =
-      (await response.json()) as DoctorReRegisterPrefillApiResponse;
-    return preprocessReRegisterSeed(payload);
-  }
-
   async function handlePrefillFromPreviousRegistration() {
     const normalizedEmail = normalizeEmail(email);
 
@@ -406,13 +364,12 @@ export function DoctorSignUp({
       return;
     }
 
-    setPrefillLoading(true);
+    setPrefillLoading(true); // Set local loading state
     setPrefillNotice(null);
     setFileError(null);
 
     try {
-      const seedResponse =
-        await fetchDoctorVerificationSeedByEmail(normalizedEmail);
+      const seedResponse = await getDoctorPrefillData(normalizedEmail); // Use the new hook
 
       if (!seedResponse) {
         setPrefillNotice({
@@ -422,7 +379,8 @@ export function DoctorSignUp({
         return;
       }
 
-      const seed = seedResponse;
+      // Preprocess the data received from the hook
+      const seed = preprocessDoctorPrefillData(seedResponse);
       setEmail(seed.email);
       setVerificationStatus(seed.verificationStatus);
       setRejectReason(seed.rejectReason);
@@ -446,8 +404,8 @@ export function DoctorSignUp({
 
       setPhoneNumber(seed.phone); // Set phoneNumber from prefill
       setFullName(seed.fullName); // Set full name from prefill
-      setSpecialty(seed.specialty); // Set specialty from prefill
-      setExperienceYears(seed.yearsOfExperience); // Set years of experience from prefill
+      setSpecialty(seed.specialty); // Set specialty from prefill (string)
+      setExperienceYears(seed.yearsOfExperience); // Set years of experience from prefill (string)
       setWorkplace(seed.workplace);
       setExistingDocuments(seed.existingDocuments);
       setRemovedDocumentIds([]);
@@ -464,7 +422,7 @@ export function DoctorSignUp({
         ...prev,
         phoneNumber: true, // Mark phoneNumber as touched
         specialty: true,
-        fullName: true,
+        fullName: true, // Mark fullName as touched
         experienceYears: true, // Mark experienceYears as touched
         workplace: true,
       }));
@@ -483,7 +441,7 @@ export function DoctorSignUp({
         err instanceof Error
           ? err.message
           : "Failed to load previous registration data.";
-      setPrefillNotice({ tone: "error", message });
+      setPrefillNotice({ tone: "error", message: message }); // Use the error message from the hook
     } finally {
       setPrefillLoading(false);
     }
@@ -679,7 +637,7 @@ export function DoctorSignUp({
                 type="button"
                 variant="outline"
                 onClick={handlePrefillFromPreviousRegistration}
-                disabled={submitting || prefillLoading}
+                disabled={submitting || prefillLoading || isPrefillHookLoading} // Use hook's loading state
                 className="h-8 rounded-lg border-[#d6e3d8] px-3 text-xs text-[#4f8d64]"
               >
                 {prefillLoading ? (

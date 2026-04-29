@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
 import { type AppRole } from "@repo/ui/types/auth";
 
+// Moved from doctor-sign-up.tsx
 export interface CloudinaryUploadResult {
   publicId: string;
   url: string;
@@ -11,6 +12,7 @@ export interface CloudinaryUploadResult {
   uploadedAt: Date;
 }
 
+// Moved from doctor-sign-up.tsx
 export type UploadableFile = {
   originalname: string;
   mimetype?: string;
@@ -38,6 +40,26 @@ export interface SignUpDoctor {
   existingVerificationDocuments: string[]; // Secure URLs of files to keep
 }
 
+// Moved from doctor-sign-up.tsx
+export type DoctorVerificationStatus = "rejected" | "pending" | "approved";
+
+// Moved from doctor-sign-up.tsx
+export type DoctorReRegisterPrefillApiResponse = {
+  email?: string;
+  phone?: string; // Legacy field
+  phoneNumber?: string;
+  fullName?: string;
+  specialty?: string;
+  workplace?: string;
+  yearsOfExperience?: string | number | null; // Legacy field
+  experienceYears?: string | number | null;
+  verificationStatus?: DoctorVerificationStatus;
+  verification_status?: DoctorVerificationStatus; // Legacy field
+  rejectReason?: string | null;
+  reason?: string | null; // Legacy field
+  verificationDocuments?: string[]; // Array of secureUrls
+};
+
 type ApiUserSignUpResponse = {
   id: string;
   email: string;
@@ -64,9 +86,17 @@ export async function submitSignUpPatient(
   return res.data;
 }
 
+export async function fetchDoctorPrefillData(
+  email: string,
+): Promise<DoctorReRegisterPrefillApiResponse> {
+  const res = await api.get(`/users/doctor/${encodeURIComponent(email)}`);
+  return res.data;
+}
+
 export async function submitSignUpDoctor(
   payload: SignUpDoctor,
 ): Promise<ApiSignUpResponse> {
+  console.log(payload);
   const formData = new FormData();
 
   // Append text fields
