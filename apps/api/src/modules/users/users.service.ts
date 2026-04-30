@@ -238,8 +238,34 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.userModel
       .findById(id)
-      .select('-password -refreshToken');
-    if (!user) throw new NotFoundException('User not found');
+      .select('-password -refreshToken')
+      .lean();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === UserRole.DOCTOR) {
+      const doctorProfile = await this.doctorModel
+        .findOne({ userId: new Types.ObjectId(id) })
+        .select('-_id -userId -__v')
+        .lean<DoctorDocument>();
+
+      if (doctorProfile) {
+        return { ...user, ...doctorProfile };
+      }
+    }
+
+    if (user.role === UserRole.ADMIN) {
+      const adminProfile = await this.adminModel
+        .findOne({ userId: new Types.ObjectId(id) })
+        .select('-_id -userId -__v')
+        .lean<AdminDocument>();
+
+      if (adminProfile) {
+        return { ...user, ...adminProfile };
+      }
+    }
     return user;
   }
 

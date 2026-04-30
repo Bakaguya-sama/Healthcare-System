@@ -44,7 +44,9 @@ export class ReviewsService {
     const review = await this.reviewModel.create({
       patientId: new Types.ObjectId(patientId),
       doctorId: new Types.ObjectId(dto.doctorId),
-      doctorSessionId: dto.doctorSessionId ? new Types.ObjectId(dto.doctorSessionId) : undefined,
+      doctorSessionId: dto.doctorSessionId
+        ? new Types.ObjectId(dto.doctorSessionId)
+        : undefined,
       rating: dto.rating,
       comment: dto.comment,
     });
@@ -91,7 +93,7 @@ export class ReviewsService {
     const [data, total] = await Promise.all([
       this.reviewModel
         .find(filter)
-        .populate('patientId', 'name email avatarUrl')
+        .populate('patientId', 'fullName email avatarUrl')
         .populate('doctorId', 'fullName email specialty avatarUrl')
         .sort(sort)
         .skip(skip)
@@ -129,7 +131,7 @@ export class ReviewsService {
         .find({
           doctorId: new Types.ObjectId(doctorId),
         })
-        .populate('patientId', 'name avatarUrl')
+        .populate('patientId', 'fullName avatarUrl')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
