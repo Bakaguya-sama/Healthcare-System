@@ -9,7 +9,7 @@ import {
 } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import { Mail } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
@@ -40,6 +40,16 @@ export function ForgetPassword({
   const [email, setEmail] = useState("");
   const [touched, setTouched] = useState({ email: false });
   const [localErrors, setLocalErrors] = useState<ForgetPasswordErrors>({});
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => {
+        setCooldown(cooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
 
   function validate(values: { email: string }): ForgetPasswordErrors {
     const nextErrors: ForgetPasswordErrors = {};
@@ -76,6 +86,8 @@ export function ForgetPassword({
         await sendOtp({ email: email.trim() });
       }
 
+      setCooldown(60);
+
       localStorage.setItem("resetPasswordEmail", email.trim());
       showToast.success("OTP has been sent to your email");
       navigate("/confirm-otp");
@@ -91,6 +103,9 @@ export function ForgetPassword({
   const emailError = touched.email ? localErrors.email : undefined;
   const submitting = isLoading || propIsLoading;
   const displayError = error || propError;
+
+  const isButtonDisabled = submitting || cooldown > 0;
+  const buttonLabel = cooldown > 0 ? `Try again in ${cooldown}s` : submitLabel;
 
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
@@ -141,9 +156,9 @@ export function ForgetPassword({
                 <Button
                   type="submit"
                   className="h-12 w-full rounded-2xl text-base"
-                  disabled={submitting}
+                  disabled={isButtonDisabled}
                 >
-                  {submitting ? <Spinner className="size-6" /> : submitLabel}
+                  {submitting ? <Spinner className="size-6" /> : buttonLabel}
                 </Button>
               </Field>
             </FieldGroup>

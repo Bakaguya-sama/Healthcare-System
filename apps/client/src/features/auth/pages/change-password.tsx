@@ -12,9 +12,9 @@ import { FormEvent, useState } from "react";
 import { Lock } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import { toast } from "react-toastify";
 import { Header } from "@/features/auth/components/authen_header";
-
+import { useNavigate } from "react-router-dom";
+import { useChangePassword } from "../hooks/useChangePassword";
 interface ChangePasswordProps {
   /** Xử lý submit — nhận email và password */
   onSubmit?: (values: {
@@ -51,13 +51,45 @@ export function ChangePassword({
     confirmed_password: false,
   });
   const [localErrors, setLocalErrors] = useState<ChangePasswordErrors>({});
+  const navigate = useNavigate();
+
+  const {
+    changePassword,
+    isLoading: changePasswordLoading,
+    error: changePasswordError,
+  } = useChangePassword();
 
   async function handleChangePassword(values: {
     password: string;
     confirmed_password: string;
   }) {
-    // Placeholder: thay phần này bằng call API đổi mật khẩu khi backend sẵn sàng.
-    console.log("[TODO] Change password payload", values);
+    try {
+      const email = localStorage.getItem("resetPasswordEmail");
+      const otpCode = localStorage.getItem("resetPasswordOtp");
+
+      if (!email || !otpCode) {
+        throw new Error(
+          "Missing email or OTP. Please restart from Forgot Password.",
+        );
+      }
+
+      await changePassword({
+        email,
+        otpCode,
+        newPassword: values.password.trim(),
+      });
+
+      localStorage.removeItem("resetPasswordEmail");
+      localStorage.removeItem("resetPasswordOtp");
+      showToast.success("Password reset successfully");
+      navigate("/login");
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Failed to reset password";
+      showToast.error(message);
+    }
   }
 
   function validate(values: {
@@ -111,7 +143,8 @@ export function ChangePassword({
   const confirmedPasswordError = touched.confirmed_password
     ? localErrors.confirmed_password
     : undefined;
-  const submitting = isLoading || internalLoading;
+  const submitting = isLoading || internalLoading || changePasswordLoading;
+  const displayError = error || changePasswordError;
 
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
@@ -127,9 +160,9 @@ export function ChangePassword({
             <span className="text-brand font-bold">{email}</span>.
           </p>
 
-          {error && (
+          {displayError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayError}
             </div>
           )}
 

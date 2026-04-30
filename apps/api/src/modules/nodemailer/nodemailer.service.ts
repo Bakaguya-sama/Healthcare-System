@@ -52,8 +52,8 @@ export class NodemailerService implements OnModuleInit {
         from: this.fromEmail,
         to: toEmail,
         subject: 'Healthcare OTP Verification',
-        text: `Your OTP code is: ${otp}. It will expire in 10 minutes.`,
-        html: `<p>Your OTP code is: <b>${otp}</b></p><p>It will expire in 10 minutes.</p>`,
+        text: `Your OTP code is: ${otp}. It will expire in 5 minutes.`,
+        html: `<p>Your OTP code is: <b>${otp}</b></p><p>It will expire in 5 minutes.</p>`,
       });
     } catch (error) {
       this.logger.error(

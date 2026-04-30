@@ -12,8 +12,9 @@ import { FormEvent, useState } from "react";
 import { Mail } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import { toast } from "react-toastify";
 import { Header } from "@/features/auth/components/authen_header";
+import { useConfirmOtp } from "../hooks/useConfirmOtp";
+import { useNavigate } from "react-router-dom";
 
 interface ConfirmOTPProps {
   onSubmit?: (otp: string) => void | Promise<void>;
@@ -37,9 +38,35 @@ export function ConfirmOTP({
   const [touched, setTouched] = useState({ otp: false });
   const [localErrors, setLocalErrors] = useState<ConfirmOTPErrors>({});
 
+  const navigate = useNavigate();
+
+  const {
+    confirmOtp,
+    isLoading: confirmOtpLoading,
+    error: confirmOtpError,
+  } = useConfirmOtp();
+
   async function handleConfirmOtp(values: { otp: string }) {
-    // Placeholder: thay phần này bằng call API xác thực OTP khi backend sẵn sàng.
-    console.log("[TODO] Confirm OTP payload", values);
+    try {
+      const email = localStorage.getItem("resetPasswordEmail");
+
+      if (!email?.trim()) throw new Error("Missing email");
+
+      await confirmOtp({
+        email,
+        otpCode: values.otp,
+      });
+
+      localStorage.setItem("resetPasswordOtp", otp.trim());
+      showToast.success("OTP verified. Please set your new password.");
+      navigate("/change-password");
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Failed to verify OTP";
+      showToast.error(message);
+    }
   }
 
   function validate(values: { otp: string }): ConfirmOTPErrors {
@@ -80,7 +107,9 @@ export function ConfirmOTP({
   }
 
   const otpError = touched.otp ? localErrors.otp : undefined;
-  const submitting = isLoading || internalLoading;
+  const submitting = isLoading || internalLoading || confirmOtpLoading;
+  const displayError = error || confirmOtpError;
+
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
       <Header />
@@ -94,9 +123,9 @@ export function ConfirmOTP({
             Enter the code from our email sent to you.
           </p>
 
-          {error && (
+          {displayError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayError}
             </div>
           )}
 

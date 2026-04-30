@@ -7,6 +7,7 @@ import {
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import type { User } from "@repo/ui/types/auth";
 import { getCurrentAdmin } from "../services/get-current-admin.service";
+import axios from "axios";
 
 export function useLogin() {
   const [isLoading, setLoading] = useState(false);
@@ -64,9 +65,22 @@ export function useLogin() {
         localStorage.removeItem("refreshToken");
         useAuthStore.getState().logout();
 
-        const message =
-          loginError instanceof Error
-            ? loginError.message
+        const message = axios.isAxiosError(loginError)
+          ? (loginError.response?.data as { message?: string | string[] })
+              ?.message
+            ? Array.isArray(
+                (loginError.response?.data as { message?: string | string[] })
+                  ?.message,
+              )
+              ? (
+                  (loginError.response?.data as { message?: string | string[] })
+                    ?.message as string[]
+                ).join(", ")
+              : ((loginError.response?.data as { message?: string | string[] })
+                  ?.message as string)
+            : loginError.message // Fallback to generic Axios message if no specific message in data
+          : loginError instanceof Error
+            ? loginError.message // For non-Axios errors
             : "Login failed. Please try again.";
         setError(message);
         throw loginError;

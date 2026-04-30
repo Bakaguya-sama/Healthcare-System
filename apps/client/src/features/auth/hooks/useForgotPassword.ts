@@ -23,6 +23,7 @@ export function useForgotPassword() {
 
     try {
       const res = await submitForgotPassword(payload);
+
       setData(res);
       return res;
     } catch (forgotPasswordError) {
@@ -44,7 +45,6 @@ export function useForgotPassword() {
 
   return {
     sendOtp,
-    data,
     isLoading,
     error,
   };

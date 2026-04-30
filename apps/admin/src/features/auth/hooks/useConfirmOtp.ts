@@ -4,6 +4,7 @@ import {
   type ConfirmOtpPayload,
   type ConfirmOtpResponse,
 } from "../services/confirm-otp.service";
+import axios from "axios";
 
 export function useConfirmOtp() {
   const [isLoading, setLoading] = useState(false);
@@ -31,11 +32,34 @@ export function useConfirmOtp() {
       setData(res);
       return res;
     } catch (confirmOtpError) {
-      const message =
-        confirmOtpError instanceof Error
-          ? confirmOtpError.message
-          : "Failed to confirm OTP";
+      const message = axios.isAxiosError(confirmOtpError)
+        ? (confirmOtpError.response?.data as { message?: string | string[] })
+            ?.message
+          ? Array.isArray(
+              (
+                confirmOtpError.response?.data as {
+                  message?: string | string[];
+                }
+              )?.message,
+            )
+            ? (
+                (
+                  confirmOtpError.response?.data as {
+                    message?: string | string[];
+                  }
+                )?.message as string[]
+              ).join(", ")
+            : ((
+                confirmOtpError.response?.data as {
+                  message?: string | string[];
+                }
+              )?.message as string)
+          : confirmOtpError.message // Fallback to generic Axios message if no specific message in data
+        : confirmOtpError instanceof Error
+          ? confirmOtpError.message // For non-Axios errors
+          : "Failed to confirm OTP. Please try again.";
       setError(message);
+      throw confirmOtpError;
       throw confirmOtpError;
     } finally {
       setLoading(false);

@@ -233,7 +233,7 @@ export function LogIn({
                 </label>
 
                 <a
-                  href="./forget-password.tsx"
+                  href="./forget-password"
                   className="text-sm font-medium text-brand hover:text-brand-hover cursor-pointer"
                 >
                   Forget your password?

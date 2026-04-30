@@ -4,6 +4,7 @@ import {
   type ChangePasswordPayload,
   type ChangePasswordResponse,
 } from "../services/change-password.service";
+import axios from "axios";
 
 export function useChangePassword() {
   const [isLoading, setLoading] = useState(false);
@@ -37,10 +38,35 @@ export function useChangePassword() {
       setData(res);
       return res;
     } catch (changePasswordError) {
-      const message =
-        changePasswordError instanceof Error
-          ? changePasswordError.message
-          : "Failed to change password";
+      const message = axios.isAxiosError(changePasswordError)
+        ? (
+            changePasswordError.response?.data as {
+              message?: string | string[];
+            }
+          )?.message
+          ? Array.isArray(
+              (
+                changePasswordError.response?.data as {
+                  message?: string | string[];
+                }
+              )?.message,
+            )
+            ? (
+                (
+                  changePasswordError.response?.data as {
+                    message?: string | string[];
+                  }
+                )?.message as string[]
+              ).join(", ")
+            : ((
+                changePasswordError.response?.data as {
+                  message?: string | string[];
+                }
+              )?.message as string)
+          : changePasswordError.message // Fallback to generic Axios message if no specific message in data
+        : changePasswordError instanceof Error
+          ? changePasswordError.message // For non-Axios errors
+          : "Failed to change password. Please try again.";
       setError(message);
       throw changePasswordError;
     } finally {

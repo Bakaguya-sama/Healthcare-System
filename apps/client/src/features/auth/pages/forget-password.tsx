@@ -9,11 +9,12 @@ import {
 } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { Mail } from "lucide-react";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { showToast } from "@repo/ui/components/ui/toasts";
-import { toast } from "react-toastify";
+import { useForgotPassword } from "../hooks/useForgotPassword";
+import { useNavigate } from "react-router-dom";
 
 interface ForgetPasswordProps {
   onSubmit?: (email: string) => void | Promise<void>;
@@ -36,10 +37,41 @@ export function ForgetPassword({
   const [internalLoading, setInternalLoading] = useState(false);
   const [touched, setTouched] = useState({ email: false });
   const [localErrors, setLocalErrors] = useState<ForgetPasswordErrors>({});
+  const [cooldown, setCooldown] = useState(0);
+
+  const navigate = useNavigate();
+
+  const {
+    sendOtp: submitForgetPassword,
+    isLoading: forgetPasswordLoading,
+    error: forgetPasswordError,
+  } = useForgotPassword();
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => {
+        setCooldown(cooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
 
   async function handleForgetPassword(values: { email: string }) {
-    // Placeholder: thay phần này bằng call API quên mật khẩu khi backend sẵn sàng.
-    console.log("[TODO] Forget password payload", values);
+    try {
+      const res = await submitForgetPassword(values);
+
+      localStorage.setItem("resetPasswordEmail", values.email.trim());
+
+      setCooldown(60);
+
+      showToast.success("Verify email successfully!");
+
+      if (res) navigate("/confirm-otp");
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error ? submitError.message : "Login failed";
+      showToast.error(message);
+    }
   }
 
   function validate(values: { email: string }): ForgetPasswordErrors {
@@ -83,7 +115,11 @@ export function ForgetPassword({
   }
 
   const emailError = touched.email ? localErrors.email : undefined;
-  const submitting = isLoading || internalLoading;
+  const submitting = isLoading || internalLoading || forgetPasswordLoading;
+  const displayError = error || forgetPasswordError;
+  const isButtonDisabled = submitting || cooldown > 0;
+  const buttonLabel = cooldown > 0 ? `Try again in ${cooldown}s` : submitLabel;
+
   return (
     <div className="min-h-screen min-w-screen flex flex-col bg-white">
       <Header />
@@ -97,9 +133,9 @@ export function ForgetPassword({
             Enter your email to receive OTP.
           </p>
 
-          {error && (
+          {displayError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayError}
             </div>
           )}
 
@@ -133,9 +169,9 @@ export function ForgetPassword({
                 <Button
                   type="submit"
                   className="h-12 w-full rounded-2xl text-base"
-                  disabled={submitting}
+                  disabled={isButtonDisabled}
                 >
-                  {submitting ? <Spinner className="size-6" /> : submitLabel}
+                  {submitting ? <Spinner className="size-6" /> : buttonLabel}
                 </Button>
               </Field>
             </FieldGroup>

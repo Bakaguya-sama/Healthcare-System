@@ -280,7 +280,7 @@ export class AuthService {
 
     // Tạo OTP ngẫu nhiên
     const otpCode = Math.random().toString().slice(2, 8);
-    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     // Lưu OTP vào database
     await this.userModel.findByIdAndUpdate(user._id, {
