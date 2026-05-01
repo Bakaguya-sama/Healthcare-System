@@ -122,7 +122,7 @@ export function DoctorOverview() {
       title: "Total reviews",
       icon: <ThumbsUp size={18} />,
       stats: summary?.totalReviews || 0,
-      subText: "this month",
+      subText: "from patients",
       comparedStats: 31.4,
       iconClassName: "bg-amber-50 text-amber-600",
     },

@@ -224,7 +224,7 @@ export class UsersService {
 
     return {
       email: user.email,
-      phoneNumber: user.phoneNumber ?? '', // Ensure phoneNumber is a string
+      phoneNumber: user.phoneNumber ?? '',
       fullName: user.fullName,
       specialty: doctorProfile.specialty,
       workplace: doctorProfile.workplace,
@@ -389,20 +389,15 @@ export class UsersService {
         5: 0,
       };
 
-      let totalRating = 0;
       for (const review of doctorReviews) {
-        totalRating += review.rating;
         if (ratingDistribution[review.rating] != null) {
           ratingDistribution[review.rating] += 1;
         }
       }
 
       profile.doctor_review_metrics = {
-        average_rating:
-          doctorReviews.length > 0
-            ? Math.round((totalRating / doctorReviews.length) * 10) / 10
-            : 0,
-        total_reviews: doctorReviews.length,
+        average_rating: doctor?.averageRating ?? 0,
+        total_reviews: doctor?.reviewCount ?? 0,
         rating_distribution: ratingDistribution,
       };
     }
