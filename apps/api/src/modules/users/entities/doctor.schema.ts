@@ -12,7 +12,7 @@ export enum DoctorVerificationStatus {
 @Schema({ timestamps: true })
 export class Doctor {
   @Prop({ required: true, unique: true, ref: 'User' })
-  userId: Types.ObjectId;
+  userId!: Types.ObjectId;
 
   @Prop()
   specialty?: string;
@@ -29,6 +29,12 @@ export class Doctor {
   @Prop({ type: Number, min: 0, max: 5, default: 0 })
   averageRating?: number;
 
+  @Prop({ type: Number, min: 0, default: 0 })
+  ratingSum?: number;
+
+  @Prop({ type: Number, min: 0, default: 0 })
+  reviewCount?: number;
+
   @Prop()
   verifiedAt?: Date;
 
@@ -37,7 +43,7 @@ export class Doctor {
     enum: DoctorVerificationStatus,
     default: DoctorVerificationStatus.PENDING,
   })
-  verificationStatus: DoctorVerificationStatus;
+  verificationStatus!: DoctorVerificationStatus;
 
   @Prop()
   rejectReason?: string;

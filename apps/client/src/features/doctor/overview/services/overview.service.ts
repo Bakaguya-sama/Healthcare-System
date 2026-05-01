@@ -1,5 +1,12 @@
 import { api } from "@/lib/api";
-import { format, startOfDay, startOfMonth, subDays } from "date-fns";
+import {
+  format,
+  startOfDay,
+  startOfMonth,
+  endOfMonth,
+  subDays,
+  endOfDay,
+} from "date-fns";
 
 type CreatedAtRecord = {
   _id?: string;
@@ -11,7 +18,10 @@ type UpdatedAtRecord = {
   updatedAt?: string;
 };
 
-type UserListResponse = CreatedAtRecord[];
+type ScheduledAtRecord = {
+  _id?: string;
+  scheduledAt?: string;
+};
 
 type Patient = {
   id: string;
@@ -66,17 +76,17 @@ function getDayKeysLast7Days() {
   });
 }
 
-function buildDailyCounts(items: UpdatedAtRecord[], dayKeys: string[]) {
+function buildDailyCounts(items: ScheduledAtRecord[], dayKeys: string[]) {
   const dailyCounter = new Map<string, number>(
     dayKeys.map((dayKey) => [dayKey, 0]),
   );
 
   for (const item of items) {
-    if (!item.updatedAt) {
+    if (!item.scheduledAt) {
       continue;
     }
 
-    const dayKey = format(new Date(item.updatedAt), "yyyy-MM-dd");
+    const dayKey = format(new Date(item.scheduledAt), "yyyy-MM-dd");
     if (!dailyCounter.has(dayKey)) {
       continue;
     }
@@ -100,36 +110,52 @@ export async function getOverviewSummary(
 ): Promise<DoctorOverviewSummary> {
   const today = new Date();
   const startOfCurrentMonth = startOfMonth(today);
+  const endOfCurrentMonth = endOfMonth(today);
   const startOfLast7Days = startOfDay(subDays(today, 6));
+  const endOfToday = endOfDay(today);
 
   const dayKeys = getDayKeysLast7Days();
 
-  const [doctorProfileResponse, sessionResponse, reviewResponse] =
-    await Promise.all([
-      api.get<DoctorProfileApiResponse>(`/users/me`),
-      api.get<PaginatedApiResponse<CreatedAtRecord>>("/sessions", {
+  const [
+    doctorProfileResponse,
+    sessionThisMonthResponse,
+    sessionLastWeekResponse,
+    reviewResponse,
+  ] = await Promise.all([
+    api.get<DoctorProfileApiResponse>(`/users/me`),
+    api.get<PaginatedApiResponse<CreatedAtRecord>>("/sessions", {
+      params: {
+        startDate: startOfCurrentMonth.toISOString(),
+        endDate: endOfCurrentMonth.toISOString(),
+        sortBy: "scheduledAt",
+        sortOrder: -1,
+        limit: 100,
+      },
+    }),
+    api.get<PaginatedApiResponse<CreatedAtRecord>>("/sessions", {
+      params: {
+        startDate: startOfLast7Days.toISOString(),
+        endDate: endOfToday.toISOString(),
+        sortBy: "scheduledAt",
+        sortOrder: -1,
+        limit: 100,
+      },
+    }),
+    api.get<PaginatedApiResponse<RawReviewFromApi>>(
+      `/reviews/doctor/${userId}`,
+      {
         params: {
-          startDate: startOfCurrentMonth.toISOString(),
+          startDate: startOfLast7Days.toISOString(),
           endDate: today.toISOString(),
           sortBy: -1,
           limit: 100,
         },
-      }),
-      api.get<PaginatedApiResponse<RawReviewFromApi>>(
-        `/reviews/doctor/${userId}`,
-        {
-          params: {
-            startDate: startOfLast7Days.toISOString(),
-            endDate: today.toISOString(),
-            sortBy: -1,
-            limit: 100,
-          },
-        },
-      ),
-    ]);
+      },
+    ),
+  ]);
 
   const avgRating = doctorProfileResponse.data.averageRating ?? 0;
-  const totalSessionsThisMonth = sessionResponse.data.pagination.total;
+  const totalSessionsThisMonth = sessionThisMonthResponse.data.pagination.total;
   const totalReviews = reviewResponse.data.pagination.total;
   const rawReviewsFromApi = reviewResponse.data.data;
 
@@ -151,12 +177,9 @@ export async function getOverviewSummary(
   );
 
   const sessionNumberByDayInLastWeek = buildDailyCounts(
-    sessionResponse.data.data,
+    sessionLastWeekResponse.data.data,
     dayKeys,
   );
-
-  console.log("sessionThisMonth", sessionResponse.data.data);
-  console.log("sessionThisMonth2", sessionNumberByDayInLastWeek);
 
   return {
     avgRating,

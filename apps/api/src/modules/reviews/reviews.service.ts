@@ -10,12 +10,74 @@ import { Review, ReviewDocument } from './entities/review.entity';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { QueryReviewDto } from './dto/query-review.dto';
+import {
+  Doctor,
+  DoctorDocument,
+  DoctorVerificationStatus,
+} from '../users/entities/doctor.schema';
 
 @Injectable()
 export class ReviewsService {
   constructor(
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
+    @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
   ) {}
+
+  private async getDoctorProfileByUserId(doctorUserId: string) {
+    if (!Types.ObjectId.isValid(doctorUserId)) {
+      throw new BadRequestException('Invalid doctor ID');
+    }
+
+    const doctorProfile = await this.doctorModel.findOne({
+      userId: new Types.ObjectId(doctorUserId),
+    });
+
+    if (!doctorProfile) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return doctorProfile;
+  }
+
+  private async applyRatingDelta(
+    doctorUserId: string,
+    ratingDelta: number,
+    reviewCountDelta: number,
+  ) {
+    const updatedDoctor = await this.doctorModel.findOneAndUpdate(
+      { userId: new Types.ObjectId(doctorUserId) },
+      [
+        {
+          $set: {
+            ratingSum: {
+              $add: [{ $ifNull: ['$ratingSum', 0] }, ratingDelta],
+            },
+            reviewCount: {
+              $add: [{ $ifNull: ['$reviewCount', 0] }, reviewCountDelta],
+            },
+          },
+        },
+        {
+          $set: {
+            averageRating: {
+              $cond: [
+                { $gt: ['$reviewCount', 0] },
+                { $divide: ['$ratingSum', '$reviewCount'] },
+                0,
+              ],
+            },
+          },
+        },
+      ] as any,
+      { new: true },
+    );
+
+    if (!updatedDoctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return updatedDoctor;
+  }
 
   /**
    * 📝 TẠO ĐÁH GIÁ MỚI
@@ -50,6 +112,13 @@ export class ReviewsService {
       rating: dto.rating,
       comment: dto.comment,
     });
+
+    try {
+      await this.applyRatingDelta(dto.doctorId, dto.rating, 1);
+    } catch (error) {
+      await this.reviewModel.findByIdAndDelete(review._id);
+      throw error;
+    }
 
     return {
       statusCode: 201,
@@ -161,6 +230,8 @@ export class ReviewsService {
       throw new BadRequestException('Invalid doctor ID');
     }
 
+    const doctorProfile = await this.getDoctorProfileByUserId(doctorId);
+
     const result = await this.reviewModel.aggregate([
       {
         $match: {
@@ -192,8 +263,8 @@ export class ReviewsService {
     ]);
 
     const stats = result[0] || {
-      averageRating: 0,
-      totalReviews: 0,
+      averageRating: doctorProfile.averageRating ?? 0,
+      totalReviews: doctorProfile.reviewCount ?? 0,
       fiveStarCount: 0,
       fourStarCount: 0,
       threeStarCount: 0,
@@ -264,11 +335,29 @@ export class ReviewsService {
       );
     }
 
+    const oldRating = review.rating;
+    const oldComment = review.comment;
+
     // Update fields
     if (dto.rating !== undefined) review.rating = dto.rating;
     if (dto.comment !== undefined) review.comment = dto.comment;
 
     await review.save();
+
+    if (dto.rating !== undefined && dto.rating !== oldRating) {
+      try {
+        await this.applyRatingDelta(
+          review.doctorId.toString(),
+          dto.rating - oldRating,
+          0,
+        );
+      } catch (error) {
+        review.rating = oldRating;
+        review.comment = oldComment;
+        await review.save();
+        throw error;
+      }
+    }
 
     return {
       statusCode: 200,
@@ -340,7 +429,25 @@ export class ReviewsService {
       );
     }
 
-    await this.reviewModel.findByIdAndDelete(new Types.ObjectId(id));
+    try {
+      await this.applyRatingDelta(
+        review.doctorId.toString(),
+        -review.rating,
+        -1,
+      );
+      await this.reviewModel.findByIdAndDelete(new Types.ObjectId(id));
+    } catch (error) {
+      try {
+        await this.applyRatingDelta(
+          review.doctorId.toString(),
+          review.rating,
+          1,
+        );
+      } catch {
+        // ignore rollback failure; original error is more important
+      }
+      throw error;
+    }
 
     return {
       statusCode: 200,
@@ -373,48 +480,27 @@ export class ReviewsService {
    * 📈 GET TOP REVIEWED DOCTORS
    */
   async getTopDoctors(limit: number = 10) {
-    const topDoctors = await this.reviewModel.aggregate([
-      {
-        $group: {
-          _id: '$doctorId',
-          averageRating: { $avg: '$rating' },
-          totalReviews: { $sum: 1 },
-        },
-      },
-      {
-        $sort: { averageRating: -1, totalReviews: -1 },
-      },
-      {
-        $limit: limit,
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'doctorInfo',
-        },
-      },
-      {
-        $unwind: '$doctorInfo',
-      },
-      {
-        $project: {
-          _id: 0,
-          doctorId: '$_id',
-          doctorName: '$doctorInfo.fullName',
-          specialty: '$doctorInfo.specialty',
-          avatarUrl: '$doctorInfo.avatarUrl',
-          averageRating: 1,
-          totalReviews: 1,
-        },
-      },
-    ]);
+    const topDoctors = await this.doctorModel
+      .find({
+        verificationStatus: DoctorVerificationStatus.APPROVED,
+        reviewCount: { $gt: 0 },
+      })
+      .populate('userId', 'fullName avatarUrl email')
+      .sort({ averageRating: -1, reviewCount: -1 })
+      .limit(limit)
+      .lean();
 
     return {
       statusCode: 200,
       message: 'Top doctors retrieved successfully',
-      data: topDoctors,
+      data: topDoctors.map((doctor: any) => ({
+        doctorId: doctor.userId?._id ?? doctor.userId,
+        doctorName: doctor.userId?.fullName,
+        specialty: doctor.specialty,
+        avatarUrl: doctor.userId?.avatarUrl,
+        averageRating: doctor.averageRating ?? 0,
+        totalReviews: doctor.reviewCount ?? 0,
+      })),
     };
   }
 }

@@ -42,6 +42,7 @@ interface LineChartProps {
   className?: string;
   height?: number;
   showLegend?: boolean;
+  yTickStepSize?: number;
   options?: ChartOptions<"line">;
 }
 
@@ -85,6 +86,7 @@ export function LineChart({
   className,
   height = 400,
   showLegend = true,
+  yTickStepSize,
   options,
 }: LineChartProps) {
   const data: ChartData<"line"> = {
@@ -95,6 +97,23 @@ export function LineChart({
   const mergedOptions: ChartOptions<"line"> = {
     ...defaultOptions,
     ...options,
+    scales: {
+      ...defaultOptions.scales,
+      ...options?.scales,
+      y: {
+        ...defaultOptions.scales?.y,
+        ...options?.scales?.y,
+        ticks: {
+          ...defaultOptions.scales?.y?.ticks,
+          ...options?.scales?.y?.ticks,
+          ...(yTickStepSize ? { stepSize: yTickStepSize } : {}),
+        },
+      },
+      x: {
+        ...defaultOptions.scales?.x,
+        ...options?.scales?.x,
+      },
+    },
     plugins: {
       ...defaultOptions.plugins,
       ...options?.plugins,
