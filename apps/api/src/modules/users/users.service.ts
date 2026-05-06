@@ -51,6 +51,7 @@ type UserProfileResponse = {
   full_name: string;
   email: string;
   phone_number: string;
+  date_of_birth: string;
   gender: string;
   account_status: 'active' | 'banned';
   created_at: string;
@@ -288,6 +289,7 @@ export class UsersService {
       full_name: user.fullName,
       email: user.email,
       phone_number: user.phoneNumber ?? '',
+      date_of_birth: user.dateOfBirth?.toISOString() || '',
       gender: user.gender ?? '',
       account_status: user.accountStatus,
       created_at: createdAtValue?.toISOString() ?? new Date().toISOString(),

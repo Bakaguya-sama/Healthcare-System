@@ -326,6 +326,161 @@ async function seedDatabase() {
     // 6. SEED HEALTH METRICS
     // ==========================================
     console.log('📊 Creating health metrics...');
+    const metricDays = 7;
+    const metricBaseYear = 2026;
+    const metricBaseMonth = 3;
+    const metricBaseDay = 28;
+    const metricTimes = [
+      { hour: 6, minute: 30, delta: -0.4 },
+      { hour: 9, minute: 0, delta: 0.1 },
+      { hour: 12, minute: 30, delta: 0.3 },
+      { hour: 16, minute: 0, delta: 0.0 },
+      { hour: 19, minute: 30, delta: -0.2 },
+    ];
+
+    const buildRecordedAt = (dayOffset: number, hour: number, minute: number) =>
+      new Date(
+        metricBaseYear,
+        metricBaseMonth,
+        metricBaseDay + dayOffset,
+        hour,
+        minute,
+        0,
+        0,
+      );
+
+    const patient2Metrics: Array<Record<string, unknown>> = [];
+
+    const addSingleValueMetric = (
+      type: string,
+      unit: string,
+      baseValue: number,
+      dayStep: number,
+    ) => {
+      for (let day = 0; day < metricDays; day += 1) {
+        for (const time of metricTimes) {
+          const recordedAt = buildRecordedAt(day, time.hour, time.minute);
+          const value = Number(
+            (baseValue + day * dayStep + time.delta).toFixed(2),
+          );
+
+          patient2Metrics.push({
+            patientId: patients[1]._id,
+            type,
+            values: {
+              value: { value, recordedAt },
+            },
+            unit,
+            recordedAt,
+          });
+        }
+      }
+    };
+
+    const addAmountMetric = (
+      type: string,
+      unit: string,
+      baseValue: number,
+      dayStep: number,
+    ) => {
+      for (let day = 0; day < metricDays; day += 1) {
+        for (const time of metricTimes) {
+          const recordedAt = buildRecordedAt(day, time.hour, time.minute);
+          const value = Math.max(
+            0,
+            Math.round(baseValue + day * dayStep + time.delta * 50),
+          );
+
+          patient2Metrics.push({
+            patientId: patients[1]._id,
+            type,
+            values: {
+              amount: { value, recordedAt },
+            },
+            unit,
+            recordedAt,
+          });
+        }
+      }
+    };
+
+    const addBloodPressureMetric = (
+      systolicBase: number,
+      diastolicBase: number,
+      systolicStep: number,
+      diastolicStep: number,
+    ) => {
+      for (let day = 0; day < metricDays; day += 1) {
+        for (const time of metricTimes) {
+          const recordedAt = buildRecordedAt(day, time.hour, time.minute);
+          const systolic = Math.round(
+            systolicBase + day * systolicStep + time.delta * 5,
+          );
+          const diastolic = Math.round(
+            diastolicBase + day * diastolicStep + time.delta * 3,
+          );
+
+          patient2Metrics.push({
+            patientId: patients[1]._id,
+            type: 'blood_pressure',
+            values: {
+              systolic: { value: systolic, recordedAt },
+              diastolic: { value: diastolic, recordedAt },
+            },
+            unit: 'mmHg',
+            recordedAt,
+          });
+        }
+      }
+    };
+
+    addBloodPressureMetric(118, 78, 0.7, 0.4);
+    addSingleValueMetric('heart_rate', 'bpm', 74, 0.3);
+    addSingleValueMetric('blood_glucose', 'mg/dL', 94, 0.8);
+    addSingleValueMetric('oxygen_saturation', '%', 98, -0.1);
+    addSingleValueMetric('body_temperature', 'C', 36.6, 0.05);
+    addSingleValueMetric('respiratory_rate', 'breaths/min', 16, 0.2);
+    addSingleValueMetric('weight', 'kg', 65, 0.1);
+    addSingleValueMetric('height', 'cm', 158, 0);
+    addSingleValueMetric('bmi', 'kg/m2', 23.2, 0.05);
+    addAmountMetric('water_intake', 'ml', 1800, 50);
+    addAmountMetric('kcal_intake', 'kcal', 1800, 40);
+
+    const extraHeartRateTimes = [
+      { hour: 7, minute: 15, value: 72 },
+      { hour: 11, minute: 40, value: 78 },
+      { hour: 15, minute: 10, value: 75 },
+      { hour: 20, minute: 5, value: 70 },
+    ];
+
+    const addExtraHeartRate = (date: string) => {
+      const [year, month, day] = date.split('-').map(Number);
+      for (const time of extraHeartRateTimes) {
+        const recordedAt = new Date(
+          year,
+          month - 1,
+          day,
+          time.hour,
+          time.minute,
+          0,
+          0,
+        );
+
+        patient2Metrics.push({
+          patientId: patients[1]._id,
+          type: 'heart_rate',
+          values: {
+            value: { value: time.value, recordedAt },
+          },
+          unit: 'bpm',
+          recordedAt,
+        });
+      }
+    };
+
+    addExtraHeartRate('2026-05-05');
+    addExtraHeartRate('2026-05-06');
+
     const healthMetrics = await healthMetricModel.insertMany([
       {
         patientId: patients[0]._id,
@@ -352,24 +507,7 @@ async function seedDatabase() {
         unit: 'bpm',
         recordedAt: new Date('2026-03-20T08:05:00Z'),
       },
-      {
-        patientId: patients[1]._id,
-        type: 'weight',
-        values: {
-          value: { value: 65, recordedAt: new Date('2026-03-20T07:00:00Z') },
-        },
-        unit: 'kg',
-        recordedAt: new Date('2026-03-20T07:00:00Z'),
-      },
-      {
-        patientId: patients[1]._id,
-        type: 'bmi',
-        values: {
-          value: { value: 23.2, recordedAt: new Date('2026-03-20T07:05:00Z') },
-        },
-        unit: 'kg/m²',
-        recordedAt: new Date('2026-03-20T07:05:00Z'),
-      },
+      ...patient2Metrics,
       {
         patientId: patients[2]._id,
         type: 'water_intake',

@@ -1,4 +1,12 @@
-import { IsEnum, IsOptional, IsDateString, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsNumber,
+  Min,
+  Max,
+  IsMongoId,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { MetricType } from '../entities/health-metric.entity';
@@ -18,6 +26,11 @@ export class QueryHealthMetricDto {
   @IsDateString()
   @IsOptional()
   endDate?: string;
+
+  @ApiProperty({ example: '65f41674a24154d7cc185139', required: false })
+  @IsMongoId()
+  @IsOptional()
+  patientId?: string;
 
   @ApiProperty({ example: 1, default: 1 })
   @Type(() => Number)

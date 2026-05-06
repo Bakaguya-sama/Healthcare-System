@@ -78,14 +78,22 @@ export function TrackingChart({
   );
 
   const chartModel = useMemo(() => {
-    const selectedDayStart = startOfDay(selectedDate);
+    const now = new Date();
     const selectedDayEnd = endOfDay(selectedDate);
-    const fromDate = addDays(selectedDayStart, -(selectedRange.days - 1));
+    const rangeEnd =
+      selectedRange.label === "1D" ? now : new Date(selectedDayEnd);
+    const clampedRangeEnd = rangeEnd.getTime() > now.getTime() ? now : rangeEnd;
+    const rangeStartBase = startOfDay(clampedRangeEnd);
+    const fromDate =
+      selectedRange.label === "1D"
+        ? rangeStartBase
+        : addDays(rangeStartBase, -(selectedRange.days - 1));
 
     const filteredEntries = entries.filter((entry) => {
       const entryDate = new Date(entry.recordedAt).getTime();
       return (
-        entryDate >= fromDate.getTime() && entryDate <= selectedDayEnd.getTime()
+        entryDate >= fromDate.getTime() &&
+        entryDate <= clampedRangeEnd.getTime()
       );
     });
 
@@ -115,7 +123,6 @@ export function TrackingChart({
     const labels: string[] = [];
     const dateKeys: string[] = [];
 
-    // other ranges
     for (let i = 0; i < selectedRange.days; i += 1) {
       const date = addDays(fromDate, i);
       labels.push(formatLabel(date, selectedRange.days > 7));

@@ -21,8 +21,6 @@ import { Message, type ChatMessage } from "../components/message";
 import { SendBar, type SendMessagePayload } from "../components/send-bar";
 import { HealthProfile } from "./health-profile";
 
-type SessionStatus = "pending" | "rejected" | "completed" | "active";
-
 interface ChatWindowProps {
   isAiChat?: boolean;
   sessionId: string;
@@ -34,12 +32,14 @@ interface ChatWindowProps {
   patientIsOnline?: boolean;
   patientBirthday?: Date | string;
   patientGender?: string;
+  patientNote?: string;
+  doctorNote?: string;
   doctorName?: string;
   doctorUrl?: string;
   doctorIsOnline?: boolean;
   aiName?: string;
   initialMessages?: ChatMessage[];
-  sessionStatus?: SessionStatus;
+  sessionStatus?: string;
   onLoadMessages?: (sessionId: string) => Promise<ChatMessage[]>;
   onClose: () => void;
   onViewProfile?: () => void;
@@ -125,6 +125,8 @@ export function ChatWindow({
   patientIsOnline = true,
   patientBirthday,
   patientGender,
+  patientNote,
+  doctorNote,
   doctorName = "Dr. Marcus Lee",
   doctorUrl,
   doctorIsOnline = true,
@@ -154,7 +156,7 @@ export function ChatWindow({
   const canEndConsultation =
     !isAiChat && viewerRole === "doctor" && !isRequestStatus;
   const canViewHealthProfile =
-    !isAiChat && viewerRole === "doctor" && sessionStatus === "active";
+    !isAiChat && viewerRole === "doctor" && sessionStatus !== "rejected";
   const canLeaveReview =
     !isAiChat && viewerRole === "patient" && sessionStatus === "completed";
   const canViewDoctorNote =
@@ -330,9 +332,19 @@ export function ChatWindow({
 
   const chatContent = (
     <section
-      className="flex h-full w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+      className="relative flex h-full w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
       onClick={(e) => e.stopPropagation()}
     >
+      {canViewHealthProfile && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50"
+          aria-label="Close chat"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
       <div className={cn("flex min-w-0 flex-1 flex-col", chatPaneClassName)}>
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -389,14 +401,16 @@ export function ChatWindow({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50"
-              aria-label="Close chat"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            {!canViewHealthProfile && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50"
+                aria-label="Close chat"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </header>
 
@@ -444,11 +458,14 @@ export function ChatWindow({
 
       {canViewHealthProfile && (
         <HealthProfile
-          patientId={patientId || sessionId}
+          patientNote={patientNote}
+          doctorNote={doctorNote}
+          patientId={patientId}
           patientName={patientName}
           className={healthProfileClassName}
           birthday={patientBirthday}
           gender={patientGender}
+          showMetrics={sessionStatus === "active"}
         />
       )}
     </section>

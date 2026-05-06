@@ -49,9 +49,10 @@ export class HealthMetricsController {
   @ApiOperation({ summary: 'Lấy danh sách chỉ số sức khỏe' })
   async findAll(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Query() query: QueryHealthMetricDto,
   ) {
-    return this.healthMetricsService.findAll(userId, query);
+    return this.healthMetricsService.findAll(userId, userRole, query);
   }
 
   /**
@@ -86,10 +87,7 @@ export class HealthMetricsController {
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lấy chi tiết chỉ số sức khỏe' })
-  async findOne(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
+  async findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.healthMetricsService.findOne(userId, id);
   }
 
@@ -129,10 +127,7 @@ export class HealthMetricsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xóa chỉ số sức khỏe' })
-  async remove(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
+  async remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.healthMetricsService.remove(userId, id);
   }
 }

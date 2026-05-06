@@ -9,11 +9,14 @@ import { useMemo, useState, type ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { MetricCard } from "../components/metric-card";
 import { TrackingChart } from "@/components/TrackingChart";
+import { useHealthMetrics } from "../hooks/useHealthMetrics";
+import type { HealthMetric } from "../services/health-metrics.service";
 
 interface HealthProfileProps {
   patientId: string;
   patientName: string;
   className?: string;
+  showMetrics?: boolean;
   birthday?: Date | string;
   gender?: string;
   lastUpdatedAt?: Date | string;
@@ -37,19 +40,6 @@ type MetricCardMock = Pick<
 
 type MetricType = ComponentProps<typeof MetricCard>["metricsType"];
 
-type MetricValueDetail = {
-  value: number;
-  recordedAt: Date | string;
-};
-
-type MetricSnapshot = {
-  patientId: string;
-  type: MetricType;
-  values: Record<string, MetricValueDetail>;
-  unit: string;
-  recordedAt: Date | string;
-};
-
 type ChartEntry = {
   id: string;
   recordedAt: string;
@@ -70,6 +60,20 @@ const METRIC_CARD_ORDER: Array<{ type: MetricType; defaultUnit: string }> = [
   { type: "oxygen_saturation", defaultUnit: "%" },
   { type: "body_temperature", defaultUnit: "°C" },
   { type: "respiratory_rate", defaultUnit: "breaths/min" },
+];
+
+const CHART_METRIC_TYPES: MetricType[] = [
+  "heart_rate",
+  "blood_pressure",
+  "blood_glucose",
+  "oxygen_saturation",
+  "body_temperature",
+  "respiratory_rate",
+  "bmi",
+  "height",
+  "weight",
+  "water_intake",
+  "kcal_intake",
 ];
 
 function formatDate(value?: Date | string): string {
@@ -98,177 +102,104 @@ function toSafeDate(value?: Date | string) {
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
-function createSingleValueEntries(
-  metricType: MetricType,
-  baseValue: number,
-): ChartEntry[] {
-  // TODO(real-data): Remove this mock generator and map entries from API response.
-  // Expected shape for chart: [{ id, recordedAt, primaryValue }].
-  return Array.from({ length: 7 }).map((_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    date.setHours(8 + (index % 3) * 4, 0, 0, 0);
+function getPrimaryMetricValue(metric: HealthMetric): number | undefined {
+  if (metric.type === "blood_pressure") {
+    return metric.values.systolic?.value;
+  }
 
-    const variation = (index % 3) - 1;
-
-    return {
-      id: `${metricType}-${index + 1}`,
-      recordedAt: date.toISOString(),
-      primaryValue: Math.max(0, baseValue + variation),
-    };
-  });
+  return metric.values.value?.value ?? metric.values.amount?.value;
 }
 
-function createBloodPressureEntries(
-  systolic: number,
-  diastolic: number,
-): ChartEntry[] {
-  // TODO(real-data): Remove this mock generator and map blood pressure entries
-  // from API response to [{ id, recordedAt, primaryValue, secondaryValue }].
-  return Array.from({ length: 7 }).map((_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    date.setHours(7 + (index % 2) * 10, 0, 0, 0);
+function getSecondaryMetricValue(metric: HealthMetric): number | undefined {
+  if (metric.type !== "blood_pressure") {
+    return undefined;
+  }
 
-    return {
-      id: `blood-pressure-${index + 1}`,
-      recordedAt: date.toISOString(),
-      primaryValue: systolic + ((index % 3) - 1) * 2,
-      secondaryValue: diastolic + ((index % 3) - 1),
-    };
-  });
+  return metric.values.diastolic?.value;
+}
+
+function buildChartEntries(
+  metricType: MetricType,
+  metrics: HealthMetric[],
+): ChartEntry[] {
+  return metrics
+    .filter((metric) => metric.type === metricType)
+    .map((metric) => {
+      const recordedAt = metric.recordedAt;
+      const recordedTime = new Date(recordedAt).getTime();
+      if (!recordedAt || Number.isNaN(recordedTime)) return null;
+
+      const primaryValue = getPrimaryMetricValue(metric);
+      if (typeof primaryValue !== "number") return null;
+
+      const secondaryValue = getSecondaryMetricValue(metric);
+
+      return {
+        id: metric.id,
+        recordedAt,
+        primaryValue,
+        secondaryValue,
+      };
+    })
+    .filter((entry): entry is ChartEntry => Boolean(entry));
 }
 
 export function HealthProfile({
   patientId,
   patientName,
   className,
-  // TODO(real-data): Remove mock defaults and bind these props to patient profile API.
-  patientNote = "I'm highhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh!",
-  doctorNote = "Take care of yourself",
-  birthday = "1998-04-17",
-  gender = "Female",
-  lastUpdatedAt = new Date(),
-  heartRate = 78,
-  systolic = 120,
-  diastolic = 80,
-  weightKg = 62,
-  bmi = 22.4,
-  bloodGlucose = 100,
-  oxygenSaturation = 98,
-  bodyTemperature = 36.5,
-  respiratoryRate = 16,
+  showMetrics = true,
+  patientNote,
+  doctorNote,
+  birthday,
+  gender,
+  lastUpdatedAt,
 }: HealthProfileProps) {
-  const updatedDate = formatDate(lastUpdatedAt);
-  const updatedTime = formatTime(lastUpdatedAt);
+  const {
+    data: metrics,
+    isLoading,
+    error,
+  } = useHealthMetrics({
+    enabled: showMetrics,
+    patientId,
+    sortBy: "recordedAt",
+    sortOrder: -1,
+    limit: 50,
+  });
+
+  console.log("metrics", metrics);
+
+  const latestRecordedAt = useMemo(() => {
+    if (!metrics.length) {
+      return undefined;
+    }
+
+    return metrics.reduce<string | undefined>((latest, metric) => {
+      if (!metric.recordedAt) return latest;
+      if (!latest) return metric.recordedAt;
+
+      return new Date(metric.recordedAt).getTime() > new Date(latest).getTime()
+        ? metric.recordedAt
+        : latest;
+    }, undefined);
+  }, [metrics]);
+
+  const effectiveUpdatedAt = latestRecordedAt ?? lastUpdatedAt;
+  const updatedDate = formatDate(effectiveUpdatedAt);
+  const updatedTime = formatTime(effectiveUpdatedAt);
   const [expandedMetricTypes, setExpandedMetricTypes] = useState<MetricType[]>(
     [],
   );
 
   const selectedDate = useMemo(
-    () => toSafeDate(lastUpdatedAt),
-    [lastUpdatedAt],
+    () => toSafeDate(effectiveUpdatedAt),
+    [effectiveUpdatedAt],
   );
 
-  // TODO(real-data): Replace this mock source with API response list.
-  // Suggested endpoint contract: GET /patients/:patientId/metrics/latest (or list + client preprocessing).
-  const metricSource = useMemo<MetricSnapshot[]>(
-    () => [
-      {
-        patientId,
-        type: "heart_rate",
-        values: {
-          value: {
-            value: heartRate,
-            recordedAt: lastUpdatedAt,
-          },
-        },
-        unit: "bpm",
-        recordedAt: lastUpdatedAt,
-      },
-      {
-        patientId,
-        type: "blood_pressure",
-        values: {
-          systolic: {
-            value: systolic,
-            recordedAt: lastUpdatedAt,
-          },
-          diastolic: {
-            value: diastolic,
-            recordedAt: lastUpdatedAt,
-          },
-        },
-        unit: "mmHg",
-        recordedAt: lastUpdatedAt,
-      },
-      {
-        patientId,
-        type: "blood_glucose",
-        values: {
-          value: {
-            value: bloodGlucose,
-            recordedAt: lastUpdatedAt,
-          },
-        },
-        unit: "mg/dL",
-        recordedAt: lastUpdatedAt,
-      },
-      {
-        patientId,
-        type: "oxygen_saturation",
-        values: {
-          value: {
-            value: oxygenSaturation,
-            recordedAt: lastUpdatedAt,
-          },
-        },
-        unit: "%",
-        recordedAt: lastUpdatedAt,
-      },
-      {
-        patientId,
-        type: "body_temperature",
-        values: {
-          value: {
-            value: bodyTemperature,
-            recordedAt: lastUpdatedAt,
-          },
-        },
-        unit: "°C",
-        recordedAt: lastUpdatedAt,
-      },
-      {
-        patientId,
-        type: "respiratory_rate",
-        values: {
-          value: {
-            value: respiratoryRate,
-            recordedAt: lastUpdatedAt,
-          },
-        },
-        unit: "breaths/min",
-        recordedAt: lastUpdatedAt,
-      },
-    ],
-    [
-      bloodGlucose,
-      bodyTemperature,
-      diastolic,
-      heartRate,
-      lastUpdatedAt,
-      oxygenSaturation,
-      patientId,
-      respiratoryRate,
-      systolic,
-    ],
-  );
-
-  // Reuse the same latest-by-type preprocessing idea from Overview page.
   const latestMetricByType = useMemo(() => {
-    const latestMap = new Map<MetricType, MetricSnapshot>();
+    const latestMap = new Map<MetricType, HealthMetric>();
 
-    for (const metric of metricSource) {
+    for (const metric of metrics) {
       const current = latestMap.get(metric.type);
       if (!current) {
         latestMap.set(metric.type, metric);
@@ -283,10 +214,8 @@ export function HealthProfile({
     }
 
     return latestMap;
-  }, [metricSource]);
+  }, [metrics]);
 
-  // TODO(real-data): Keep this mapping layer when switching to backend response.
-  // It gives a stable card order and safe fallbacks if one metric is missing.
   const metricCardMocks = useMemo<MetricCardMock[]>(
     () =>
       METRIC_CARD_ORDER.map((metricDef) => {
@@ -301,84 +230,72 @@ export function HealthProfile({
     [latestMetricByType],
   );
 
-  const metricChartConfig = useMemo<Record<MetricType, MetricChartConfig>>(
-    () => ({
-      // TODO(real-data): Replace static chart config with data fetched by metricType + date range.
-      // Suggested endpoint contract: GET /patients/:patientId/metrics/:metricType/trend?from&to
+  const metricChartConfig = useMemo<
+    Record<MetricType, MetricChartConfig>
+  >(() => {
+    const entriesByType = new Map<MetricType, ChartEntry[]>();
+    for (const metricType of CHART_METRIC_TYPES) {
+      entriesByType.set(metricType, buildChartEntries(metricType, metrics));
+    }
+
+    return {
       heart_rate: {
         title: "Heart Rate",
-        entries: createSingleValueEntries("heart_rate", heartRate),
-        hasData: true,
+        entries: entriesByType.get("heart_rate") ?? [],
+        hasData: (entriesByType.get("heart_rate") ?? []).length > 0,
       },
       blood_pressure: {
         title: "Blood Pressure",
-        entries: createBloodPressureEntries(systolic, diastolic),
-        hasData: true,
+        entries: entriesByType.get("blood_pressure") ?? [],
+        hasData: (entriesByType.get("blood_pressure") ?? []).length > 0,
       },
       blood_glucose: {
         title: "Blood Glucose",
-        entries: createSingleValueEntries("blood_glucose", bloodGlucose),
-        hasData: true,
+        entries: entriesByType.get("blood_glucose") ?? [],
+        hasData: (entriesByType.get("blood_glucose") ?? []).length > 0,
       },
       oxygen_saturation: {
         title: "O2 Saturation",
-        entries: createSingleValueEntries(
-          "oxygen_saturation",
-          oxygenSaturation,
-        ),
-        hasData: true,
+        entries: entriesByType.get("oxygen_saturation") ?? [],
+        hasData: (entriesByType.get("oxygen_saturation") ?? []).length > 0,
       },
       body_temperature: {
         title: "Body Temperature",
-        entries: createSingleValueEntries("body_temperature", bodyTemperature),
-        hasData: true,
+        entries: entriesByType.get("body_temperature") ?? [],
+        hasData: (entriesByType.get("body_temperature") ?? []).length > 0,
       },
       respiratory_rate: {
         title: "Respiratory Rate",
-        entries: createSingleValueEntries("respiratory_rate", respiratoryRate),
-        hasData: true,
+        entries: entriesByType.get("respiratory_rate") ?? [],
+        hasData: (entriesByType.get("respiratory_rate") ?? []).length > 0,
       },
       bmi: {
         title: "BMI",
-        entries: createSingleValueEntries("bmi", bmi),
-        hasData: false,
+        entries: entriesByType.get("bmi") ?? [],
+        hasData: (entriesByType.get("bmi") ?? []).length > 0,
       },
       height: {
         title: "Height",
-        entries: [],
-        hasData: false,
+        entries: entriesByType.get("height") ?? [],
+        hasData: (entriesByType.get("height") ?? []).length > 0,
       },
       weight: {
         title: "Weight",
-        entries: createSingleValueEntries("weight", weightKg),
-        hasData: true,
+        entries: entriesByType.get("weight") ?? [],
+        hasData: (entriesByType.get("weight") ?? []).length > 0,
       },
       water_intake: {
         title: "Water Intake",
-        entries: [],
-        hasData: false,
+        entries: entriesByType.get("water_intake") ?? [],
+        hasData: (entriesByType.get("water_intake") ?? []).length > 0,
       },
       kcal_intake: {
         title: "Calories",
-        entries: [],
-        hasData: false,
+        entries: entriesByType.get("kcal_intake") ?? [],
+        hasData: (entriesByType.get("kcal_intake") ?? []).length > 0,
       },
-    }),
-    [
-      bmi,
-      bloodGlucose,
-      bodyTemperature,
-      diastolic,
-      heartRate,
-      oxygenSaturation,
-      respiratoryRate,
-      systolic,
-      weightKg,
-    ],
-  );
-
-  // TODO(real-data): Add loading/error state for metric summary and chart trend requests.
-  // TODO(real-data): Cache trend responses by metricType + range to avoid refetch on re-open.
+    };
+  }, [metrics]);
 
   const handleClickMetricCard = (metricsType: MetricType) => {
     setExpandedMetricTypes((prev) =>
@@ -421,7 +338,7 @@ export function HealthProfile({
           <div className="flex items-start gap-2">
             <Notebook className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
             <span className="min-w-0 break-all">
-              Patient's note: {patientNote}
+              Patient's note: {patientNote || "-"}
             </span>
           </div>
         </div>
@@ -438,57 +355,58 @@ export function HealthProfile({
         </div>
       ) : null}
 
-      <div className="mt-4">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-          Current Vitals
-        </p>
-        <div className="mt-2 flex flex-col gap-2">
-          {metricCardMocks.map((card) => {
-            const isExpanded = expandedMetricTypes.includes(card.metricsType);
-            const chartConfig = metricChartConfig[card.metricsType];
+      {showMetrics && (
+        <div className="mt-4">
+          <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Current Vitals
+          </p>
+          <div className="mt-2 text-xs text-slate-500">
+            {isLoading && "Loading health metrics..."}
+            {!isLoading && error && "Unable to load health metrics."}
+            {!isLoading &&
+              !error &&
+              metrics.length === 0 &&
+              "No metrics for this patient."}
+          </div>
+          {!isLoading && !error && metrics.length === 0 ? null : (
+            <div className="mt-2 flex flex-col gap-2">
+              {metricCardMocks.map((card) => {
+                const isExpanded = expandedMetricTypes.includes(
+                  card.metricsType,
+                );
+                const chartConfig = metricChartConfig[card.metricsType];
 
-            return (
-              <div
-                key={`${patientId}-${card.metricsType}`}
-                className="space-y-2"
-              >
-                <MetricCard
-                  patientId={patientId}
-                  metricsType={card.metricsType}
-                  values={card.values}
-                  unit={card.unit}
-                  handleClick={() => handleClickMetricCard(card.metricsType)}
-                />
-                {isExpanded && (
-                  <TrackingChart
-                    title={chartConfig.title}
-                    metricType={card.metricsType}
-                    selectedDate={selectedDate}
-                    entries={chartConfig.entries}
-                    hasData={chartConfig.hasData}
-                    unit={card.unit}
-                  />
-                )}
-              </div>
-            );
-          })}
-
-          {/* <div className="flex items-center gap-3 rounded-2xl border border-lime-200 bg-lime-50 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-lime-100 text-lime-700">
-              <Scale className="h-5 w-5" />
+                return (
+                  <div
+                    key={`${patientId}-${card.metricsType}`}
+                    className="space-y-2"
+                  >
+                    <MetricCard
+                      patientId={patientId}
+                      metricsType={card.metricsType}
+                      values={card.values}
+                      unit={card.unit}
+                      handleClick={() =>
+                        handleClickMetricCard(card.metricsType)
+                      }
+                    />
+                    {isExpanded && (
+                      <TrackingChart
+                        title={chartConfig.title}
+                        metricType={card.metricsType}
+                        selectedDate={selectedDate}
+                        entries={chartConfig.entries}
+                        hasData={chartConfig.hasData}
+                        unit={card.unit}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500">Weight / BMI</p>
-              <p className="text-lg font-semibold text-lime-700">
-                {weightKg} kg
-                <span className="ml-1 text-sm font-normal text-slate-500">
-                  BMI {bmi}
-                </span>
-              </p>
-            </div>
-          </div> */}
+          )}
         </div>
-      </div>
+      )}
     </aside>
   );
 }

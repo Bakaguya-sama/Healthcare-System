@@ -34,6 +34,9 @@ type ChatTarget = {
   patientName: string;
   patientUrl?: string;
   patientIsOnline: boolean;
+  patientNote?: string;
+  doctorNote?: string;
+  status?: string;
 };
 
 type RequestAction = "accept" | "decline";
@@ -73,15 +76,20 @@ export function Consultations() {
     patientAvatarUrl?: string;
     patientRating?: number;
     patientReview?: string;
+    patientNote?: string;
+    doctorNote?: string;
+    status?: string;
     endedAt?: Date;
   } | null>(null);
   const [isChatOpen, setChatOpen] = useState(false);
   const [selectedChatSession, setSelectedChatSession] =
     useState<ChatTarget | null>(null);
   const me = useAuthStore();
+  const profileUserId = selectedChatSession?.patientId || selectedUserId;
+  const shouldFetchProfile = isProfileModalOpen || isChatOpen;
   const { data: profileData } = useViewProfile(
-    selectedUserId,
-    isProfileModalOpen,
+    profileUserId,
+    shouldFetchProfile,
   );
   const { isLoading: reportLoading, submitReport } = useReport();
 
@@ -100,6 +108,7 @@ export function Consultations() {
     name: me.user?.name,
   };
   const isPageLoading = isLoading || reportLoading;
+  console.log(consultations);
 
   // Transform and filter consultations by status
   const pendingRequests = (consultations || [])
@@ -110,6 +119,7 @@ export function Consultations() {
       patientUrl: c.patientId.avatarUrl,
       createdAt: new Date(c.createdAt),
       patientNote: c.patientNotes || "",
+      status: c.status,
     }));
 
   const activeSessions = (consultations || [])
@@ -121,6 +131,8 @@ export function Consultations() {
       patientUrl: c.patientId.avatarUrl,
       patientIsOnline: false, // TODO: track online status
       lastSent: c.startedAt ? new Date(c.startedAt) : new Date(c.createdAt),
+      patientNote: c.patientNotes,
+      status: c.status,
     }));
 
   const historyItems = (consultations || [])
@@ -134,6 +146,9 @@ export function Consultations() {
       patientReview: c.review?.comment,
       sessionStatus: c.status as "completed" | "rejected",
       endedAt: c.endedAt ? new Date(c.endedAt) : undefined,
+      patientNote: c.patientNotes,
+      doctorNote: c.doctorNotes,
+      status: c.status,
     }));
 
   const handleCloseEndChatModal = () => {
@@ -328,7 +343,10 @@ export function Consultations() {
       patientAvatarUrl: session.patientAvatarUrl,
       patientRating: session.patientRating,
       patientReview: session.patientReview,
+      patientNote: session.patientNote,
+      doctorNote: session.doctorNote,
       endedAt: session.endedAt,
+      status: session.status,
     });
     setReviewModalOpen(true);
   };
@@ -345,6 +363,8 @@ export function Consultations() {
         patientName: activeSession.patientName,
         patientUrl: activeSession.patientUrl,
         patientIsOnline: activeSession.patientIsOnline,
+        patientNote: activeSession.patientNote,
+        status: activeSession.status,
       });
       setChatOpen(true);
       return;
@@ -361,6 +381,9 @@ export function Consultations() {
         patientName: historySession.patientName,
         patientUrl: historySession.patientAvatarUrl,
         patientIsOnline: false,
+        patientNote: historySession.patientNote,
+        doctorNote: historySession.doctorNote,
+        status: historySession.status,
       });
       setChatOpen(true);
       return;
@@ -761,9 +784,17 @@ export function Consultations() {
         // sessionStatus={}
         sessionId={selectedChatSession?.sessionId || ""}
         isOpen={isChatOpen}
+        sessionStatus={selectedChatSession?.status}
+        patientId={selectedChatSession?.patientId}
         patientName={selectedChatSession?.patientName || ""}
         patientUrl={selectedChatSession?.patientUrl}
         patientIsOnline={selectedChatSession?.patientIsOnline || false}
+        patientBirthday={profileData?.date_of_birth}
+        patientGender={profileData?.gender}
+        patientNote={selectedChatSession?.patientNote}
+        doctorNote={selectedChatSession?.doctorNote}
+        doctorName={me.user?.name || ""}
+        doctorUrl={me.user?.avatar || ""}
         onLoadMessages={handleLoadMessages}
         onClose={handleCloseChatWindow}
         onViewProfile={handleChatViewProfile}

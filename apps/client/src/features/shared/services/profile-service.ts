@@ -16,6 +16,7 @@ export type UserInformation = {
   full_name: string;
   email: string;
   phone_number: string;
+  date_of_birth: string;
   gender: string;
   account_status: AccountStatus;
   created_at: string;

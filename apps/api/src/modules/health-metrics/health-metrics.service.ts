@@ -125,9 +125,26 @@ export class HealthMetricsService {
   /**
    * 📊 LẤY TẤT CẢ METRICS CỦA USER
    */
-  async findAll(userId: string, query: QueryHealthMetricDto) {
+  async findAll(
+    userId: string,
+    userRole: string | undefined,
+    query: QueryHealthMetricDto,
+  ) {
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
+    }
+
+    let patientId = userId;
+    if (query.patientId) {
+      if (!Types.ObjectId.isValid(query.patientId)) {
+        throw new BadRequestException('Invalid patient ID');
+      }
+
+      if (userRole !== 'doctor' && userRole !== 'admin') {
+        throw new BadRequestException('Not allowed to view patient metrics');
+      }
+
+      patientId = query.patientId;
     }
 
     const filter: {
@@ -138,7 +155,7 @@ export class HealthMetricsService {
         $lte?: Date;
       };
     } = {
-      patientId: new Types.ObjectId(userId),
+      patientId: new Types.ObjectId(patientId),
     };
 
     // Apply filters
