@@ -133,7 +133,13 @@ export class ReviewsService {
   async findAll(query: QueryReviewDto) {
     const filter: any = {};
 
-    // Apply filters
+    if (query.doctorSessionId) {
+      if (!Types.ObjectId.isValid(query.doctorSessionId)) {
+        throw new BadRequestException('Invalid session ID');
+      }
+      filter.doctorSessionId = new Types.ObjectId(query.doctorSessionId);
+    }
+
     if (query.doctorId) {
       if (!Types.ObjectId.isValid(query.doctorId)) {
         throw new BadRequestException('Invalid doctor ID');

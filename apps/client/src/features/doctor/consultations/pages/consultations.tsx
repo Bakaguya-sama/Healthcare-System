@@ -15,169 +15,13 @@ import {
 import { ChatWindow } from "@/features/chat/window/chat-window";
 import type { SendMessagePayload } from "@/features/chat/components/send-bar";
 import { chatService } from "@/features/chat/services/chat.service";
+import { useConsultations } from "../hooks/useConsultations";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { useViewProfile } from "@/features/shared/hooks/useProfile";
+import { useReport } from "@/features/shared/hooks/useReport";
 
 type TabSwitch = "pending-requests" | "active-sessions" | "history";
 
-const initialPendingRequests = [
-  {
-    id: "req-1",
-    patientName: "Sarah Mitchell",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
-    patientBirthDay: new Date("1997-05-12"),
-    patientGender: "Female",
-    patientNote: "",
-    createdAt: new Date(Date.now() - 5 * 60 * 1000),
-    isOnline: false,
-  },
-  {
-    id: "req-2",
-    patientName: "James O'Brien",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=160&q=80",
-    patientBirthDay: new Date("1980-11-03"),
-    patientGender: "Male",
-    patientNote:
-      "Feeling chest tightness and shortness of breath mainly during physical activity. I have a history of hypertension and have been a smoker for 12 years.",
-    createdAt: new Date(Date.now() - 12 * 60 * 1000),
-    isOnline: false,
-  },
-  {
-    id: "req-3",
-    patientName: "Mei Tanaka",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=160&q=80",
-    patientBirthDay: new Date("1958-09-18"),
-    patientGender: "Female",
-    patientNote:
-      "Recurring dizziness and fatigue, especially bad in the mornings. Currently on blood pressure medication and would like to discuss my symptoms.",
-    createdAt: new Date(Date.now() - 18 * 60 * 1000),
-    isOnline: false,
-  },
-  {
-    id: "req-4",
-    patientName: "David Park",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=80",
-    patientBirthDay: new Date("1993-02-08"),
-    patientGender: "Male",
-    patientNote:
-      "Severe lower back pain after a gym workout 2 days ago. I have a sharp pain radiating to my left leg and I am unable to stand fully upright.",
-    createdAt: new Date(Date.now() - 23 * 60 * 1000),
-    isOnline: false,
-  },
-  {
-    id: "req-5",
-    patientName: "Fatima Al-Hassan",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=160&q=80",
-    patientBirthDay: new Date("1987-07-27"),
-    patientGender: "Female",
-    patientNote:
-      "A skin rash started on my arms 4 days ago and has been gradually spreading. It is itchy and warm to the touch with no recent changes to diet or detergents.",
-    createdAt: new Date(Date.now() - 31 * 60 * 1000),
-    isOnline: false,
-  },
-  {
-    id: "req-6",
-    patientName: "Ethan Brooks",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=160&q=80",
-    patientBirthDay: new Date("2008-04-14"),
-    patientGender: "Male",
-    patientNote:
-      "High fever of 39.2C and very sore throat for the past 2 days. Having difficulty swallowing. Guardian will be available throughout the consultation.",
-    createdAt: new Date(Date.now() - 47 * 60 * 1000),
-    isOnline: false,
-  },
-];
-
-const initialActiveSessionCount = 2;
-
-const initialActiveSessions = [
-  {
-    id: "session-1",
-    sessionId: "sess-001",
-    patientId: "pat-001",
-    patientName: "Robert Wilson",
-    patientUrl:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=80",
-    patientIsOnline: true,
-    lastSent: new Date(Date.now() - 2 * 60 * 1000),
-  },
-  {
-    id: "session-2",
-    sessionId: "sess-002",
-    patientId: "pat-002",
-    patientName: "Jennifer Lopez",
-    patientUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
-    patientIsOnline: true,
-    lastSent: new Date(Date.now() - 8 * 60 * 1000),
-  },
-];
-
-const initialConsultationHistory = [
-  {
-    sessionId: "hist-001",
-    patientId: "pat-201",
-    patientName: "Aria Johnson",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
-    patientRating: 5,
-    patientReview: "Very clear explanation and treatment plan.",
-    sessionStatus: "completed" as const,
-    endedAt: new Date(),
-  },
-  {
-    sessionId: "hist-002",
-    patientId: "pat-202",
-    patientName: "Tom Nguyen",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=160&q=80",
-    patientRating: 4,
-    patientReview: "Helpful prescription advice for seasonal allergy.",
-    sessionStatus: "completed" as const,
-    endedAt: new Date(Date.now() - 35 * 60 * 1000),
-  },
-  {
-    sessionId: "hist-003",
-    patientId: "pat-203",
-    patientName: "Brenda Cole",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=160&q=80",
-    patientRating: 0,
-    patientReview: "Session was stopped before completion.",
-    sessionStatus: "rejected" as const,
-    endedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-  },
-  {
-    sessionId: "hist-004",
-    patientId: "pat-204",
-    patientName: "Omar Fadel",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=80",
-    patientRating: 5,
-    patientReview: "Fast and practical guidance. Thank you doctor.",
-    sessionStatus: "completed" as const,
-    endedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-  },
-  {
-    sessionId: "hist-005",
-    patientId: "pat-205",
-    patientName: "Linda Marsh",
-    patientAvatarUrl:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=80",
-    patientRating: 0,
-    patientReview: "Patient did not complete verification flow.",
-    sessionStatus: "rejected" as const,
-    endedAt: new Date(Date.now() - 29 * 60 * 60 * 1000),
-  },
-];
-
-type PendingRequest = (typeof initialPendingRequests)[number];
-type ActiveSession = (typeof initialActiveSessions)[number];
-type ConsultationHistorySession = (typeof initialConsultationHistory)[number];
 type ReportTarget = {
   sessionId: string;
   patientId: string;
@@ -207,41 +51,90 @@ export function Consultations() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [activeSessionSearchTerm, setActiveSessionSearchTerm] = useState("");
-  const [requests, setRequests] = useState<PendingRequest[]>(
-    initialPendingRequests,
-  );
-  const [activeSessions, setActiveSessions] = useState<number>(
-    initialActiveSessionCount,
-  );
-  const [activeSessionsList, setActiveSessionsList] = useState<ActiveSession[]>(
-    initialActiveSessions,
-  );
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(
     null,
   );
   const [processingAction, setProcessingAction] =
     useState<RequestAction | null>(null);
-  const [actionError, setActionError] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [endChatModalOpen, setEndChatModalOpen] = useState(false);
-  const [selectedEndSession, setSelectedEndSession] =
-    useState<ActiveSession | null>(null);
+  const [selectedEndSession, setSelectedEndSession] = useState<{
+    sessionId: string;
+    patientName: string;
+  } | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [selectedReportSession, setSelectedReportSession] =
     useState<ReportTarget | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [selectedReviewSession, setSelectedReviewSession] =
-    useState<ConsultationHistorySession | null>(null);
+  const [selectedReviewSession, setSelectedReviewSession] = useState<{
+    sessionId: string;
+    patientName: string;
+    patientAvatarUrl?: string;
+    patientRating?: number;
+    patientReview?: string;
+    endedAt?: Date;
+  } | null>(null);
   const [isChatOpen, setChatOpen] = useState(false);
   const [selectedChatSession, setSelectedChatSession] =
     useState<ChatTarget | null>(null);
+  const me = useAuthStore();
+  const { data: profileData } = useViewProfile(
+    selectedUserId,
+    isProfileModalOpen,
+  );
+  const { isLoading: reportLoading, submitReport } = useReport();
 
-  // TODO: fetch doctor data
+  // API Hook
+  const {
+    data: consultations,
+    isLoading,
+    error,
+    approve,
+    reject,
+    complete,
+  } = useConsultations();
+
   const currentDoctorData = {
-    id: "doctor-demo-001",
-    name: "Dr. Marcus Lee",
+    id: me.user?.id,
+    name: me.user?.name,
   };
+  const isPageLoading = isLoading || reportLoading;
+
+  // Transform and filter consultations by status
+  const pendingRequests = (consultations || [])
+    .filter((c) => c.status === "pending")
+    .map((c) => ({
+      id: c.id,
+      patientName: c.patientId.fullName,
+      patientUrl: c.patientId.avatarUrl,
+      createdAt: new Date(c.createdAt),
+      patientNote: c.patientNotes || "",
+    }));
+
+  const activeSessions = (consultations || [])
+    .filter((c) => c.status === "active")
+    .map((c) => ({
+      sessionId: c.id,
+      patientId: c.patientId._id,
+      patientName: c.patientId.fullName,
+      patientUrl: c.patientId.avatarUrl,
+      patientIsOnline: false, // TODO: track online status
+      lastSent: c.startedAt ? new Date(c.startedAt) : new Date(c.createdAt),
+    }));
+
+  const historyItems = (consultations || [])
+    .filter((c) => c.status === "completed" || c.status === "rejected")
+    .map((c) => ({
+      sessionId: c.id,
+      patientId: c.patientId._id,
+      patientName: c.patientId.fullName,
+      patientAvatarUrl: c.patientId.avatarUrl,
+      patientRating: c.review?.rating,
+      patientReview: c.review?.comment,
+      sessionStatus: c.status as "completed" | "rejected",
+      endedAt: c.endedAt ? new Date(c.endedAt) : undefined,
+    }));
 
   const handleCloseEndChatModal = () => {
     setEndChatModalOpen(false);
@@ -263,34 +156,20 @@ export function Consultations() {
     setSelectedChatSession(null);
   };
 
-  const handleEndChat = ({
+  const handleEndChat = async ({
     sessionId,
     notes,
   }: {
     sessionId: string;
     notes: string;
   }) => {
-    const session = activeSessionsList.find(
-      (item) => item.sessionId === sessionId,
-    );
-    if (!session) return;
-
-    setActiveSessionsList((prev) =>
-      prev.filter((item) => item.sessionId !== sessionId),
-    );
-    setActiveSessions((prev) => Math.max(0, prev - 1));
-
-    // Close chat only after the end consultation has been confirmed.
-    handleCloseChatWindow();
-
-    if (notes) {
-      showToast.success(
-        `Consultation with ${session.patientName} ended and notes saved.`,
-      );
-      return;
+    try {
+      await complete(sessionId, notes);
+      showToast.success(`Consultation ended and notes saved.`);
+      handleCloseChatWindow();
+    } catch {
+      showToast.error("Failed to end consultation. Please try again.");
     }
-
-    showToast.success(`Consultation with ${session.patientName} ended.`);
   };
 
   const handleChatSend = async (payload: SendMessagePayload) => {
@@ -331,20 +210,6 @@ export function Consultations() {
     setSelectedUserId(null);
   };
 
-  const simulateRequestApi = (action: RequestAction, requestId: string) => {
-    return new Promise<void>((resolve, reject) => {
-      const delay = 700 + Math.floor(Math.random() * 600);
-      setTimeout(() => {
-        // Simulate occasional network errors so the UI flow can be tested.
-        if (Math.random() < 0.12) {
-          reject(new Error(`Failed to ${action} request ${requestId}`));
-          return;
-        }
-        resolve();
-      }, delay);
-    });
-  };
-
   //   Handle accept & decline here
   const handleRequestAction = async (
     action: RequestAction,
@@ -352,20 +217,18 @@ export function Consultations() {
   ) => {
     if (processingRequestId) return;
 
-    const targetRequest = requests.find((request) => request.id === requestId);
+    const targetRequest = pendingRequests.find(
+      (request) => request.id === requestId,
+    );
     if (!targetRequest) return;
 
     setProcessingRequestId(requestId);
     setProcessingAction(action);
-    setActionError(false);
-
     try {
-      await simulateRequestApi(action, requestId);
-
-      setRequests((prev) => prev.filter((request) => request.id !== requestId));
-
       if (action === "accept") {
-        setActiveSessions((prev) => prev + 1);
+        await approve(requestId);
+      } else {
+        await reject(requestId);
       }
 
       showToast.success(
@@ -374,7 +237,6 @@ export function Consultations() {
           : `Declined request from ${targetRequest.patientName}.`,
       );
     } catch {
-      setActionError(true);
       showToast.error(
         `Could not ${action} this request. Please try again in a moment.`,
       );
@@ -387,20 +249,24 @@ export function Consultations() {
   // Handle active session actions
   const handleViewProfile = (patientId: string) => {
     // TODO: Navigate to patient profile or open modal
+    console.log("patient", patientId);
     setSelectedUserId(patientId);
     setProfileModalOpen(true);
   };
 
   const handleEndConsultation = (sessionId: string) => {
-    const session = activeSessionsList.find((s) => s.sessionId === sessionId);
+    const session = activeSessions.find((s) => s.sessionId === sessionId);
     if (session) {
-      setSelectedEndSession(session);
+      setSelectedEndSession({
+        sessionId: session.sessionId,
+        patientName: session.patientName,
+      });
       setEndChatModalOpen(true);
     }
   };
 
   const handleReportPatient = (sessionId: string) => {
-    const session = activeSessionsList.find((s) => s.sessionId === sessionId);
+    const session = activeSessions.find((s) => s.sessionId === sessionId);
     if (!session) return;
 
     setSelectedReportSession({
@@ -411,7 +277,10 @@ export function Consultations() {
     setReportModalOpen(true);
   };
 
-  const handleReportFromHistory = (session: ConsultationHistorySession) => {
+  const handleReportFromHistory = (sessionId: string) => {
+    const session = historyItems.find((item) => item.sessionId === sessionId);
+    if (!session) return;
+
     setSelectedReportSession({
       sessionId: session.sessionId,
       patientId: session.patientId,
@@ -420,33 +289,52 @@ export function Consultations() {
     setReportModalOpen(true);
   };
 
-  const handleOpenReview = (sessionId: string) => {
-    const session = initialConsultationHistory.find(
-      (item) => item.sessionId === sessionId,
-    );
-    if (!session) return;
-
-    setSelectedReviewSession(session);
-    setReviewModalOpen(true);
-  };
-
-  const handleSubmitReport = (_payload: {
-    sessionId: string;
+  const handleSubmitReport = async (payload: {
     target: ReportActor;
     reporter: ReportActor;
     reportType: ReportType;
     reason: string;
   }) => {
-    void _payload;
-    // TODO: Call API to submit report with _payload.
-    // NOTE: As requested, submitting a report must close ChatWindow immediately
-    // and must not open EndConsultationModal. Doctor notes flow will be handled later.
+    const reportedUserId =
+      selectedReportSession?.patientId || payload.target.id;
+
+    if (!reportedUserId) {
+      showToast.error("Unable to determine who to report.");
+      throw new Error("Unable to determine who to report.");
+    }
+
+    const response = await submitReport({
+      reportedUserId,
+      reportType: payload.reportType,
+      reason: payload.reason,
+    });
+
+    if (!response) {
+      showToast.error("Failed to submit report. Please try again.");
+      throw new Error("Failed to submit report.");
+    }
+
     handleCloseChatWindow();
-    showToast.success(`Report submitted successfully.`);
+    showToast.success("Report submitted successfully.");
+  };
+
+  const handleOpenReview = (sessionId: string) => {
+    const session = historyItems.find((item) => item.sessionId === sessionId);
+    if (!session) return;
+
+    setSelectedReviewSession({
+      sessionId: session.sessionId,
+      patientName: session.patientName,
+      patientAvatarUrl: session.patientAvatarUrl,
+      patientRating: session.patientRating,
+      patientReview: session.patientReview,
+      endedAt: session.endedAt,
+    });
+    setReviewModalOpen(true);
   };
 
   const handleOpenChat = (sessionId: string) => {
-    const activeSession = activeSessionsList.find(
+    const activeSession = activeSessions.find(
       (session) => session.sessionId === sessionId,
     );
 
@@ -462,7 +350,7 @@ export function Consultations() {
       return;
     }
 
-    const historySession = initialConsultationHistory.find(
+    const historySession = historyItems.find(
       (session) => session.sessionId === sessionId,
     );
 
@@ -481,6 +369,21 @@ export function Consultations() {
     showToast.error("Could not open this chat session.");
   };
 
+  const handleChatEndConsultation = () => {
+    if (!selectedChatSession) return;
+
+    const activeSession = activeSessions.find(
+      (session) => session.sessionId === selectedChatSession.sessionId,
+    );
+
+    if (!activeSession) {
+      showToast.error("This consultation is no longer active.");
+      return;
+    }
+
+    handleEndConsultation(selectedChatSession.sessionId);
+  };
+
   const handleChatViewProfile = () => {
     if (!selectedChatSession) return;
     handleViewProfile(selectedChatSession.patientId);
@@ -496,22 +399,7 @@ export function Consultations() {
     setReportModalOpen(true);
   };
 
-  const handleChatEndConsultation = () => {
-    if (!selectedChatSession) return;
-
-    const activeSession = activeSessionsList.find(
-      (session) => session.sessionId === selectedChatSession.sessionId,
-    );
-
-    if (!activeSession) {
-      showToast.error("This consultation is no longer active.");
-      return;
-    }
-
-    handleEndConsultation(selectedChatSession.sessionId);
-  };
-
-  const filteredRequests = requests
+  const filteredRequests = pendingRequests
     .filter((item) => {
       const keyword = searchTerm.trim().toLowerCase();
       if (!keyword) return true;
@@ -525,7 +413,7 @@ export function Consultations() {
       return sortBy === "newest" ? newestFirst : -newestFirst;
     });
 
-  const filteredHistory = initialConsultationHistory
+  const filteredHistory = historyItems
     .filter((session) => {
       const keyword = searchTerm.trim().toLowerCase();
       if (!keyword) return true;
@@ -542,6 +430,19 @@ export function Consultations() {
 
   return (
     <div className="w-full p-6">
+      {isPageLoading && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-white/75 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-3xl border border-slate-200 bg-white px-8 py-6 shadow-xl">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-lime-500" />
+            <p className="text-sm font-medium text-slate-700">
+              {reportLoading
+                ? "Submitting report..."
+                : "Loading consultations..."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
         <div className="mb-5">
           <h1 className="text-3xl font-semibold text-slate-900">
@@ -549,254 +450,276 @@ export function Consultations() {
           </h1>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-100">
-          <div className="flex items-center gap-8 border-b border-slate-200 bg-white px-6 pt-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("pending-requests")}
-              className={`${getTabClass(activeTab === "pending-requests")} cursor-pointer`}
-            >
-              Pending Requests
-              <span className=" inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
-                {requests.length}
-              </span>
-            </button>
+        {/* Loading & Error States */}
+        {isLoading && !reportLoading && (
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-12">
+            <div className="text-center">
+              <div className="mb-3 inline-flex h-10 w-10 animate-spin rounded-full border-4 border-slate-300 border-t-lime-500"></div>
+              <p className="text-slate-600">Loading consultations...</p>
+            </div>
+          </div>
+        )}
 
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+            <p className="text-sm font-medium text-red-800">Error: {error}</p>
             <button
-              type="button"
-              onClick={() => setActiveTab("active-sessions")}
-              className={`${getTabClass(activeTab === "active-sessions")} cursor-pointer`}
+              onClick={() => window.location.reload()}
+              className="mt-2 text-sm text-red-600 hover:text-red-700 underline"
             >
-              Active Sessions
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
-                {activeSessions}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("history")}
-              className={`${getTabClass(activeTab === "history")} cursor-pointer`}
-            >
-              History
+              Reload page
             </button>
           </div>
+        )}
 
-          {activeTab === "pending-requests" && (
-            <>
-              <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-                <label className="relative block w-full md:max-w-xs">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    type="text"
-                    placeholder="Search by name or symptom..."
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
-                  />
-                </label>
+        {!isLoading && !error && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-100">
+            <div className="flex items-center gap-8 border-b border-slate-200 bg-white px-6 pt-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("pending-requests")}
+                className={`${getTabClass(activeTab === "pending-requests")} cursor-pointer`}
+              >
+                Pending Requests
+                <span className=" inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
+                  {pendingRequests.length}
+                </span>
+              </button>
 
-                <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
-                  Sort by:
-                  <span className="relative inline-flex">
-                    <select
-                      value={sortBy}
-                      onChange={(e) =>
-                        setSortBy(e.target.value as "newest" | "oldest")
-                      }
-                      className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
-                    >
-                      <option value="newest">Latest</option>
-                      <option value="oldest">Oldest</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  </span>
-                </label>
-              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab("active-sessions")}
+                className={`${getTabClass(activeTab === "active-sessions")} cursor-pointer`}
+              >
+                Active Sessions
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-400 px-1 text-[11px] font-semibold text-slate-900">
+                  {activeSessions.length}
+                </span>
+              </button>
 
-              <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
-                {filteredRequests.length > 0 ? (
-                  filteredRequests.map((item) => (
-                    <PendingRequestCard
-                      key={item.id}
-                      id={item.id}
-                      patientName={item.patientName}
-                      patientAvatarUrl={item.patientAvatarUrl}
-                      patientBirthDay={item.patientBirthDay}
-                      patientGender={item.patientGender}
-                      patientNote={item.patientNote}
-                      createdAt={item.createdAt}
-                      onAccept={() => handleRequestAction("accept", item.id)}
-                      onDecline={() => handleRequestAction("decline", item.id)}
-                      isAccepting={
-                        processingRequestId === item.id &&
-                        processingAction === "accept"
-                      }
-                      isDeclining={
-                        processingRequestId === item.id &&
-                        processingAction === "decline"
-                      }
+              <button
+                type="button"
+                onClick={() => setActiveTab("history")}
+                className={`${getTabClass(activeTab === "history")} cursor-pointer`}
+              >
+                History
+              </button>
+            </div>
+
+            {activeTab === "pending-requests" && (
+              <>
+                <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <label className="relative block w-full md:max-w-xs">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      type="text"
+                      placeholder="Search by name or symptom..."
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
                     />
-                  ))
-                ) : (
+                  </label>
+
+                  <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
+                    Sort by:
+                    <span className="relative inline-flex">
+                      <select
+                        value={sortBy}
+                        onChange={(e) =>
+                          setSortBy(e.target.value as "newest" | "oldest")
+                        }
+                        className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
+                      >
+                        <option value="newest">Latest</option>
+                        <option value="oldest">Oldest</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
+                  {filteredRequests.length > 0 ? (
+                    filteredRequests.map((item) => (
+                      <PendingRequestCard
+                        key={item.id}
+                        id={item.id}
+                        patientName={item.patientName}
+                        patientAvatarUrl={item.patientUrl}
+                        patientBirthDay={new Date()} // TODO: get from patient profile
+                        patientGender="" // TODO: get from patient profile
+                        patientNote={item.patientNote}
+                        createdAt={item.createdAt}
+                        onAccept={() => handleRequestAction("accept", item.id)}
+                        onDecline={() =>
+                          handleRequestAction("decline", item.id)
+                        }
+                        isAccepting={
+                          processingRequestId === item.id &&
+                          processingAction === "accept"
+                        }
+                        isDeclining={
+                          processingRequestId === item.id &&
+                          processingAction === "decline"
+                        }
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center py-8 text-slate-500">
+                      No results match your search.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeTab === "active-sessions" && (
+              <>
+                <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+                  <label className="relative block w-full md:max-w-xs">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={activeSessionSearchTerm}
+                      onChange={(e) =>
+                        setActiveSessionSearchTerm(e.target.value)
+                      }
+                      type="text"
+                      placeholder="Search by patient name..."
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-1">
+                  {activeSessions
+                    .filter((session) => {
+                      const keyword = activeSessionSearchTerm
+                        .trim()
+                        .toLowerCase();
+                      if (!keyword) return true;
+                      return session.patientName
+                        .toLowerCase()
+                        .includes(keyword);
+                    })
+                    .map((session) => (
+                      <ActiveSessionCard
+                        key={session.sessionId}
+                        sessionId={session.sessionId}
+                        patientId={session.patientId}
+                        patientName={session.patientName}
+                        patientUrl={session.patientUrl}
+                        patientIsOnline={session.patientIsOnline}
+                        lastSent={session.lastSent}
+                        onOpenchat={() => handleOpenChat(session.sessionId)}
+                        onViewProfile={() =>
+                          handleViewProfile(session.patientId)
+                        }
+                        onEndConsultation={() =>
+                          handleEndConsultation(session.sessionId)
+                        }
+                        onReport={() => handleReportPatient(session.sessionId)}
+                      />
+                    ))}
+                </div>
+
+                {activeSessions.filter((session) => {
+                  const keyword = activeSessionSearchTerm.trim().toLowerCase();
+                  if (!keyword) return true;
+                  return session.patientName.toLowerCase().includes(keyword);
+                }).length === 0 && (
                   <div className="col-span-full text-center py-8 text-slate-500">
-                    No results match your search.
+                    No active sessions found.
                   </div>
                 )}
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {activeTab === "active-sessions" && (
-            <>
-              <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
-                <label className="relative block w-full md:max-w-xs">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={activeSessionSearchTerm}
-                    onChange={(e) => setActiveSessionSearchTerm(e.target.value)}
-                    type="text"
-                    placeholder="Search by patient name..."
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-1">
-                {activeSessionsList
-                  .filter((session) => {
-                    const keyword = activeSessionSearchTerm
-                      .trim()
-                      .toLowerCase();
-                    if (!keyword) return true;
-                    return session.patientName.toLowerCase().includes(keyword);
-                  })
-                  .map((session) => (
-                    <ActiveSessionCard
-                      key={session.sessionId}
-                      sessionId={session.sessionId}
-                      patientId={session.patientId}
-                      patientName={session.patientName}
-                      patientUrl={session.patientUrl}
-                      patientIsOnline={session.patientIsOnline}
-                      lastSent={session.lastSent}
-                      onOpenchat={() => handleOpenChat(session.sessionId)}
-                      onViewProfile={() => handleViewProfile(session.patientId)}
-                      onEndConsultation={() =>
-                        handleEndConsultation(session.sessionId)
-                      }
-                      onReport={() => handleReportPatient(session.sessionId)}
+            {activeTab === "history" && (
+              <>
+                <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <label className="relative block w-full md:max-w-xs">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      type="text"
+                      placeholder="Search patient or review..."
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
                     />
-                  ))}
-              </div>
+                  </label>
 
-              {activeSessionsList.filter((session) => {
-                const keyword = activeSessionSearchTerm.trim().toLowerCase();
-                if (!keyword) return true;
-                return session.patientName.toLowerCase().includes(keyword);
-              }).length === 0 && (
-                <div className="col-span-full text-center py-8 text-slate-500">
-                  No active sessions found.
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === "history" && (
-            <>
-              <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-                <label className="relative block w-full md:max-w-xs">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    type="text"
-                    placeholder="Search patient or review..."
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-lime-500"
-                  />
-                </label>
-
-                <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
-                  Sort by:
-                  <span className="relative inline-flex">
-                    <select
-                      value={sortBy}
-                      onChange={(e) =>
-                        setSortBy(e.target.value as "newest" | "oldest")
-                      }
-                      className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
-                    >
-                      <option value="newest">Latest</option>
-                      <option value="oldest">Oldest</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  </span>
-                </label>
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <div className="grid min-w-[900px] grid-cols-[2fr_3fr_2fr_1.2fr_1.2fr_0.8fr] gap-3 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  <span>Patient</span>
-                  <span>Date & Time</span>
-                  <span>Status</span>
-                  <span>Rating</span>
-                  <span>Review</span>
-                  <span className="text-right">Action</span>
+                  <label className="inline-flex items-center gap-2 self-end text-xs text-slate-400 md:self-auto">
+                    Sort by:
+                    <span className="relative inline-flex">
+                      <select
+                        value={sortBy}
+                        onChange={(e) =>
+                          setSortBy(e.target.value as "newest" | "oldest")
+                        }
+                        className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none"
+                      >
+                        <option value="newest">Latest</option>
+                        <option value="oldest">Oldest</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </span>
+                  </label>
                 </div>
 
-                {filteredHistory.length > 0 ? (
-                  filteredHistory.map((session) => (
-                    <ConsultationHistoryCard
-                      key={session.sessionId}
-                      sessionId={session.sessionId}
-                      patientId={session.patientId}
-                      patientName={session.patientName}
-                      patientAvatarUrl={session.patientAvatarUrl}
-                      patientRating={session.patientRating}
-                      patientReview={session.patientReview}
-                      sessionStatus={session.sessionStatus}
-                      endedAt={session.endedAt}
-                      onOpenchat={() => handleOpenChat(session.sessionId)}
-                      onViewProfile={() => handleViewProfile(session.patientId)}
-                      onOpenReview={() => handleOpenReview(session.sessionId)}
-                      onReport={() => handleReportFromHistory(session)}
-                    />
-                  ))
-                ) : (
-                  <div className="px-4 py-8 text-center text-sm text-slate-500">
-                    No consultation history matches your search.
+                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                  <div className="grid min-w-225 grid-cols-[2fr_3fr_2fr_1.2fr_1.2fr_0.8fr] gap-3 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    <span>Patient</span>
+                    <span>Date & Time</span>
+                    <span>Status</span>
+                    <span>Rating</span>
+                    <span>Review</span>
+                    <span className="text-right">Action</span>
                   </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+
+                  {filteredHistory.length > 0 ? (
+                    filteredHistory.map((session) => (
+                      <ConsultationHistoryCard
+                        key={session.sessionId}
+                        sessionId={session.sessionId}
+                        patientId={session.patientId}
+                        patientName={session.patientName}
+                        patientAvatarUrl={session.patientAvatarUrl}
+                        patientRating={session.patientRating}
+                        patientReview={session.patientReview}
+                        sessionStatus={session.sessionStatus}
+                        endedAt={session.endedAt}
+                        onOpenchat={() => handleOpenChat(session.sessionId)}
+                        onViewProfile={() =>
+                          handleViewProfile(session.patientId)
+                        }
+                        onOpenReview={() => handleOpenReview(session.sessionId)}
+                        onReport={() =>
+                          handleReportFromHistory(session.sessionId)
+                        }
+                      />
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-slate-500">
+                      No consultation history matches your search.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
       <ProfileModal
         id={selectedUserId || ""}
         isOpen={isProfileModalOpen}
         onClose={handleCloseProfileModal}
-        profileSeed={
-          selectedUserId
-            ? {
-                id: selectedUserId,
-                full_name:
-                  selectedChatSession?.patientName ||
-                  selectedReportSession?.patientName ||
-                  selectedReviewSession?.patientName ||
-                  "Selected Patient",
-                role: "patient",
-                avatar_url:
-                  selectedChatSession?.patientUrl ||
-                  selectedReviewSession?.patientAvatarUrl,
-              }
-            : undefined
-        }
+        profileSeed={profileData ? profileData : undefined}
         reportViewer={{
           id: currentDoctorData.id,
           name: currentDoctorData.name,
           role: "doctor",
         }}
+        onSubmitReport={handleSubmitReport}
       />
 
       <EndConsultationModal
@@ -809,7 +732,6 @@ export function Consultations() {
 
       <ReportModal
         isOpen={reportModalOpen}
-        sessionId={selectedReportSession?.sessionId || ""}
         target={{
           id: selectedReportSession?.patientId || "",
           name: selectedReportSession?.patientName || "",

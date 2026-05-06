@@ -60,6 +60,7 @@ export function ReportModal({
 }: ReportModalProps) {
   const [selectedType, setSelectedType] = useState<ReportType>(reportType);
   const [reportReason, setReportReason] = useState(reason ?? "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -72,17 +73,26 @@ export function ReportModal({
     () => MAX_REASON_LENGTH - reportReason.length,
     [reportReason],
   );
+  const trimmedReason = reportReason.trim();
+  const isReasonValid = trimmedReason.length >= 5;
 
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
-    onConfirm({
-      target,
-      reporter,
-      reportType: selectedType,
-      reason: reportReason.trim(),
-    });
-    onClose();
+  const handleConfirm = async () => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      await onConfirm({
+        target,
+        reporter,
+        reportType: selectedType,
+        reason: reportReason.trim(),
+      });
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const targetLabel =
@@ -174,9 +184,9 @@ export function ReportModal({
             size="lg"
             onClick={handleConfirm}
             className="h-12 rounded-2xl bg-red-500 text-white hover:bg-red-600"
-            disabled={!reportReason.trim()}
+            disabled={!isReasonValid || isSubmitting}
           >
-            Submit Report
+            {isSubmitting ? "Submitting..." : "Submit Report"}
           </Button>
         </div>
       </div>

@@ -168,9 +168,6 @@ export function ConsultationHistoryCard({
           <p className="truncate text-sm font-semibold text-slate-800">
             {patientName}
           </p>
-          <p className="truncate text-xs text-slate-400">
-            Session #{sessionId}
-          </p>
         </div>
       </div>
 

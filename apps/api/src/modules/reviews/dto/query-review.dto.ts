@@ -1,14 +1,13 @@
-import {
-  IsOptional,
-  IsNumber,
-  Min,
-  Max,
-  IsMongoId,
-} from 'class-validator';
+import { IsOptional, IsNumber, Min, Max, IsMongoId } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class QueryReviewDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsMongoId()
+  doctorSessionId?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsMongoId()

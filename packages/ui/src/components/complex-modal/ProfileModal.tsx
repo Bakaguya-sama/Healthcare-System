@@ -46,7 +46,7 @@ type DoctorReview = {
   id: string;
   reviewer_name: string;
   reviewer_avatar_initials?: string;
-  rating: number; // 1-5
+  rating: number;
   comment: string;
   created_at: string;
 };
@@ -54,7 +54,7 @@ type DoctorReview = {
 type DoctorReviewMetrics = {
   average_rating: number;
   total_reviews: number;
-  rating_distribution: Record<number, number>; // { 5: 4, 4: 1, 3: 0, 2: 0, 1: 0 }
+  rating_distribution: Record<number, number>;
 };
 
 type DoctorRoleSpecific = {

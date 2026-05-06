@@ -17,7 +17,8 @@ function getAvatarColor(seed: string) {
     "bg-rose-500",
     "bg-cyan-500",
   ];
-  const index = seed.charCodeAt(0) % palette.length;
+  const safeSeed = seed?.trim() || "U";
+  const index = safeSeed.charCodeAt(0) % palette.length;
   return palette[index];
 }
 
@@ -54,6 +55,7 @@ export function UserAvatar({
 
   const statusStyles = getStatusStyles(isOnline);
   const showImage = Boolean(url) && !imageError;
+  const safeName = name?.trim() || "Unknown user";
 
   return (
     <div className="inline-flex items-center">
@@ -61,7 +63,7 @@ export function UserAvatar({
         {showImage ? (
           <img
             src={url}
-            alt={name}
+            alt={safeName}
             onError={() => setImageError(true)}
             className={`h-12 w-12 rounded-2xl object-cover ${avtStyle ?? ""}`}
           />
@@ -69,7 +71,7 @@ export function UserAvatar({
           <div
             className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-semibold text-white ${avtStyle ?? ""} ${getAvatarColor(name)}`}
           >
-            {getInitials(name)}
+            {getInitials(safeName)}
           </div>
         )}
 

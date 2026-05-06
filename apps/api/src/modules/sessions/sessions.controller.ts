@@ -77,10 +77,7 @@ export class SessionsController {
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lấy chi tiết session' })
-  async findOne(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
+  async findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.sessionsService.findOne(userId, id);
   }
 
@@ -106,11 +103,15 @@ export class SessionsController {
   @Post(':id/confirm')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xác nhận session (Doctor only)' })
-  async confirm(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
+  async confirm(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.sessionsService.confirm(userId, id);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Từ chối session (Doctor only)' })
+  async reject(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.sessionsService.reject(userId, id);
   }
 
   /**
@@ -120,10 +121,7 @@ export class SessionsController {
   @Post(':id/start')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bắt đầu session (Doctor only)' })
-  async start(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
+  async start(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.sessionsService.start(userId, id);
   }
 
@@ -179,10 +177,7 @@ export class SessionsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xóa session' })
-  async remove(
-    @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
-  ) {
+  async remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.sessionsService.remove(userId, id);
   }
 }

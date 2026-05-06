@@ -111,8 +111,8 @@ export class SessionsService {
     const [data, total] = await Promise.all([
       this.sessionModel
         .find(filter)
-        .populate('patientId', 'name email phoneNumber avatarUrl')
-        .populate('doctorId', 'fullName email specialty avatarUrl')
+        .populate('patientId', 'fullName email phoneNumber avatarUrl')
+        .populate('doctorId', 'fullName email phoneNumber avatarUrl')
         .sort(sort)
         .skip(skip)
         .limit(query.limit),
@@ -241,6 +241,36 @@ export class SessionsService {
     };
   }
 
+  async reject(userId: string, id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid session ID');
+    }
+
+    const session = await this.sessionModel.findById(new Types.ObjectId(id));
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    // Only doctor can confirm
+    if (!this.isUserMatch(session.doctorId, userId)) {
+      throw new ForbiddenException('Only doctor can confirm session');
+    }
+
+    if (session.status !== SessionStatus.PENDING) {
+      throw new BadRequestException('Session is not pending');
+    }
+
+    session.status = SessionStatus.REJECTED;
+    await session.save();
+
+    return {
+      statusCode: 200,
+      message: 'Session rejected successfully',
+      data: session,
+    };
+  }
+
   /**
    * 🏁 START SESSION (Mark as in progress)
    */
@@ -303,6 +333,7 @@ export class SessionsService {
     }
 
     session.status = SessionStatus.COMPLETED;
+    session.doctorNotes = dto.doctorNotes;
     session.endedAt = new Date();
     await session.save();
 
