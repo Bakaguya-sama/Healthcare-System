@@ -18,12 +18,14 @@ export const chatService = {
         sender: "patient",
         content: "Hello doctor, I need follow-up advice on my medication.",
         time: "09:05 AM",
+        sentAt: new Date().toISOString(),
       },
       {
         id: `${sessionId}-seed-2`,
         sender: "doctor",
         content: "Sure, let me review your latest symptoms first.",
         time: "09:07 AM",
+        sentAt: new Date().toISOString(),
       },
     ];
   },

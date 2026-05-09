@@ -127,6 +127,7 @@ export type ChatMessage = {
   sender: "doctor" | "patient" | "ai";
   content?: string;
   time: string;
+  sentAt?: string | Date;
   attachments?: ChatAttachment[];
 };
 

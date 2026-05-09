@@ -167,8 +167,6 @@ export function HealthProfile({
     limit: 50,
   });
 
-  console.log("metrics", metrics);
-
   const latestRecordedAt = useMemo(() => {
     if (!metrics.length) {
       return undefined;

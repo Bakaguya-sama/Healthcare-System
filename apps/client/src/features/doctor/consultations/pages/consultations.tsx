@@ -2,7 +2,7 @@ import { PendingRequestCard } from "../components/pending-request-card";
 import { ActiveSessionCard } from "../components/active-session-card";
 import { ConsultationHistoryCard } from "../components/consultation-history-card";
 import { ReviewModal } from "../components/review-modal";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import { ProfileModal } from "@repo/ui/components/complex-modal/ProfileModal";
@@ -14,11 +14,13 @@ import {
 } from "@repo/ui/components/complex-modal/ReportModal";
 import { ChatWindow } from "@/features/chat/window/chat-window";
 import type { SendMessagePayload } from "@/features/chat/components/send-bar";
-import { chatService } from "@/features/chat/services/chat.service";
+import type { ChatMessage } from "@/features/chat/components/message";
 import { useConsultations } from "../hooks/useConsultations";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import { useViewProfile } from "@/features/shared/hooks/useProfile";
 import { useReport } from "@/features/shared/hooks/useReport";
+import { useSessionChat } from "../hooks/useSessionChat";
+import type { MessageApiResponse } from "../services/session-chat.service";
 
 type TabSwitch = "pending-requests" | "active-sessions" | "history";
 
@@ -93,7 +95,6 @@ export function Consultations() {
   );
   const { isLoading: reportLoading, submitReport } = useReport();
 
-  // API Hook
   const {
     data: consultations,
     isLoading,
@@ -103,14 +104,57 @@ export function Consultations() {
     complete,
   } = useConsultations();
 
+  const {
+    messages,
+    isLoading: messageLoading,
+    isSending,
+    error: chatError,
+    refresh,
+    sendMessage,
+  } = useSessionChat(selectedChatSession?.sessionId);
+
   const currentDoctorData = {
     id: me.user?.id,
     name: me.user?.name,
   };
   const isPageLoading = isLoading || reportLoading;
-  console.log(consultations);
 
-  // Transform and filter consultations by status
+  const mapMessage = useCallback((message: MessageApiResponse): ChatMessage => {
+    const metadata = message as { id?: string; _id?: string };
+    const messageId =
+      metadata.id ||
+      metadata._id ||
+      `${message.doctorSessionId}-${message.sentAt}`;
+
+    return {
+      id: messageId,
+      sender: message.senderType as ChatMessage["sender"],
+      content: message.content,
+      sentAt: message.sentAt,
+      time: new Date(message.sentAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      attachments: message.attachments?.map((attachment, index) => {
+        const isImage = attachment.mimeType?.startsWith("image/");
+        return {
+          id: `${messageId}-${index}`,
+          type: isImage ? "image" : "file",
+          name: attachment.fileName,
+          mimeType: attachment.mimeType || "application/octet-stream",
+          size: attachment.fileSize ?? 0,
+          url: attachment.fileUrl,
+          thumbnailUrl: isImage ? attachment.fileUrl : undefined,
+        };
+      }),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chatError) return;
+    showToast.error(chatError);
+  }, [chatError]);
+
   const pendingRequests = (consultations || [])
     .filter((c) => c.status === "pending")
     .map((c) => ({
@@ -129,7 +173,7 @@ export function Consultations() {
       patientId: c.patientId._id,
       patientName: c.patientId.fullName,
       patientUrl: c.patientId.avatarUrl,
-      patientIsOnline: false, // TODO: track online status
+      patientIsOnline: false,
       lastSent: c.startedAt ? new Date(c.startedAt) : new Date(c.createdAt),
       patientNote: c.patientNotes,
       status: c.status,
@@ -189,36 +233,45 @@ export function Consultations() {
 
   const handleChatSend = async (payload: SendMessagePayload) => {
     if (!selectedChatSession) return;
+    if (isSending || messageLoading) return;
 
     const text = payload.content?.trim() || "";
-    const attachmentCount = payload.attachments?.length || 0;
+    const attachments = payload.attachments ?? [];
+    const files = attachments
+      .map((attachment) => attachment.file)
+      .filter((file): file is File => Boolean(file));
+    const attachmentCount = files.length;
     if (!text && attachmentCount === 0) return;
 
-    // TODO(real-data): send attachments metadata in dedicated API fields.
     const normalizedContent =
       text ||
       `[Attachment] ${attachmentCount} file${attachmentCount > 1 ? "s" : ""}`;
 
     try {
-      await chatService.sendMessage({
-        sessionId: selectedChatSession.sessionId,
+      const result = await sendMessage({
         content: normalizedContent,
+        attachments: files,
       });
+      if (!result) {
+        showToast.error("Failed to send message.");
+      }
     } catch {
-      // TODO: Add retry queue and failed-message UI when API is integrated.
-      showToast.error("Message could not be sent. Please try again.");
+      showToast.error("Failed to send message.");
     }
   };
 
-  const handleLoadMessages = async (sessionId: string) => {
-    try {
-      return await chatService.loadMessages(sessionId);
-    } catch {
-      // TODO: Replace with dedicated chat error state.
-      showToast.error("Could not load messages for this consultation.");
-      return [];
-    }
-  };
+  const handleLoadMessages = useCallback(
+    async (sessionId: string, page: number) => {
+      if (!sessionId) return { messages: [], totalPages: 1 };
+      const data = await refresh(page);
+      if (!data) return { messages: [], totalPages: 1 };
+      return {
+        messages: data.messages.map(mapMessage),
+        totalPages: data.pagination.pages,
+      };
+    },
+    [mapMessage, refresh],
+  );
 
   const handleCloseProfileModal = () => {
     setProfileModalOpen(false);
@@ -263,7 +316,6 @@ export function Consultations() {
 
   // Handle active session actions
   const handleViewProfile = (patientId: string) => {
-    // TODO: Navigate to patient profile or open modal
     console.log("patient", patientId);
     setSelectedUserId(patientId);
     setProfileModalOpen(true);
@@ -781,7 +833,6 @@ export function Consultations() {
       />
 
       <ChatWindow
-        // sessionStatus={}
         sessionId={selectedChatSession?.sessionId || ""}
         isOpen={isChatOpen}
         sessionStatus={selectedChatSession?.status}
@@ -795,11 +846,12 @@ export function Consultations() {
         doctorNote={selectedChatSession?.doctorNote}
         doctorName={me.user?.name || ""}
         doctorUrl={me.user?.avatar || ""}
-        onLoadMessages={handleLoadMessages}
+        initialMessages={messages.map(mapMessage)}
         onClose={handleCloseChatWindow}
         onViewProfile={handleChatViewProfile}
         onReport={handleChatReport}
         onEndConsultation={handleChatEndConsultation}
+        onLoadMessages={handleLoadMessages}
         onSend={handleChatSend}
         chatPaneClassName="max-w-[calc(100%-850px)] min-w-[320px]"
         healthProfileClassName="w-[850px] min-w-[850px]"

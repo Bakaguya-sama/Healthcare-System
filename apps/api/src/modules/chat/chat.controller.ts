@@ -126,7 +126,7 @@ export class ChatController {
   async getSessionMessages(
     @Param('sessionId') sessionId: string,
     @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('limit') limit: number = 10,
     @Query('sortBy') sortBy: string = 'sentAt',
     @Query('sortOrder') sortOrder: 1 | -1 = -1,
   ) {

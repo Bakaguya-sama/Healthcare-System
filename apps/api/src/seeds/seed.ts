@@ -637,6 +637,23 @@ async function seedDatabase() {
     // 11. SEED DOCTOR MESSAGES
     // ==========================================
     console.log('💌 Creating doctor messages...');
+    const sessionTwoStart = new Date(2026, 2, 20, 10, 10, 0, 0);
+    const sessionTwoMessages = Array.from({ length: 50 }).map((_, index) => {
+      const isDoctor = index % 2 === 0;
+      const sentAt = new Date(sessionTwoStart.getTime() + index * 4 * 60000);
+
+      return {
+        doctorSessionId: sessions[1]._id,
+        senderId: isDoctor ? doctors[1]._id : patients[1]._id,
+        senderType: isDoctor ? 'doctor' : 'patient',
+        content: isDoctor
+          ? `Follow-up note ${index / 2 + 1}: Please confirm your symptoms.`
+          : `Patient update ${Math.floor(index / 2) + 1}: I feel stable so far.`,
+        attachments: [],
+        sentAt,
+      };
+    });
+
     const doctorMessages = await messageModel.insertMany([
       {
         doctorSessionId: sessions[0]._id,
@@ -670,6 +687,7 @@ async function seedDatabase() {
         ],
         sentAt: new Date('2026-03-20T10:05:00Z'),
       },
+      ...sessionTwoMessages,
     ]);
     console.log(`✅ Created ${doctorMessages.length} doctor messages\n`);
 

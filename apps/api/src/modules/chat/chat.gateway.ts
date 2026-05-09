@@ -12,7 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
-import { JwtService } from '@nestjs/jwt'; // Giả sử bạn dùng @nestjs/jwt
+import { JwtService } from '@nestjs/jwt';
 interface AuthSocket extends Socket {
   userId?: string;
 }
@@ -28,7 +28,7 @@ export class ChatGateway
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
-  private connectedUsers = new Map<string, string>(); // userId -> socketId
+  private connectedUsers = new Map<string, string>();
 
   constructor(
     private readonly chatService: ChatService,
@@ -40,7 +40,12 @@ export class ChatGateway
   }
 
   async handleConnection(client: AuthSocket) {
-    const token = client.handshake.headers.authorization?.split(' ')[1];
+    const authToken =
+      typeof client.handshake.auth?.token === 'string'
+        ? client.handshake.auth.token
+        : '';
+    const headerToken = client.handshake.headers.authorization?.split(' ')[1];
+    const token = authToken || headerToken;
     if (!token) {
       this.logger.warn(`Connection rejected: No token provided.`);
       return client.disconnect();
@@ -83,7 +88,6 @@ export class ChatGateway
     }
 
     try {
-      // Verify user is participant of this session
       const session = await this.chatService.getSessionDetails(
         sessionId,
         client.userId,
@@ -106,6 +110,39 @@ export class ChatGateway
     }
   }
 
+  @SubscribeMessage('leave_session')
+  async handleLeaveSession(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() sessionId: string,
+  ) {
+    if (!client.userId) {
+      client.emit('leave_session_error', { message: 'Unauthorized' });
+      return;
+    }
+
+    try {
+      const session = await this.chatService.getSessionDetails(
+        sessionId,
+        client.userId,
+      );
+      if (!session) {
+        client.emit('leave_session_error', {
+          message: 'Not a participant of this session',
+        });
+        return;
+      }
+
+      client.leave(sessionId);
+      this.logger.log(
+        `Client ${client.id} (User: ${client.userId}) left session: ${sessionId}`,
+      );
+      client.emit('left_session', { sessionId });
+    } catch (error) {
+      this.logger.error(`Error leaving session: ${error.message}`);
+      client.emit('leave_session_error', { message: error.message });
+    }
+  }
+
   @SubscribeMessage('send_message')
   async handleMessage(
     @ConnectedSocket() client: AuthSocket,
@@ -118,10 +155,8 @@ export class ChatGateway
       const result = await this.chatService.sendMessage(senderId, dto);
       const message = result.data || result;
 
-      // Gửi tin nhắn CHỈ đến những người trong phòng chat (session) đó
       this.server.to(dto.doctorSessionId).emit('new_message', message);
 
-      // Emit back to sender for confirmation
       client.emit('message_sent', message);
     } catch (error) {
       this.logger.error(`Error sending message: ${error.message}`);
@@ -142,7 +177,6 @@ export class ChatGateway
     }
 
     try {
-      // Verify user is participant of this session
       const session = await this.chatService.getSessionDetails(
         data.doctorSessionId,
         client.userId,

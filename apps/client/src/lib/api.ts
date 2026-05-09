@@ -1,10 +1,41 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { io } from "socket.io-client";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 if (!API_BASE_URL) {
   throw new Error("VITE_API_BASE_URL is missing");
+}
+
+const SOCKET_BASE_URL = API_BASE_URL.replace(/\/api(\/.*)?$/, "");
+
+const socket = io(`${SOCKET_BASE_URL}/chat`, {
+  autoConnect: false,
+  auth: {
+    token: localStorage.getItem("accessToken") || "",
+  },
+  reconnectionAttempts: 3,
+});
+
+function connectSocket(token?: string): boolean {
+  if (!token) {
+    if (socket.connected) {
+      socket.disconnect();
+    }
+    console.log("Cannot connect");
+
+    return false;
+  }
+
+  socket.auth = { token };
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  console.log("Connect successfully");
+
+  return true;
 }
 
 const api = axios.create({
@@ -165,4 +196,4 @@ api.interceptors.response.use(
   },
 );
 
-export { API_BASE_URL, api };
+export { API_BASE_URL, api, socket, connectSocket };
