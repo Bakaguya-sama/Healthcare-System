@@ -242,11 +242,9 @@ export function ChatWindow({
       container.scrollHeight - container.scrollTop - container.clientHeight;
     const isAtBottom = bottomOffset <= 10;
 
-    // This part should always run on scroll to update button visibility
     shouldAutoScrollRef.current = isAtBottom;
     setShowScrollToBottomButton(!isAtBottom);
 
-    // This part should only run if we can load more messages
     if (
       onLoadMessages &&
       !isLoadingMessages &&
@@ -267,7 +265,6 @@ export function ChatWindow({
             setHasMore(false);
             return;
           }
-          // CRITICAL FIX: Prepend older messages, do not replace the entire list.
           setMessages((prev) => [...result.messages, ...prev]);
           setPage(nextPage);
           setTotalPages(result.totalPages || totalPages);

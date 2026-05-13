@@ -1,29 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquareText, Star, X } from "lucide-react";
+import { Loader2, MessageSquareText, Star, X } from "lucide-react";
 import { Button } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { UserAvatar } from "@repo/ui/components/ui/user-avatar";
 
-export interface DoctorReviewPayload {
+export interface ReviewFormPayload {
   rate: number;
   comment: string;
-  doctorId: string;
-  patientId: string;
-  sessionId: string;
 }
 
 interface DoctorReviewModalProps {
   isOpen: boolean;
-  doctorId: string;
-  patientId: string;
-  sessionId: string;
   doctorName: string;
   doctorAvatarUrl?: string;
   doctorIsOnline: boolean;
+  isLoading?: boolean;
   rate?: number;
   comment?: string;
   onClose: () => void;
-  onSubmit: (payload: DoctorReviewPayload) => void;
+  onSubmit: (payload: ReviewFormPayload) => Promise<void>;
 }
 
 const MAX_COMMENT_LENGTH = 1000;
@@ -34,14 +29,12 @@ function clampRate(value: number) {
 
 export function DoctorReviewModal({
   isOpen,
-  doctorId,
-  patientId,
-  sessionId,
   doctorName,
   doctorAvatarUrl,
   doctorIsOnline,
   rate = 0,
   comment = "",
+  isLoading = false,
   onClose,
   onSubmit,
 }: DoctorReviewModalProps) {
@@ -55,24 +48,20 @@ export function DoctorReviewModal({
     setReviewComment(comment);
   }, [comment, isOpen, rate]);
 
-  const canSubmit = selectedRate > 0;
+  const canSubmit = selectedRate > 0 && !isLoading;
 
   const remainingCharacters = useMemo(
     () => MAX_COMMENT_LENGTH - reviewComment.length,
     [reviewComment],
   );
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    onSubmit({
+    await onSubmit({
       rate: selectedRate,
       comment: reviewComment.trim(),
-      doctorId,
-      patientId,
-      sessionId,
     });
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -81,8 +70,8 @@ export function DoctorReviewModal({
     <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Close review modal"
-        onClick={onClose}
+        aria-label="Close modal"
+        onClick={isLoading ? undefined : onClose}
         className="absolute inset-0 bg-slate-950/55"
       />
 
@@ -90,7 +79,7 @@ export function DoctorReviewModal({
         <div className="border-b border-slate-200 px-6 py-6 sm:px-8">
           <button
             type="button"
-            onClick={onClose}
+            onClick={isLoading ? undefined : onClose}
             className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
             aria-label="Close"
           >
@@ -146,6 +135,7 @@ export function DoctorReviewModal({
                     key={value}
                     type="button"
                     onClick={() => setSelectedRate(value)}
+                    disabled={isLoading}
                     className="group rounded-full p-0.5 transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand/30"
                     aria-label={`Rate ${value} out of 5`}
                   >
@@ -183,6 +173,7 @@ export function DoctorReviewModal({
               value={reviewComment}
               maxLength={MAX_COMMENT_LENGTH}
               onChange={(event) => setReviewComment(event.target.value)}
+              disabled={isLoading}
               placeholder="Share your thoughts on the doctor's advice, bedside manner, and overall experience..."
               className="min-h-[180px] rounded-2xl border-slate-200 bg-white px-4 py-4 text-base leading-relaxed text-slate-700 placeholder:text-slate-400"
             />
@@ -200,7 +191,7 @@ export function DoctorReviewModal({
             type="button"
             variant="ghost"
             size="lg"
-            onClick={onClose}
+            onClick={isLoading ? undefined : onClose}
             className="h-12 rounded-2xl px-6 text-slate-700 hover:bg-slate-100"
           >
             Skip for now
@@ -210,10 +201,11 @@ export function DoctorReviewModal({
             type="button"
             size="lg"
             onClick={handleSubmit}
-            disabled={!canSubmit}
+            disabled={!canSubmit || isLoading}
             className="h-12 rounded-2xl bg-lime-300 px-7 text-slate-700 hover:bg-lime-400"
           >
-            Submit Review
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading ? "Submitting..." : "Submit Review"}
           </Button>
         </div>
       </div>

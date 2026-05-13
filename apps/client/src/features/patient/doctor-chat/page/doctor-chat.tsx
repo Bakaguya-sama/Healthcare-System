@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { SessionCard } from "../components/session-card";
 import { ChatWindow } from "@/features/chat/window/chat-window";
@@ -12,69 +12,23 @@ import {
 } from "@repo/ui/components/complex-modal/ReportModal";
 import {
   DoctorReviewModal,
-  type DoctorReviewPayload,
+  type ReviewFormPayload,
 } from "../components/doctor-review-modal";
 import { DoctorNoteModal } from "../components/doctor-note-modal";
-
-type SessionStatus = "pending" | "rejected" | "completed" | "active";
-
-type DoctorSession = {
-  id: string;
-  doctorId: string;
-  status: SessionStatus;
-  updatedAt: Date;
-  doctorName: string;
-  doctorNote?: string;
-  doctorIsActive: boolean;
-  doctorSpecialty: string;
-  doctorAvatarUrl?: string;
-};
-
-const MOCK_SESSIONS: DoctorSession[] = [
-  {
-    id: "doctor-session-1",
-    doctorId: "doctor-001",
-    status: "pending",
-    updatedAt: new Date(),
-    doctorName: "Dr. Marcus Lee",
-    doctorIsActive: true,
-    doctorSpecialty: "Cardiologist",
-  },
-  {
-    id: "doctor-session-2",
-    doctorId: "doctor-002",
-    status: "completed",
-    updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    doctorName: "Dr. Sarah Chen",
-    doctorIsActive: false,
-    doctorSpecialty: "Dermatologist",
-  },
-  {
-    id: "doctor-session-3",
-    doctorId: "doctor-003",
-    status: "active",
-    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    doctorName: "Dr. James Wilson",
-    doctorIsActive: true,
-    doctorSpecialty: "General Practitioner",
-  },
-  {
-    id: "doctor-session-4",
-    doctorId: "doctor-004",
-    status: "rejected",
-    updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    doctorName: "Dr. Emily Carter",
-    doctorIsActive: false,
-    doctorSpecialty: "Neurologist",
-  },
-];
+import { useConsultations } from "../hooks/useConsultations";
+import { type MessageApiResponse } from "../services/doctor-chat.service";
+import { useSessionChat } from "../hooks/useDoctorChat";
+import { showToast } from "@repo/ui/components/ui/toasts";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { useReport } from "@/features/shared/hooks/useReport";
+import { useViewProfile } from "@/features/shared/hooks/useProfile";
+import { useReview } from "../hooks/useReview";
 
 type FilterKey = "all" | "pending" | "completed";
 
 export function DoctorChat() {
-  const [sessions] = useState(MOCK_SESSIONS);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    MOCK_SESSIONS[0]?.id ?? null,
+    null,
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterKey>("all");
@@ -83,21 +37,120 @@ export function DoctorChat() {
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
   const [isDoctorNoteModalOpen, setDoctorNoteModalOpen] = useState(false);
 
-  // TODO: Replace with global auth state (current logged-in patient data).
-  const currentViewer: ReportActor = {
-    id: "patient-demo-001",
-    name: "Current Patient",
-    role: "patient",
+  const {
+    data: consultations,
+    isLoading,
+    error: consultationError,
+  } = useConsultations();
+
+  const {
+    messages,
+    isLoading: messageLoading,
+    isSending,
+    error: chatError,
+    refresh,
+    sendMessage,
+  } = useSessionChat(selectedSessionId);
+
+  const {
+    isLoading: reportLoading,
+    submitReport,
+    error: reportError,
+  } = useReport();
+
+  const {
+    isLoading: isSubmittingReview,
+    submitDoctorReview: submitReview,
+    error: reviewError,
+  } = useReview();
+
+  const me = useAuthStore();
+
+  const currentPatientData = {
+    id: me.user?.id,
+    name: me.user?.name,
   };
 
-  const selectedSession = sessions.find(
-    (session) => session.id === selectedSessionId,
+  const consultationItems = useMemo(
+    () =>
+      (consultations || []).map((c) => ({
+        sessionId: c.id,
+        doctorId: c.doctorId._id,
+        doctorName: c.doctorId.fullName,
+        doctorAvatarUrl: c.doctorId.avatarUrl,
+        patientRating: c.review?.rating,
+        patientReview: c.review?.comment,
+        doctorSpecialty: c.doctorId?.specialty,
+        sessionStatus: c.status as "completed" | "rejected",
+        endedAt: c.endedAt ? new Date(c.endedAt) : undefined,
+        updatedAt: new Date(c.updatedAt || 0),
+        patientNote: c.patientNotes,
+        doctorNote: c.doctorNotes,
+        status: c.status,
+      })),
+    [consultations],
   );
 
-  const filteredSessions = useMemo(() => {
+  const profileDoctorId = selectedSessionId
+    ? consultationItems.find((c) => c.sessionId === selectedSessionId)?.doctorId
+    : null;
+
+  const shouldFetchProfile = isProfileModalOpen;
+  const { data: profileData } = useViewProfile(
+    profileDoctorId || "",
+    shouldFetchProfile,
+  );
+
+  const mapMessage = useCallback((message: MessageApiResponse): ChatMessage => {
+    const metadata = message as { id?: string; _id?: string };
+    const messageId =
+      metadata.id ||
+      metadata._id ||
+      `${message.doctorSessionId}-${message.sentAt}`;
+
+    return {
+      id: messageId,
+      sender: message.senderType as ChatMessage["sender"],
+      content: message.content,
+      sentAt: message.sentAt,
+      time: new Date(message.sentAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      attachments: message.attachments?.map((attachment, index) => {
+        const isImage = attachment.mimeType?.startsWith("image/");
+        return {
+          id: `${messageId}-${index}`,
+          type: isImage ? "image" : "file",
+          name: attachment.fileName,
+          mimeType: attachment.mimeType || "application/octet-stream",
+          size: attachment.fileSize ?? 0,
+          url: attachment.fileUrl,
+          thumbnailUrl: isImage ? attachment.fileUrl : undefined,
+        };
+      }),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chatError) return;
+    showToast.error(chatError);
+  }, [chatError]);
+
+  useEffect(() => {
+    if (consultationError) {
+      showToast.error(`Failed to load consultations: ${consultationError}`);
+    }
+  }, [consultationError]);
+
+  const selectedSession = consultationItems.find(
+    (consultation) => consultation.sessionId === selectedSessionId,
+  );
+
+  const filteredConsultations = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return sessions
+    return consultationItems
       .filter((session) => {
         const statusMatched =
           statusFilter === "all"
@@ -113,41 +166,62 @@ export function DoctorChat() {
         return statusMatched && queryMatched;
       })
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-  }, [searchQuery, sessions, statusFilter]);
+  }, [searchQuery, consultationItems, statusFilter]);
 
   const counts = useMemo(
     () => ({
-      all: sessions.length,
-      pending: sessions.filter((session) => session.status === "pending")
-        .length,
-      completed: sessions.filter(
+      all: consultationItems.length,
+      pending: consultationItems.filter(
+        (session) => session.status === "pending",
+      ).length,
+      completed: consultationItems.filter(
         (session) =>
           session.status === "completed" || session.status === "rejected",
       ).length,
     }),
-    [sessions],
+    [consultationItems],
   );
 
-  const handleLoadMessages = async (
-    sessionId: string,
-  ): Promise<ChatMessage[]> => {
-    // TODO: call API by sessionId and return mapped ChatMessage[]
-    console.log("Load doctor session messages:", sessionId);
-    return [];
-  };
+  const handleLoadMessages = useCallback(
+    async (sessionId: string, page: number) => {
+      if (!sessionId) return { messages: [], totalPages: 1 };
+      const data = await refresh(page);
+      if (!data) return { messages: [], totalPages: 1 };
+      return {
+        messages: data.messages.map(mapMessage),
+        totalPages: data.pagination.pages,
+      };
+    },
+    [mapMessage, refresh],
+  );
 
   const handleChatSend = async (payload: SendMessagePayload) => {
-    const content = payload.content?.trim() || "";
-    const attachmentCount = payload.attachments?.length || 0;
+    if (!selectedSessionId) return;
+    if (isSending || messageLoading) return;
 
-    if (!content && attachmentCount === 0) return;
+    const text = payload.content?.trim() || "";
+    const attachments = payload.attachments ?? [];
+    const files = attachments
+      .map((attachment) => attachment.file)
+      .filter((file): file is File => Boolean(file));
+    const attachmentCount = files.length;
+    if (!text && attachmentCount === 0) return;
 
-    // TODO: call API by sessionId and include attachments metadata when backend is ready.
-    console.log("Send doctor chat message:", {
-      sessionId: selectedSession?.id,
-      content,
-      attachmentCount,
-    });
+    const normalizedContent =
+      text ||
+      `[Attachment] ${attachmentCount} file${attachmentCount > 1 ? "s" : ""}`;
+
+    try {
+      const result = await sendMessage({
+        content: normalizedContent,
+        attachments: files,
+      });
+      if (!result) {
+        showToast.error("Failed to send message.");
+      }
+    } catch {
+      showToast.error("Failed to send message.");
+    }
   };
 
   const tabs: Array<{ key: FilterKey; label: string; count: number }> = [
@@ -174,42 +248,59 @@ export function DoctorChat() {
     setReportModalOpen(false);
   };
 
-  const handleSubmitReport = (payload: {
-    sessionId: string;
+  const handleSubmitReport = async (payload: {
     target: ReportActor;
     reporter: ReportActor;
     reportType: ReportType;
     reason: string;
   }) => {
-    const normalizedPayload = {
-      ...payload,
-      reason: payload.reason.trim(),
-    };
+    try {
+      const reportedUserId = selectedSession?.doctorId || payload.target.id;
 
-    // TODO: call report API with payload
-    console.log("Submit doctor chat report:", normalizedPayload);
-    setReportModalOpen(false);
+      if (!reportedUserId) {
+        throw new Error("Unable to determine who to report.");
+      }
+
+      await submitReport({
+        reportedUserId,
+        reportType: payload.reportType,
+        reason: payload.reason,
+      });
+
+      setReportModalOpen(false);
+      showToast.success("Report submitted successfully.");
+    } catch (error) {
+      showToast.error(
+        error instanceof Error ? error.message : "Failed to submit report.",
+      );
+      throw error; // Re-throw to allow modal to handle its loading state
+    }
   };
 
   const handleOpenReviewModal = () => {
-    if (!selectedSession || selectedSession.status !== "completed") return;
+    if (!selectedSession || selectedSession.sessionStatus !== "completed")
+      return;
     setReviewModalOpen(true);
   };
 
-  const handleSubmitReview = (payload: DoctorReviewPayload) => {
+  const handleSubmitReview = async (payload: ReviewFormPayload) => {
     if (!selectedSession) return;
-
-    const normalizedPayload = {
-      rate: payload.rate,
-      comment: payload.comment.trim(),
-      doctorId: payload.doctorId,
-      patientId: payload.patientId,
-      sessionId: payload.sessionId,
-    };
-
-    // TODO: call review API with normalizedPayload
-    console.log("Submit doctor review:", normalizedPayload);
-    setReviewModalOpen(false);
+    try {
+      await submitReview({
+        rating: payload.rate,
+        comment: payload.comment.trim(),
+        doctorId: selectedSession.doctorId,
+        doctorSessionId: selectedSession.sessionId,
+      });
+      showToast.success("Review submitted successfully.");
+      setReviewModalOpen(false);
+    } catch (error) {
+      showToast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit review. Please try again.",
+      );
+    }
   };
 
   const handleCloseReviewModal = () => {
@@ -273,23 +364,23 @@ export function DoctorChat() {
           </div>
 
           <div className="flex-1 space-y-3 overflow-y-auto bg-white px-3 py-4">
-            {filteredSessions.length === 0 ? (
+            {filteredConsultations.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
                 No sessions match your current filter.
               </div>
             ) : (
-              filteredSessions.map((session) => (
+              filteredConsultations.map((session) => (
                 <SessionCard
-                  key={session.id}
-                  id={session.id}
+                  key={session.sessionId}
+                  id={session.sessionId}
                   status={session.status}
-                  isSelected={selectedSessionId === session.id}
+                  isSelected={selectedSessionId === session.sessionId}
                   updatedAt={session.updatedAt}
                   doctorName={session.doctorName}
-                  doctorIsActive={session.doctorIsActive}
+                  doctorIsActive={true}
                   doctorSpecialty={session.doctorSpecialty}
                   doctorAvatarUrl={session.doctorAvatarUrl}
-                  onClick={() => setSelectedSessionId(session.id)}
+                  onClick={() => setSelectedSessionId(session.sessionId)}
                 />
               ))
             )}
@@ -299,14 +390,18 @@ export function DoctorChat() {
         {selectedSession && (
           <div className="relative flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_22px_50px_rgba(15,23,42,0.12)] ring-1 ring-white/80">
             <ChatWindow
-              key={selectedSession.id}
-              sessionId={selectedSession.id}
-              patientId="current-patient"
+              key={selectedSession.sessionId}
+              sessionId={selectedSession.sessionId}
+              patientId={currentPatientData.id}
               isOpen={true}
               viewerRole="patient"
-              sessionStatus={selectedSession.status}
-              patientName={selectedSession.doctorName}
-              patientIsOnline={selectedSession.doctorIsActive}
+              sessionStatus={selectedSession.sessionStatus}
+              patientName={currentPatientData.name}
+              patientIsOnline={true}
+              doctorName={selectedSession.doctorName}
+              doctorUrl={selectedSession.doctorAvatarUrl}
+              doctorIsOnline={true}
+              initialMessages={messages.map(mapMessage)}
               onLoadMessages={handleLoadMessages}
               onViewProfile={handleOpenProfileModal}
               onReport={handleOpenReportModal}
@@ -324,48 +419,45 @@ export function DoctorChat() {
         id={selectedSession?.doctorId || ""}
         isOpen={isProfileModalOpen}
         onClose={handleCloseProfileModal}
-        profileSeed={
-          selectedSession
-            ? {
-                id: selectedSession.doctorId,
-                full_name: selectedSession.doctorName,
-                role: "doctor",
-                avatar_url: selectedSession.doctorAvatarUrl,
-              }
-            : undefined
-        }
-        reportViewer={currentViewer}
+        profileSeed={profileData ? profileData : undefined}
+        reportViewer={{
+          id: currentPatientData.id,
+          name: currentPatientData.name,
+          role: "patient",
+        }}
+        onSubmitReport={handleSubmitReport}
       />
 
       {selectedSession && (
         <>
           <ReportModal
             isOpen={isReportModalOpen}
-            onClose={handleCloseReportModal}
-            onConfirm={handleSubmitReport}
-            sessionId={selectedSession.id}
             target={{
               id: selectedSession.doctorId,
               name: selectedSession.doctorName,
               role: "doctor",
             }}
-            reporter={currentViewer}
+            reporter={{
+              id: currentPatientData.id,
+              name: currentPatientData.name,
+              role: "patient",
+            }}
+            onClose={handleCloseReportModal}
+            onConfirm={handleSubmitReport}
           />
           <DoctorReviewModal
             isOpen={isReviewModalOpen}
-            doctorId={selectedSession.doctorId}
-            patientId={currentViewer.id}
-            sessionId={selectedSession.id}
             doctorName={selectedSession.doctorName}
             doctorAvatarUrl={selectedSession.doctorAvatarUrl}
-            doctorIsOnline={selectedSession.doctorIsActive}
+            doctorIsOnline={true}
+            isLoading={isSubmittingReview}
             onClose={handleCloseReviewModal}
             onSubmit={handleSubmitReview}
           />
           <DoctorNoteModal
             doctorName={selectedSession.doctorName}
             doctorAvatarUrl={selectedSession.doctorAvatarUrl}
-            doctorIsOnline={selectedSession.doctorIsActive}
+            doctorIsOnline={true}
             doctorNote={selectedSession.doctorNote}
             isOpen={isDoctorNoteModalOpen}
             onClose={handleCloseDoctorNoteModal}

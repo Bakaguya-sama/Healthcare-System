@@ -112,7 +112,7 @@ export class SessionsService {
       this.sessionModel
         .find(filter)
         .populate('patientId', 'fullName email phoneNumber avatarUrl')
-        .populate('doctorId', 'fullName email phoneNumber avatarUrl')
+        .populate('doctorId', 'fullName email phoneNumber avatarUrl specialty')
         .sort(sort)
         .skip(skip)
         .limit(query.limit),

@@ -44,37 +44,48 @@ export class ReviewsService {
     ratingDelta: number,
     reviewCountDelta: number,
   ) {
-    const updatedDoctor = await this.doctorModel.findOneAndUpdate(
-      { userId: new Types.ObjectId(doctorUserId) },
+    const updateResult = await this.doctorModel.updateOne(
+      { _id: new Types.ObjectId(doctorUserId) },
       [
         {
           $set: {
-            ratingSum: {
-              $add: [{ $ifNull: ['$ratingSum', 0] }, ratingDelta],
-            },
+            ratingSum: { $add: [{ $ifNull: ['$ratingSum', 0] }, ratingDelta] },
             reviewCount: {
               $add: [{ $ifNull: ['$reviewCount', 0] }, reviewCountDelta],
             },
-          },
-        },
-        {
-          $set: {
             averageRating: {
-              $cond: [
-                { $gt: ['$reviewCount', 0] },
-                { $divide: ['$ratingSum', '$reviewCount'] },
-                0,
-              ],
+              $let: {
+                vars: {
+                  currentSum: { $ifNull: ['$ratingSum', 0] },
+                  currentCount: { $ifNull: ['$reviewCount', 0] },
+                },
+                in: {
+                  $cond: [
+                    {
+                      $gt: [{ $add: ['$$currentCount', reviewCountDelta] }, 0],
+                    },
+                    {
+                      $divide: [
+                        { $add: ['$$currentSum', ratingDelta] },
+                        { $add: ['$$currentCount', reviewCountDelta] },
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
             },
           },
         },
-      ] as any,
-      { new: true },
+      ],
+      { updatePipeline: true },
     );
 
-    if (!updatedDoctor) {
+    if (updateResult.matchedCount === 0) {
       throw new NotFoundException('Doctor profile not found');
     }
+
+    const updatedDoctor = await this.doctorModel.findById(doctorUserId);
 
     return updatedDoctor;
   }
@@ -93,28 +104,38 @@ export class ReviewsService {
       throw new BadRequestException('Invalid session ID');
     }
 
-    // Check if patient already reviewed this doctor (prevent duplicate reviews)
+    const doctorProfile = await this.doctorModel.findOne({
+      userId: new Types.ObjectId(dto.doctorId),
+    });
+
+    if (!doctorProfile) {
+      throw new NotFoundException(
+        `Doctor profile not found for user ID: ${dto.doctorId}`,
+      );
+    }
+    const doctorProfileId = doctorProfile._id;
+
     const existingReview = await this.reviewModel.findOne({
       patientId: new Types.ObjectId(patientId),
-      doctorId: new Types.ObjectId(dto.doctorId),
+      doctorId: doctorProfileId,
     });
 
     if (existingReview) {
       throw new BadRequestException('You have already reviewed this doctor');
     }
 
-    const review = await this.reviewModel.create({
+    const review = new this.reviewModel({
       patientId: new Types.ObjectId(patientId),
-      doctorId: new Types.ObjectId(dto.doctorId),
+      doctorId: doctorProfileId,
       doctorSessionId: dto.doctorSessionId
         ? new Types.ObjectId(dto.doctorSessionId)
         : undefined,
       rating: dto.rating,
       comment: dto.comment,
     });
-
+    await review.save();
     try {
-      await this.applyRatingDelta(dto.doctorId, dto.rating, 1);
+      await this.applyRatingDelta(doctorProfileId.toString(), dto.rating, 1);
     } catch (error) {
       await this.reviewModel.findByIdAndDelete(review._id);
       throw error;
