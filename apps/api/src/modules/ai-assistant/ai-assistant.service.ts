@@ -23,7 +23,9 @@ import {
   ArchiveConversationDto,
   UpdateConversationDto,
   QueryConversationDto,
+  QueryConversationMessageDto,
 } from './dto/conversation.dto';
+import { Message, MessageDocument } from '../chat/entities/message.entity';
 import { RagRetrievalService } from '../rag/services/rag-retrieval.service';
 import { ContextBuilderService } from '../rag/services/context-builder.service';
 import { Citation } from '../rag/interfaces/context-builder.interface';
@@ -63,6 +65,7 @@ export class AiAssistantService {
     private readonly promptBuilderService: PromptBuilderService,
     private readonly llmGatewayService: LlmGatewayService,
     private readonly cloudinaryService: CloudinaryService,
+    @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     this.logger.log(
@@ -620,8 +623,20 @@ export class AiAssistantService {
     }
 
     const skip = (query.page - 1) * query.limit;
+    const sortField =
+      typeof query.sortBy === 'string' && query.sortBy.trim().length > 0
+        ? query.sortBy
+        : 'createdAt';
+    const rawSortOrder = query.sortOrder;
+    const parsedSortOrder =
+      typeof rawSortOrder === 'number'
+        ? rawSortOrder
+        : typeof rawSortOrder === 'string'
+          ? Number.parseInt(rawSortOrder, 10)
+          : -1;
+    const sortOrder = Number.isNaN(parsedSortOrder) ? -1 : parsedSortOrder;
     const sort: any = {
-      [query.sortBy || 'createdAt']: query.sortOrder || -1,
+      [sortField]: sortOrder,
     };
 
     const [conversations, total] = await Promise.all([
@@ -649,7 +664,11 @@ export class AiAssistantService {
   /**
    * 🔍 GET SINGLE CONVERSATION
    */
-  async getConversation(userId: string, conversationId: string) {
+  async getConversation(
+    userId: string,
+    conversationId: string,
+    query: QueryConversationMessageDto,
+  ) {
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
     }
@@ -671,10 +690,32 @@ export class AiAssistantService {
       );
     }
 
+    const filter = {
+      conversationId: new Types.ObjectId(conversationId),
+    };
+
+    const skip = (query.page - 1) * query.limit;
+
+    const [messages, total] = await Promise.all([
+      this.messageModel
+        .find(filter)
+        .sort({ sentAt: 'desc' as any })
+        .skip(skip)
+        .limit(query.limit),
+      this.messageModel.countDocuments(filter),
+    ]);
+
     return {
       statusCode: 200,
       message: 'Conversation retrieved successfully',
       data: conversation,
+      messages,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        pages: Math.ceil(total / query.limit),
+      },
     };
   }
 

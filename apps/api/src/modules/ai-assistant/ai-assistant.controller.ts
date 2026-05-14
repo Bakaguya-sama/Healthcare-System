@@ -128,8 +128,17 @@ export class AiAssistantController {
   async getConversation(
     @CurrentUser('sub') userId: string,
     @Param('conversationId') conversationId: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('sortBy') sortBy: string = 'sentAt',
+    @Query('sortOrder') sortOrder: 1 | -1 = -1,
   ) {
-    return this.aiAssistantService.getConversation(userId, conversationId);
+    return this.aiAssistantService.getConversation(userId, conversationId, {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
   }
 
   /**

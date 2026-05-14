@@ -1,90 +1,79 @@
 import { Plus, Sparkles } from "lucide-react";
 import { HistoryCard } from "../components/history-card";
 import { ChatWindow } from "@/features/chat/window/chat-window";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChatMessage } from "@/features/chat/components/message";
 import type { SendMessagePayload } from "@/features/chat/components/send-bar";
 import {
   AIReportModal,
   type ReportType,
 } from "@repo/ui/components/complex-modal/AIReportModal";
-
-const MOCK_HISTORY = [
-  {
-    id: "session-current",
-    title: "Skin rash analysis",
-    createdAt: new Date(),
-    isCurrent: true,
-  },
-  {
-    id: "session-2",
-    title: "Persistent headache",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-  {
-    id: "session-3",
-    title: "Dietary advice",
-    createdAt: new Date(Date.now() - 26 * 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-  {
-    id: "session-4",
-    title: "Persistent headache",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-  {
-    id: "session-5",
-    title: "Dietary advice",
-    createdAt: new Date(Date.now() - 26 * 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-  {
-    id: "session-6",
-    title: "Persistent headache",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-  {
-    id: "session-7",
-    title: "Dietary advice",
-    createdAt: new Date(Date.now() - 26 * 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-  {
-    id: "session-8",
-    title: "Persistent headache",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-  {
-    id: "session-9",
-    title: "Dietary advice",
-    createdAt: new Date(Date.now() - 26 * 24 * 60 * 60 * 1000),
-    isCurrent: false,
-  },
-];
+import { useAiChat } from "../hooks/useAiChat";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { useReport } from "@/features/shared/hooks/useReport";
+import { showToast } from "@repo/ui/components/ui/toasts";
 
 export function AiChat() {
-  const [sessions, setSessions] = useState(MOCK_HISTORY);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    MOCK_HISTORY[0]?.id || null,
-  );
   const [isReportModalOpen, setReportModalOpen] = useState(false);
+  const {
+    conversations,
+    selectedConversation,
+    selectedConversationId,
+    messages,
+    isLoadingConversations,
+    conversationsError,
+    isLoadingMessages,
+    messagesError,
+    isStarting,
+    startError,
+    isSending,
+    sendError,
+    setSelectedConversationId,
+    loadConversations,
+    loadMessages,
+    startNewConversation,
+    sendMessage,
+  } = useAiChat();
 
-  // TODO: Replace this with global auth state selector (e.g. Redux/Zustand/context).
+  const me = useAuthStore();
+  const {
+    isLoading: reportLoading,
+    submitReport,
+    error: reportError,
+  } = useReport();
+
   const currentPatient = {
-    id: "",
-    fullName: "",
+    id: me.user?.id,
+    fullName: me.user?.name,
   };
 
   const reportPatientId = currentPatient.id;
   const reportPatientName = currentPatient.fullName;
 
-  const selectedSession = sessions.find(
-    (session) => session.id === selectedSessionId,
+  const selectedSession = selectedConversation;
+
+  const sortedSessions = useMemo(
+    () =>
+      [...conversations].sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      ),
+    [conversations],
   );
+
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
+
+  useEffect(() => {
+    if (!reportError) return;
+    showToast.error(reportError);
+  }, [reportError]);
+
+  useEffect(() => {
+    if (!selectedConversationId) return;
+    void loadMessages(selectedConversationId, 1);
+  }, [loadMessages, selectedConversationId]);
 
   const handleCloseReportModal = () => {
     setReportModalOpen(false);
@@ -101,55 +90,70 @@ export function AiChat() {
     reportType: ReportType;
     reason: string;
   }) => {
-    // TODO: call report API with payload
-    console.log("Submit AI report:", payload);
-    setReportModalOpen(false);
+    const reportedUserId = reportPatientId || payload.patientId;
+    if (!reportedUserId) {
+      showToast.error("Unable to determine who to report.");
+      throw new Error("Unable to determine who to report.");
+    }
+
+    return submitReport({
+      reportedUserId,
+      reportType: payload.reportType,
+      reason: payload.reason,
+    })
+      .then(() => {
+        setReportModalOpen(false);
+        showToast.success("Report submitted successfully.");
+      })
+      .catch((error) => {
+        showToast.error(
+          error instanceof Error ? error.message : "Failed to submit report.",
+        );
+        throw error;
+      });
   };
 
-  const handleStartNewConsultation = () => {
-    // TODO: replace this local creation with backend API response.
-    const newSession = {
-      id: `session-${Date.now()}`,
-      title: "New consultation",
-      createdAt: new Date(),
-      isCurrent: true,
-    };
+  const handleStartNewConsultation = async () => {
+    const conversation = await startNewConversation({
+      initialQuestion: "Xin chào bác sĩ Ai, tôi cần tư vấn",
+      type: "general_consultation",
+    });
 
-    setSessions((prev) => [
-      newSession,
-      ...prev.map((session) => ({ ...session, isCurrent: false })),
-    ]);
-    setSelectedSessionId(newSession.id);
+    if (!conversation) return;
+    setSelectedConversationId(conversation.id);
   };
 
   const handleSelectSession = (sessionId: string) => {
-    setSelectedSessionId(sessionId);
+    setSelectedConversationId(sessionId);
   };
 
   const handleLoadMessages = async (
     sessionId: string,
-  ): Promise<ChatMessage[]> => {
-    // TODO: call API by sessionId and return mapped ChatMessage[]
-    console.log("Load session messages:", sessionId);
-    return [];
+    page: number,
+  ): Promise<{ messages: ChatMessage[]; totalPages: number }> => {
+    return loadMessages(sessionId, page);
   };
 
   const handleChatSend = async (payload: SendMessagePayload) => {
+    if (!selectedConversation) return;
+
     const content = payload.content?.trim() || "";
-    const attachmentCount = payload.attachments?.length || 0;
+    const attachments = payload.attachments ?? [];
+    const files = attachments
+      .map((attachment) => attachment.file)
+      .filter((file): file is File => Boolean(file));
 
-    if (!content && attachmentCount === 0) return;
+    if (!content && files.length === 0) return;
 
-    // TODO: call AI chat API by sessionId and send attachments metadata when supported.
-    console.log("Send AI chat message:", {
-      sessionId: selectedSession?.id,
-      content,
-      attachmentCount,
+    await sendMessage(selectedConversation.id, {
+      message: content || undefined,
+      images: files,
+      attachments,
     });
   };
 
   const handleCloseChat = () => {
-    setSelectedSessionId(null);
+    setSelectedConversationId(null);
   };
 
   return (
@@ -171,26 +175,39 @@ export function AiChat() {
 
             <button
               type="button"
-              className="cursor-pointer inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-brand/35 bg-brand-light/30 text-lg font-semibold text-brand transition-colors hover:bg-brand-light"
+              className="cursor-pointer inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-brand/35 bg-brand-light/30 text-lg font-semibold text-brand transition-colors hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleStartNewConsultation}
+              disabled={isStarting}
             >
               <Plus className="h-4 w-4" />
-              New Consultation
+              {isStarting ? "Starting..." : "New Consultation"}
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto bg-white px-3 py-5">
             <div className="space-y-2">
-              {sessions.map((session) => (
-                <HistoryCard
-                  key={session.id}
-                  title={session.title}
-                  createdAt={session.createdAt}
-                  isCurrent={session.isCurrent}
-                  isSelected={selectedSessionId === session.id}
-                  onClick={() => handleSelectSession(session.id)}
-                />
-              ))}
+              {isLoadingConversations && (
+                <p className="text-center text-sm text-slate-400">
+                  Loading conversations...
+                </p>
+              )}
+              {conversationsError && (
+                <p className="text-center text-sm text-rose-500">
+                  {conversationsError}
+                </p>
+              )}
+              {!isLoadingConversations &&
+                !conversationsError &&
+                sortedSessions.map((session) => (
+                  <HistoryCard
+                    key={session.id}
+                    title={session.topic}
+                    createdAt={new Date(session.createdAt)}
+                    isCurrent={session.id === selectedConversationId}
+                    isSelected={session.id === selectedConversationId}
+                    onClick={() => handleSelectSession(session.id)}
+                  />
+                ))}
             </div>
           </div>
 
@@ -209,12 +226,26 @@ export function AiChat() {
               isOpen={true}
               viewerRole="patient"
               aiName="AI Assistant"
+              patientId={currentPatient.id}
+              patientName={currentPatient.fullName || ""}
+              initialMessages={messages}
               onLoadMessages={handleLoadMessages}
               onReport={handleOpenReportModal}
               onClose={handleCloseChat}
               usePortal={false}
               onSend={handleChatSend}
+              patientIsOnline={true}
             />
+            {(messagesError || sendError || startError) && (
+              <div className="absolute bottom-4 right-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-600">
+                {messagesError || sendError || startError}
+              </div>
+            )}
+            {(isLoadingMessages || isSending) && (
+              <div className="absolute bottom-4 left-4 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-500">
+                {isSending ? "Sending..." : "Loading messages..."}
+              </div>
+            )}
           </div>
         )}
       </div>

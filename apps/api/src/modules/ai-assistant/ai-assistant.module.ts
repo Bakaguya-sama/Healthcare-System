@@ -7,6 +7,8 @@ import {
   AiConversationSchema,
 } from './entities/ai-conversation.entity';
 import { RagModule } from '../rag/rag.module';
+import { Message, MessageSchema } from '../chat/entities/message.entity';
+
 import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
@@ -19,6 +21,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
     BlacklistKeywordsModule,
     MongooseModule.forFeature([
       { name: AiConversation.name, schema: AiConversationSchema },
+      { name: Message.name, schema: MessageSchema },
     ]),
   ],
   controllers: [AiAssistantController],

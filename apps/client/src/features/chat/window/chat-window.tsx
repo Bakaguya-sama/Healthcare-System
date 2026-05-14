@@ -383,6 +383,11 @@ export function ChatWindow({
     forceScrollToBottomRef.current = true;
     setShowScrollToBottomButton(false);
 
+    if (isAiChat) {
+      onSend?.(payload);
+      return;
+    }
+
     const nextMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: viewerRole,
