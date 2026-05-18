@@ -34,6 +34,11 @@ export type GenerateMedicalImageDesciptionInput = {
   }>;
 };
 
+export type GenerateTopicSummaryInput = {
+  modelName: string;
+  text: string;
+};
+
 type MessagePayload =
   | string
   | Array<
@@ -134,6 +139,52 @@ export class LlmGatewayService {
 
     throw new HttpException(
       'AI provider (image description) retry attempts exceeded',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+
+  async generateTopicSummary(
+    input: GenerateTopicSummaryInput,
+  ): Promise<string> {
+    const model = this.getClient().getGenerativeModel({
+      model: input.modelName,
+    });
+
+    const prompt = `Tóm tắt chủ đề cuộc hội thoại y tế thành 6-12 từ.
+Không dùng dấu ngoặc kép, không thêm ký hiệu, không nhắc lời chào.
+Chỉ trả về một dòng duy nhất.
+
+Nội dung:
+${input.text}`;
+
+    for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
+      try {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        if (!text?.trim()) {
+          throw new BadRequestException('Mô hình trả về tóm tắt rỗng');
+        }
+
+        return text;
+      } catch (error) {
+        const transient = this.isTransientProviderError(error);
+        const isLastAttempt = attempt === MAX_GENERATE_ATTEMPTS;
+
+        if (!transient || isLastAttempt) {
+          this.logger.error(`[LLM Gateway] Topic summary error: ${error}`);
+          throw error;
+        }
+
+        const retryDelayMs = this.extractRetryDelayMs(error) + attempt * 400;
+        this.logger.warn(
+          `Gemini generateContent (topic) transient error, attempt ${attempt}/${MAX_GENERATE_ATTEMPTS}. Retrying in ${retryDelayMs}ms.`,
+        );
+        await this.sleep(retryDelayMs);
+      }
+    }
+
+    throw new HttpException(
+      'AI provider (topic summary) retry attempts exceeded',
       HttpStatus.SERVICE_UNAVAILABLE,
     );
   }

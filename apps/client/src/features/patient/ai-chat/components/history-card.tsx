@@ -8,14 +8,11 @@ interface HistoryCardProps {
   onClick?: () => void;
 }
 
-function formatHistoryTime(date: Date, isCurrent: boolean) {
-  if (isCurrent) {
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
+function formatHistoryTime(
+  date: Date,
+  isCurrent: boolean,
+  isSelected: boolean,
+) {
   const now = new Date();
   const target = new Date(date);
 
@@ -39,13 +36,26 @@ function formatHistoryTime(date: Date, isCurrent: boolean) {
     yesterday.getFullYear() === target.getFullYear();
 
   if (isYesterday) {
+    if (isSelected) {
+      return `Yesterday - ${target.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    }
+
     return "Yesterday";
   }
 
-  return target.toLocaleDateString([], {
+  const datePart = target.toLocaleDateString([], {
     month: "short",
     day: "numeric",
   });
+
+  if (!isSelected) {
+    return datePart;
+  }
+
+  return `${datePart}`;
 }
 
 export function HistoryCard({
@@ -55,7 +65,7 @@ export function HistoryCard({
   isSelected = false,
   onClick,
 }: HistoryCardProps) {
-  const displayTime = formatHistoryTime(createdAt, isCurrent);
+  const displayTime = formatHistoryTime(createdAt, isCurrent, isSelected);
 
   return (
     <button
@@ -84,6 +94,7 @@ export function HistoryCard({
           className={`truncate text-base font-semibold ${
             isSelected ? "text-brand" : "text-slate-600"
           }`}
+          title={title}
         >
           {title}
         </p>

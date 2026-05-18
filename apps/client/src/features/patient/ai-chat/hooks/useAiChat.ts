@@ -294,6 +294,7 @@ export function useAiChat() {
             conversation.id === conversationId
               ? {
                   ...conversation,
+                  topic: response.topic ?? conversation.topic,
                   messageCount: response.messageCount,
                   lastMessageAt: new Date().toISOString(),
                 }

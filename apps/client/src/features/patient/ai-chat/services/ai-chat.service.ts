@@ -120,6 +120,7 @@ export type SendAiMessagePayload = {
 
 export type SendAiMessageResponse = {
   conversationId: string;
+  topic?: string;
   userMessage: string;
   attachments: Array<{ publicId: string; secureUrl: string }>;
   finalAiResponse: string;

@@ -255,6 +255,48 @@ export class AiAssistantService {
     }
   }
 
+  private isGenericGreeting(message?: string): boolean {
+    if (!message) return false;
+
+    const normalized = message.toLowerCase().replace(/\s+/g, ' ').trim();
+    const hasHello =
+      normalized.includes('xin chao') || normalized.includes('xin chào');
+    const hasConsult =
+      normalized.includes('toi can tu van') ||
+      normalized.includes('tôi cần tư vấn');
+
+    return hasHello && hasConsult;
+  }
+
+  private buildTopicFromExchange(
+    userMessage?: string,
+    assistantMessage?: string,
+  ): string | null {
+    const parts = [userMessage, assistantMessage]
+      .map((text) => text?.trim())
+      .filter(Boolean) as string[];
+
+    if (parts.length === 0) return null;
+
+    const combined = parts.join(' - ').replace(/\s+/g, ' ').trim();
+    if (combined.length < 5) return null;
+
+    return combined.length > 240 ? `${combined.slice(0, 237)}...` : combined;
+  }
+
+  private sanitizeTopicSummary(summary: string, maxLength: number): string {
+    const normalized = summary
+      .replace(/^["'“”]+|["'“”]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+  }
+
   private async uploadConversationImages(
     conversationId: string,
     files: UploadedMedicalImage[],
@@ -515,6 +557,53 @@ export class AiAssistantService {
         timestamp: new Date(),
       });
 
+      if (
+        conversation.messageCount <= 1 ||
+        this.isGenericGreeting(conversation.topic)
+      ) {
+        const lastAssistantMessage =
+          conversation.messages[conversation.messages.length - 1];
+        const lastUserMessage = conversation.messages
+          .slice(0, -1)
+          .reverse()
+          .find(
+            (message) =>
+              message.role === MessageRole.USER &&
+              !this.isGenericGreeting(message.content),
+          );
+        const topicCandidate = this.buildTopicFromExchange(
+          lastUserMessage?.content,
+          lastAssistantMessage?.content,
+        );
+
+        if (topicCandidate) {
+          const maxTopicLength = 120;
+          let finalTopic = topicCandidate;
+
+          if (topicCandidate.length > maxTopicLength) {
+            try {
+              const summary = await this.llmGatewayService.generateTopicSummary(
+                {
+                  modelName: 'gemini-2.5-flash-lite',
+                  text: topicCandidate,
+                },
+              );
+              finalTopic = this.sanitizeTopicSummary(summary, maxTopicLength);
+            } catch (error) {
+              this.logger.warn(
+                '[AI Assistant] Topic summarization failed, using fallback.',
+              );
+              finalTopic = this.sanitizeTopicSummary(
+                topicCandidate,
+                maxTopicLength,
+              );
+            }
+          }
+
+          conversation.topic = finalTopic;
+        }
+      }
+
       conversation.messageCount = conversation.messages.length;
       conversation.lastMessageAt = new Date();
       conversation.totalTokensUsed +=
@@ -527,6 +616,7 @@ export class AiAssistantService {
         message: 'Message processed successfully',
         data: {
           conversationId: conversation._id,
+          topic: conversation.topic,
           userMessage: messageContent,
           attachments: uploadedImages.map((uploadedImage) => ({
             publicId: uploadedImage.publicId,
