@@ -86,6 +86,7 @@ export class AtlasVectorStoreService implements IVectorStoreService {
     };
   }
 
+  // Vector search
   async similaritySearchByText(
     query: string,
     limit = 3,

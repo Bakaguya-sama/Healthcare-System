@@ -81,17 +81,35 @@ export class PromptBuilderService implements IPromptBuilder {
     return myPrompt;
   }
 
-  buildChatHistory(
-    messages: ConversationMessage[],
-  ): Array<{ role: string; parts: Array<{ text: string }> }> {
-    return messages.map((message) => ({
-      role:
-        message.role === MessageRole.ASSISTANT ||
-        message.role.toString() === 'assistant'
-          ? 'model'
-          : 'user',
-      parts: [{ text: message.content }],
-    }));
+  buildChatHistory(messages: ConversationMessage[]): Array<{
+    role: string;
+    parts: Array<{ text: string }>;
+  }> {
+    return messages.map((message) => {
+      const descriptionText = message.attachments
+        ? message.attachments
+            .map((file, index) =>
+              file.description
+                ? `File ${index + 1} mô tả: ${file.description}`
+                : null,
+            )
+            .filter((item): item is string => Boolean(item))
+            .join('\n')
+        : '';
+
+      const combinedText = descriptionText
+        ? `${message.content}\n\nKèm mô tả:\n${descriptionText}`
+        : message.content;
+
+      return {
+        role:
+          message.role === MessageRole.ASSISTANT ||
+          message.role.toString() === 'assistant'
+            ? 'model'
+            : 'user',
+        parts: [{ text: combinedText }],
+      };
+    });
   }
 
   buildUserPrompt(input: {
@@ -105,7 +123,7 @@ export class PromptBuilderService implements IPromptBuilder {
     return `${input.question}\n\n${input.ragContext}\n\nHướng dẫn: Chỉ sử dụng thông tin tham khảo nếu phù hợp và không mâu thuẫn với quy tắc an toàn y tế. Nếu không đủ thông tin thì phải nói rõ là chưa đủ cơ sở để kết luận.`;
   }
 
-  async buildDynamicTriagePrompt(userMessage: string): Promise<string> {
+  buildDynamicTriagePrompt(userMessage: string): string {
     /**
      * Triage Prompt Linh Hoạt - Từ cứng nhắc sang chuyên gia
      * Thay vì ép buộc AI phải hỏi 2-3 câu, hãy cho phép AI
@@ -168,7 +186,7 @@ Hãy đóng vai Trợ lý Y tế Sơ bộ (Triage Assistant) với tuân thủ c
 
   getImageDescriptionPrompt() {
     const prompt =
-      'Phân tích các hình ảnh y khoa được cung cấp. Hãy mô tả chi tiết và khách quan các dấu hiệu có thể quan sát được. Tập trung vào các đặc điểm như: loại tổn thương (ví dụ: mụn nước, sẩn, mảng đỏ), màu sắc, kích thước, hình dạng, và sự phân bố của chúng trên da. KHÔNG đưa ra chẩn đoán. Mục tiêu là tạo ra một đoạn văn bản mô tả chi tiết để một hệ thống AI khác có thể sử dụng làm ngữ cảnh.';
+      'Phân tích các hình ảnh y khoa được cung cấp. Hãy mô tả chi tiết và khách quan các dấu hiệu có thể quan sát được. Tập trung vào các đặc điểm như: loại tổn thương (ví dụ: mụn nước, sẩn, mảng đỏ), màu sắc, kích thước, hình dạng, và sự phân bố của chúng trên da. KHÔNG đưa ra chẩn đoán. Mục tiêu là tạo ra một đoạn văn bản mô tả chi tiết để một hệ thống AI khác có thể sử dụng làm ngữ cảnh. Hãy trả về danh sách theo đúng thứ tự và đúng định dạng:\nImage 1: <mo ta>\nImage 2: <mo ta>\n...';
     return prompt;
   }
 }

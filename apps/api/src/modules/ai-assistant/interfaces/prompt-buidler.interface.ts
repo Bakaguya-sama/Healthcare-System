@@ -11,5 +11,5 @@ export interface IPromptBuilder {
   ): Array<{ role: string; parts: Array<{ text: string }> }>;
   getSystemPrompt(): Promise<string>;
   buildUserPrompt(input: buildUserPromptType): string;
-  buildDynamicTriagePrompt(userMessage: string): Promise<string>;
+  buildDynamicTriagePrompt(userMessage: string): string;
 }

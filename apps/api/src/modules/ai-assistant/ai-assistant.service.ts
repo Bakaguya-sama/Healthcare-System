@@ -361,27 +361,10 @@ export class AiAssistantService {
 
     const messageContent = normalizedMessage || 'Người dùng gửi ảnh y khoa';
 
-    // Add user message to history
-    conversation.messages.push({
-      role: MessageRole.USER,
-      content: messageContent,
-      timestamp: new Date(),
-      attachments:
-        uploadedImages.length > 0
-          ? uploadedImages.map((uploadedImage) => ({
-              publicId: uploadedImage.publicId,
-              secureUrl: uploadedImage.secureUrl,
-              fileType: uploadedImage.fileType,
-              mimeType: uploadedImage.mimeType,
-              originalName: uploadedImage.originalName,
-              size: uploadedImage.size,
-            }))
-          : undefined,
-    });
-
     // BƯỚC 1: Phân tích ảnh (nếu có) để lấy mô tả văn bản
     let ragQuery = normalizedMessage;
     let imageDescription = '';
+    let imageDescriptions: string[] = [];
 
     if (uploadedImages.length > 0) {
       this.logger.log(
@@ -400,6 +383,22 @@ export class AiAssistantService {
               base64Data: img.base64Data,
             })),
           });
+
+        const parts = imageDescription
+          .split(/\n\s*(?=Image\s+\d+\s*:)/i)
+          .map((part) => part.trim())
+          .filter(Boolean);
+
+        if (parts.length > 0) {
+          imageDescriptions = parts
+            .map((part) => part.replace(/^Image\s+\d+\s*:\s*/i, '').trim())
+            .filter(Boolean);
+        }
+
+        if (imageDescriptions.length !== uploadedImages.length) {
+          imageDescriptions = uploadedImages.map(() => imageDescription.trim());
+        }
+
         this.logger.log(
           `[AI Assistant] Generated Image Description for RAG: ${imageDescription.substring(0, 100)}...`,
         );
@@ -413,6 +412,25 @@ export class AiAssistantService {
         ragQuery = normalizedMessage; // Fallback nếu phân tích ảnh lỗi
       }
     }
+
+    // Add user message to history
+    conversation.messages.push({
+      role: MessageRole.USER,
+      content: messageContent,
+      timestamp: new Date(),
+      attachments:
+        uploadedImages.length > 0
+          ? uploadedImages.map((uploadedImage, index) => ({
+              publicId: uploadedImage.publicId,
+              secureUrl: uploadedImage.secureUrl,
+              fileType: uploadedImage.fileType,
+              mimeType: uploadedImage.mimeType,
+              originalName: uploadedImage.originalName,
+              size: uploadedImage.size,
+              description: imageDescriptions[index] || imageDescription,
+            }))
+          : undefined,
+    });
 
     // BƯỚC 2: Dùng truy vấn đã được làm giàu để tìm kiếm tài liệu RAG
     const ragContext = ragQuery
@@ -444,7 +462,7 @@ export class AiAssistantService {
         } else if (this.shouldFallbackWithoutContext(finalQuestionForModel)) {
           // LUỒNG 2: Câu hỏi triệu chứng - Dùng Triage động
           userPromptForModel =
-            await this.promptBuilderService.buildDynamicTriagePrompt(
+            this.promptBuilderService.buildDynamicTriagePrompt(
               finalQuestionForModel,
             );
         } else {

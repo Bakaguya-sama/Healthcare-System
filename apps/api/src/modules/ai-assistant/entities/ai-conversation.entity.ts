@@ -29,6 +29,7 @@ export interface MessageAttachment {
   mimeType: string;
   originalName: string;
   size: number;
+  description?: string;
 }
 
 export interface ConversationMessage {

@@ -14,7 +14,10 @@ const DEFAULT_RETRY_DELAY_MS = 3000;
 export type GenerateMedicalAnswerInput = {
   modelName: string;
   systemInstruction: string;
-  history: Array<{ role: string; parts: Array<{ text: string }> }>;
+  history: Array<{
+    role: string;
+    parts: Array<{ text: string }>;
+  }>;
   userPrompt: string;
   userImages?: Array<{
     mimeType: string;

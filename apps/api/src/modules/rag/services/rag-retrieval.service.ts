@@ -28,6 +28,7 @@ export class RagRetrievalService implements IRagRetrievalService {
     const limit = this.normalizeLimit(input.limit);
     const threshold = this.normalizeThreshold(input.minScore);
 
+    // Vector search
     const rawHits = await this.vectorStoreService.similaritySearchByText(
       query,
       limit,
