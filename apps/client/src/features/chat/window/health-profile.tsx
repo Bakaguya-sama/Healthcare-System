@@ -60,6 +60,11 @@ const METRIC_CARD_ORDER: Array<{ type: MetricType; defaultUnit: string }> = [
   { type: "oxygen_saturation", defaultUnit: "%" },
   { type: "body_temperature", defaultUnit: "°C" },
   { type: "respiratory_rate", defaultUnit: "breaths/min" },
+  { type: "bmi", defaultUnit: "kg/m2" },
+  { type: "weight", defaultUnit: "kg" },
+  { type: "height", defaultUnit: "cm" },
+  { type: "water_intake", defaultUnit: "ml" },
+  { type: "kcal_intake", defaultUnit: "kcal" },
 ];
 
 const CHART_METRIC_TYPES: MetricType[] = [
