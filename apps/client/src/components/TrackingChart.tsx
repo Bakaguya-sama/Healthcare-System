@@ -62,7 +62,7 @@ const formatLabel = (date: Date, compact: boolean) => {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
-  return date.toLocaleDateString("en-US", { weekday: "short" });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
 export function TrackingChart({
@@ -79,14 +79,15 @@ export function TrackingChart({
 
   const chartModel = useMemo(() => {
     const now = new Date();
+    const selectedDayStart = startOfDay(selectedDate);
     const selectedDayEnd = endOfDay(selectedDate);
     const rangeEnd =
-      selectedRange.label === "1D" ? now : new Date(selectedDayEnd);
+      selectedRange.label === "1D" ? selectedDayEnd : new Date(selectedDayEnd);
     const clampedRangeEnd = rangeEnd.getTime() > now.getTime() ? now : rangeEnd;
     const rangeStartBase = startOfDay(clampedRangeEnd);
     const fromDate =
       selectedRange.label === "1D"
-        ? rangeStartBase
+        ? selectedDayStart
         : addDays(rangeStartBase, -(selectedRange.days - 1));
 
     const filteredEntries = entries.filter((entry) => {

@@ -2,35 +2,13 @@ import { useMemo, useState } from "react";
 import { MetricOverviewCard } from "../components/metric-overview-card";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
+import { useHealthMetrics } from "../../health-metric/hooks/useHealthMetrics";
+import type {
+  HealthMetric,
+  MetricType,
+} from "../../health-metric/services/health-metrics.service";
 
-type MetricsTypes =
-  | "blood_pressure"
-  | "heart_rate"
-  | "bmi"
-  | "height"
-  | "weight"
-  | "water_intake"
-  | "kcal_intake"
-  | "blood_glucose"
-  | "oxygen_saturation"
-  | "body_temperature"
-  | "respiratory_rate";
-
-type MetricEntry = {
-  value: number;
-  recordedAt: Date | string;
-};
-
-type HealthMetric = {
-  _id: string;
-  patientId: string;
-  type: MetricsTypes;
-  values: Record<string, MetricEntry>;
-  unit: string;
-  recordedAt: string;
-};
-
-const METRIC_CARD_ORDER: Array<{ type: MetricsTypes; defaultUnit: string }> = [
+const METRIC_CARD_ORDER: Array<{ type: MetricType; defaultUnit: string }> = [
   { type: "blood_pressure", defaultUnit: "mmHg" },
   { type: "heart_rate", defaultUnit: "bpm" },
   { type: "bmi", defaultUnit: "kg/m2" },
@@ -46,91 +24,6 @@ const METRIC_CARD_ORDER: Array<{ type: MetricsTypes; defaultUnit: string }> = [
 
 const DEFAULT_PATIENT_ID = "patient-overview";
 
-const MOCK_METRICS: HealthMetric[] = [
-  {
-    _id: "metric-blood-pressure",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "blood_pressure",
-    values: {
-      systolic: { value: 120, recordedAt: "2026-03-27T09:00:00.000Z" },
-      diastolic: { value: 80, recordedAt: "2026-03-27T09:00:00.000Z" },
-    },
-    unit: "mmHg",
-    recordedAt: "2026-03-27T09:00:00.000Z",
-  },
-  {
-    _id: "metric-heart-rate",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "heart_rate",
-    values: {
-      value: { value: 78, recordedAt: "2026-03-27T08:30:00.000Z" },
-    },
-    unit: "bpm",
-    recordedAt: "2026-03-27T08:30:00.000Z",
-  },
-  {
-    _id: "metric-bmi",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "bmi",
-    values: {
-      value: { value: 22.4, recordedAt: "2026-03-26T07:00:00.000Z" },
-    },
-    unit: "kg/m2",
-    recordedAt: "2026-03-26T07:00:00.000Z",
-  },
-  {
-    _id: "metric-kcal-intake",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "kcal_intake",
-    values: {
-      amount: { value: 2100, recordedAt: "2026-03-27T12:00:00.000Z" },
-    },
-    unit: "kcal",
-    recordedAt: "2026-03-27T12:00:00.000Z",
-  },
-  {
-    _id: "metric-blood-pressure",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "blood_pressure",
-    values: {
-      systolic: { value: 120, recordedAt: "2026-03-27T09:00:00.000Z" },
-      diastolic: { value: 80, recordedAt: "2026-03-27T09:00:00.000Z" },
-    },
-    unit: "mmHg",
-    recordedAt: "2026-03-27T09:00:00.000Z",
-  },
-  {
-    _id: "metric-heart-rate",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "heart_rate",
-    values: {
-      value: { value: 78, recordedAt: "2026-03-27T08:30:00.000Z" },
-    },
-    unit: "bpm",
-    recordedAt: "2026-03-27T08:30:00.000Z",
-  },
-  {
-    _id: "metric-bmi",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "bmi",
-    values: {
-      value: { value: 22.4, recordedAt: "2026-03-26T07:00:00.000Z" },
-    },
-    unit: "kg/m2",
-    recordedAt: "2026-03-26T07:00:00.000Z",
-  },
-  {
-    _id: "metric-kcal-intake",
-    patientId: DEFAULT_PATIENT_ID,
-    type: "kcal_intake",
-    values: {
-      amount: { value: 2100, recordedAt: "2026-03-27T12:00:00.000Z" },
-    },
-    unit: "kcal",
-    recordedAt: "2026-03-27T12:00:00.000Z",
-  },
-];
-
 export function Overview() {
   const options: Intl.DateTimeFormatOptions = {
     weekday: "long", // "Monday"
@@ -141,11 +34,16 @@ export function Overview() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // TODO: Replace MOCK_METRICS with API data when backend integration is ready.
-  const metrics = MOCK_METRICS;
+  const {
+    data: metrics,
+    isLoading,
+    error,
+  } = useHealthMetrics({
+    limit: 100,
+  });
 
   const latestMetricByType = useMemo(() => {
-    const latestMap = new Map<MetricsTypes, HealthMetric>();
+    const latestMap = new Map<MetricType, HealthMetric>();
 
     for (const metric of metrics) {
       const current = latestMap.get(metric.type);
@@ -188,7 +86,7 @@ export function Overview() {
     return latest?.recordedAt ? new Date(latest.recordedAt) : null;
   }, [metrics]);
 
-  const toMetricLabel = (metricType: MetricsTypes) =>
+  const toMetricLabel = (metricType: MetricType) =>
     metricType.replaceAll("_", " ");
 
   const filteredCardModels = useMemo(() => {
@@ -203,7 +101,7 @@ export function Overview() {
     );
   }, [cardModels, searchQuery]);
 
-  const onViewMetric = (metricType: MetricsTypes) => {
+  const onViewMetric = (metricType: MetricType) => {
     navigate(`/health-metric?metric=${metricType}`);
   };
 
@@ -223,6 +121,10 @@ export function Overview() {
                   ? `Last sync: ${syncDate.toLocaleDateString("en-US", options)}`
                   : "Last sync: -"}
               </div>
+              {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+              {isLoading && !error && (
+                <p className="mt-2 text-xs text-slate-500">Loading data...</p>
+              )}
             </div>
           </div>
 

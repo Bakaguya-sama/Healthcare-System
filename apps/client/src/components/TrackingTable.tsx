@@ -29,12 +29,26 @@ type MetricReading = {
 
 type TrackingTableProps = {
   metricTitle: string;
-  metricType: string;
+  metricType: MetricsTypes;
   selectedDate: Date;
   today: Date;
   unit: string;
   entries: MetricReading[];
   hasData: boolean;
+  onCreateEntry?: (input: {
+    metricType: MetricsTypes;
+    recordedAt: string;
+    primaryValue: number;
+    secondaryValue?: number;
+  }) => Promise<unknown> | void;
+  onUpdateEntry?: (input: {
+    id: string;
+    metricType: MetricsTypes;
+    recordedAt: string;
+    primaryValue: number;
+    secondaryValue?: number;
+  }) => Promise<unknown> | void;
+  onDeleteEntry?: (id: string) => Promise<unknown> | void;
 };
 
 const IS_METRIC_EDITABLE: Record<MetricsTypes, boolean> = {
@@ -68,11 +82,13 @@ export function TrackingTable({
   unit,
   entries,
   hasData,
+  onCreateEntry,
+  onUpdateEntry,
+  onDeleteEntry,
 }: TrackingTableProps) {
   const now = new Date();
   const timeStringLocale = `${`${now.getHours()}`.padStart(2, "0")}:${`${now.getMinutes()}`.padStart(2, "0")}`;
 
-  const isPastDate = dateKey(selectedDate) < dateKey(today);
   const isToday = dateKey(selectedDate) === dateKey(today);
   const [isAdding, setIsAdding] = useState(false);
   const [valueInput, setValueInput] = useState("");
@@ -86,16 +102,17 @@ export function TrackingTable({
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<
     string | null
   >(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditable: boolean = IS_METRIC_EDITABLE[metricType];
 
-  const handleDeleteEntry = () => {
+  const handleDeleteEntry = async () => {
     if (!pendingDeleteEntryId) {
       showToast.error("Cannot find entry!");
       return;
     }
 
-    deleteEntry(pendingDeleteEntryId);
+    await deleteEntry(pendingDeleteEntryId);
     setPendingDeleteEntryId(null);
     setConfirmationModalOpen(false);
   };
@@ -159,7 +176,7 @@ export function TrackingTable({
     setEditTimeInput(timeStringLocale);
   };
 
-  const addEntry = () => {
+  const addEntry = async () => {
     if (!canSubmit) {
       return;
     }
@@ -180,9 +197,28 @@ export function TrackingTable({
       status: "normal",
     };
 
-    setLocalEntries((prev) => [nextEntry, ...prev]);
-    resetForm();
-    setIsAdding(false);
+    setIsSubmitting(true);
+    try {
+      if (onCreateEntry) {
+        await onCreateEntry({
+          metricType,
+          recordedAt: nextEntry.recordedAt,
+          primaryValue: nextEntry.primaryValue,
+          secondaryValue: nextEntry.secondaryValue,
+        });
+        showToast.success("Entry added successfully");
+      } else {
+        setLocalEntries((prev) => [nextEntry, ...prev]);
+      }
+      resetForm();
+      setIsAdding(false);
+    } catch (err) {
+      showToast.error(
+        err instanceof Error ? err.message : "Failed to add entry",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const startEditEntry = (entry: MetricReading) => {
@@ -194,7 +230,7 @@ export function TrackingTable({
     setEditTimeInput(toInputTime(entry.recordedAt));
   };
 
-  const saveEditEntry = (entry: MetricReading) => {
+  const saveEditEntry = async (entry: MetricReading) => {
     if (!canSubmitEdit) {
       return;
     }
@@ -209,27 +245,60 @@ export function TrackingTable({
         ? Number(editSecondaryValueInput)
         : undefined;
 
-    setLocalEntries((prev) =>
-      prev.map((item) =>
-        item.id === entry.id
-          ? {
-              ...item,
-              recordedAt: recordedDate.toISOString(),
-              primaryValue: nextPrimaryValue,
-              secondaryValue: nextSecondaryValue,
-            }
-          : item,
-      ),
-    );
-
-    resetEditForm();
+    setIsSubmitting(true);
+    try {
+      if (onUpdateEntry) {
+        await onUpdateEntry({
+          id: entry.id,
+          metricType,
+          recordedAt: recordedDate.toISOString(),
+          primaryValue: nextPrimaryValue,
+          secondaryValue: nextSecondaryValue,
+        });
+        showToast.success("Entry updated successfully");
+      } else {
+        setLocalEntries((prev) =>
+          prev.map((item) =>
+            item.id === entry.id
+              ? {
+                  ...item,
+                  recordedAt: recordedDate.toISOString(),
+                  primaryValue: nextPrimaryValue,
+                  secondaryValue: nextSecondaryValue,
+                }
+              : item,
+          ),
+        );
+      }
+      resetEditForm();
+    } catch (err) {
+      showToast.error(
+        err instanceof Error ? err.message : "Failed to update entry",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const deleteEntry = (entryId: string) => {
-    setLocalEntries((prev) => prev.filter((item) => item.id !== entryId));
+  const deleteEntry = async (entryId: string) => {
+    setIsSubmitting(true);
+    try {
+      if (onDeleteEntry) {
+        await onDeleteEntry(entryId);
+        showToast.success("Entry deleted successfully");
+      } else {
+        setLocalEntries((prev) => prev.filter((item) => item.id !== entryId));
+      }
 
-    if (editingEntryId === entryId) {
-      resetEditForm();
+      if (editingEntryId === entryId) {
+        resetEditForm();
+      }
+    } catch (err) {
+      showToast.error(
+        err instanceof Error ? err.message : "Failed to delete entry",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -290,10 +359,11 @@ export function TrackingTable({
             </p>
           </div>
 
-          {!isPastDate && isEditable && (
+          {isEditable && (
             <Button
               className="rounded-xl bg-lime-400 text-slate-900 hover:bg-lime-500"
               onClick={() => setIsAdding((prev) => !prev)}
+              disabled={isSubmitting}
             >
               <Plus className="mr-1 h-4 w-4" />
               {isAdding ? "Hide Form" : "Add Entry"}
@@ -301,7 +371,7 @@ export function TrackingTable({
           )}
         </div>
 
-        {!isPastDate && isAdding && (
+        {isAdding && (
           <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Add New Record
@@ -364,7 +434,7 @@ export function TrackingTable({
                 <Button
                   className="h-10 rounded-lg bg-lime-500 text-slate-900 hover:bg-lime-600"
                   onClick={addEntry}
-                  disabled={!canSubmit}
+                  disabled={!canSubmit || isSubmitting}
                 >
                   Save
                 </Button>
@@ -380,9 +450,7 @@ export function TrackingTable({
                 No records for this date
               </p>
               <p className="mt-1 text-sm text-slate-400">
-                {isPastDate
-                  ? "Select another date to review available records."
-                  : "Click Add Entry to record your latest metric."}
+                Click Add Entry to record your metric for this date.
               </p>
             </div>
           </div>
@@ -457,7 +525,7 @@ export function TrackingTable({
                         <Button
                           className="h-10 flex-1 rounded-lg bg-lime-500 text-slate-900 hover:bg-lime-600"
                           onClick={() => saveEditEntry(entry)}
-                          disabled={!canSubmitEdit}
+                          disabled={!canSubmitEdit || isSubmitting}
                         >
                           Update
                         </Button>

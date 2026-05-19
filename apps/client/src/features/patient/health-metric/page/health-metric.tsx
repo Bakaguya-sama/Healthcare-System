@@ -17,20 +17,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { TrackingCalendar } from "../../../../components/TrackingCalendar";
 import { TrackingChart } from "../../../../components/TrackingChart";
 import { TrackingTable } from "../../../../components/TrackingTable";
-import { useMetricStatus } from "../utils/useMetricStatus";
-
-type MetricsTypes =
-  | "blood_pressure"
-  | "heart_rate"
-  | "bmi"
-  | "height"
-  | "weight"
-  | "water_intake"
-  | "kcal_intake"
-  | "blood_glucose"
-  | "oxygen_saturation"
-  | "body_temperature"
-  | "respiratory_rate";
+import { useHealthMetrics } from "../hooks/useHealthMetrics";
+import {
+  type MetricReading,
+  type MetricsTypes,
+  useMetricStatus,
+} from "../utils/useMetricStatus";
 
 type VariantStyle = {
   icon: ReactNode;
@@ -132,243 +124,6 @@ const VARIANT_STYLES: Record<MetricsTypes, VariantStyle> = {
   },
 };
 
-type MetricReading = {
-  id: string;
-  recordedAt: string;
-  primaryValue: number;
-  secondaryValue?: number;
-  status: "normal" | "high" | "low";
-};
-
-const MOCK_METRIC_READINGS: Record<MetricsTypes, MetricReading[]> = {
-  blood_pressure: [
-    // 2026-03-30
-    {
-      id: "r-001",
-      recordedAt: "2026-03-30T06:30:00.000Z",
-      primaryValue: 118,
-      secondaryValue: 76,
-      status: "normal",
-    },
-    {
-      id: "r-002",
-      recordedAt: "2026-03-30T12:10:00.000Z",
-      primaryValue: 126,
-      secondaryValue: 82,
-      status: "high",
-    },
-    {
-      id: "r-003",
-      recordedAt: "2026-03-30T18:45:00.000Z",
-      primaryValue: 121,
-      secondaryValue: 79,
-      status: "normal",
-    },
-
-    // 2026-03-29
-    {
-      id: "r-004",
-      recordedAt: "2026-03-29T07:00:00.000Z",
-      primaryValue: 115,
-      secondaryValue: 74,
-      status: "normal",
-    },
-    {
-      id: "r-005",
-      recordedAt: "2026-03-29T13:20:00.000Z",
-      primaryValue: 129,
-      secondaryValue: 84,
-      status: "high",
-    },
-    {
-      id: "r-006",
-      recordedAt: "2026-03-29T21:05:00.000Z",
-      primaryValue: 119,
-      secondaryValue: 78,
-      status: "normal",
-    },
-
-    // 2026-03-27
-    {
-      id: "r-007",
-      recordedAt: "2026-03-27T06:40:00.000Z",
-      primaryValue: 110,
-      secondaryValue: 70,
-      status: "low",
-    },
-    {
-      id: "r-008",
-      recordedAt: "2026-03-27T14:00:00.000Z",
-      primaryValue: 117,
-      secondaryValue: 75,
-      status: "normal",
-    },
-    {
-      id: "r-009",
-      recordedAt: "2026-03-27T19:30:00.000Z",
-      primaryValue: 123,
-      secondaryValue: 80,
-      status: "normal",
-    },
-
-    // 2026-03-24
-    {
-      id: "r-010",
-      recordedAt: "2026-03-24T08:15:00.000Z",
-      primaryValue: 132,
-      secondaryValue: 86,
-      status: "high",
-    },
-    {
-      id: "r-011",
-      recordedAt: "2026-03-24T16:25:00.000Z",
-      primaryValue: 127,
-      secondaryValue: 83,
-      status: "high",
-    },
-    {
-      id: "r-012",
-      recordedAt: "2026-03-24T22:00:00.000Z",
-      primaryValue: 120,
-      secondaryValue: 78,
-      status: "normal",
-    },
-  ],
-  heart_rate: [
-    {
-      id: "hr-1",
-      recordedAt: "2026-03-29T07:30:00.000Z",
-      primaryValue: 72,
-      status: "normal",
-    },
-    {
-      id: "hr-2",
-      recordedAt: "2026-03-28T13:20:00.000Z",
-      primaryValue: 112,
-      status: "high",
-    },
-  ],
-  bmi: [
-    {
-      id: "bmi-1",
-      recordedAt: "2026-03-28T06:15:00.000Z",
-      primaryValue: 22.4,
-      status: "normal",
-    },
-  ],
-  height: [
-    {
-      id: "height-1",
-      recordedAt: "2026-03-20T06:00:00.000Z",
-      primaryValue: 172,
-      status: "normal",
-    },
-  ],
-  weight: [
-    {
-      id: "weight-1",
-      recordedAt: "2026-03-29T06:10:00.000Z",
-      primaryValue: 66,
-      status: "normal",
-    },
-    {
-      id: "weight-2",
-      recordedAt: "2026-03-27T06:10:00.000Z",
-      primaryValue: 67,
-      status: "normal",
-    },
-  ],
-  water_intake: [
-    {
-      id: "water-1",
-      recordedAt: "2026-03-28T08:10:00.000Z",
-      primaryValue: 1200,
-      status: "normal",
-    },
-    {
-      id: "water-2",
-      recordedAt: "2026-03-28T13:30:00.000Z",
-      primaryValue: 1100,
-      status: "normal",
-    },
-    {
-      id: "water-3",
-      recordedAt: "2026-03-28T09:45:00.000Z",
-      primaryValue: 900,
-      status: "normal",
-    },
-    {
-      id: "water-4",
-      recordedAt: "2026-03-29T07:20:00.000Z",
-      primaryValue: 2000,
-      status: "normal",
-    },
-    {
-      id: "water-5",
-      recordedAt: "2026-03-29T12:00:00.000Z",
-      primaryValue: 1800,
-      status: "normal",
-    },
-    {
-      id: "water-6",
-      recordedAt: "2026-03-29T10:40:00.000Z",
-      primaryValue: 2000,
-      status: "normal",
-    },
-    {
-      id: "water-7",
-      recordedAt: "2026-03-30T09:15:00.000Z",
-      primaryValue: 1300,
-      status: "normal",
-    },
-    {
-      id: "water-8",
-      recordedAt: "2026-03-30T14:10:00.000Z",
-      primaryValue: 1400,
-      status: "normal",
-    },
-    {
-      id: "water-9",
-      recordedAt: "2026-03-30T12:05:00.000Z",
-      primaryValue: 1500,
-      status: "normal",
-    },
-  ],
-  kcal_intake: [
-    {
-      id: "kcal-1",
-      recordedAt: "2026-03-29T12:00:00.000Z",
-      primaryValue: 2100,
-      status: "normal",
-    },
-  ],
-  blood_glucose: [
-    {
-      id: "bg-1",
-      recordedAt: "2026-03-29T07:45:00.000Z",
-      primaryValue: 96,
-      status: "normal",
-    },
-  ],
-  oxygen_saturation: [],
-  body_temperature: [
-    {
-      id: "temp-1",
-      recordedAt: "2026-03-29T08:50:00.000Z",
-      primaryValue: 36.8,
-      status: "normal",
-    },
-  ],
-  respiratory_rate: [
-    {
-      id: "rr-1",
-      recordedAt: "2026-03-29T08:30:00.000Z",
-      primaryValue: 16,
-      status: "normal",
-    },
-  ],
-};
-
 const METRIC_UNIT: Record<MetricsTypes, string> = {
   blood_pressure: "mmHg",
   heart_rate: "bpm",
@@ -429,14 +184,27 @@ export function HealthMetric({
       ? metricFromQuery
       : "blood_pressure");
 
+  const shouldFetch = !data;
+  const {
+    readings: apiEntries,
+    isLoading,
+    error,
+    addEntry,
+    updateEntry,
+    removeEntry,
+  } = useHealthMetrics({
+    type: activeMetric,
+    enabled: shouldFetch,
+  });
+
   const style = VARIANT_STYLES[activeMetric];
   const sourceEntries = useMemo(() => {
-    const source = data ?? MOCK_METRIC_READINGS[activeMetric] ?? [];
+    const source = data ?? apiEntries ?? [];
     return [...source].sort(
       (a, b) =>
         new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime(),
     );
-  }, [activeMetric, data]);
+  }, [apiEntries, data]);
 
   const allEntries = useMetricStatus({
     metricType: activeMetric,
@@ -516,6 +284,10 @@ export function HealthMetric({
                   year: "numeric",
                 })}
               </p>
+              {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+              {isLoading && !error && (
+                <p className="mt-1 text-xs text-slate-500">Loading data...</p>
+              )}
             </div>
           </div>
         </div>
@@ -549,6 +321,9 @@ export function HealthMetric({
             unit={METRIC_UNIT[activeMetric]}
             entries={entriesOnSelectedDate}
             hasData={resolvedHasData}
+            onCreateEntry={(input) => addEntry(input)}
+            onUpdateEntry={(input) => updateEntry(input)}
+            onDeleteEntry={(entryId) => removeEntry(entryId)}
           />
         </div>
       </div>
