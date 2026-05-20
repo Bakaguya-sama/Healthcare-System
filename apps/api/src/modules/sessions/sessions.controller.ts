@@ -18,13 +18,20 @@ import { UpdateSessionDto } from './dto/update-session.dto';
 import { QuerySessionDto } from './dto/query-session.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
+import { SessionsGateway } from './sessions.gateway';
+import { Type } from 'class-transformer';
+import { Types } from 'mongoose';
+import type { SessionStatus } from './sessions.gateway';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('sessions')
 export class SessionsController {
-  constructor(private readonly sessionsService: SessionsService) {}
+  constructor(
+    private readonly sessionsService: SessionsService,
+    private readonly sessionsGateway: SessionsGateway,
+  ) {}
 
   /**
    * 📝 POST /sessions
@@ -37,7 +44,18 @@ export class SessionsController {
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateSessionDto,
   ) {
-    return this.sessionsService.create(userId, dto);
+    const res = await this.sessionsService.create(userId, dto);
+
+    const gatewayPayload = {
+      action: 'created' as SessionStatus,
+      sessionId: res.data.id,
+      patientId: res.data.patientId.toString(),
+      doctorId: res.data.doctorId.toString(),
+    };
+
+    this.sessionsGateway.emitSessionChange(gatewayPayload);
+
+    return res;
   }
 
   /**
@@ -104,14 +122,36 @@ export class SessionsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xác nhận session (Doctor only)' })
   async confirm(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.sessionsService.confirm(userId, id);
+    const res = await this.sessionsService.confirm(userId, id);
+
+    const gatewayPayload = {
+      action: 'confirmed' as SessionStatus,
+      sessionId: res.data.id,
+      patientId: res.data.patientId.toString(),
+      doctorId: res.data.doctorId.toString(),
+    };
+
+    this.sessionsGateway.emitSessionChange(gatewayPayload);
+
+    return res;
   }
 
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Từ chối session (Doctor only)' })
   async reject(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.sessionsService.reject(userId, id);
+    const res = await this.sessionsService.reject(userId, id);
+
+    const gatewayPayload = {
+      action: 'rejected' as SessionStatus,
+      sessionId: res.data.id,
+      patientId: res.data.patientId.toString(),
+      doctorId: res.data.doctorId.toString(),
+    };
+
+    this.sessionsGateway.emitSessionChange(gatewayPayload);
+
+    return res;
   }
 
   /**
@@ -137,7 +177,18 @@ export class SessionsController {
     @Param('id') id: string,
     @Body() dto: UpdateSessionDto,
   ) {
-    return this.sessionsService.complete(userId, id, dto);
+    const res = await this.sessionsService.complete(userId, id, dto);
+
+    const gatewayPayload = {
+      action: 'completed' as SessionStatus,
+      sessionId: res.data.id,
+      patientId: res.data.patientId.toString(),
+      doctorId: res.data.doctorId.toString(),
+    };
+
+    this.sessionsGateway.emitSessionChange(gatewayPayload);
+
+    return res;
   }
 
   /**
@@ -152,7 +203,18 @@ export class SessionsController {
     @Param('id') id: string,
     @Body() dto: UpdateSessionDto,
   ) {
-    return this.sessionsService.cancel(userId, id, dto);
+    const res = await this.sessionsService.cancel(userId, id, dto);
+
+    const gatewayPayload = {
+      action: 'rejected' as SessionStatus,
+      sessionId: res.data.id,
+      patientId: res.data.patientId.toString(),
+      doctorId: res.data.doctorId.toString(),
+    };
+
+    this.sessionsGateway.emitSessionChange(gatewayPayload);
+
+    return res;
   }
 
   /**
