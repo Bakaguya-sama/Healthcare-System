@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getProfile } from "@/features/shared/services/profile-service";
+import { connectSessionSocket, sessionSocket } from "@/lib/api";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import {
   createSession,
   getDoctors,
@@ -11,8 +13,20 @@ type UseMyDoctorOptions = {
   enabled?: boolean;
 };
 
+type SessionChangePayload = {
+  action: string;
+  sessionId: string;
+  patientId: string;
+  doctorId: string;
+};
+
+const requestedActions = new Set(["created", "confirmed"]);
+const clearedActions = new Set(["rejected", "completed"]);
+
 export function useMyDoctor(options: UseMyDoctorOptions = {}) {
   const { enabled = true } = options;
+  const accessToken = useAuthStore((state) => state.token);
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const [data, setData] = useState<DoctorItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +118,42 @@ export function useMyDoctor(options: UseMyDoctorOptions = {}) {
   useEffect(() => {
     void fetchDoctors();
   }, [fetchDoctors]);
+
+  useEffect(() => {
+    if (!enabled || !currentUserId) return;
+
+    const token = accessToken || localStorage.getItem("accessToken") || "";
+    if (!connectSessionSocket(token)) {
+      return;
+    }
+
+    const handleSessionChanged = (payload: SessionChangePayload) => {
+      if (payload.patientId !== currentUserId) return;
+
+      if (requestedActions.has(payload.action)) {
+        setRequestedDoctorIds((prev) => {
+          const next = new Set(prev);
+          next.add(payload.doctorId);
+          return next;
+        });
+        return;
+      }
+
+      if (clearedActions.has(payload.action)) {
+        setRequestedDoctorIds((prev) => {
+          const next = new Set(prev);
+          next.delete(payload.doctorId);
+          return next;
+        });
+      }
+    };
+
+    sessionSocket.on("session_changed", handleSessionChanged);
+
+    return () => {
+      sessionSocket.off("session_changed", handleSessionChanged);
+    };
+  }, [accessToken, currentUserId, enabled, fetchDoctors]);
 
   const requestSession = useCallback(
     async (doctorId: string, patientNotes?: string) => {

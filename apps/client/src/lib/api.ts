@@ -18,6 +18,14 @@ const socket = io(`${SOCKET_BASE_URL}/chat`, {
   reconnectionAttempts: 3,
 });
 
+const sessionSocket = io(`${SOCKET_BASE_URL}/session`, {
+  autoConnect: false,
+  auth: {
+    token: localStorage.getItem("accessToken") || "",
+  },
+  reconnectionAttempts: 3,
+});
+
 function connectSocket(token?: string): boolean {
   if (!token) {
     if (socket.connected) {
@@ -31,6 +39,26 @@ function connectSocket(token?: string): boolean {
   socket.auth = { token };
   if (!socket.connected) {
     socket.connect();
+  }
+
+  console.log("Connect successfully");
+
+  return true;
+}
+
+function connectSessionSocket(token?: string): boolean {
+  if (!token) {
+    if (sessionSocket.connected) {
+      sessionSocket.disconnect();
+    }
+    console.log("Cannot connect");
+
+    return false;
+  }
+
+  sessionSocket.auth = { token };
+  if (!sessionSocket.connected) {
+    sessionSocket.connect();
   }
 
   console.log("Connect successfully");
@@ -196,4 +224,11 @@ api.interceptors.response.use(
   },
 );
 
-export { API_BASE_URL, api, socket, connectSocket };
+export {
+  API_BASE_URL,
+  api,
+  socket,
+  connectSocket,
+  sessionSocket,
+  connectSessionSocket,
+};

@@ -1,18 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { connectSessionSocket, sessionSocket } from "@/lib/api";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import {
   getConsultationsEnriched,
   getConsultationReview,
   type Consultation,
 } from "../services/consultations.service";
 
+type SessionChangePayload = {
+  action: string;
+  sessionId: string;
+  patientId: string;
+  doctorId: string;
+};
+
+const statusByAction: Record<string, Consultation["status"] | null> = {
+  created: "pending",
+  confirmed: "active",
+  rejected: "rejected",
+  completed: "completed",
+};
+
 export function useConsultations() {
+  const accessToken = useAuthStore((state) => state.token);
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const [data, setData] = useState<Consultation[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchConsultations = async () => {
+  const fetchConsultations = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -25,7 +43,42 @@ export function useConsultations() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  const applySessionChange = useCallback(
+    (payload: SessionChangePayload) => {
+      const nextStatus = statusByAction[payload.action];
+      if (!nextStatus) return;
+
+      let updated = false;
+      const now = new Date().toISOString();
+
+      setData((prev) => {
+        if (!prev) return prev;
+        const next = prev.map((item) => {
+          if (item.id !== payload.sessionId) {
+            return item;
+          }
+          updated = true;
+          return {
+            ...item,
+            status: nextStatus,
+            updatedAt: now,
+            endedAt:
+              nextStatus === "completed" || nextStatus === "rejected"
+                ? now
+                : item.endedAt,
+          };
+        });
+        return updated ? next : prev;
+      });
+
+      if (!updated) {
+        void fetchConsultations();
+      }
+    },
+    [fetchConsultations],
+  );
 
   const getConsultationReviewBySession = async (sessionId: string) => {
     setIsLoading(true);
@@ -47,7 +100,32 @@ export function useConsultations() {
 
   useEffect(() => {
     fetchConsultations();
-  }, []);
+  }, [fetchConsultations]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const token = accessToken || localStorage.getItem("accessToken") || "";
+    if (!connectSessionSocket(token)) {
+      return;
+    }
+
+    const handleSessionChanged = (payload: SessionChangePayload) => {
+      if (
+        payload.doctorId !== currentUserId &&
+        payload.patientId !== currentUserId
+      ) {
+        return;
+      }
+      applySessionChange(payload);
+    };
+
+    sessionSocket.on("session_changed", handleSessionChanged);
+
+    return () => {
+      sessionSocket.off("session_changed", handleSessionChanged);
+    };
+  }, [accessToken, applySessionChange, currentUserId]);
 
   return {
     data,
