@@ -25,13 +25,14 @@ interface ConsultationHistoryCardProps {
   patientReview?: string;
   sessionStatus: SessionStatus;
   endedAt?: Date;
+  createdAt?: Date;
   onOpenchat: () => void;
   onViewProfile: () => void;
   onOpenReview: () => void;
   onReport: () => void;
 }
 
-function formatEndedAt(value?: Date) {
+function formatDate(value?: Date) {
   if (!value) return "-";
 
   const now = new Date();
@@ -90,6 +91,7 @@ export function ConsultationHistoryCard({
   patientRating = 0,
   patientReview,
   sessionStatus,
+  createdAt,
   endedAt,
   onOpenchat,
   onViewProfile,
@@ -171,7 +173,7 @@ export function ConsultationHistoryCard({
         </div>
       </div>
 
-      <p className="text-xs text-slate-500">{formatEndedAt(endedAt)}</p>
+      <p className="text-xs text-slate-500">{formatDate(createdAt)}</p>
 
       <div>
         <span

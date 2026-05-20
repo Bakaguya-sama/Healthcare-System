@@ -82,6 +82,7 @@ export function Consultations() {
     doctorNote?: string;
     status?: string;
     endedAt?: Date;
+    createdAt?: Date;
   } | null>(null);
   const [isChatOpen, setChatOpen] = useState(false);
   const [selectedChatSession, setSelectedChatSession] =
@@ -177,6 +178,7 @@ export function Consultations() {
       lastSent: c.startedAt ? new Date(c.startedAt) : new Date(c.createdAt),
       patientNote: c.patientNotes,
       status: c.status,
+      createdAt: c.createdAt,
     }));
 
   const historyItems = (consultations || [])
@@ -193,6 +195,7 @@ export function Consultations() {
       patientNote: c.patientNotes,
       doctorNote: c.doctorNotes,
       status: c.status,
+      createdAt: c.createdAt ? new Date(c.createdAt) : undefined,
     }));
 
   const handleCloseEndChatModal = () => {
@@ -621,8 +624,6 @@ export function Consultations() {
                         id={item.id}
                         patientName={item.patientName}
                         patientAvatarUrl={item.patientUrl}
-                        patientBirthDay={new Date()} // TODO: get from patient profile
-                        patientGender="" // TODO: get from patient profile
                         patientNote={item.patientNote}
                         createdAt={item.createdAt}
                         onAccept={() => handleRequestAction("accept", item.id)}
@@ -763,6 +764,7 @@ export function Consultations() {
                         patientReview={session.patientReview}
                         sessionStatus={session.sessionStatus}
                         endedAt={session.endedAt}
+                        createdAt={session.createdAt}
                         onOpenchat={() => handleOpenChat(session.sessionId)}
                         onViewProfile={() =>
                           handleViewProfile(session.patientId)

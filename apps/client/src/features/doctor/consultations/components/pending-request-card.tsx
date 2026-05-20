@@ -7,9 +7,7 @@ interface PendingRequestCardProps {
   patientAvatarUrl?: string;
   patientIsOnline?: boolean;
   patientName: string;
-  patientBirthDay: Date;
   patientNote?: string;
-  patientGender: string;
   createdAt: Date;
   onAccept?: () => void;
   onDecline?: () => void;
@@ -17,18 +15,18 @@ interface PendingRequestCardProps {
   isDeclining?: boolean;
 }
 
-function getAge(birthDay: Date) {
-  const today = new Date();
-  let age = today.getFullYear() - birthDay.getFullYear();
-  const monthDiff = today.getMonth() - birthDay.getMonth();
-  const dayDiff = today.getDate() - birthDay.getDate();
+// function getAge(birthDay: Date) {
+//   const today = new Date();
+//   let age = today.getFullYear() - birthDay.getFullYear();
+//   const monthDiff = today.getMonth() - birthDay.getMonth();
+//   const dayDiff = today.getDate() - birthDay.getDate();
 
-  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-    age -= 1;
-  }
+//   if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+//     age -= 1;
+//   }
 
-  return Math.max(age, 0);
-}
+//   return Math.max(age, 0);
+// }
 
 function formatRelativeTime(date: Date) {
   const now = Date.now();
@@ -56,16 +54,13 @@ export function PendingRequestCard({
   patientAvatarUrl,
   patientIsOnline = false,
   patientName,
-  patientBirthDay,
   patientNote,
-  patientGender,
   createdAt,
   onAccept,
   onDecline,
   isAccepting = false,
   isDeclining = false,
 }: PendingRequestCardProps) {
-  const age = getAge(patientBirthDay);
   const requestTime = formatRelativeTime(createdAt);
   const displayNote = patientNote?.trim() || "No note provided.";
   const isProcessing = isAccepting || isDeclining;
@@ -86,9 +81,6 @@ export function PendingRequestCard({
           <h3 className="text-xl font-semibold leading-tight text-slate-900">
             {patientName}
           </h3>
-          <p className="mt-1 text-base text-slate-500">
-            {age} yrs - {patientGender}
-          </p>
         </div>
       </div>
 

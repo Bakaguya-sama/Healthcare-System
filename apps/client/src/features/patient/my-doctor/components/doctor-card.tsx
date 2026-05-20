@@ -13,6 +13,7 @@ interface DoctorCardProps {
   workplace: string;
   averageRating: string;
   totalReview: number;
+  isRequested?: boolean;
   onRequest: (id: string) => void;
   onViewProfile: (id: string) => void;
 }
@@ -27,6 +28,7 @@ export function DoctorCard({
   workplace,
   averageRating,
   totalReview,
+  isRequested = false,
   onRequest,
   onViewProfile,
 }: DoctorCardProps) {
@@ -40,10 +42,12 @@ export function DoctorCard({
           avtStyle="h-20 w-20 rounded-3xl"
         />
 
-        <h3 className="mt-4 text-xl font-semibold text-slate-800">
+        <h3 className="mt-4 min-h-[3.25rem] text-xl font-semibold text-slate-800 line-clamp-2">
           Dr. {fullName}
         </h3>
-        <p className="mt-1 text-sm text-slate-400">{specialty}</p>
+        <p className="mt-1 min-h-[1.25rem] text-sm text-slate-400 line-clamp-1">
+          {specialty}
+        </p>
 
         <span
           className={`mt-4 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium ${
@@ -97,11 +101,18 @@ export function DoctorCard({
         </Button>
 
         <Button
-          className="h-11 w-full rounded-2xl bg-lime-400 px-4 text-slate-900 whitespace-nowrap hover:bg-lime-500"
+          className={`h-11 w-full rounded-2xl px-4 whitespace-nowrap ${
+            isRequested
+              ? "bg-slate-200 text-slate-500"
+              : "bg-lime-400 text-slate-900 hover:bg-lime-500"
+          }`}
           onClick={() => onRequest(id)}
+          disabled={isRequested}
         >
           <MessageCircle className="mr-2 h-4 w-4 shrink-0" />
-          <span className="text-sm leading-none">Request</span>
+          <span className="text-sm leading-none">
+            {isRequested ? "Requested" : "Request"}
+          </span>
         </Button>
       </div>
     </article>

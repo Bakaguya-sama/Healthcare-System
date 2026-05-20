@@ -4,162 +4,10 @@ import { useMemo, useState } from "react";
 import { DoctorCard } from "../components/doctor-card";
 import { ProfileModal } from "@repo/ui/components/complex-modal/ProfileModal";
 import { RequestModal } from "../components/request-modal";
-
-export const doctorSpecialty = [
-  { id: "general_practitioner", name: "General Practitioner" },
-  { id: "internal_medicine", name: "Internal Medicine" },
-  { id: "cardiology", name: "Cardiology" },
-  { id: "dermatology", name: "Dermatology" },
-  { id: "neurology", name: "Neurology" },
-  { id: "orthopedics", name: "Orthopedics" },
-  { id: "pediatrics", name: "Pediatrics" },
-  { id: "obstetrics_gynecology", name: "Obstetrics & Gynecology" },
-  { id: "ophthalmology", name: "Ophthalmology" },
-  { id: "ent", name: "Ear, Nose, and Throat (ENT)" },
-  { id: "psychiatry", name: "Psychiatry" },
-  { id: "radiology", name: "Radiology" },
-  { id: "anesthesiology", name: "Anesthesiology" },
-  { id: "emergency_medicine", name: "Emergency Medicine" },
-  { id: "family_medicine", name: "Family Medicine" },
-  { id: "endocrinology", name: "Endocrinology" },
-  { id: "gastroenterology", name: "Gastroenterology" },
-  { id: "hematology", name: "Hematology" },
-  { id: "nephrology", name: "Nephrology" },
-  { id: "oncology", name: "Oncology" },
-  { id: "pulmonology", name: "Pulmonology" },
-  { id: "urology", name: "Urology" },
-  { id: "rheumatology", name: "Rheumatology" },
-  { id: "infectious_disease", name: "Infectious Disease" },
-  { id: "plastic_surgery", name: "Plastic Surgery" },
-  { id: "general_surgery", name: "General Surgery" },
-  { id: "neurosurgery", name: "Neurosurgery" },
-  { id: "cardiothoracic_surgery", name: "Cardiothoracic Surgery" },
-  { id: "rehabilitation", name: "Physical Medicine & Rehabilitation" },
-  { id: "sports_medicine", name: "Sports Medicine" },
-  { id: "allergy_immunology", name: "Allergy & Immunology" },
-  { id: "geriatrics", name: "Geriatrics" },
-  { id: "preventive_medicine", name: "Preventive Medicine" },
-];
-
-type DoctorItem = {
-  id: string;
-  fullName: string;
-  yearsOfExperience: number;
-  isOnline: boolean;
-  avatarUrl?: string;
-  specialty: string;
-  specialtyId: string;
-  workplace: string;
-  averageRating: string;
-  totalReview: number;
-};
-
-const MOCK_DOCTOR_DATA: DoctorItem[] = [
-  {
-    id: "doc-001",
-    fullName: "Sarah Chen",
-    yearsOfExperience: 8,
-    isOnline: true,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1594824475317-1f0c1f4d2f57?auto=format&fit=crop&w=240&q=80",
-    specialty: "Cosmetic Dermatology",
-    specialtyId: "dermatology",
-    workplace: "City Skin Clinic",
-    averageRating: "4.9",
-    totalReview: 204,
-  },
-  {
-    id: "doc-002",
-    fullName: "Aisha Roberts",
-    yearsOfExperience: 10,
-    isOnline: true,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=240&q=80",
-    specialty: "General Pediatrics",
-    specialtyId: "pediatrics",
-    workplace: "Children Wellness Clinic",
-    averageRating: "4.9",
-    totalReview: 317,
-  },
-  {
-    id: "doc-003",
-    fullName: "Marcus Lee",
-    yearsOfExperience: 12,
-    isOnline: true,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1612349316228-5942a9b489c2?auto=format&fit=crop&w=240&q=80",
-    specialty: "Interventional Cardiology",
-    specialtyId: "cardiology",
-    workplace: "Boston Medical Center",
-    averageRating: "4.8",
-    totalReview: 120,
-  },
-  {
-    id: "doc-004",
-    fullName: "Emily Watson",
-    yearsOfExperience: 9,
-    isOnline: true,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1651008376553-1f8f88ff4f59?auto=format&fit=crop&w=240&q=80",
-    specialty: "Diabetes & Thyroid",
-    specialtyId: "endocrinology",
-    workplace: "Horizon Medical Group",
-    averageRating: "4.8",
-    totalReview: 156,
-  },
-  {
-    id: "doc-005",
-    fullName: "James Park",
-    yearsOfExperience: 15,
-    isOnline: false,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=240&q=80",
-    specialty: "Headache & Migraine",
-    specialtyId: "neurology",
-    workplace: "NeuroHealth Institute",
-    averageRating: "4.7",
-    totalReview: 95,
-  },
-  {
-    id: "doc-006",
-    fullName: "Priya Sharma",
-    yearsOfExperience: 11,
-    isOnline: true,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=240&q=80",
-    specialty: "Respiratory Medicine",
-    specialtyId: "pulmonology",
-    workplace: "Breathe Wellness Clinic",
-    averageRating: "4.7",
-    totalReview: 98,
-  },
-  {
-    id: "doc-007",
-    fullName: "Robert Nguyen",
-    yearsOfExperience: 18,
-    isOnline: false,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1612276529731-4b21494e6d71?auto=format&fit=crop&w=240&q=80",
-    specialty: "Sports Medicine",
-    specialtyId: "sports_medicine",
-    workplace: "ActiveCare Sports Center",
-    averageRating: "4.6",
-    totalReview: 74,
-  },
-  {
-    id: "doc-008",
-    fullName: "David Kim",
-    yearsOfExperience: 14,
-    isOnline: false,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=240&q=80",
-    specialty: "Digestive Health",
-    specialtyId: "gastroenterology",
-    workplace: "GastroHealth Partners",
-    averageRating: "4.5",
-    totalReview: 81,
-  },
-];
+import { useMyDoctor } from "../hooks/useMyDoctor";
+import { useViewProfile } from "@/features/shared/hooks/useProfile";
+import { doctorSpecialty } from "../services/my-doctor.service";
+import { useAuthStore } from "@repo/ui/store/useAuthStore";
 
 export function MyDoctors() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -174,12 +22,26 @@ export function MyDoctors() {
   const [selectedRequestDoctorId, setSelectedRequestDoctorId] =
     useState<string>("");
 
-  // TODO(real-data): Replace with logged-in patient identity from auth state.
-  const currentViewer = {
-    id: "patient-demo-001",
-    name: "Current Patient",
-    role: "patient" as const,
-  };
+  const {
+    data: doctors,
+    isLoading,
+    isRequesting,
+    error,
+    requestSession,
+    requestedDoctorIds,
+  } = useMyDoctor();
+
+  const { data: profileData } = useViewProfile(selectedDoctorId, isProfileOpen);
+
+  const me = useAuthStore();
+  const currentViewer =
+    me.user?.id && me.user?.name && me.user?.role
+      ? {
+          id: me.user.id,
+          name: me.user.name,
+          role: me.user.role,
+        }
+      : undefined;
 
   const handleOpenViewProfile = (id: string) => {
     if (!id) {
@@ -206,24 +68,28 @@ export function MyDoctors() {
     setSelectedRequestDoctorId("");
   };
 
-  const handleSendRequest = (patientNote: string) => {
-    // TODO: call API create consultation request with selectedRequestDoctorId and patientNote
-    console.log("Send request", { selectedRequestDoctorId, patientNote });
+  const handleSendRequest = async (patientNote: string) => {
+    if (!selectedRequestDoctorId) {
+      return;
+    }
+
+    await requestSession(selectedRequestDoctorId, patientNote);
+
     handleCloseRequestModal();
   };
 
-  const selectedRequestDoctor = MOCK_DOCTOR_DATA.find(
+  const selectedRequestDoctor = doctors.find(
     (doctor) => doctor.id === selectedRequestDoctorId,
   );
 
-  const selectedDoctor = MOCK_DOCTOR_DATA.find(
+  const selectedDoctor = doctors.find(
     (doctor) => doctor.id === selectedDoctorId,
   );
 
   const filteredDoctors = useMemo(() => {
     const normalizedQuery = searchTerm.trim().toLowerCase();
 
-    const filtered = MOCK_DOCTOR_DATA.filter((doctor) => {
+    const filtered = doctors.filter((doctor) => {
       const matchSearch =
         normalizedQuery.length === 0 ||
         doctor.fullName.toLowerCase().includes(normalizedQuery) ||
@@ -247,11 +113,32 @@ export function MyDoctors() {
         Number.parseFloat(b.averageRating) - Number.parseFloat(a.averageRating)
       );
     });
-  }, [onlineOnly, searchTerm, sortBy, specialtyFilter]);
+  }, [doctors, onlineOnly, searchTerm, sortBy, specialtyFilter]);
 
   const onlineCount = filteredDoctors.filter(
     (doctor) => doctor.isOnline,
   ).length;
+
+  const requestedDoctorSet = useMemo(
+    () => new Set(Array.from(requestedDoctorIds || [])),
+    [requestedDoctorIds],
+  );
+
+  const profileSeed = profileData
+    ? profileData
+    : selectedDoctor
+      ? {
+          id: selectedDoctor.id,
+          full_name: selectedDoctor.fullName,
+          role: "doctor" as const,
+          avatar_url: selectedDoctor.avatarUrl,
+          role_specific: {
+            specialty: selectedDoctor.specialty,
+            workplace: selectedDoctor.workplace,
+            experience_years: selectedDoctor.yearsOfExperience,
+          },
+        }
+      : undefined;
 
   return (
     <>
@@ -264,6 +151,15 @@ export function MyDoctors() {
             <p className="text-sm text-slate-500">
               Find and connect with verified healthcare specialists
             </p>
+            {isLoading && (
+              <p className="text-xs text-slate-500">Loading doctors...</p>
+            )}
+            {isRequesting && !isLoading && (
+              <p className="text-xs text-slate-500">
+                Sending consultation request...
+              </p>
+            )}
+            {error && <p className="text-xs text-rose-600">{error}</p>}
           </div>
 
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(280px,1fr)_220px_220px_auto]">
@@ -344,6 +240,7 @@ export function MyDoctors() {
                   workplace={doctor.workplace}
                   averageRating={doctor.averageRating}
                   totalReview={doctor.totalReview}
+                  isRequested={requestedDoctorSet.has(doctor.id)}
                   onViewProfile={handleOpenViewProfile}
                   onRequest={handleOpenRequestModal}
                 />
@@ -353,7 +250,9 @@ export function MyDoctors() {
 
           {filteredDoctors.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-              No doctors matched your search criteria.
+              {isLoading
+                ? "Loading doctors..."
+                : "No doctors matched your search criteria."}
             </div>
           ) : null}
         </div>
@@ -362,21 +261,7 @@ export function MyDoctors() {
         id={selectedDoctorId}
         isOpen={isProfileOpen}
         onClose={handleCloseViewProfile}
-        profileSeed={
-          selectedDoctor
-            ? {
-                id: selectedDoctor.id,
-                full_name: selectedDoctor.fullName,
-                role: "doctor",
-                avatar_url: selectedDoctor.avatarUrl,
-                role_specific: {
-                  specialty: selectedDoctor.specialty,
-                  workplace: selectedDoctor.workplace,
-                  experience_years: selectedDoctor.yearsOfExperience,
-                },
-              }
-            : undefined
-        }
+        profileSeed={profileSeed}
         reportViewer={currentViewer}
       />
 
