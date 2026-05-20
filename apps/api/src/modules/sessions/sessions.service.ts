@@ -14,11 +14,16 @@ import {
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { QuerySessionDto } from './dto/query-session.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class SessionsService {
   constructor(
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
+    private notificationsService: NotificationsService,
+    private userService: UsersService,
   ) {}
 
   /**
@@ -55,6 +60,15 @@ export class SessionsService {
       scheduledAt: scheduledTime,
       patientNotes: dto.patientNotes,
       status: SessionStatus.PENDING,
+    });
+
+    const patientInfo = await this.userService.findById(patientId);
+
+    await this.notificationsService.create(dto.doctorId, {
+      userId: dto.doctorId,
+      type: NotificationType.INFO,
+      title: `Consultation request`,
+      message: `New consultation request from ${patientInfo.fullName}. Note: ${dto.patientNotes}.`,
     });
 
     return {
@@ -234,6 +248,18 @@ export class SessionsService {
     session.status = SessionStatus.ACTIVE;
     await session.save();
 
+    const patientId = session.patientId;
+    const doctorInfo = await this.userService.findById(
+      session.doctorId.toString(),
+    );
+
+    await this.notificationsService.create(patientId.toString(), {
+      userId: patientId.toString(),
+      type: NotificationType.INFO,
+      title: `Consultation confirmed`,
+      message: `Your consultation request is confirmed by Dr. ${doctorInfo.fullName}.`,
+    });
+
     return {
       statusCode: 200,
       message: 'Session confirmed successfully',
@@ -263,6 +289,18 @@ export class SessionsService {
 
     session.status = SessionStatus.REJECTED;
     await session.save();
+
+    const patientId = session.patientId;
+    const doctorInfo = await this.userService.findById(
+      session.doctorId.toString(),
+    );
+
+    await this.notificationsService.create(patientId.toString(), {
+      userId: patientId.toString(),
+      type: NotificationType.INFO,
+      title: `Consultation rejected`,
+      message: `Your consultation request is rejected by Dr. ${doctorInfo.fullName}.`,
+    });
 
     return {
       statusCode: 200,
@@ -374,6 +412,18 @@ export class SessionsService {
 
     session.status = SessionStatus.REJECTED;
     await session.save();
+
+    const patientId = session.patientId;
+    const doctorInfo = await this.userService.findById(
+      session.doctorId.toString(),
+    );
+
+    await this.notificationsService.create(patientId.toString(), {
+      userId: patientId.toString(),
+      type: NotificationType.INFO,
+      title: `Consultation rejected`,
+      message: `Your consultation request is rejected by Dr. ${doctorInfo.fullName}.`,
+    });
 
     return {
       statusCode: 200,
