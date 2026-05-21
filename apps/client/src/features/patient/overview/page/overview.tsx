@@ -19,7 +19,7 @@ const METRIC_CARD_ORDER: Array<{ type: MetricType; defaultUnit: string }> = [
   { type: "respiratory_rate", defaultUnit: "breaths/min" },
   { type: "weight", defaultUnit: "kg" },
   { type: "height", defaultUnit: "cm" },
-  { type: "water_intake", defaultUnit: "ml" },
+  { type: "water_intake", defaultUnit: "L" },
 ];
 
 const DEFAULT_PATIENT_ID = "patient-overview";
@@ -66,11 +66,15 @@ export function Overview() {
     () =>
       METRIC_CARD_ORDER.map((metricDef) => {
         const metric = latestMetricByType.get(metricDef.type);
+        const resolvedUnit =
+          metricDef.type === "water_intake"
+            ? "L"
+            : (metric?.unit ?? metricDef.defaultUnit);
         return {
           patientId: metric?.patientId ?? DEFAULT_PATIENT_ID,
           metricsType: metricDef.type,
           values: metric?.values ?? {},
-          unit: metric?.unit ?? metricDef.defaultUnit,
+          unit: resolvedUnit,
         };
       }),
     [latestMetricByType],

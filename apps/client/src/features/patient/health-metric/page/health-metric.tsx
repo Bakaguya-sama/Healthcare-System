@@ -130,7 +130,7 @@ const METRIC_UNIT: Record<MetricsTypes, string> = {
   bmi: "kg/m2",
   height: "cm",
   weight: "kg",
-  water_intake: "ml",
+  water_intake: "L",
   kcal_intake: "kcal",
   blood_glucose: "mg/dL",
   oxygen_saturation: "%",

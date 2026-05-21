@@ -63,7 +63,7 @@ const METRIC_CARD_ORDER: Array<{ type: MetricType; defaultUnit: string }> = [
   { type: "bmi", defaultUnit: "kg/m2" },
   { type: "weight", defaultUnit: "kg" },
   { type: "height", defaultUnit: "cm" },
-  { type: "water_intake", defaultUnit: "ml" },
+  { type: "water_intake", defaultUnit: "L" },
   { type: "kcal_intake", defaultUnit: "kcal" },
 ];
 
@@ -223,11 +223,15 @@ export function HealthProfile({
     () =>
       METRIC_CARD_ORDER.map((metricDef) => {
         const metric = latestMetricByType.get(metricDef.type);
+        const resolvedUnit =
+          metricDef.type === "water_intake"
+            ? "L"
+            : (metric?.unit ?? metricDef.defaultUnit);
 
         return {
           metricsType: metricDef.type,
           values: metric?.values ?? {},
-          unit: metric?.unit ?? metricDef.defaultUnit,
+          unit: resolvedUnit,
         };
       }),
     [latestMetricByType],

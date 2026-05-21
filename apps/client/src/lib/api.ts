@@ -26,6 +26,14 @@ const sessionSocket = io(`${SOCKET_BASE_URL}/session`, {
   reconnectionAttempts: 3,
 });
 
+const notificationsSocket = io(`${SOCKET_BASE_URL}/notifications`, {
+  autoConnect: false,
+  auth: {
+    token: localStorage.getItem("accessToken") || "",
+  },
+  reconnectionAttempts: 3,
+});
+
 function connectSocket(token?: string): boolean {
   if (!token) {
     if (socket.connected) {
@@ -59,6 +67,26 @@ function connectSessionSocket(token?: string): boolean {
   sessionSocket.auth = { token };
   if (!sessionSocket.connected) {
     sessionSocket.connect();
+  }
+
+  console.log("Connect successfully");
+
+  return true;
+}
+
+function connectNotificationsSocket(token?: string): boolean {
+  if (!token) {
+    if (notificationsSocket.connected) {
+      notificationsSocket.disconnect();
+    }
+    console.log("Cannot connect");
+
+    return false;
+  }
+
+  notificationsSocket.auth = { token };
+  if (!notificationsSocket.connected) {
+    notificationsSocket.connect();
   }
 
   console.log("Connect successfully");
@@ -231,4 +259,6 @@ export {
   connectSocket,
   sessionSocket,
   connectSessionSocket,
+  notificationsSocket,
+  connectNotificationsSocket,
 };

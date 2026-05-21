@@ -21,39 +21,25 @@ import { RolesGuard } from '../../core/guards/roles.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
-import { NotificationsGateway } from './notifications.gateway';
 
 @ApiTags('notifications')
 @Controller('notifications')
 export class NotificationsController {
-  constructor(
-    private readonly notificationsService: NotificationsService,
-    private readonly notificationsGateway: NotificationsGateway,
-  ) {}
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   /**
    * 📝 POST /notifications
-   * Tạo thông báo mới (ADMIN/DOCTOR only - gửi cho user khác)
+   * Tạo thông báo mới
    */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.DOCTOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Tạo thông báo mới (ADMIN/DOCTOR only)' })
+  @ApiOperation({ summary: 'Tạo thông báo mới' })
   async create(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateNotificationDto,
   ) {
-    // ✅ Tạo notification trong DB
     const result = await this.notificationsService.create(userId, dto);
-
-    // ✅ Emit WebSocket notification real-time cho user nhận
-    if (result.data) {
-      this.notificationsGateway.sendNotificationToUser(
-        dto.userId,
-        result.data.toObject(), // Chuyển Mongoose Document thành Plain Object
-      );
-    }
 
     return result;
   }
@@ -84,10 +70,6 @@ export class NotificationsController {
   async markAllAsRead(@CurrentUser('sub') userId: string) {
     const result = await this.notificationsService.markAllAsRead(userId);
 
-    if (result.data && result.data.modifiedCount > 0) {
-      this.notificationsGateway.sendMarkAllAsReadConfirmation(userId);
-    }
-
     return result;
   }
 
@@ -115,7 +97,12 @@ export class NotificationsController {
     @CurrentUser('sub') userId: string,
     @Param('id') notificationId: string,
   ) {
-    return this.notificationsService.findOne(userId, notificationId);
+    const result = await this.notificationsService.findOne(
+      userId,
+      notificationId,
+    );
+
+    return result;
   }
 
   /**

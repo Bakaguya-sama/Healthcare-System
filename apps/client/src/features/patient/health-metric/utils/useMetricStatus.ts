@@ -412,11 +412,6 @@ function normalizeDailyTotal(
   metricType: DailyTotalMetricType,
   total: number,
 ): number {
-  // Water intake entries are stored in ml while threshold rules are in liters.
-  if (metricType === "water_intake") {
-    return total / 1000;
-  }
-
   return total;
 }
 
@@ -607,7 +602,7 @@ function evaluateMetricStatus(
   return mapRuleToTableStatus(matchedRule);
 }
 
-export function useMetricStatus({
+export function deriveMetricStatuses({
   metricType,
   entries,
   options,
@@ -615,56 +610,62 @@ export function useMetricStatus({
   const gender = options?.gender;
   const birthDay = options?.birthDay;
 
-  return useMemo(() => {
-    if (!isDailyTotalMetricType(metricType)) {
-      return entries.map((entry) => ({
+  if (!isDailyTotalMetricType(metricType)) {
+    return entries.map((entry) => ({
+      ...entry,
+      status: evaluateMetricStatus(metricType, entry, { gender, birthDay }),
+    }));
+  }
+
+  const now = new Date();
+  const dailyTotals = new Map<string, number>();
+
+  for (const entry of entries) {
+    const dateKey = toDateKeyFromRecordedAt(entry.recordedAt);
+    const currentTotal = dailyTotals.get(dateKey) ?? 0;
+    dailyTotals.set(dateKey, currentTotal + entry.primaryValue);
+  }
+
+  return entries.map((entry) => {
+    const dateKey = toDateKeyFromRecordedAt(entry.recordedAt);
+    const rawDailyTotal = dailyTotals.get(dateKey) ?? entry.primaryValue;
+    const normalizedDailyTotal = normalizeDailyTotal(metricType, rawDailyTotal);
+
+    const dailyStatus = evaluateMetricStatus(
+      metricType,
+      {
         ...entry,
-        status: evaluateMetricStatus(metricType, entry, { gender, birthDay }),
-      }));
-    }
+        primaryValue: normalizedDailyTotal,
+        secondaryValue: undefined,
+      },
+      { gender, birthDay },
+    );
 
-    const now = new Date();
-    const dailyTotals = new Map<string, number>();
-
-    for (const entry of entries) {
-      const dateKey = toDateKeyFromRecordedAt(entry.recordedAt);
-      const currentTotal = dailyTotals.get(dateKey) ?? 0;
-      dailyTotals.set(dateKey, currentTotal + entry.primaryValue);
-    }
-
-    return entries.map((entry) => {
-      const dateKey = toDateKeyFromRecordedAt(entry.recordedAt);
-      const rawDailyTotal = dailyTotals.get(dateKey) ?? entry.primaryValue;
-      const normalizedDailyTotal = normalizeDailyTotal(
-        metricType,
-        rawDailyTotal,
-      );
-
-      const dailyStatus = evaluateMetricStatus(
-        metricType,
-        {
-          ...entry,
-          primaryValue: normalizedDailyTotal,
-          secondaryValue: undefined,
-        },
-        { gender, birthDay },
-      );
-
-      if (
-        metricType === "water_intake" &&
-        dailyStatus === "low" &&
-        !hasReachedWaterCutoff(dateKey, now)
-      ) {
-        return {
-          ...entry,
-          status: "normal",
-        };
-      }
-
+    if (
+      metricType === "water_intake" &&
+      dailyStatus === "low" &&
+      !hasReachedWaterCutoff(dateKey, now)
+    ) {
       return {
         ...entry,
-        status: dailyStatus,
+        status: "normal",
       };
-    });
-  }, [entries, metricType, birthDay, gender]);
+    }
+
+    return {
+      ...entry,
+      status: dailyStatus,
+    };
+  });
+}
+
+export function useMetricStatus({
+  metricType,
+  entries,
+  options,
+}: UseMetricStatusParams): MetricReading[] {
+  return useMemo(
+    () => deriveMetricStatuses({ metricType, entries, options }),
+    [entries, metricType, options?.birthDay, options?.gender],
+  );
 }

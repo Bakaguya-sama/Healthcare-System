@@ -18,7 +18,6 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
     ]),
-    // ✅ Import JWT Module for WebSocket auth
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService): JwtModuleOptions => ({
@@ -30,11 +29,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
     }),
   ],
   controllers: [NotificationsController, UploadController],
-  providers: [
-    NotificationsService,
-    NotificationsGateway, // ✅ WebSocket Gateway
-    CloudinaryService, // ✅ Cloudinary Service
-  ],
+  providers: [NotificationsService, NotificationsGateway, CloudinaryService],
   exports: [NotificationsService, NotificationsGateway, CloudinaryService],
 })
 export class NotificationsModule {}

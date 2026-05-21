@@ -18,7 +18,10 @@ import { DoctorOverview } from "./features/doctor/overview/pages/doctor-overview
 import { Consultations } from "./features/doctor/consultations/pages/consultations";
 import { Overview } from "./features/patient/overview/page/overview";
 import { GlobalCriticalAlertHost } from "./components/GlobalCriticalAlertHost";
-import { useNotificationSync } from "./hooks/useNotificationSync";
+import {
+  useNotifications,
+  useNotificationSync,
+} from "./hooks/useNotifications";
 import { HealthMetric } from "./features/patient/health-metric/page/health-metric";
 import { MyDoctors } from "./features/patient/my-doctor/page/my-doctors";
 import { AiChat } from "./features/patient/ai-chat/page/ai-chat";
@@ -75,26 +78,44 @@ function SessionExpiredModal() {
 
 function ProtectedRoutes() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const userId = useAuthStore((state) => state.user?.id || null);
+  const { notifications, isLoading, error, markAllAsRead, markAsRead, remove } =
+    useNotifications({ enabled: isAuthenticated });
   const { logout } = useLogout();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  return <Layout onLogout={logout} />;
+  return (
+    <Layout
+      onLogout={logout}
+      notifications={notifications.map((item) => ({
+        id: item.id,
+        title: item.title,
+        message: item.message,
+        detail: item.message,
+        createdAt: item.createdAt,
+        read: item.isRead,
+        type: item.type,
+      }))}
+      notificationsLoading={isLoading}
+      notificationsError={error}
+      onMarkAllNotificationsRead={markAllAsRead}
+      onMarkNotificationRead={markAsRead}
+      onDeleteNotification={remove}
+      onPrimaryNotificationAction={markAsRead}
+    />
+  );
 }
 
-/**
- * Wrapper component để setup notification sync hook
- * Mount ở trong BrowserRouter để có access đến route context
- */
 function App() {
   const role = useAuthStore().user?.role || "patient";
   const defaultHomePath =
     role === "doctor" ? "/doctor-overview" : "/patient-overview";
 
   const userId = useAuthStore().user?.id;
-  // useNotificationSync(userId);
+  useNotificationSync(userId ?? null);
 
   const [hasHydrated, setHasHydrated] = useState(
     useAuthStore.persist.hasHydrated(),

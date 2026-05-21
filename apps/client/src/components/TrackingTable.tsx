@@ -3,6 +3,10 @@ import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmationModal } from "@repo/ui/components/complex-modal/ConfirmationModal";
 import { showToast } from "@repo/ui/components/ui/toasts";
+import {
+  deriveMetricStatuses,
+  useMetricStatus,
+} from "../features/patient/health-metric/utils/useMetricStatus";
 
 type TableStatus = "normal" | "high" | "low";
 
@@ -133,13 +137,18 @@ export function TrackingTable({
     setConfirmationModalOpen(false);
   }, [entries, selectedDate]);
 
+  const evaluatedEntries = useMetricStatus({
+    metricType,
+    entries: localEntries,
+  });
+
   const displayEntries = useMemo(
     () =>
-      [...localEntries].sort(
+      [...evaluatedEntries].sort(
         (a, b) =>
           new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime(),
       ),
-    [localEntries],
+    [evaluatedEntries],
   );
 
   const canSubmit = useMemo(() => {
@@ -197,6 +206,13 @@ export function TrackingTable({
       status: "normal",
     };
 
+    setLocalEntries((prev) =>
+      deriveMetricStatuses({
+        metricType,
+        entries: [nextEntry, ...prev],
+      }),
+    );
+
     setIsSubmitting(true);
     try {
       if (onCreateEntry) {
@@ -208,11 +224,16 @@ export function TrackingTable({
         });
         showToast.success("Entry added successfully");
       } else {
-        setLocalEntries((prev) => [nextEntry, ...prev]);
       }
       resetForm();
       setIsAdding(false);
     } catch (err) {
+      setLocalEntries((prev) =>
+        deriveMetricStatuses({
+          metricType,
+          entries: prev.filter((item) => item.id !== nextEntry.id),
+        }),
+      );
       showToast.error(
         err instanceof Error ? err.message : "Failed to add entry",
       );
@@ -258,16 +279,19 @@ export function TrackingTable({
         showToast.success("Entry updated successfully");
       } else {
         setLocalEntries((prev) =>
-          prev.map((item) =>
-            item.id === entry.id
-              ? {
-                  ...item,
-                  recordedAt: recordedDate.toISOString(),
-                  primaryValue: nextPrimaryValue,
-                  secondaryValue: nextSecondaryValue,
-                }
-              : item,
-          ),
+          deriveMetricStatuses({
+            metricType,
+            entries: prev.map((item) =>
+              item.id === entry.id
+                ? {
+                    ...item,
+                    recordedAt: recordedDate.toISOString(),
+                    primaryValue: nextPrimaryValue,
+                    secondaryValue: nextSecondaryValue,
+                  }
+                : item,
+            ),
+          }),
         );
       }
       resetEditForm();
@@ -287,7 +311,12 @@ export function TrackingTable({
         await onDeleteEntry(entryId);
         showToast.success("Entry deleted successfully");
       } else {
-        setLocalEntries((prev) => prev.filter((item) => item.id !== entryId));
+        setLocalEntries((prev) =>
+          deriveMetricStatuses({
+            metricType,
+            entries: prev.filter((item) => item.id !== entryId),
+          }),
+        );
       }
 
       if (editingEntryId === entryId) {

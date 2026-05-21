@@ -1,7 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-export type NotificationDocument = HydratedDocument<Notification>;
+export type NotificationDocument = HydratedDocument<Notification> & {
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export enum NotificationType {
   INFO = 'info', // Thông tin chung

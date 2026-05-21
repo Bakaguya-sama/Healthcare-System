@@ -14,13 +14,27 @@ import {
   UpdateNotificationDto,
   QueryNotificationDto,
 } from './dto/create-notification.dto';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
+    private notificationsGateway: NotificationsGateway,
   ) {}
+
+  private mapGatewayNotification(notification: NotificationDocument) {
+    return {
+      id: notification.id,
+      title: notification.title,
+      message: notification.message,
+      isRead: notification.isRead,
+      type: notification.type,
+      createdAt: notification.createdAt,
+      readAt: notification.readAt,
+    };
+  }
 
   /**
    * 📝 TẠO THÔNG BÁO MỚI
@@ -36,6 +50,12 @@ export class NotificationsService {
       title: dto.title,
       message: dto.message,
       isRead: false,
+    });
+
+    this.notificationsGateway.handleNotifications({
+      userId: dto.userId.toString(),
+      action: 'send',
+      notification: this.mapGatewayNotification(notification),
     });
 
     return {
@@ -115,6 +135,12 @@ export class NotificationsService {
     if (!notification.isRead) {
       notification.isRead = true;
       await notification.save();
+
+      this.notificationsGateway.handleNotifications({
+        userId: userId.toString(),
+        action: 'mark_read',
+        notification: this.mapGatewayNotification(notification),
+      });
     }
 
     return {
@@ -151,6 +177,14 @@ export class NotificationsService {
 
     await notification.save();
 
+    if (dto.read !== undefined) {
+      this.notificationsGateway.handleNotifications({
+        userId: userId.toString(),
+        action: 'mark_read',
+        notification: this.mapGatewayNotification(notification),
+      });
+    }
+
     return {
       statusCode: 200,
       message: 'Notification updated successfully',
@@ -175,6 +209,13 @@ export class NotificationsService {
         isRead: true,
       },
     );
+
+    if (result.modifiedCount > 0) {
+      this.notificationsGateway.handleNotifications({
+        userId,
+        action: 'mark_all_read',
+      });
+    }
 
     return {
       statusCode: 200,
@@ -207,6 +248,12 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
+    this.notificationsGateway.handleNotifications({
+      userId: userId.toString(),
+      action: 'mark_read',
+      notification: this.mapGatewayNotification(notification),
+    });
+
     return {
       statusCode: 200,
       message: 'Notification marked as read',
@@ -230,6 +277,12 @@ export class NotificationsService {
     if (!result) {
       throw new NotFoundException('Notification not found');
     }
+
+    this.notificationsGateway.handleNotifications({
+      userId: userId.toString(),
+      action: 'deleted',
+      notification: this.mapGatewayNotification(result),
+    });
 
     return {
       statusCode: 200,
