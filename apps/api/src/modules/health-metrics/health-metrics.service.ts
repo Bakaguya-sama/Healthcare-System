@@ -14,9 +14,13 @@ import {
 import { CreateHealthMetricDto } from './dto/create-health-metric.dto';
 import { UpdateHealthMetricDto } from './dto/update-health-metric.dto';
 import { QueryHealthMetricDto } from './dto/query-health-metric.dto';
-import { evaluateMetricThreshold } from './health-metrics-alert.evaluator';
+import {
+  evaluateMetricThreshold,
+  Gender,
+} from './health-metrics-alert.evaluator';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import { UsersService } from '../users/users.service';
 
 type MetricEntry = {
   value: number;
@@ -69,7 +73,7 @@ const DEFAULT_UNIT_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BMI]: BMI_UNIT,
   [MetricType.WEIGHT]: 'kg',
   [MetricType.HEIGHT]: 'cm',
-  [MetricType.WATER_INTAKE]: 'ml',
+  [MetricType.WATER_INTAKE]: 'L',
   [MetricType.KCAL_INTAKE]: 'kcal',
 };
 
@@ -79,6 +83,7 @@ export class HealthMetricsService {
     @InjectModel(HealthMetric.name)
     private healthMetricModel: Model<HealthMetricDocument>,
     private notificationsService: NotificationsService,
+    private usersService: UsersService,
   ) {}
 
   /**
@@ -109,11 +114,7 @@ export class HealthMetricsService {
       );
     }
 
-    const noti = await this.maybeCreateAlertNotification(
-      userId,
-      dto.type,
-      dto.values,
-    );
+    await this.maybeCreateAlertNotification(userId, dto.type, dto.values);
 
     return {
       statusCode: 201,
@@ -340,21 +341,33 @@ export class HealthMetricsService {
     const { evaluationInput, referenceRecordedAt } =
       await this.resolveAlertEvaluationInput(userId, metricType, values);
 
+    const userInfo = await this.usersService.findById(userId);
+    const dailyTotalValue = evaluationInput.value ?? 0;
+    const waterIntakeMax = this.resolveWaterIntakeMax(userInfo.gender);
+    const isWaterIntakeOverMax =
+      metricType === MetricType.WATER_INTAKE &&
+      dailyTotalValue > waterIntakeMax;
+
     const evaluation = evaluateMetricThreshold(evaluatorType, evaluationInput, {
-      // TODO: Replace with real patient profile.
-      gender: 'male',
+      gender: userInfo.gender
+        ? (userInfo.gender as Gender)
+        : ('male' as Gender),
     });
 
     if (
       metricType === MetricType.WATER_INTAKE &&
       evaluation &&
       this.isLowStatus(evaluation.status) &&
-      !this.hasReachedWaterCutoff(referenceRecordedAt)
+      !this.hasReachedWaterCutoff(referenceRecordedAt) &&
+      !isWaterIntakeOverMax
     ) {
       return null;
     }
 
-    if (!evaluation || !evaluation.shouldTriggerAlert) {
+    if (
+      !evaluation ||
+      (!evaluation.shouldTriggerAlert && !isWaterIntakeOverMax)
+    ) {
       return null;
     }
 
@@ -366,6 +379,16 @@ export class HealthMetricsService {
     });
 
     return notification.data;
+  }
+
+  private resolveWaterIntakeMax(gender?: string): number {
+    const normalizedGender = (gender || '').toLowerCase();
+
+    if (normalizedGender === 'female') {
+      return 4.5;
+    }
+
+    return 5.5;
   }
 
   private isDailyTotalAlertMetricType(
@@ -446,10 +469,14 @@ export class HealthMetricsService {
   private normalizeDailyAlertValue(
     metricType: DailyTotalAlertMetricType,
     total: number,
+    unit?: string,
   ): number {
-    // Water intake is stored in ml while threshold rules are in liters.
     if (metricType === MetricType.WATER_INTAKE) {
-      return total / 1000;
+      const normalizedUnit = (unit || '').toLowerCase().trim();
+      if (normalizedUnit === 'ml') {
+        return total / 1000;
+      }
+      return total;
     }
 
     return total;
@@ -501,9 +528,23 @@ export class HealthMetricsService {
     ]);
 
     const rawDailyTotal = result?.total ?? 0;
+    const latestMetric = await this.healthMetricModel
+      .findOne({
+        patientId,
+        type: metricType,
+        recordedAt: {
+          $gte: start,
+          $lte: end,
+        },
+      })
+      .sort({ recordedAt: -1 })
+      .select('unit')
+      .lean<{ unit?: string }>();
+
     const normalizedDailyTotal = this.normalizeDailyAlertValue(
       metricType,
       rawDailyTotal,
+      latestMetric?.unit,
     );
 
     return {

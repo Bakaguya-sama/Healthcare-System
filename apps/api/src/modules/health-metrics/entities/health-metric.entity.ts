@@ -35,7 +35,7 @@ export class HealthMetric {
   values: Record<string, MetricValueDetail>;
 
   @Prop({ required: true })
-  unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%', 'ml'
+  unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%', 'L'
 
   @Prop({ type: Date, default: () => new Date() })
   recordedAt: Date;

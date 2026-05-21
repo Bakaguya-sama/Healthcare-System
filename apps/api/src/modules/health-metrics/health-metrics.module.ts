@@ -7,10 +7,12 @@ import {
   HealthMetric,
   HealthMetricSchema,
 } from './entities/health-metric.entity';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     NotificationsModule,
+    UsersModule,
     MongooseModule.forFeature([
       { name: HealthMetric.name, schema: HealthMetricSchema },
     ]),
