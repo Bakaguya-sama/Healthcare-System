@@ -125,7 +125,7 @@ export function TrackingTable({
 
   useEffect(() => {
     setLocalEntries(entries);
-    setIsAdding(false);
+    setIsAdding(!hasData && isEditable);
     setValueInput("");
     setSecondaryValueInput("");
     setTimeInput(timeStringLocale);
@@ -336,6 +336,76 @@ export function TrackingTable({
     setConfirmationModalOpen(true);
   };
 
+  const addEntryForm = isAdding ? (
+    <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Add New Record
+      </p>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="md:col-span-1">
+          <label className="mb-1 block text-xs font-medium text-slate-500">
+            {metricType === "blood_pressure" ? "Systolic" : "Value"}
+          </label>
+          <input
+            type="number"
+            value={valueInput}
+            onChange={(event) => setValueInput(event.target.value)}
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-lime-400"
+            placeholder="Enter value"
+          />
+        </div>
+
+        {metricType === "blood_pressure" && (
+          <div className="md:col-span-1">
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              Diastolic
+            </label>
+            <input
+              type="number"
+              value={secondaryValueInput}
+              onChange={(event) => setSecondaryValueInput(event.target.value)}
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-lime-400"
+              placeholder="Enter value"
+            />
+          </div>
+        )}
+
+        <div className="md:col-span-1">
+          <label className="mb-1 block text-xs font-medium text-slate-500">
+            Time
+          </label>
+          <input
+            type="time"
+            value={timeInput}
+            onChange={(event) => setTimeInput(event.target.value)}
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-lime-400"
+          />
+        </div>
+
+        <div className="flex items-end justify-end gap-2 md:col-span-1">
+          <Button
+            variant="outline"
+            className="h-10"
+            onClick={() => {
+              resetForm();
+              setIsAdding(false);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="h-10 rounded-lg bg-lime-500 text-slate-900 hover:bg-lime-600"
+            onClick={addEntry}
+            disabled={!canSubmit || isSubmitting}
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (!hasData) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -348,21 +418,10 @@ export function TrackingTable({
           </span>
         </div>
 
-        <div className="flex h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
-          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-300">
-            <ClipboardList className="h-7 w-7" />
-          </div>
-          <p className="text-lg font-semibold text-slate-500">
-            0 entries found
-          </p>
-          <p className="mt-1 max-w-md text-sm text-slate-400">
-            Complete the form to add your first{" "}
-            {metricType.replaceAll("_", " ")} record.
-          </p>
-          <Button className="mt-5 rounded-xl bg-lime-400 px-6 text-slate-900 hover:bg-lime-500">
-            <Plus className="mr-1 h-4 w-4" />
-            Start Tracking
-          </Button>
+        {isEditable && addEntryForm}
+
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400">
+          No entries yet.
         </div>
       </div>
     );
@@ -400,77 +459,7 @@ export function TrackingTable({
           )}
         </div>
 
-        {isAdding && (
-          <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Add New Record
-            </p>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div className="md:col-span-1">
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  {metricType === "blood_pressure" ? "Systolic" : "Value"}
-                </label>
-                <input
-                  type="number"
-                  value={valueInput}
-                  onChange={(event) => setValueInput(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-lime-400"
-                  placeholder="Enter value"
-                />
-              </div>
-
-              {metricType === "blood_pressure" && (
-                <div className="md:col-span-1">
-                  <label className="mb-1 block text-xs font-medium text-slate-500">
-                    Diastolic
-                  </label>
-                  <input
-                    type="number"
-                    value={secondaryValueInput}
-                    onChange={(event) =>
-                      setSecondaryValueInput(event.target.value)
-                    }
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-lime-400"
-                    placeholder="Enter value"
-                  />
-                </div>
-              )}
-
-              <div className="md:col-span-1">
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  Time
-                </label>
-                <input
-                  type="time"
-                  value={timeInput}
-                  onChange={(event) => setTimeInput(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-lime-400"
-                />
-              </div>
-
-              <div className="flex items-end justify-end gap-2 md:col-span-1">
-                <Button
-                  variant="outline"
-                  className="h-10"
-                  onClick={() => {
-                    resetForm();
-                    setIsAdding(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="h-10 rounded-lg bg-lime-500 text-slate-900 hover:bg-lime-600"
-                  onClick={addEntry}
-                  disabled={!canSubmit || isSubmitting}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {addEntryForm}
 
         {displayEntries.length === 0 ? (
           <div className="flex h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
