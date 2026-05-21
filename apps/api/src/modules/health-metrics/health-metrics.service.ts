@@ -34,6 +34,19 @@ type DailyTotalAlertMetricType =
 const BMI_UNIT = 'kg/m2';
 const WATER_INTAKE_CUTOFF_HOUR = 21;
 const LOW_STATUS_KEYWORDS = ['low', 'hypo', 'under', 'below'];
+const METRIC_LABEL_BY_TYPE: Record<MetricType, string> = {
+  [MetricType.BLOOD_PRESSURE]: 'Blood Pressure',
+  [MetricType.HEART_RATE]: 'Heart Rate',
+  [MetricType.BLOOD_GLUCOSE]: 'Blood Glucose',
+  [MetricType.OXYGEN_SATURATION]: 'O2 Saturation',
+  [MetricType.BODY_TEMPERATURE]: 'Body Temperature',
+  [MetricType.RESPIRATORY_RATE]: 'Respiratory Rate',
+  [MetricType.BMI]: 'BMI',
+  [MetricType.WEIGHT]: 'Weight',
+  [MetricType.HEIGHT]: 'Height',
+  [MetricType.WATER_INTAKE]: 'Water Intake',
+  [MetricType.KCAL_INTAKE]: 'Calories',
+};
 
 const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'systolic',
@@ -371,11 +384,14 @@ export class HealthMetricsService {
       return null;
     }
 
+    const metricLabel = METRIC_LABEL_BY_TYPE[metricType] || metricType;
+    const statusLabel = evaluation?.status ?? 'Outside safe threshold';
+
     const notification = await this.notificationsService.create(userId, {
       userId: userId,
       type: NotificationType.CRITICAL,
-      title: `Critical ${metricType} alert`,
-      message: `${evaluation.status}: ${metricType} is outside safe threshold.`,
+      title: `Critical ${metricLabel} alert`,
+      message: `${statusLabel}: ${metricLabel} is outside safe threshold.`,
     });
 
     return notification.data;
