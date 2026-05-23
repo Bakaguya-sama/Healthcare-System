@@ -10,6 +10,7 @@ interface EndConsultationModalProps {
   notes?: string;
   onClose: () => void;
   onConfirm: (payload: { sessionId: string; notes: string }) => void;
+  isLoading?: boolean;
 }
 
 const MAX_NOTE_LENGTH = 1000;
@@ -21,6 +22,7 @@ export function EndConsultationModal({
   notes = "",
   onClose,
   onConfirm,
+  isLoading = false,
 }: EndConsultationModalProps) {
   const [value, setValue] = useState(notes);
 
@@ -35,6 +37,8 @@ export function EndConsultationModal({
   if (!isOpen) return null;
 
   const handleConfirm = () => {
+    if (isLoading) return;
+
     onConfirm({
       sessionId,
       notes: value.trim(),
@@ -105,8 +109,9 @@ export function EndConsultationModal({
             size="lg"
             onClick={handleConfirm}
             className="h-12 rounded-2xl bg-red-500 text-white hover:bg-red-600"
+            disabled={isLoading}
           >
-            End & Save
+            {isLoading ? "Ending..." : "End & Save"}
           </Button>
         </div>
       </div>

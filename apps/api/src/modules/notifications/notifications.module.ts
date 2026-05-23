@@ -12,6 +12,7 @@ import {
   NotificationSchema,
 } from './entities/notification.entity';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { PresenceModule } from '../presence/presence.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
         },
       }),
     }),
+    PresenceModule,
   ],
   controllers: [NotificationsController, UploadController],
   providers: [NotificationsService, NotificationsGateway, CloudinaryService],

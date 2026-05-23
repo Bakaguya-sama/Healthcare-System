@@ -20,6 +20,7 @@ import { type MessageApiResponse } from "../services/doctor-chat.service";
 import { useSessionChat } from "../hooks/useDoctorChat";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { usePresenceStatus } from "@/features/shared/hooks/usePresenceStatus";
 import { useReport } from "@/features/shared/hooks/useReport";
 import { useViewProfile } from "@/features/shared/hooks/useProfile";
 import { useReview } from "../hooks/useReview";
@@ -37,11 +38,12 @@ export function DoctorChat() {
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
   const [isDoctorNoteModalOpen, setDoctorNoteModalOpen] = useState(false);
 
-  const {
-    data: consultations,
-    isLoading,
-    error: consultationError,
-  } = useConsultations();
+  const { data: consultations, error: consultationError } = useConsultations();
+
+  const doctorIds = (consultations || [])
+    .map((c) => c.doctorId._id)
+    .filter(Boolean) as string[];
+  const { onlineIds: doctorOnlineIds } = usePresenceStatus(doctorIds, true);
 
   const {
     messages,
@@ -50,7 +52,7 @@ export function DoctorChat() {
     error: chatError,
     refresh,
     sendMessage,
-  } = useSessionChat(selectedSessionId);
+  } = useSessionChat(selectedSessionId ?? undefined);
 
   const {
     isLoading: reportLoading,
@@ -67,8 +69,8 @@ export function DoctorChat() {
   const me = useAuthStore();
 
   const currentPatientData = {
-    id: me.user?.id,
-    name: me.user?.name,
+    id: me.user?.id ?? "",
+    name: me.user?.name ?? "",
   };
 
   const consultationItems = useMemo(
@@ -78,6 +80,8 @@ export function DoctorChat() {
         doctorId: c.doctorId._id,
         doctorName: c.doctorId.fullName,
         doctorAvatarUrl: c.doctorId.avatarUrl,
+        doctorIsOnline: doctorOnlineIds.has(c.doctorId._id),
+        isOnline: doctorOnlineIds.has(c.doctorId._id),
         patientRating: c.review?.rating,
         patientReview: c.review?.comment,
         doctorSpecialty: c.doctorId?.specialty,
@@ -88,7 +92,7 @@ export function DoctorChat() {
         doctorNote: c.doctorNotes,
         status: c.status,
       })),
-    [consultations],
+    [consultations, doctorOnlineIds],
   );
 
   const profileDoctorId = selectedSessionId
@@ -136,6 +140,16 @@ export function DoctorChat() {
     if (!chatError) return;
     showToast.error(chatError);
   }, [chatError]);
+
+  useEffect(() => {
+    if (!reportError) return;
+    showToast.error(String(reportError));
+  }, [reportError]);
+
+  useEffect(() => {
+    if (!reviewError) return;
+    showToast.error(String(reviewError));
+  }, [reviewError]);
 
   useEffect(() => {
     if (consultationError) {
@@ -273,7 +287,7 @@ export function DoctorChat() {
       showToast.error(
         error instanceof Error ? error.message : "Failed to submit report.",
       );
-      throw error; // Re-throw to allow modal to handle its loading state
+      throw error;
     }
   };
 
@@ -377,7 +391,7 @@ export function DoctorChat() {
                   isSelected={selectedSessionId === session.sessionId}
                   updatedAt={session.updatedAt}
                   doctorName={session.doctorName}
-                  doctorIsActive={true}
+                  doctorIsActive={session.doctorIsOnline}
                   doctorSpecialty={session.doctorSpecialty}
                   doctorAvatarUrl={session.doctorAvatarUrl}
                   onClick={() => setSelectedSessionId(session.sessionId)}
@@ -400,7 +414,7 @@ export function DoctorChat() {
               patientIsOnline={true}
               doctorName={selectedSession.doctorName}
               doctorUrl={selectedSession.doctorAvatarUrl}
-              doctorIsOnline={true}
+              doctorIsOnline={selectedSession.isOnline ?? false}
               initialMessages={messages.map(mapMessage)}
               onLoadMessages={handleLoadMessages}
               onViewProfile={handleOpenProfileModal}
@@ -444,12 +458,13 @@ export function DoctorChat() {
             }}
             onClose={handleCloseReportModal}
             onConfirm={handleSubmitReport}
+            isLoading={reportLoading}
           />
           <DoctorReviewModal
             isOpen={isReviewModalOpen}
             doctorName={selectedSession.doctorName}
             doctorAvatarUrl={selectedSession.doctorAvatarUrl}
-            doctorIsOnline={true}
+            doctorIsOnline={selectedSession.isOnline ?? false}
             isLoading={isSubmittingReview}
             onClose={handleCloseReviewModal}
             onSubmit={handleSubmitReview}
@@ -457,7 +472,7 @@ export function DoctorChat() {
           <DoctorNoteModal
             doctorName={selectedSession.doctorName}
             doctorAvatarUrl={selectedSession.doctorAvatarUrl}
-            doctorIsOnline={true}
+            doctorIsOnline={selectedSession.isOnline ?? false}
             doctorNote={selectedSession.doctorNote}
             isOpen={isDoctorNoteModalOpen}
             onClose={handleCloseDoctorNoteModal}

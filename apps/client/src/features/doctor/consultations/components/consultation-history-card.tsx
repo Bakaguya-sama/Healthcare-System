@@ -5,7 +5,6 @@ import {
 } from "@repo/ui/components/ui/action-card";
 import { useMemo, useState } from "react";
 import {
-  ChevronRight,
   Eye,
   Flag,
   MessageCircle,
@@ -30,6 +29,7 @@ interface ConsultationHistoryCardProps {
   onViewProfile: () => void;
   onOpenReview: () => void;
   onReport: () => void;
+  patientIsOnline?: boolean;
 }
 
 function formatDate(value?: Date) {
@@ -88,11 +88,11 @@ export function ConsultationHistoryCard({
   sessionId,
   patientName,
   patientAvatarUrl,
+  patientIsOnline = false,
   patientRating = 0,
   patientReview,
   sessionStatus,
   createdAt,
-  endedAt,
   onOpenchat,
   onViewProfile,
   onOpenReview,
@@ -163,7 +163,7 @@ export function ConsultationHistoryCard({
         <UserAvatar
           name={patientName}
           url={patientAvatarUrl}
-          isOnline={false}
+          isOnline={Boolean(patientIsOnline)}
           avtStyle="h-11 w-11 rounded-full"
         />
         <div className="min-w-0">

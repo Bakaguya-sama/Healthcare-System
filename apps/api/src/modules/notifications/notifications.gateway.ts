@@ -1,20 +1,15 @@
 import {
   WebSocketGateway,
   WebSocketServer,
-  SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  ConnectedSocket,
-  MessageBody,
   OnGatewayInit,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-
-interface AuthSocket extends Socket {
-  userId?: string;
-}
+import type { AuthSocket } from '../../core/types/auth-socket.type';
+import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
 
 type NotificationGatewayActions =
   | 'send'
@@ -43,23 +38,10 @@ export class NotificationsGateway
   }
 
   async handleConnection(client: AuthSocket) {
-    const authToken =
-      typeof client.handshake.auth?.token === 'string'
-        ? client.handshake.auth.token
-        : '';
-    const headerToken = client.handshake.headers.authorization?.split(' ')[1];
-    const token = authToken || headerToken;
-    if (!token) {
-      this.logger.warn(`Connection rejected: No token provided.`);
-      return client.disconnect();
-    }
-
     try {
-      const payload = await this.jwtService.verifyAsync(token);
-      const userId = payload.sub;
-
+      const userId = await getUserIdFromSocket(this.jwtService, client);
       if (!userId) {
-        this.logger.warn(`Connection rejected: Invalid token payload.`);
+        this.logger.warn(`Connection rejected: Invalid or missing token.`);
         return client.disconnect();
       }
 

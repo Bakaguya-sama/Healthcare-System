@@ -20,6 +20,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ViolationsModule } from './modules/violations/violations.module';
 import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
+import { PresenceModule } from './modules/presence/presence.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
     AdminModule,
     ViolationsModule,
     AiAssistantModule,
+    PresenceModule,
   ],
   controllers: [],
   providers: [],

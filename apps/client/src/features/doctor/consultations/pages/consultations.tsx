@@ -17,6 +17,7 @@ import type { SendMessagePayload } from "@/features/chat/components/send-bar";
 import type { ChatMessage } from "@/features/chat/components/message";
 import { useConsultations } from "../hooks/useConsultations";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { usePresenceStatus } from "@/features/shared/hooks/usePresenceStatus";
 import { useViewProfile } from "@/features/shared/hooks/useProfile";
 import { useReport } from "@/features/shared/hooks/useReport";
 import { useSessionChat } from "../hooks/useSessionChat";
@@ -68,6 +69,7 @@ export function Consultations() {
     sessionId: string;
     patientName: string;
   } | null>(null);
+  const [isEnding, setIsEnding] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [selectedReportSession, setSelectedReportSession] =
     useState<ReportTarget | null>(null);
@@ -94,7 +96,11 @@ export function Consultations() {
     profileUserId,
     shouldFetchProfile,
   );
-  const { isLoading: reportLoading, submitReport } = useReport();
+  const {
+    isLoading: reportLoading,
+    submitReport,
+    error: reportError,
+  } = useReport();
 
   const {
     data: consultations,
@@ -104,6 +110,11 @@ export function Consultations() {
     reject,
     complete,
   } = useConsultations();
+
+  const patientIds = (consultations || [])
+    .map((c) => c.patientId?._id)
+    .filter(Boolean) as string[];
+  const { onlineIds: patientOnlineIds } = usePresenceStatus(patientIds, true);
 
   const {
     messages,
@@ -156,6 +167,13 @@ export function Consultations() {
     showToast.error(chatError);
   }, [chatError]);
 
+  useEffect(() => {
+    if (!reportError) return;
+    showToast.error(
+      reportError instanceof Error ? reportError.message : String(reportError),
+    );
+  }, [reportError]);
+
   const pendingRequests = (consultations || [])
     .filter((c) => c.status === "pending")
     .map((c) => ({
@@ -174,7 +192,8 @@ export function Consultations() {
       patientId: c.patientId._id,
       patientName: c.patientId.fullName,
       patientUrl: c.patientId.avatarUrl,
-      patientIsOnline: false,
+      patientIsOnline: patientOnlineIds.has(c.patientId._id),
+      isOnline: patientOnlineIds.has(c.patientId._id),
       lastSent: c.startedAt ? new Date(c.startedAt) : new Date(c.createdAt),
       patientNote: c.patientNotes,
       status: c.status,
@@ -188,6 +207,7 @@ export function Consultations() {
       patientId: c.patientId._id,
       patientName: c.patientId.fullName,
       patientAvatarUrl: c.patientId.avatarUrl,
+      isOnline: patientOnlineIds.has(c.patientId._id),
       patientRating: c.review?.rating,
       patientReview: c.review?.comment,
       sessionStatus: c.status as "completed" | "rejected",
@@ -226,11 +246,14 @@ export function Consultations() {
     notes: string;
   }) => {
     try {
+      setIsEnding(true);
       await complete(sessionId, notes);
       showToast.success(`Consultation ended and notes saved.`);
       handleCloseChatWindow();
     } catch {
       showToast.error("Failed to end consultation. Please try again.");
+    } finally {
+      setIsEnding(false);
     }
   };
 
@@ -319,7 +342,6 @@ export function Consultations() {
 
   // Handle active session actions
   const handleViewProfile = (patientId: string) => {
-    console.log("patient", patientId);
     setSelectedUserId(patientId);
     setProfileModalOpen(true);
   };
@@ -396,6 +418,7 @@ export function Consultations() {
       sessionId: session.sessionId,
       patientName: session.patientName,
       patientAvatarUrl: session.patientAvatarUrl,
+      patientIsOnline: session.isOnline,
       patientRating: session.patientRating,
       patientReview: session.patientReview,
       patientNote: session.patientNote,
@@ -760,6 +783,7 @@ export function Consultations() {
                         patientId={session.patientId}
                         patientName={session.patientName}
                         patientAvatarUrl={session.patientAvatarUrl}
+                        patientIsOnline={session.isOnline}
                         patientRating={session.patientRating}
                         patientReview={session.patientReview}
                         sessionStatus={session.sessionStatus}
@@ -805,6 +829,7 @@ export function Consultations() {
         patientName={selectedEndSession?.patientName || ""}
         onClose={handleCloseEndChatModal}
         onConfirm={handleEndChat}
+        isLoading={isEnding}
       />
 
       <ReportModal
@@ -821,6 +846,7 @@ export function Consultations() {
         }}
         onClose={handleCloseReportModal}
         onConfirm={handleSubmitReport}
+        isLoading={reportLoading}
       />
 
       <ReviewModal
@@ -828,6 +854,7 @@ export function Consultations() {
         sessionId={selectedReviewSession?.sessionId || ""}
         patientName={selectedReviewSession?.patientName || ""}
         patientAvatarUrl={selectedReviewSession?.patientAvatarUrl}
+        patientIsOnline={selectedReviewSession?.patientIsOnline}
         rating={selectedReviewSession?.patientRating}
         review={selectedReviewSession?.patientReview}
         endedAt={selectedReviewSession?.endedAt}

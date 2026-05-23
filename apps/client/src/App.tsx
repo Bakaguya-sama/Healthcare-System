@@ -29,6 +29,7 @@ import { DoctorChat } from "./features/patient/doctor-chat/page/doctor-chat";
 import { ConfirmationModal } from "@repo/ui/components/complex-modal/ConfirmationModal";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import { useLogout } from "./features/auth/hooks/useLogout";
+import { connectPresenceSocket } from "@/lib/api";
 
 function SessionExpiredModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -111,6 +112,8 @@ function ProtectedRoutes() {
 
 function App() {
   const role = useAuthStore().user?.role || "patient";
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const accessToken = useAuthStore((state) => state.token);
   const defaultHomePath =
     role === "doctor" ? "/doctor-overview" : "/patient-overview";
 
@@ -137,6 +140,20 @@ function App() {
       unsubscribeFinishHydration();
     };
   }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    const token = accessToken || localStorage.getItem("accessToken") || "";
+    if (!isAuthenticated) {
+      connectPresenceSocket(undefined);
+      return;
+    }
+
+    connectPresenceSocket(token);
+  }, [accessToken, hasHydrated, isAuthenticated]);
 
   if (!hasHydrated) {
     return null;

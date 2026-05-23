@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getProfile } from "@/features/shared/services/profile-service";
 import { connectSessionSocket, sessionSocket } from "@/lib/api";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
+import { usePresenceStatus } from "@/features/shared/hooks/usePresenceStatus";
 import {
   createSession,
   getDoctors,
@@ -28,11 +29,16 @@ export function useMyDoctor(options: UseMyDoctorOptions = {}) {
   const accessToken = useAuthStore((state) => state.token);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [data, setData] = useState<DoctorItem[]>([]);
+  const [baseDoctors, setBaseDoctors] = useState<DoctorItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
   const [requestedDoctorIds, setRequestedDoctorIds] = useState<Set<string>>(
     () => new Set(),
+  );
+  const { onlineIds } = usePresenceStatus(
+    baseDoctors.map((doctor) => doctor.id),
+    enabled,
   );
 
   const fetchDoctors = useCallback(async () => {
@@ -84,7 +90,7 @@ export function useMyDoctor(options: UseMyDoctorOptions = {}) {
         };
       });
 
-      setData(enriched);
+      setBaseDoctors(enriched);
 
       const nextRequested = new Set<string>();
       for (const session of sessionsResponse.data || []) {
@@ -114,6 +120,20 @@ export function useMyDoctor(options: UseMyDoctorOptions = {}) {
       setIsLoading(false);
     }
   }, [enabled]);
+
+  useEffect(() => {
+    if (baseDoctors.length === 0) {
+      setData([]);
+      return;
+    }
+
+    setData(
+      baseDoctors.map((doctor) => ({
+        ...doctor,
+        isOnline: onlineIds.has(doctor.id),
+      })),
+    );
+  }, [baseDoctors, onlineIds]);
 
   useEffect(() => {
     void fetchDoctors();

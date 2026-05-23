@@ -7,6 +7,7 @@ interface ReviewModalProps {
   sessionId: string;
   patientName: string;
   patientAvatarUrl?: string;
+  patientIsOnline?: boolean;
   rating?: number;
   review?: string;
   endedAt?: Date;
@@ -71,7 +72,7 @@ export function ReviewModal({
           <UserAvatar
             name={patientName}
             url={patientAvatarUrl}
-            isOnline={false}
+            isOnline={Boolean(patientIsOnline)}
             avtStyle="h-12 w-12 rounded-full"
           />
           <div className="min-w-0 flex-1">

@@ -34,6 +34,7 @@ interface ReportModalProps {
     reportType: ReportType;
     reason: string;
   }) => void;
+  isLoading?: boolean;
 }
 
 const REPORT_TYPE_OPTIONS: Array<{ value: ReportType; label: string }> = [
@@ -57,6 +58,7 @@ export function ReportModal({
   reportType = "other",
   onClose,
   onConfirm,
+  isLoading: externalLoading = false,
 }: ReportModalProps) {
   const [selectedType, setSelectedType] = useState<ReportType>(reportType);
   const [reportReason, setReportReason] = useState(reason ?? "");
@@ -79,7 +81,7 @@ export function ReportModal({
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || externalLoading) return;
 
     setIsSubmitting(true);
     try {
@@ -184,9 +186,11 @@ export function ReportModal({
             size="lg"
             onClick={handleConfirm}
             className="h-12 rounded-2xl bg-red-500 text-white hover:bg-red-600"
-            disabled={!isReasonValid || isSubmitting}
+            disabled={!isReasonValid || isSubmitting || externalLoading}
           >
-            {isSubmitting ? "Submitting..." : "Submit Report"}
+            {isSubmitting || externalLoading
+              ? "Submitting..."
+              : "Submit Report"}
           </Button>
         </div>
       </div>

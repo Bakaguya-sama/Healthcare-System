@@ -10,10 +10,16 @@ if (!API_BASE_URL) {
 
 const SOCKET_BASE_URL = API_BASE_URL.replace(/\/api(\/.*)?$/, "");
 
+function getAccessToken(): string {
+  return (
+    useAuthStore.getState().token || localStorage.getItem("accessToken") || ""
+  );
+}
+
 const socket = io(`${SOCKET_BASE_URL}/chat`, {
   autoConnect: false,
   auth: {
-    token: localStorage.getItem("accessToken") || "",
+    token: getAccessToken(),
   },
   reconnectionAttempts: 3,
 });
@@ -21,7 +27,7 @@ const socket = io(`${SOCKET_BASE_URL}/chat`, {
 const sessionSocket = io(`${SOCKET_BASE_URL}/session`, {
   autoConnect: false,
   auth: {
-    token: localStorage.getItem("accessToken") || "",
+    token: getAccessToken(),
   },
   reconnectionAttempts: 3,
 });
@@ -29,10 +35,25 @@ const sessionSocket = io(`${SOCKET_BASE_URL}/session`, {
 const notificationsSocket = io(`${SOCKET_BASE_URL}/notifications`, {
   autoConnect: false,
   auth: {
-    token: localStorage.getItem("accessToken") || "",
+    token: getAccessToken(),
   },
   reconnectionAttempts: 3,
 });
+
+const presenceSocket = io(`${SOCKET_BASE_URL}`, {
+  autoConnect: false,
+  auth: {
+    token: getAccessToken(),
+  },
+  reconnectionAttempts: 3,
+});
+
+function updateSocketAuth(token: string) {
+  socket.auth = { token };
+  sessionSocket.auth = { token };
+  notificationsSocket.auth = { token };
+  presenceSocket.auth = { token };
+}
 
 function connectSocket(token?: string): boolean {
   if (!token) {
@@ -44,7 +65,7 @@ function connectSocket(token?: string): boolean {
     return false;
   }
 
-  socket.auth = { token };
+  updateSocketAuth(token);
   if (!socket.connected) {
     socket.connect();
   }
@@ -64,7 +85,7 @@ function connectSessionSocket(token?: string): boolean {
     return false;
   }
 
-  sessionSocket.auth = { token };
+  updateSocketAuth(token);
   if (!sessionSocket.connected) {
     sessionSocket.connect();
   }
@@ -84,9 +105,29 @@ function connectNotificationsSocket(token?: string): boolean {
     return false;
   }
 
-  notificationsSocket.auth = { token };
+  updateSocketAuth(token);
   if (!notificationsSocket.connected) {
     notificationsSocket.connect();
+  }
+
+  console.log("Connect successfully");
+
+  return true;
+}
+
+function connectPresenceSocket(token?: string): boolean {
+  if (!token) {
+    if (presenceSocket.connected) {
+      presenceSocket.disconnect();
+    }
+    console.log("Cannot connect");
+
+    return false;
+  }
+
+  updateSocketAuth(token);
+  if (!presenceSocket.connected) {
+    presenceSocket.connect();
   }
 
   console.log("Connect successfully");
@@ -163,9 +204,7 @@ function rejectRefreshQueue(error: unknown) {
 }
 
 api.interceptors.request.use((config) => {
-  const accessTokenFromStore = useAuthStore.getState().token;
-  const accessToken =
-    accessTokenFromStore || localStorage.getItem("accessToken");
+  const accessToken = getAccessToken();
 
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
@@ -236,6 +275,7 @@ api.interceptors.response.use(
       useAuthStore
         .getState()
         .setUser(currentUser, nextAccessToken, nextRefreshToken);
+      updateSocketAuth(nextAccessToken);
 
       resolveRefreshQueue(nextAccessToken);
       originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
@@ -261,4 +301,6 @@ export {
   connectSessionSocket,
   notificationsSocket,
   connectNotificationsSocket,
+  presenceSocket,
+  connectPresenceSocket,
 };

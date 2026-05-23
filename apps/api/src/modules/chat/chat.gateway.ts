@@ -8,14 +8,13 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { JwtService } from '@nestjs/jwt';
-interface AuthSocket extends Socket {
-  userId?: string;
-}
+import type { AuthSocket } from '../../core/types/auth-socket.type';
+import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -28,7 +27,7 @@ export class ChatGateway
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
-  private connectedUsers = new Map<string, string>();
+  private connectedUsers = new Map<string, Set<string>>();
 
   constructor(
     private readonly chatService: ChatService,
@@ -40,40 +39,33 @@ export class ChatGateway
   }
 
   async handleConnection(client: AuthSocket) {
-    const authToken =
-      typeof client.handshake.auth?.token === 'string'
-        ? client.handshake.auth.token
-        : '';
-    const headerToken = client.handshake.headers.authorization?.split(' ')[1];
-    const token = authToken || headerToken;
-    if (!token) {
-      this.logger.warn(`Connection rejected: No token provided.`);
+    const userId = await getUserIdFromSocket(this.jwtService, client);
+    if (!userId) {
+      this.logger.warn(`Connection rejected: Invalid or missing token.`);
       return client.disconnect();
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync(token);
-      const userId = payload.sub;
-      if (!userId) {
-        this.logger.warn(`Connection rejected: Invalid token payload.`);
-        return client.disconnect();
-      }
+    client.userId = userId;
 
-      client.userId = userId;
-      this.connectedUsers.set(userId, client.id);
-      this.logger.log(`Client connected: ${client.id}, UserID: ${userId}`);
-    } catch (error) {
-      this.logger.error(`Authentication error: ${error.message}`);
-      return client.disconnect();
+    if (!this.connectedUsers.has(userId)) {
+      this.connectedUsers.set(userId, new Set());
     }
+
+    this.connectedUsers.get(userId)!.add(client.id);
+
+    this.logger.log(`Client connected: ${client.id}, UserID: ${userId}`);
   }
 
   handleDisconnect(client: AuthSocket) {
-    if (client.userId) {
-      this.connectedUsers.delete(client.userId);
+    const userId = client.userId;
+    if (userId && this.connectedUsers.has(userId)) {
+      this.connectedUsers.get(userId)!.delete(client.id);
       this.logger.log(
         `Client disconnected: ${client.id}, UserID: ${client.userId}`,
       );
+
+      if (this.connectedUsers.get(userId)!.size === 0)
+        this.connectedUsers.delete(userId);
     }
   }
 

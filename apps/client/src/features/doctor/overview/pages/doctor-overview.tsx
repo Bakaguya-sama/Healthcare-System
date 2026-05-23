@@ -4,6 +4,7 @@ import { LineChart } from "@repo/ui/components/ui/line-chart";
 import { useState, useMemo, useEffect } from "react";
 import { format, subDays } from "date-fns";
 import { useOverviewSummary } from "../hooks/useOverview";
+import { usePresenceStatus } from "@/features/shared/hooks/usePresenceStatus";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { UserAvatar } from "@repo/ui/components/ui/user-avatar";
 import { showToast } from "@repo/ui/components/ui/toasts";
@@ -36,12 +37,19 @@ function formatDate(input?: string) {
   });
 }
 
-function ReviewItem({ review }: { review: DoctorReview }) {
+function ReviewItem({
+  review,
+  isOnline,
+}: {
+  review: DoctorReview;
+  isOnline?: boolean;
+}) {
   return (
     <div className="flex gap-3 border-b bg-white border-zinc-950 px-4 py-4 last:border-none">
       <UserAvatar
         name={review.patient.fullName}
         url={review.patient.avtUrl}
+        isOnline={Boolean(isOnline)}
         avtStyle="h-10 w-10 rounded-full"
       />
 
@@ -92,6 +100,12 @@ export function DoctorOverview() {
       return format(date, "dd/MM");
     });
   }, []);
+
+  const doctorReviews = summary?.reviews ?? [];
+  const patientIds = doctorReviews
+    .map((review) => review.patient.id)
+    .filter(Boolean) as string[];
+  const { onlineIds } = usePresenceStatus(patientIds, true);
 
   if (isLoading) {
     return (
@@ -145,8 +159,6 @@ export function DoctorOverview() {
       pointHoverRadius: 3,
     },
   ];
-
-  const doctorReviews = summary?.reviews ?? [];
 
   const date = new Date();
   const today = date.toLocaleDateString("en-US", {
@@ -202,9 +214,16 @@ export function DoctorOverview() {
                 {(showAllReviews
                   ? doctorReviews
                   : doctorReviews.slice(0, 3)
-                ).map((review) => (
-                  <ReviewItem key={review.id} review={review} />
-                ))}
+                ).map((review) => {
+                  const isOnline = onlineIds.has(review.patient.id);
+                  return (
+                    <ReviewItem
+                      key={review.id}
+                      review={review}
+                      isOnline={isOnline}
+                    />
+                  );
+                })}
               </div>
             </section>
             <div className="border-t">

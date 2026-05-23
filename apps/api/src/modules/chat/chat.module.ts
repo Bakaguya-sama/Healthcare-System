@@ -9,6 +9,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { PresenceModule } from '../presence/presence.module';
 @Module({
   imports: [
     JwtModule.registerAsync({
@@ -24,6 +25,7 @@ import { ConfigService } from '@nestjs/config';
       { name: Message.name, schema: MessageSchema },
       { name: Session.name, schema: SessionSchema },
     ]),
+    PresenceModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, CloudinaryService],
