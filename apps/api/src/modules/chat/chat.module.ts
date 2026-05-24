@@ -10,6 +10,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PresenceModule } from '../presence/presence.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
   imports: [
     JwtModule.registerAsync({
@@ -26,6 +28,7 @@ import { PresenceModule } from '../presence/presence.module';
       { name: Session.name, schema: SessionSchema },
     ]),
     PresenceModule,
+    NotificationsModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, CloudinaryService],

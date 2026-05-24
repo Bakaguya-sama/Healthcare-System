@@ -14,7 +14,7 @@ interface ActiveSessionCardProps {
   patientUrl?: string;
   patientName: string;
   patientIsOnline: boolean;
-  lastSent: Date;
+  lastSent?: Date;
   onOpenchat: () => void;
   onViewProfile: () => void;
   onEndConsultation: () => void;
@@ -23,7 +23,6 @@ interface ActiveSessionCardProps {
 
 export function ActiveSessionCard({
   sessionId,
-  patientId,
   patientUrl,
   patientName,
   patientIsOnline,
@@ -96,7 +95,8 @@ export function ActiveSessionCard({
               {patientName}
             </h3>
             <p className="text-xs text-slate-500">
-              Last message: {formatLastSent(lastSent)}
+              Last message:{" "}
+              {lastSent ? formatLastSent(lastSent) : "No messages yet"}
             </p>
           </div>
         </div>

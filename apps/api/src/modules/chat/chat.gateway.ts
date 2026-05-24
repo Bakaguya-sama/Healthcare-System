@@ -15,6 +15,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthSocket } from '../../core/types/auth-socket.type';
 import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -24,14 +25,19 @@ export class ChatGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
   private connectedUsers = new Map<string, Set<string>>();
 
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
   constructor(
     private readonly chatService: ChatService,
     private readonly jwtService: JwtService,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   afterInit() {
@@ -97,8 +103,9 @@ export class ChatGateway
       );
       client.emit('joined_session', { sessionId });
     } catch (error) {
-      this.logger.error(`Error joining session: ${error.message}`);
-      client.emit('join_session_error', { message: error.message });
+      const message = this.getErrorMessage(error);
+      this.logger.error(`Error joining session: ${message}`);
+      client.emit('join_session_error', { message });
     }
   }
 
@@ -130,8 +137,9 @@ export class ChatGateway
       );
       client.emit('left_session', { sessionId });
     } catch (error) {
-      this.logger.error(`Error leaving session: ${error.message}`);
-      client.emit('leave_session_error', { message: error.message });
+      const message = this.getErrorMessage(error);
+      this.logger.error(`Error leaving session: ${message}`);
+      client.emit('leave_session_error', { message });
     }
   }
 
@@ -146,14 +154,44 @@ export class ChatGateway
     try {
       const result = await this.chatService.sendMessage(senderId, dto);
       const message = result.data || result;
+      const sessionId = String(message.doctorSessionId);
+      const lastMessageAt =
+        message.sentAt instanceof Date
+          ? message.sentAt.toISOString()
+          : new Date(message.sentAt).toISOString();
+      const chatNotification = {
+        sessionId,
+        lastMessageAt,
+        lastMessageId: String(message.id || message._id || ''),
+        senderId: String(message.senderId),
+        senderType: message.senderType,
+      };
 
-      this.server.to(dto.doctorSessionId).emit('new_message', message);
+      this.server.to(sessionId).emit('new_message', message);
+
+      // send notifications of new messages to both sender and recepient
+      const session = await this.chatService.getSessionDetails(
+        sessionId,
+        senderId,
+      );
+
+      this.notificationsGateway.sendToUser(
+        String(session!.doctorId),
+        'chat_notification',
+        chatNotification,
+      );
+      this.notificationsGateway.sendToUser(
+        String(session!.patientId),
+        'chat_notification',
+        chatNotification,
+      );
 
       client.emit('message_sent', message);
     } catch (error) {
-      this.logger.error(`Error sending message: ${error.message}`);
+      const message = this.getErrorMessage(error);
+      this.logger.error(`Error sending message: ${message}`);
       client.emit('send_message_error', {
-        message: error.message || 'Could not send message',
+        message: message || 'Could not send message',
       });
     }
   }
@@ -191,8 +229,9 @@ export class ChatGateway
       );
       client.emit('session_messages', result);
     } catch (error) {
-      this.logger.error(`Error fetching session messages: ${error.message}`);
-      client.emit('get_session_messages_error', { message: error.message });
+      const message = this.getErrorMessage(error);
+      this.logger.error(`Error fetching session messages: ${message}`);
+      client.emit('get_session_messages_error', { message });
     }
   }
 }

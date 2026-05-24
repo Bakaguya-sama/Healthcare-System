@@ -31,10 +31,16 @@ export class Session {
   status: SessionStatus;
 
   @Prop()
-  patientNotes?: string; // Tiêu đề, ghi chú của bệnh nhân khi bắt đầu buổi tư vấn
+  patientNotes?: string;
 
   @Prop()
-  doctorNotes?: string; // Lời khuyên y tế của bác sĩ khi kết thúc tư vấn
+  doctorNotes?: string;
+
+  @Prop()
+  lastMessageAt?: Date;
+
+  @Prop()
+  lastMessageId?: string;
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);

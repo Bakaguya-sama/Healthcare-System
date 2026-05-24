@@ -212,6 +212,10 @@ export class ChatService {
       sentAt: new Date(),
     });
 
+    session.lastMessageAt = message.sentAt;
+    session.lastMessageId = String(message.id);
+    await session.save();
+
     return {
       statusCode: 201,
       message: 'Message sent successfully',

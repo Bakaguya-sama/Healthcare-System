@@ -200,4 +200,12 @@ export class NotificationsGateway
   getUserSocketCount(userId: string): number {
     return this.connectedUsers.get(userId)?.size || 0;
   }
+
+  sendToUser(userId: string, event: string, payload: any) {
+    this.server.to(`user_${userId}_notifications`).emit(event, payload);
+  }
+
+  sendToMany(userIds: string[], event: string, payload: any) {
+    userIds.forEach((id) => this.sendToUser(id, event, payload));
+  }
 }

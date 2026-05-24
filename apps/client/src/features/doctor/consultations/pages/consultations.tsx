@@ -194,7 +194,7 @@ export function Consultations() {
       patientUrl: c.patientId.avatarUrl,
       patientIsOnline: patientOnlineIds.has(c.patientId._id),
       isOnline: patientOnlineIds.has(c.patientId._id),
-      lastSent: c.startedAt ? new Date(c.startedAt) : new Date(c.createdAt),
+      lastSent: c.lastMessageAt ? new Date(c.lastMessageAt) : undefined,
       patientNote: c.patientNotes,
       status: c.status,
       createdAt: c.createdAt,
