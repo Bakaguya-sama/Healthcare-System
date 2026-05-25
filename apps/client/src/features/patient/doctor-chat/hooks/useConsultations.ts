@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { connectSessionSocket, sessionSocket } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  connectSessionSocket,
+  connectNotificationsSocket,
+  sessionSocket,
+  notificationsSocket,
+} from "@/lib/api";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import {
   getConsultationsEnriched,
@@ -14,6 +19,14 @@ type SessionChangePayload = {
   sessionId: string;
   patientId: string;
   doctorId: string;
+};
+
+type ChatNotificationPayload = {
+  doctorSessionId?: string;
+  sessionId?: string;
+  sentAt?: string;
+  lastMessageAt?: string;
+  lastMessageId?: string;
 };
 
 const statusByAction: Record<string, Consultation["status"] | null> = {
@@ -29,13 +42,50 @@ export function useConsultations() {
   const [data, setData] = useState<Consultation[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pendingChatUpdatesRef = useRef(
+    new Map<string, ChatNotificationPayload>(),
+  );
+
+  const applyPendingChatUpdates = useCallback(
+    (consultations: Consultation[]) => {
+      if (pendingChatUpdatesRef.current.size === 0) {
+        return consultations;
+      }
+
+      const nextConsultations = consultations.map((consultation) => {
+        const pendingUpdate = pendingChatUpdatesRef.current.get(
+          consultation.id,
+        );
+        if (!pendingUpdate) {
+          return consultation;
+        }
+
+        const nextLastMessageAt =
+          pendingUpdate.lastMessageAt ??
+          pendingUpdate.sentAt ??
+          consultation.lastMessageAt ??
+          new Date().toISOString();
+
+        pendingChatUpdatesRef.current.delete(consultation.id);
+
+        return {
+          ...consultation,
+          lastMessageAt: nextLastMessageAt,
+          updatedAt: nextLastMessageAt,
+        };
+      });
+
+      return nextConsultations;
+    },
+    [],
+  );
 
   const fetchConsultations = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const consultations = await getConsultationsEnriched();
-      setData(consultations);
+      setData(applyPendingChatUpdates(consultations));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch consultations",
@@ -43,7 +93,7 @@ export function useConsultations() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [applyPendingChatUpdates]);
 
   const applySessionChange = useCallback(
     (payload: SessionChangePayload) => {
@@ -78,6 +128,44 @@ export function useConsultations() {
       }
     },
     [fetchConsultations],
+  );
+
+  const applyChatNotification = useCallback(
+    (payload: ChatNotificationPayload) => {
+      const sessionId = payload.doctorSessionId ?? payload.sessionId;
+      if (!sessionId) return;
+
+      const nextLastMessageAt =
+        payload.lastMessageAt ?? payload.sentAt ?? new Date().toISOString();
+
+      setData((prev) => {
+        if (!prev) {
+          pendingChatUpdatesRef.current.set(sessionId, payload);
+          return prev;
+        }
+
+        let updated = false;
+        const next = prev.map((item) => {
+          if (item.id !== sessionId) {
+            return item;
+          }
+
+          updated = true;
+          return {
+            ...item,
+            lastMessageAt: nextLastMessageAt,
+            updatedAt: nextLastMessageAt,
+          };
+        });
+
+        if (!updated) {
+          pendingChatUpdatesRef.current.set(sessionId, payload);
+        }
+
+        return updated ? next : prev;
+      });
+    },
+    [],
   );
 
   const getConsultationReviewBySession = async (sessionId: string) => {
@@ -126,6 +214,28 @@ export function useConsultations() {
       sessionSocket.off("session_changed", handleSessionChanged);
     };
   }, [accessToken, applySessionChange, currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const token = accessToken || localStorage.getItem("accessToken") || "";
+    if (!connectNotificationsSocket(token)) {
+      return;
+    }
+
+    const handleChatNotification = (payload: ChatNotificationPayload) => {
+      const sessionId = payload.doctorSessionId ?? payload.sessionId;
+      if (!sessionId) return;
+
+      applyChatNotification(payload);
+    };
+
+    notificationsSocket.on("chat_notification", handleChatNotification);
+
+    return () => {
+      notificationsSocket.off("chat_notification", handleChatNotification);
+    };
+  }, [accessToken, applyChatNotification, currentUserId]);
 
   return {
     data,

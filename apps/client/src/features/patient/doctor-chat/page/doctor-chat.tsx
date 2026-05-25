@@ -38,7 +38,11 @@ export function DoctorChat() {
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
   const [isDoctorNoteModalOpen, setDoctorNoteModalOpen] = useState(false);
 
-  const { data: consultations, error: consultationError } = useConsultations();
+  const {
+    data: consultations,
+    error: consultationError,
+    refetch: refetchConsultations,
+  } = useConsultations();
 
   const doctorIds = (consultations || [])
     .map((c) => c.doctorId._id)
@@ -88,6 +92,7 @@ export function DoctorChat() {
         sessionStatus: c.status as "completed" | "rejected",
         endedAt: c.endedAt ? new Date(c.endedAt) : undefined,
         updatedAt: new Date(c.updatedAt || 0),
+        lastMessageAt: c.lastMessageAt ? new Date(c.lastMessageAt) : undefined,
         patientNote: c.patientNotes,
         doctorNote: c.doctorNotes,
         status: c.status,
@@ -157,6 +162,11 @@ export function DoctorChat() {
     }
   }, [consultationError]);
 
+  useEffect(() => {
+    if (!selectedSessionId || messages.length === 0) return;
+    void refetchConsultations();
+  }, [messages.length, refetchConsultations, selectedSessionId]);
+
   const selectedSession = consultationItems.find(
     (consultation) => consultation.sessionId === selectedSessionId,
   );
@@ -179,7 +189,11 @@ export function DoctorChat() {
 
         return statusMatched && queryMatched;
       })
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      .sort((a, b) => {
+        const aTime = (a.lastMessageAt ?? a.updatedAt).getTime();
+        const bTime = (b.lastMessageAt ?? b.updatedAt).getTime();
+        return bTime - aTime;
+      });
   }, [searchQuery, consultationItems, statusFilter]);
 
   const counts = useMemo(
@@ -232,7 +246,9 @@ export function DoctorChat() {
       });
       if (!result) {
         showToast.error("Failed to send message.");
+        return;
       }
+      void refetchConsultations();
     } catch {
       showToast.error("Failed to send message.");
     }
@@ -389,7 +405,7 @@ export function DoctorChat() {
                   id={session.sessionId}
                   status={session.status}
                   isSelected={selectedSessionId === session.sessionId}
-                  updatedAt={session.updatedAt}
+                  updatedAt={session.lastMessageAt ?? session.updatedAt}
                   doctorName={session.doctorName}
                   doctorIsActive={session.doctorIsOnline}
                   doctorSpecialty={session.doctorSpecialty}

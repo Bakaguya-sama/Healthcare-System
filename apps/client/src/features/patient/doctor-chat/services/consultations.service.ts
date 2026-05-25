@@ -34,6 +34,7 @@ interface ConsultationApiResponse {
   __v: number;
   createdAt: string;
   updatedAt: string;
+  lastMessageAt?: string;
 }
 
 type PatientProfile = {
@@ -63,6 +64,7 @@ export interface Consultation {
   doctorNotes?: string;
   createdAt: string;
   updatedAt: string;
+  lastMessageAt?: string;
   review?: ConsultationReview | null;
 }
 
@@ -81,6 +83,7 @@ export async function getConsultations(): Promise<Consultation[]> {
     doctorNotes: item.doctorNotes,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    lastMessageAt: item.lastMessageAt,
   }));
 }
 
