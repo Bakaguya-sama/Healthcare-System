@@ -65,7 +65,7 @@ export function HistoryCard({
   isSelected = false,
   onClick,
 }: HistoryCardProps) {
-  const displayTime = formatHistoryTime(createdAt, isCurrent, isSelected);
+  // const displayTime = formatHistoryTime(createdAt, isCurrent, isSelected);
 
   return (
     <button
@@ -98,11 +98,11 @@ export function HistoryCard({
         >
           {title}
         </p>
-        <p
+        {/* <p
           className={`mt-0.5 text-sm ${isSelected ? "text-brand/70" : "text-slate-400"}`}
         >
           {displayTime}
-        </p>
+        </p> */}
       </div>
 
       {isCurrent ? <Dot className="h-6 w-6 shrink-0 text-brand" /> : null}
