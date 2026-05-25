@@ -186,6 +186,20 @@ export function useConsultations() {
     }
   };
 
+  const updateConsultationTimestamp = useCallback((sessionId: string) => {
+    const now = new Date().toISOString();
+    setData((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return prev.map((item) =>
+        item.id === sessionId
+          ? { ...item, lastMessageAt: now, updatedAt: now }
+          : item,
+      );
+    });
+  }, []);
+
   useEffect(() => {
     fetchConsultations();
   }, [fetchConsultations]);
@@ -243,5 +257,6 @@ export function useConsultations() {
     error,
     refetch: fetchConsultations,
     getConsultationReviewBySession,
+    updateConsultationTimestamp,
   };
 }

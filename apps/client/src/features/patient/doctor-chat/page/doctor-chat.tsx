@@ -41,7 +41,7 @@ export function DoctorChat() {
   const {
     data: consultations,
     error: consultationError,
-    refetch: refetchConsultations,
+    updateConsultationTimestamp,
   } = useConsultations();
 
   const doctorIds = (consultations || [])
@@ -162,11 +162,6 @@ export function DoctorChat() {
     }
   }, [consultationError]);
 
-  useEffect(() => {
-    if (!selectedSessionId || messages.length === 0) return;
-    void refetchConsultations();
-  }, [messages.length, refetchConsultations, selectedSessionId]);
-
   const selectedSession = consultationItems.find(
     (consultation) => consultation.sessionId === selectedSessionId,
   );
@@ -248,7 +243,7 @@ export function DoctorChat() {
         showToast.error("Failed to send message.");
         return;
       }
-      void refetchConsultations();
+      updateConsultationTimestamp(selectedSessionId);
     } catch {
       showToast.error("Failed to send message.");
     }
