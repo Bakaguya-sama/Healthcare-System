@@ -13,6 +13,17 @@ interface SendBarProps {
   onSend: (payload: SendMessagePayload) => void;
 }
 
+const ALLOWED_IMAGE_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
+const ALLOWED_FILE_TYPES = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+].join(",");
+
 export function SendBar({ isDisabled, onSend }: SendBarProps) {
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -147,6 +158,7 @@ export function SendBar({ isDisabled, onSend }: SendBarProps) {
       <input
         ref={fileInputRef}
         type="file"
+        accept={ALLOWED_FILE_TYPES}
         multiple
         className="hidden"
         disabled={isDisabled}
@@ -155,7 +167,7 @@ export function SendBar({ isDisabled, onSend }: SendBarProps) {
       <input
         ref={imageInputRef}
         type="file"
-        accept="image/*"
+        accept={ALLOWED_IMAGE_TYPES}
         multiple
         className="hidden"
         disabled={isDisabled}

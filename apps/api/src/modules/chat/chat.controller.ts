@@ -35,16 +35,6 @@ import { ChatGateway } from './chat.gateway';
 @UseGuards(JwtAuthGuard)
 @Controller('chat')
 export class ChatController {
-  private static readonly allowedAttachmentMimeTypes = new Set<string>([
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  ]);
-
   constructor(
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
@@ -65,21 +55,6 @@ export class ChatController {
             process.env.MAX_CHAT_ATTACHMENT_SIZE_BYTES || '15728640',
             10,
           ),
-        },
-        fileFilter: (_req, file, callback) => {
-          if (
-            ChatController.allowedAttachmentMimeTypes.has(file.mimetype || '')
-          ) {
-            callback(null, true);
-            return;
-          }
-
-          callback(
-            new Error(
-              `Unsupported file type: ${file.mimetype}. Allowed: images, pdf, doc, docx`,
-            ),
-            false,
-          );
         },
       },
     ),

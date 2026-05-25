@@ -32,21 +32,17 @@ export class ChatService {
 
   private static readonly maxDocumentSizeBytes = 20 * 1024 * 1024;
 
-  private readonly allowedMimeTypes = new Set<string>([
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  ]);
+  private readonly allowedMimeTypes: Set<string>;
 
   constructor(
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) {
+    this.allowedMimeTypes = new Set(
+      this.cloudinaryService.getAllowedMimeTypes(),
+    );
+  }
 
   private validateAttachment(file: UploadedAttachment): void {
     if (!file?.mimetype) {
@@ -55,7 +51,11 @@ export class ChatService {
 
     if (!this.allowedMimeTypes.has(file.mimetype)) {
       throw new BadRequestException(
-        `Unsupported file type: ${file.mimetype}. Allowed: images, pdf, doc, docx`,
+        `Unsupported file type: ${
+          file.mimetype
+        }. Allowed types: ${this.cloudinaryService
+          .getAllowedFileTypes()
+          .join(', ')}`,
       );
     }
 

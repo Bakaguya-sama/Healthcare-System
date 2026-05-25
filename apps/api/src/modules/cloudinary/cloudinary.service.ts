@@ -3,6 +3,28 @@ import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 
+export const FILE_TYPE_MAP: Record<
+  string,
+  { mimeTypes: string[]; resourceType: 'image' | 'raw' | 'video' }
+> = {
+  // Images
+  jpg: { mimeTypes: ['image/jpeg'], resourceType: 'image' },
+  jpeg: { mimeTypes: ['image/jpeg'], resourceType: 'image' },
+  png: { mimeTypes: ['image/png'], resourceType: 'image' },
+  gif: { mimeTypes: ['image/gif'], resourceType: 'image' },
+  webp: { mimeTypes: ['image/webp'], resourceType: 'image' },
+  // Documents
+  pdf: { mimeTypes: ['application/pdf'], resourceType: 'raw' },
+  doc: { mimeTypes: ['application/msword'], resourceType: 'raw' },
+  docx: {
+    mimeTypes: [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
+    resourceType: 'raw',
+  },
+  txt: { mimeTypes: ['text/plain'], resourceType: 'raw' },
+};
+
 export interface CloudinaryUploadResult {
   publicId: string;
   url: string;
@@ -362,11 +384,26 @@ export class CloudinaryService {
   /**
    * 🔍 GET ALLOWED FILE TYPES từ .env
    */
-  private getAllowedFileTypes(): string[] {
+  public getAllowedFileTypes(): string[] {
     const allowed = this.configService.get<string>(
       'ALLOWED_FILE_TYPES',
       'jpg,jpeg,png,pdf,doc,docx,txt',
     );
     return allowed.split(',').map((type) => type.trim().toLowerCase());
+  }
+
+  /**
+   * 🔍 GET ALLOWED MIME TYPES from allowed file extensions
+   */
+  public getAllowedMimeTypes(): string[] {
+    const allowedExtensions = this.getAllowedFileTypes();
+    const mimeTypes = new Set<string>();
+    for (const ext of allowedExtensions) {
+      const entry = FILE_TYPE_MAP[ext];
+      if (entry) {
+        entry.mimeTypes.forEach((mime) => mimeTypes.add(mime));
+      }
+    }
+    return Array.from(mimeTypes);
   }
 }
