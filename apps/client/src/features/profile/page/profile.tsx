@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import { useProfile } from "../hooks/useProfile";
+import { doctorSpecialty } from "../../auth/components/doctor-sign-up";
 import type {
   ProfileDataReceiver,
   UserRole,
@@ -35,6 +36,7 @@ type VerificationDoc = {
   name: string;
   uploadedAt: string;
   fileUrl: string;
+  file?: File;
 };
 
 type ProfileProps = {
@@ -93,6 +95,16 @@ function initialsFromName(name: string) {
     .join("");
 }
 
+function tryFixMojibake(input: string) {
+  try {
+    const bytes = Uint8Array.from(input, (char) => char.charCodeAt(0));
+    const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    return decoded || input;
+  } catch {
+    return input;
+  }
+}
+
 function SectionTitle({
   title,
   subtitle,
@@ -132,6 +144,7 @@ function DoctorRoleSection({
   onFieldChange,
   onAddDocs,
   onReplaceDoc,
+  onDeleteDoc,
 }: {
   values: ProfileFormValues;
   verificationDocs: VerificationDoc[];
@@ -141,7 +154,12 @@ function DoctorRoleSection({
   ) => void;
   onAddDocs: (files: FileList | null) => void;
   onReplaceDoc: (docId: string, file: File | null) => void;
+  onDeleteDoc: (docId: string) => void;
 }) {
+  const hasSpecialtyOption = doctorSpecialty.some(
+    (specialty) => specialty.name === values.specialty,
+  );
+
   return (
     <div className="space-y-4">
       <SectionTitle title="Professional Information" />
@@ -174,12 +192,25 @@ function DoctorRoleSection({
             Specialty
           </FieldLabel>
           <FieldControl>
-            <Input
+            <select
               id="specialty"
               value={values.specialty}
               onChange={(e) => onFieldChange("specialty", e.target.value)}
-              className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
-            />
+              required
+              className="h-auto w-full border-0 bg-transparent px-0 py-0 text-sm text-slate-900 outline-none focus-visible:ring-0"
+            >
+              <option value="" disabled>
+                Select specialty
+              </option>
+              {!hasSpecialtyOption && values.specialty ? (
+                <option value={values.specialty}>{values.specialty}</option>
+              ) : null}
+              {doctorSpecialty.map((specialty) => (
+                <option key={specialty.id} value={specialty.name}>
+                  {specialty.name}
+                </option>
+              ))}
+            </select>
           </FieldControl>
         </Field>
 
@@ -249,7 +280,7 @@ function DoctorRoleSection({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <a
                     href={doc.fileUrl}
                     target="_blank"
@@ -272,6 +303,15 @@ function DoctorRoleSection({
                       }}
                     />
                   </label>
+
+                  <button
+                    type="button"
+                    onClick={() => onDeleteDoc(doc.id)}
+                    className="inline-flex cursor-pointer items-center rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Delete
+                  </button>
                 </div>
               </div>
             ))
@@ -376,7 +416,16 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
     const nextDocs: VerificationDoc[] = (profileData.documentsUrl ?? []).map(
       (fileUrl, index) => {
         const pathPart = fileUrl.split("/").pop() ?? "document";
-        const cleanName = pathPart.split("?")[0] || `document-${index + 1}`;
+        const rawName = pathPart.split("?")[0] || `document-${index + 1}`;
+        let cleanName = rawName;
+        try {
+          cleanName = decodeURIComponent(rawName);
+        } catch {
+          cleanName = rawName;
+        }
+
+        cleanName = cleanName.replace(/^\d+-/, "");
+        cleanName = tryFixMojibake(cleanName);
 
         return {
           id: `server-doc-${index}`,
@@ -442,6 +491,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
       name: file.name,
       uploadedAt,
       fileUrl: URL.createObjectURL(file),
+      file,
     }));
 
     setDraftVerificationDocs((prev) => [...nextDocs, ...prev]);
@@ -464,10 +514,15 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
               name: file.name,
               uploadedAt,
               fileUrl: URL.createObjectURL(file),
+              file,
             }
           : doc,
       ),
     );
+  };
+
+  const handleDeleteVerificationDoc = (docId: string) => {
+    setDraftVerificationDocs((prev) => prev.filter((doc) => doc.id !== docId));
   };
 
   const handleDiscardChanges = () => {
@@ -511,14 +566,22 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
           verificationDocs: draftVerificationDocs,
         });
       } else {
-        const payload: ProfileDataReceiver = {
+        const newVerificationDocuments = draftVerificationDocs
+          .map((doc) => doc.file)
+          .filter((file): file is File => Boolean(file));
+
+        const existingVerificationDocuments = draftVerificationDocs
+          .filter((doc) => !doc.file && /^https?:\/\//.test(doc.fileUrl))
+          .map((doc) => doc.fileUrl);
+
+        const payload = {
           id: profileData?.id ?? "",
           isOnline: profileData?.isOnline ?? false,
           role: activeRole,
           avatarUrl: avatarUrlToSave,
-          avatarPublicId: avatarPublicIdToSave || undefined,
+          avatarPublicId: avatarPublicIdToSave,
           fullName: draftValues.fullName,
-          email: draftValues.email,
+          email: draftValues.email, // email is readonly, but we pass it
           phone: draftValues.phone,
           gender: draftValues.gender,
           street: draftValues.street,
@@ -526,13 +589,11 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
           district: draftValues.district,
           city: draftValues.city,
           country: draftValues.country,
-          adminAssignedRole: draftValues.adminAssignedRole,
           yearsOfExperience: draftValues.yearsOfExperience,
           specialty: draftValues.specialty,
           workplace: draftValues.workplace,
-          documentsUrl: draftVerificationDocs
-            .map((doc) => doc.fileUrl)
-            .filter((url) => /^https?:\/\//.test(url)),
+          newVerificationDocuments,
+          existingVerificationDocuments,
         };
 
         await saveProfile(payload);
@@ -813,6 +874,7 @@ export function Profile({ role = "admin", onSave }: ProfileProps) {
               onFieldChange={onFieldChange}
               onAddDocs={handleAddVerificationDocs}
               onReplaceDoc={handleReplaceVerificationDoc}
+              onDeleteDoc={handleDeleteVerificationDoc}
             />
           ) : null}
 

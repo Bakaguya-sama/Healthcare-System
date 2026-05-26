@@ -4,6 +4,7 @@ import {
   getMyProfile,
   type ProfileDataReceiver,
   updateMyProfile,
+  type UpdateMyProfileServicePayload,
 } from "../services/profile.service";
 
 export function useProfile() {
@@ -34,7 +35,7 @@ export function useProfile() {
   }, []);
 
   const save = useCallback(
-    async (payload: ProfileDataReceiver) => {
+    async (payload: UpdateMyProfileServicePayload) => {
       setIsSaving(true);
       setError(null);
 

@@ -6,11 +6,14 @@ import {
   Param,
   Body,
   UseGuards,
+  UseInterceptors,
   Delete,
   HttpCode,
   HttpStatus,
+  UploadedFiles,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
@@ -70,8 +73,15 @@ export class UsersController {
 
   @Patch('me')
   @ApiOperation({ summary: 'Cập nhật thông tin tài khoản hiện tại' })
-  updateMe(@CurrentUser('sub') userId: string, @Body() dto: UpdateUserDto) {
-    return this.usersService.update(userId, dto);
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'newFilesToUpload', maxCount: 10 }]),
+  )
+  updateMe(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: UpdateUserDto,
+    @UploadedFiles() files: { newFilesToUpload?: Express.Multer.File[] },
+  ) {
+    return this.usersService.update(userId, dto, files?.newFilesToUpload);
   }
 
   @Delete(':id')

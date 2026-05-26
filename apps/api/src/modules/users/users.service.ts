@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -23,6 +24,7 @@ import {
   Violation,
   ViolationStatus,
 } from '../violations/entities/violation.entity';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 type ProfileReport = {
   id: string;
@@ -74,6 +76,8 @@ type UserProfileResponse = {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
@@ -81,6 +85,7 @@ export class UsersService {
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Violation.name) private violationModel: Model<Violation>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   private formatAddress(address?: {
@@ -420,14 +425,18 @@ export class UsersService {
     return profile;
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(
+    id: string,
+    dto: UpdateUserDto,
+    newFilesToUpload?: Express.Multer.File[],
+  ) {
     const existingUser = await this.userModel.findById(id);
     if (!existingUser) throw new NotFoundException('User not found');
 
     const {
       specialty,
       workplace,
-      verificationDocuments,
+      existingVerificationDocuments,
       experienceYears,
       averageRating,
       ...userUpdatePayload
@@ -435,6 +444,15 @@ export class UsersService {
     void averageRating;
 
     if (existingUser.role === UserRole.DOCTOR) {
+      const doctorProfile = await this.doctorModel.findOne({
+        userId: new Types.ObjectId(id),
+      });
+      if (!doctorProfile) {
+        throw new ConflictException(
+          'Doctor profile not found for existing user.',
+        );
+      }
+
       const doctorUpdatePayload: {
         specialty?: string;
         workplace?: string;
@@ -450,13 +468,51 @@ export class UsersService {
         doctorUpdatePayload.workplace = workplace;
       }
 
-      if (verificationDocuments !== undefined) {
-        doctorUpdatePayload.verificationDocuments = verificationDocuments;
-      }
-
       if (experienceYears !== undefined) {
         doctorUpdatePayload.experienceYears = experienceYears;
       }
+
+      // Verification documents
+      const allOldUrls = doctorProfile.verificationDocuments || [];
+      const keptUrls = new Set(existingVerificationDocuments || []);
+      const urlsToDelete = allOldUrls.filter((url) => !keptUrls.has(url));
+
+      if (urlsToDelete.length > 0) {
+        try {
+          const publicIdsToDelete = urlsToDelete.map((url) => {
+            const decodedUrl = decodeURIComponent(url);
+            const urlParts = decodedUrl.split('/');
+            const pathWithExtension = urlParts
+              .slice(urlParts.indexOf('upload') + 2)
+              .join('/');
+            return pathWithExtension;
+          });
+          for (const path of publicIdsToDelete) {
+            await this.cloudinaryService.deleteFile(path, 'document');
+          }
+        } catch (error) {
+          this.logger.warn(
+            `Failed to delete old verification documents for user ${id}. Proceeding with registration.`,
+            error.stack,
+          );
+        }
+      }
+
+      let finalDocumentUrls: string[] = existingVerificationDocuments || [];
+      if (newFilesToUpload && newFilesToUpload.length > 0) {
+        const folder = `healthcare/doctors/verification/${id}`;
+        const uploadResults = await this.cloudinaryService.uploadMultiple(
+          newFilesToUpload,
+          folder,
+          'document',
+        );
+        const newlyUploadedUrls = uploadResults.map(
+          (result) => result.secureUrl,
+        );
+        finalDocumentUrls = [...finalDocumentUrls, ...newlyUploadedUrls];
+      }
+
+      doctorUpdatePayload.verificationDocuments = finalDocumentUrls;
 
       if (Object.keys(doctorUpdatePayload).length > 0) {
         await this.doctorModel.findOneAndUpdate(

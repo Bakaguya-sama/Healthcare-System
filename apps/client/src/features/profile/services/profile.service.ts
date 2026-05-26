@@ -83,25 +83,6 @@ type UserProfileResponse = {
   adminProfile?: ApiAdminProfile | null;
 };
 
-type UpdateMyProfilePayload = {
-  fullName: string;
-  phoneNumber: string;
-  gender: string;
-  avatarUrl?: string;
-  avatarPublicId?: string;
-  specialty?: string;
-  workplace?: string;
-  verificationDocuments?: string[];
-  experienceYears?: number;
-  address: {
-    street: string;
-    ward: string;
-    district: string;
-    city: string;
-    country: string;
-  };
-};
-
 type UploadFolder =
   | "healthcare/avatars/admin"
   | "healthcare/avatars/doctor"
@@ -235,40 +216,57 @@ export async function deleteProfileAvatar(publicId: string) {
   return response;
 }
 
-export async function updateMyProfile(payload: ProfileDataReceiver) {
-  const body: UpdateMyProfilePayload = {
-    fullName: payload.fullName,
-    phoneNumber: payload.phone,
-    gender: payload.gender.toLowerCase(),
-    avatarUrl: payload.avatarUrl,
-    avatarPublicId: payload.avatarPublicId,
-    address: {
-      street: payload.street,
-      ward: payload.ward,
-      district: payload.district,
-      city: payload.city,
-      country: payload.country,
-    },
+export type UpdateMyProfileServicePayload = Omit<
+  ProfileDataReceiver,
+  "documentsUrl"
+> & {
+  newVerificationDocuments: File[];
+  existingVerificationDocuments: string[];
+};
+
+export async function updateMyProfile(payload: UpdateMyProfileServicePayload) {
+  const formData = new FormData();
+
+  const appendIfSet = (
+    key: string,
+    value: string | number | undefined | null,
+  ) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
   };
 
+  appendIfSet("avatarUrl", payload.avatarUrl);
+  appendIfSet("avatarPublicId", payload.avatarPublicId);
+  appendIfSet("fullName", payload.fullName);
+  appendIfSet("phoneNumber", payload.phone);
+  appendIfSet("gender", payload.gender?.toLowerCase());
+
+  formData.append("address[street]", payload.street ?? "");
+  formData.append("address[ward]", payload.ward ?? "");
+  formData.append("address[district]", payload.district ?? "");
+  formData.append("address[city]", payload.city ?? "");
+  formData.append("address[country]", payload.country ?? "");
+
   if (payload.role === "doctor") {
-    body.specialty = payload.specialty?.trim() || undefined;
-    body.workplace = payload.workplace?.trim() || undefined;
+    appendIfSet("specialty", payload.specialty);
+    appendIfSet("workplace", payload.workplace);
 
     if (payload.yearsOfExperience?.trim()) {
       const years = Number(payload.yearsOfExperience);
       if (Number.isFinite(years) && years >= 0) {
-        body.experienceYears = years;
+        formData.append("experienceYears", String(years));
       }
     }
 
-    const verificationDocuments = (payload.documentsUrl ?? []).filter((url) =>
-      /^https?:\/\//.test(url),
-    );
-    if (verificationDocuments.length > 0) {
-      body.verificationDocuments = verificationDocuments;
-    }
+    payload.existingVerificationDocuments.forEach((url) => {
+      formData.append("existingVerificationDocuments", url);
+    });
+
+    payload.newVerificationDocuments.forEach((file) => {
+      formData.append("newFilesToUpload", file);
+    });
   }
 
-  await api.patch("/users/me", body);
+  await api.patch("/users/me", formData);
 }

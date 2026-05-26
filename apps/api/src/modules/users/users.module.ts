@@ -11,6 +11,7 @@ import {
   Violation,
   ViolationSchema,
 } from '../violations/entities/violation.entity';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import {
     ]),
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, CloudinaryService],
   exports: [UsersService],
 })
 export class UsersModule {}

@@ -10,7 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
 
 class UpdateAddressDto {
@@ -112,12 +112,36 @@ export class UpdateUserDto {
   @IsCloudinaryUrl({ each: true })
   verificationDocuments?: string[];
 
+  @ApiProperty({ type: [String], default: [] })
+  @IsArray()
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value === ''
+        ? []
+        : value
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+    }
+    return value;
+  })
+  @Type(() => String)
+  existingVerificationDocuments?: string[];
+
   @ApiProperty({
     required: false,
     description: 'Doctor only: years of experience',
     example: 5,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   experienceYears?: number;
@@ -128,6 +152,7 @@ export class UpdateUserDto {
     example: 4.5,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(5)
@@ -138,6 +163,7 @@ export class UpdateUserDto {
     description: 'Doctor only: online status',
   })
   @IsOptional()
+  @Type(() => Boolean)
   @IsBoolean()
   isOnline?: boolean;
 }
