@@ -88,6 +88,13 @@ export class ReviewsController {
     return this.reviewsService.findOne(id);
   }
 
+  @Get('session/:id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Lấy chi tiết 1 đánh giá' })
+  findBySessionId(@Param('id') id: string) {
+    return this.reviewsService.findBySessionId(id);
+  }
+
   /**
    * ✏️ UPDATE REVIEW
    */
@@ -138,10 +145,7 @@ export class ReviewsController {
   @Post(':id/flag')
   @HttpCode(200)
   @ApiOperation({ summary: 'Admin flag review (inappropriate content)' })
-  flagReview(
-    @Param('id') id: string,
-    @Body() body: { adminNotes: string },
-  ) {
+  flagReview(@Param('id') id: string, @Body() body: { adminNotes: string }) {
     return this.reviewsService.flagReview(id, body.adminNotes);
   }
 }

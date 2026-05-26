@@ -15,12 +15,14 @@ import {
   DoctorDocument,
   DoctorVerificationStatus,
 } from '../users/entities/doctor.schema';
+import { Session, SessionDocument } from '../sessions/entities/session.entity';
 
 @Injectable()
 export class ReviewsService {
   constructor(
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
+    @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
   ) {}
 
   private async getDoctorProfileByUserId(doctorUserId: string) {
@@ -115,14 +117,22 @@ export class ReviewsService {
     }
     const doctorProfileId = doctorProfile._id;
 
-    const existingReview = await this.reviewModel.findOne({
-      patientId: new Types.ObjectId(patientId),
-      doctorId: doctorProfileId,
-    });
+    const session = await this.sessionModel.findById(
+      new Types.ObjectId(dto.doctorSessionId),
+    );
 
-    if (existingReview) {
-      throw new BadRequestException('You have already reviewed this doctor');
+    if (!session) {
+      throw new NotFoundException('Session not found');
     }
+
+    // const existingReview = await this.reviewModel.findOne({
+    //   patientId: new Types.ObjectId(patientId),
+    //   doctorId: doctorProfileId,
+    // });
+
+    // if (existingReview) {
+    //   throw new BadRequestException('You have already reviewed this doctor');
+    // }
 
     const review = new this.reviewModel({
       patientId: new Types.ObjectId(patientId),
@@ -327,6 +337,35 @@ export class ReviewsService {
 
     const review = await this.reviewModel
       .findById(new Types.ObjectId(id))
+      .populate('patientId', 'fullName email avatarUrl')
+      .populate('doctorId', 'fullName email specialty avatarUrl');
+
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    return {
+      statusCode: 200,
+      message: 'Review retrieved successfully',
+      data: review,
+    };
+  }
+
+  async findBySessionId(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid session ID');
+    }
+
+    const session = await this.sessionModel.findById(new Types.ObjectId(id));
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    const review = await this.reviewModel
+      .findOne({
+        doctorSessionId: new Types.ObjectId(id),
+      })
       .populate('patientId', 'fullName email avatarUrl')
       .populate('doctorId', 'fullName email specialty avatarUrl');
 

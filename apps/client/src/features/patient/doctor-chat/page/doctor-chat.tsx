@@ -37,6 +37,14 @@ export function DoctorChat() {
   const [isReportModalOpen, setReportModalOpen] = useState(false);
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
   const [isDoctorNoteModalOpen, setDoctorNoteModalOpen] = useState(false);
+  const [reviewMode, setReviewMode] = useState<"create" | "view" | "edit">(
+    "create",
+  );
+  const [reviewDraft, setReviewDraft] = useState<ReviewFormPayload>({
+    rate: 0,
+    comment: "",
+  });
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
 
   const {
     data: consultations,
@@ -65,8 +73,11 @@ export function DoctorChat() {
   } = useReport();
 
   const {
-    isLoading: isSubmittingReview,
+    isSubmitting: isSubmittingReview,
+    isFetching: isFetchingReview,
     submitDoctorReview: submitReview,
+    updateDoctorReview,
+    fetchReviewBySession,
     error: reviewError,
   } = useReview();
 
@@ -302,22 +313,64 @@ export function DoctorChat() {
     }
   };
 
-  const handleOpenReviewModal = () => {
-    if (!selectedSession || selectedSession.sessionStatus !== "completed")
+  const handleOpenReviewModal = async () => {
+    if (!selectedSession || selectedSession.sessionStatus !== "completed") {
       return;
+    }
+
+    setReviewDraft({ rate: 0, comment: "" });
+    setActiveReviewId(null);
+    setReviewMode("create");
     setReviewModalOpen(true);
+
+    try {
+      const review = await fetchReviewBySession(selectedSession.sessionId);
+
+      if (review) {
+        const reviewId = review.id ?? review._id ?? null;
+        setActiveReviewId(reviewId);
+        setReviewDraft({
+          rate: review.rating ?? review.rate ?? 0,
+          comment: review.comment ?? "",
+        });
+        setReviewMode("view");
+      } else {
+        setActiveReviewId(null);
+        setReviewDraft({ rate: 0, comment: "" });
+        setReviewMode("create");
+      }
+    } catch {
+      return;
+    }
   };
 
   const handleSubmitReview = async (payload: ReviewFormPayload) => {
     if (!selectedSession) return;
+
+    const trimmedComment = payload.comment.trim();
+
     try {
-      await submitReview({
-        rating: payload.rate,
-        comment: payload.comment.trim(),
-        doctorId: selectedSession.doctorId,
-        doctorSessionId: selectedSession.sessionId,
-      });
-      showToast.success("Review submitted successfully.");
+      if (reviewMode === "edit") {
+        if (!activeReviewId) {
+          showToast.error("Unable to edit review.");
+          return;
+        }
+
+        await updateDoctorReview(activeReviewId, {
+          rating: payload.rate,
+          comment: trimmedComment,
+        });
+        showToast.success("Review updated successfully.");
+      } else {
+        await submitReview({
+          rating: payload.rate,
+          comment: trimmedComment,
+          doctorId: selectedSession.doctorId,
+          doctorSessionId: selectedSession.sessionId,
+        });
+        showToast.success("Review submitted successfully.");
+      }
+
       setReviewModalOpen(false);
     } catch (error) {
       showToast.error(
@@ -328,8 +381,20 @@ export function DoctorChat() {
     }
   };
 
+  const handleEditReview = () => {
+    if (!activeReviewId) {
+      showToast.error("Unable to edit review.");
+      return;
+    }
+
+    setReviewMode("edit");
+  };
+
   const handleCloseReviewModal = () => {
     setReviewModalOpen(false);
+    setReviewMode("create");
+    setReviewDraft({ rate: 0, comment: "" });
+    setActiveReviewId(null);
   };
 
   const handleCloseDoctorNoteModal = () => {
@@ -476,9 +541,13 @@ export function DoctorChat() {
             doctorName={selectedSession.doctorName}
             doctorAvatarUrl={selectedSession.doctorAvatarUrl}
             doctorIsOnline={selectedSession.isOnline ?? false}
-            isLoading={isSubmittingReview}
+            isLoading={isSubmittingReview || isFetchingReview}
+            rate={reviewDraft.rate}
+            comment={reviewDraft.comment}
+            mode={reviewMode}
             onClose={handleCloseReviewModal}
             onSubmit={handleSubmitReview}
+            onEdit={handleEditReview}
           />
           <DoctorNoteModal
             doctorName={selectedSession.doctorName}

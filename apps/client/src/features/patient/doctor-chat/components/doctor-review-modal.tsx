@@ -9,6 +9,8 @@ export interface ReviewFormPayload {
   comment: string;
 }
 
+type ReviewMode = "create" | "view" | "edit";
+
 interface DoctorReviewModalProps {
   isOpen: boolean;
   doctorName: string;
@@ -17,8 +19,10 @@ interface DoctorReviewModalProps {
   isLoading?: boolean;
   rate?: number;
   comment?: string;
+  mode?: ReviewMode;
   onClose: () => void;
   onSubmit: (payload: ReviewFormPayload) => Promise<void>;
+  onEdit?: () => void;
 }
 
 const MAX_COMMENT_LENGTH = 1000;
@@ -34,9 +38,11 @@ export function DoctorReviewModal({
   doctorIsOnline,
   rate = 0,
   comment = "",
+  mode = "create",
   isLoading = false,
   onClose,
   onSubmit,
+  onEdit,
 }: DoctorReviewModalProps) {
   const [selectedRate, setSelectedRate] = useState(rate);
   const [reviewComment, setReviewComment] = useState(comment);
@@ -49,8 +55,14 @@ export function DoctorReviewModal({
   }, [comment, isOpen, rate]);
 
   const trimmedComment = reviewComment.trim();
+  const isReadOnly = mode === "view";
   const canSubmit =
-    selectedRate > 0 && trimmedComment.length >= 10 && !isLoading;
+    !isReadOnly &&
+    selectedRate > 0 &&
+    trimmedComment.length >= 10 &&
+    !isLoading;
+  const closeLabel = mode === "view" ? "Close" : "Skip for now";
+  const submitLabel = mode === "edit" ? "Update Review" : "Submit Review";
 
   const remainingCharacters = useMemo(
     () => MAX_COMMENT_LENGTH - reviewComment.length,
@@ -137,7 +149,7 @@ export function DoctorReviewModal({
                     key={value}
                     type="button"
                     onClick={() => setSelectedRate(value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isReadOnly}
                     className="group rounded-full p-0.5 transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand/30"
                     aria-label={`Rate ${value} out of 5`}
                   >
@@ -175,16 +187,18 @@ export function DoctorReviewModal({
               value={reviewComment}
               maxLength={MAX_COMMENT_LENGTH}
               onChange={(event) => setReviewComment(event.target.value)}
-              disabled={isLoading}
+              disabled={isLoading || isReadOnly}
               placeholder="Share your thoughts on the doctor's advice, bedside manner, and overall experience..."
               className="min-h-[180px] rounded-2xl border-slate-200 bg-white px-4 py-4 text-base leading-relaxed text-slate-700 placeholder:text-slate-400"
             />
 
-            {trimmedComment.length > 0 && trimmedComment.length < 10 && (
-              <p className="mt-2 text-xs text-amber-600">
-                Comment must be at least 10 characters.
-              </p>
-            )}
+            {!isReadOnly &&
+              trimmedComment.length > 0 &&
+              trimmedComment.length < 10 && (
+                <p className="mt-2 text-xs text-amber-600">
+                  Comment must be at least 10 characters.
+                </p>
+              )}
 
             {remainingCharacters === 0 && (
               <p className="mt-2 text-xs text-amber-600">
@@ -202,19 +216,31 @@ export function DoctorReviewModal({
             onClick={isLoading ? undefined : onClose}
             className="h-12 rounded-2xl px-6 text-slate-700 hover:bg-slate-100"
           >
-            Skip for now
+            {closeLabel}
           </Button>
 
-          <Button
-            type="button"
-            size="lg"
-            onClick={handleSubmit}
-            disabled={!canSubmit || isLoading}
-            className="h-12 rounded-2xl bg-lime-300 px-7 text-slate-700 hover:bg-lime-400"
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isLoading ? "Submitting..." : "Submit Review"}
-          </Button>
+          {mode === "view" ? (
+            <Button
+              type="button"
+              size="lg"
+              onClick={onEdit}
+              disabled={isLoading || !onEdit}
+              className="h-12 rounded-2xl border border-slate-200 bg-white px-6 text-slate-700 hover:bg-slate-50"
+            >
+              Edit review
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              onClick={handleSubmit}
+              disabled={!canSubmit || isLoading}
+              className="h-12 rounded-2xl bg-lime-300 px-7 text-slate-700 hover:bg-lime-400"
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? "Submitting..." : submitLabel}
+            </Button>
+          )}
         </div>
       </div>
     </div>
