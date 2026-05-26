@@ -173,6 +173,71 @@ const authFreePaths = new Set([
   "/auth/change-password",
 ]);
 
+type ApiErrorPayload = {
+  message?: string | string[];
+  error?: string;
+  detail?: string;
+  details?: string;
+  errors?: Array<{ message?: string; msg?: string } | string>;
+};
+
+function getApiErrorMessage(error: AxiosError): string | undefined {
+  const data = error.response?.data as ApiErrorPayload | string | unknown;
+
+  if (!data) {
+    return undefined;
+  }
+
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data.join(", ");
+  }
+
+  if (typeof data === "object") {
+    const message =
+      (data as ApiErrorPayload).message ??
+      (data as ApiErrorPayload).error ??
+      (data as ApiErrorPayload).detail ??
+      (data as ApiErrorPayload).details;
+
+    if (Array.isArray(message)) {
+      return message.join(", ");
+    }
+
+    if (typeof message === "string") {
+      return message;
+    }
+
+    const errors = (data as ApiErrorPayload).errors;
+    if (Array.isArray(errors)) {
+      const parts = errors
+        .map((item) =>
+          typeof item === "string" ? item : (item?.message ?? item?.msg),
+        )
+        .filter((item): item is string => Boolean(item));
+
+      if (parts.length > 0) {
+        return parts.join(", ");
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeAxiosError(error: AxiosError): AxiosError {
+  const message = getApiErrorMessage(error);
+
+  if (message) {
+    error.message = message;
+  }
+
+  return error;
+}
+
 function clearAuthStorage() {
   useAuthStore.getState().logout();
   localStorage.removeItem("accessToken");
@@ -216,6 +281,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    normalizeAxiosError(error);
     const originalRequest = error.config as RetryConfig | undefined;
 
     if (!originalRequest) {
@@ -282,6 +348,9 @@ api.interceptors.response.use(
 
       return api(originalRequest);
     } catch (refreshError) {
+      if (axios.isAxiosError(refreshError)) {
+        normalizeAxiosError(refreshError);
+      }
       rejectRefreshQueue(refreshError);
       clearAuthStorage();
       notifySessionExpired();

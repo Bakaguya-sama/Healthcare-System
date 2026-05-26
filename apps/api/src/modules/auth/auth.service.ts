@@ -191,13 +191,13 @@ export class AuthService {
    */
   async login(dto: LoginDto) {
     const user = await this.userModel.findOne({ email: dto.email });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw new UnauthorizedException('Email does not exist.');
 
     const isMatch = await bcrypt.compare(dto.password, user.password);
-    if (!isMatch) throw new UnauthorizedException('Invalid credentials');
+    if (!isMatch) throw new UnauthorizedException('Password is not correct');
 
     if (user.accountStatus === 'banned') {
-      throw new UnauthorizedException('Account is banned');
+      throw new ForbiddenException('Account is banned');
     }
 
     if (user.role === UserRole.DOCTOR) {
