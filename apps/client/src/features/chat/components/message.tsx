@@ -29,6 +29,16 @@ function isImageAttachment(attachment: ChatAttachment): boolean {
   );
 }
 
+function formatAttachmentName(name: string): string {
+  const normalized = name.replace(/\+/g, " ");
+
+  try {
+    return decodeURIComponent(normalized);
+  } catch {
+    return normalized;
+  }
+}
+
 function MessageAttachments({
   attachments,
   isMine,
@@ -85,7 +95,7 @@ function MessageAttachments({
           </span>
           <span className="min-w-0">
             <p className="truncate text-sm font-medium text-slate-700">
-              {attachment.name}
+              {formatAttachmentName(attachment.name)}
             </p>
             <p className="text-xs text-slate-400">
               {formatFileSize(attachment.size)}

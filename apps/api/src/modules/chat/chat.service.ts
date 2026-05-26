@@ -82,6 +82,11 @@ export class ChatService {
       for (const file of files) {
         this.validateAttachment(file);
 
+        const normalizedFileName = Buffer.from(
+          file.originalname,
+          'latin1',
+        ).toString('utf8');
+
         const resourceType: 'image' | 'document' = file.mimetype.startsWith(
           'image/',
         )
@@ -99,7 +104,7 @@ export class ChatService {
           fileUrl: uploadResult.secureUrl,
           cloudinaryResourceType: resourceType,
           mimeType: file.mimetype,
-          fileName: file.originalname,
+          fileName: normalizedFileName,
           size: file.size,
         });
       }

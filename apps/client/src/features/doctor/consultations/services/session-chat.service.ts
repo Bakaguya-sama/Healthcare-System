@@ -57,11 +57,15 @@ export async function sendMessage(
   formData.append("content", payload.content);
   formData.append("senderType", payload.senderType);
 
+  console.log(attachments);
+
   const res = await api.post("/chat/send", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
   });
+
+  console.log(res.data.data);
 
   return res.data.data;
 }
