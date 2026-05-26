@@ -48,7 +48,9 @@ export function DoctorReviewModal({
     setReviewComment(comment);
   }, [comment, isOpen, rate]);
 
-  const canSubmit = selectedRate > 0 && !isLoading;
+  const trimmedComment = reviewComment.trim();
+  const canSubmit =
+    selectedRate > 0 && trimmedComment.length >= 10 && !isLoading;
 
   const remainingCharacters = useMemo(
     () => MAX_COMMENT_LENGTH - reviewComment.length,
@@ -60,7 +62,7 @@ export function DoctorReviewModal({
 
     await onSubmit({
       rate: selectedRate,
-      comment: reviewComment.trim(),
+      comment: trimmedComment,
     });
   };
 
@@ -177,6 +179,12 @@ export function DoctorReviewModal({
               placeholder="Share your thoughts on the doctor's advice, bedside manner, and overall experience..."
               className="min-h-[180px] rounded-2xl border-slate-200 bg-white px-4 py-4 text-base leading-relaxed text-slate-700 placeholder:text-slate-400"
             />
+
+            {trimmedComment.length > 0 && trimmedComment.length < 10 && (
+              <p className="mt-2 text-xs text-amber-600">
+                Comment must be at least 10 characters.
+              </p>
+            )}
 
             {remainingCharacters === 0 && (
               <p className="mt-2 text-xs text-amber-600">

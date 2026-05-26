@@ -28,42 +28,8 @@ import {
   type DoctorReRegisterPrefillApiResponse,
   type DoctorVerificationStatus, // Moved from here
 } from "../services/signup.service"; // Import types from service
+import { doctorSpecialty } from "@/features/shared/types/doctor.constants";
 
-export const doctorSpecialty = [
-  { id: "general_practitioner", name: "General Practitioner" },
-  { id: "internal_medicine", name: "Internal Medicine" },
-  { id: "cardiology", name: "Cardiology" },
-  { id: "dermatology", name: "Dermatology" },
-  { id: "neurology", name: "Neurology" },
-  { id: "orthopedics", name: "Orthopedics" },
-  { id: "pediatrics", name: "Pediatrics" },
-  { id: "obstetrics_gynecology", name: "Obstetrics & Gynecology" },
-  { id: "ophthalmology", name: "Ophthalmology" },
-  { id: "ent", name: "Ear, Nose, and Throat (ENT)" },
-  { id: "psychiatry", name: "Psychiatry" },
-  { id: "radiology", name: "Radiology" },
-  { id: "anesthesiology", name: "Anesthesiology" },
-  { id: "emergency_medicine", name: "Emergency Medicine" },
-  { id: "family_medicine", name: "Family Medicine" },
-  { id: "endocrinology", name: "Endocrinology" },
-  { id: "gastroenterology", name: "Gastroenterology" },
-  { id: "hematology", name: "Hematology" },
-  { id: "nephrology", name: "Nephrology" },
-  { id: "oncology", name: "Oncology" },
-  { id: "pulmonology", name: "Pulmonology" },
-  { id: "urology", name: "Urology" },
-  { id: "rheumatology", name: "Rheumatology" },
-  { id: "infectious_disease", name: "Infectious Disease" },
-  { id: "plastic_surgery", name: "Plastic Surgery" },
-  { id: "general_surgery", name: "General Surgery" },
-  { id: "neurosurgery", name: "Neurosurgery" },
-  { id: "cardiothoracic_surgery", name: "Cardiothoracic Surgery" },
-  { id: "rehabilitation", name: "Physical Medicine & Rehabilitation" },
-  { id: "sports_medicine", name: "Sports Medicine" },
-  { id: "allergy_immunology", name: "Allergy & Immunology" },
-  { id: "geriatrics", name: "Geriatrics" },
-  { id: "preventive_medicine", name: "Preventive Medicine" },
-];
 const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_FILE_SIZE_MB = 10; // Keep this constant
 

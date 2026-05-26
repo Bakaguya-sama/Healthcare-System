@@ -21,11 +21,8 @@ import {
 } from "lucide-react";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import { useProfile } from "../hooks/useProfile";
-import { doctorSpecialty } from "../../auth/components/doctor-sign-up";
-import type {
-  ProfileDataReceiver,
-  UserRole,
-} from "../services/profile.service";
+import { doctorSpecialty } from "@/features/shared/types/doctor.constants";
+import type { UserRole } from "../services/profile.service";
 import {
   uploadProfileAvatar,
   deleteProfileAvatar,
