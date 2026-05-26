@@ -29,6 +29,12 @@ type Patient = {
   fullName: string;
 };
 
+type DoctorProfileResponse = {
+  doctor_review_metrics?: {
+    total_reviews?: number;
+  };
+};
+
 type RawReviewFromApi = {
   _id: string;
   patientId: {
@@ -120,6 +126,7 @@ export async function getOverviewSummary(
     doctorProfileResponse,
     sessionThisMonthResponse,
     sessionLastWeekResponse,
+    reviewCountResponse,
     reviewResponse,
   ] = await Promise.all([
     api.get<DoctorProfileApiResponse>(`/users/me`),
@@ -141,14 +148,14 @@ export async function getOverviewSummary(
         limit: 100,
       },
     }),
+    api.get<DoctorProfileResponse>(`/users/${userId}/profile`),
     api.get<PaginatedApiResponse<RawReviewFromApi>>(
       `/reviews/doctor/${userId}`,
       {
         params: {
-          startDate: startOfLast7Days.toISOString(),
-          endDate: today.toISOString(),
-          sortBy: -1,
-          limit: 100,
+          sortBy: "createdAt",
+          sortOrder: -1,
+          limit: 10,
         },
       },
     ),
@@ -156,7 +163,8 @@ export async function getOverviewSummary(
 
   const avgRating = doctorProfileResponse.data.averageRating ?? 0;
   const totalSessionsThisMonth = sessionThisMonthResponse.data.pagination.total;
-  const totalReviews = reviewResponse.data.pagination.total;
+  const totalReviews =
+    reviewCountResponse.data.doctor_review_metrics?.total_reviews ?? 0;
   const rawReviewsFromApi = reviewResponse.data.data;
 
   const formattedReviews: ReviewApiResponse[] = rawReviewsFromApi.map(

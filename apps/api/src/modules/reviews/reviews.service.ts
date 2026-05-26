@@ -47,7 +47,7 @@ export class ReviewsService {
     reviewCountDelta: number,
   ) {
     const updateResult = await this.doctorModel.updateOne(
-      { _id: new Types.ObjectId(doctorUserId) },
+      { userId: new Types.ObjectId(doctorUserId) },
       [
         {
           $set: {
@@ -115,7 +115,6 @@ export class ReviewsService {
         `Doctor profile not found for user ID: ${dto.doctorId}`,
       );
     }
-    const doctorProfileId = doctorProfile._id;
 
     const session = await this.sessionModel.findById(
       new Types.ObjectId(dto.doctorSessionId),
@@ -136,7 +135,7 @@ export class ReviewsService {
 
     const review = new this.reviewModel({
       patientId: new Types.ObjectId(patientId),
-      doctorId: doctorProfileId,
+      doctorId: new Types.ObjectId(dto.doctorId),
       doctorSessionId: dto.doctorSessionId
         ? new Types.ObjectId(dto.doctorSessionId)
         : undefined,
@@ -145,7 +144,7 @@ export class ReviewsService {
     });
     await review.save();
     try {
-      await this.applyRatingDelta(doctorProfileId.toString(), dto.rating, 1);
+      await this.applyRatingDelta(dto.doctorId, dto.rating, 1);
     } catch (error) {
       await this.reviewModel.findByIdAndDelete(review._id);
       throw error;

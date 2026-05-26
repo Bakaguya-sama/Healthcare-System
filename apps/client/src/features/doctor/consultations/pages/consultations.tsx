@@ -854,7 +854,6 @@ export function Consultations() {
         sessionId={selectedReviewSession?.sessionId || ""}
         patientName={selectedReviewSession?.patientName || ""}
         patientAvatarUrl={selectedReviewSession?.patientAvatarUrl}
-        patientIsOnline={selectedReviewSession?.patientIsOnline}
         rating={selectedReviewSession?.patientRating}
         review={selectedReviewSession?.patientReview}
         endedAt={selectedReviewSession?.endedAt}

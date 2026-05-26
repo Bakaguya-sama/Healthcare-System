@@ -45,7 +45,7 @@ function ReviewItem({
   isOnline?: boolean;
 }) {
   return (
-    <div className="flex gap-3 border-b bg-white border-zinc-950 px-4 py-4 last:border-none">
+    <div className="flex gap-3 border-b bg-white border-slate-300 px-4 py-4 last:border-none">
       <UserAvatar
         name={review.patient.fullName}
         url={review.patient.avtUrl}
@@ -176,12 +176,12 @@ export function DoctorOverview() {
             <h1 className="text-3xl font-semibold text-slate-900">Overview</h1>
             <p className="text-sm text-slate-500">{today}</p>
           </div>
-          <button
+          {/* <button
             type="button"
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
           >
             Last 30 days
-          </button>
+          </button> */}
         </div>
 
         <ul className="m-0 grid w-full list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-3">
@@ -213,7 +213,7 @@ export function DoctorOverview() {
               <div className="space-y-0">
                 {(showAllReviews
                   ? doctorReviews
-                  : doctorReviews.slice(0, 3)
+                  : doctorReviews.slice(0, 4)
                 ).map((review) => {
                   const isOnline = onlineIds.has(review.patient.id);
                   return (

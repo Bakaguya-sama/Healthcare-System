@@ -362,6 +362,7 @@ export function DoctorChat() {
         });
         showToast.success("Review updated successfully.");
       } else {
+        console.log(selectedSession.doctorId);
         await submitReview({
           rating: payload.rate,
           comment: trimmedComment,
