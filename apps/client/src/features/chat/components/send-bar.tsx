@@ -11,6 +11,7 @@ export type SendMessagePayload = {
 interface SendBarProps {
   isDisabled: boolean;
   onSend: (payload: SendMessagePayload) => void;
+  prefillMessage?: string;
 }
 
 const ALLOWED_IMAGE_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
@@ -24,7 +25,7 @@ const ALLOWED_FILE_TYPES = [
   "text/plain",
 ].join(",");
 
-export function SendBar({ isDisabled, onSend }: SendBarProps) {
+export function SendBar({ isDisabled, onSend, prefillMessage }: SendBarProps) {
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +40,11 @@ export function SendBar({ isDisabled, onSend }: SendBarProps) {
       uploadTimersRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    if (!prefillMessage) return;
+    setValue(prefillMessage);
+  }, [prefillMessage]);
 
   // TODO: call api to upload
   const processAttachmentUpload = (attachmentId: string) => {

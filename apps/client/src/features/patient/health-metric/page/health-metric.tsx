@@ -249,6 +249,27 @@ export function HealthMetric({
     );
   }, [allEntries, selectedDate]);
 
+  const buildAskAiQuestion = (entry: MetricReading) => {
+    const recordedAt = new Date(entry.recordedAt);
+    const timeLabel = recordedAt.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const entryDateKey = toDateKeyFromRecordedAt(entry.recordedAt);
+    const todayKey = toDateKey(today);
+    const dateLabel =
+      entryDateKey === todayKey
+        ? "hôm nay"
+        : `ngày ${recordedAt.toLocaleDateString("vi-VN")}`;
+
+    const valueText =
+      activeMetric === "blood_pressure"
+        ? `${entry.primaryValue}/${entry.secondaryValue ?? "-"}`
+        : `${entry.primaryValue}`;
+
+    return `Đánh giá giúp tôi chỉ số ${style.label} là ${valueText} ${METRIC_UNIT[activeMetric]} vừa đo lúc ${timeLabel} ${dateLabel} có sao không?`;
+  };
+
   const handleBack = () => {
     if (onBack) {
       onBack();
@@ -321,6 +342,10 @@ export function HealthMetric({
             unit={METRIC_UNIT[activeMetric]}
             entries={entriesOnSelectedDate}
             hasData={resolvedHasData}
+            onAskAi={(entry) => {
+              const question = buildAskAiQuestion(entry);
+              navigate(`/ai-chat?prefill=${encodeURIComponent(question)}`);
+            }}
             onCreateEntry={(input) => addEntry(input)}
             onUpdateEntry={(input) => updateEntry(input)}
             onDeleteEntry={(entryId) => removeEntry(entryId)}

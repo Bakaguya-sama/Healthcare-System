@@ -1,7 +1,8 @@
 import { Plus, Sparkles } from "lucide-react";
 import { HistoryCard } from "../components/history-card";
 import { ChatWindow } from "@/features/chat/window/chat-window";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ChatMessage } from "@/features/chat/components/message";
 import type { SendMessagePayload } from "@/features/chat/components/send-bar";
 import {
@@ -15,6 +16,12 @@ import { showToast } from "@repo/ui/components/ui/toasts";
 
 export function AiChat() {
   const [isReportModalOpen, setReportModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const prefillParam = searchParams.get("prefill");
+  const prefillRef = useRef<string | null>(null);
+  const prefillStartRef = useRef(false);
+  const prefillSentRef = useRef(false);
+  const [prefillMessage, setPrefillMessage] = useState<string | null>(null);
   const {
     conversations,
     selectedConversation,
@@ -74,6 +81,55 @@ export function AiChat() {
     if (!selectedConversationId) return;
     void loadMessages(selectedConversationId, 1);
   }, [loadMessages, selectedConversationId]);
+
+  useEffect(() => {
+    if (!prefillParam) return;
+    prefillRef.current = prefillParam;
+  }, [prefillParam]);
+
+  useEffect(() => {
+    const prefill = prefillRef.current;
+    if (!prefill || prefillSentRef.current) return;
+
+    if (!selectedConversationId) {
+      if (prefillStartRef.current) return;
+      prefillStartRef.current = true;
+      startNewConversation({
+        initialQuestion: "Xin chào bác sĩ Ai, tôi cần tư vấn",
+        type: "general_consultation",
+      })
+        .then((conversation) => {
+          if (!conversation) return;
+          setSelectedConversationId(conversation.id);
+        })
+        .finally(() => {
+          prefillStartRef.current = false;
+        });
+      return;
+    }
+
+    if (
+      !selectedConversation ||
+      selectedConversation.id !== selectedConversationId
+    ) {
+      return;
+    }
+
+    setPrefillMessage(prefill);
+    prefillSentRef.current = true;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("prefill");
+    setSearchParams(nextParams, { replace: true });
+  }, [
+    prefillParam,
+    searchParams,
+    selectedConversation,
+    selectedConversationId,
+    setSearchParams,
+    setSelectedConversationId,
+    startNewConversation,
+  ]);
 
   const handleCloseReportModal = () => {
     setReportModalOpen(false);
@@ -235,6 +291,7 @@ export function AiChat() {
               usePortal={false}
               onSend={handleChatSend}
               patientIsOnline={true}
+              prefillMessage={prefillMessage ?? undefined}
             />
             {(messagesError || sendError || startError) && (
               <div className="absolute bottom-4 right-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-600">

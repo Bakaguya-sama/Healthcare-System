@@ -73,6 +73,7 @@ interface ChatWindowProps {
   usePortal?: boolean;
   chatPaneClassName?: string;
   healthProfileClassName?: string;
+  prefillMessage?: string;
 }
 
 export function ChatWindow({
@@ -105,6 +106,7 @@ export function ChatWindow({
   usePortal = true,
   chatPaneClassName,
   healthProfileClassName,
+  prefillMessage,
 }: ChatWindowProps) {
   const [showActions, setShowActions] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(
@@ -554,6 +556,7 @@ export function ChatWindow({
           <SendBar
             isDisabled={sessionStatus === "completed"}
             onSend={handleSend}
+            prefillMessage={prefillMessage}
           />
         )}
       </div>

@@ -1,5 +1,5 @@
 import { Button } from "@repo/ui/components/ui/button";
-import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
+import { Bot, ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmationModal } from "@repo/ui/components/complex-modal/ConfirmationModal";
 import { showToast } from "@repo/ui/components/ui/toasts";
@@ -39,6 +39,7 @@ type TrackingTableProps = {
   unit: string;
   entries: MetricReading[];
   hasData: boolean;
+  onAskAi?: (entry: MetricReading) => void;
   onCreateEntry?: (input: {
     metricType: MetricsTypes;
     recordedAt: string;
@@ -86,6 +87,7 @@ export function TrackingTable({
   unit,
   entries,
   hasData,
+  onAskAi,
   onCreateEntry,
   onUpdateEntry,
   onDeleteEntry,
@@ -577,26 +579,39 @@ export function TrackingTable({
                       {entry.status}
                     </span>
 
-                    {isEditable && (
-                      <div className="relative shrink-0">
-                        <div className="p-1 flex items-center gap-4">
+                    <div className="relative shrink-0">
+                      <div className="p-1 flex items-center gap-4">
+                        {onAskAi && (
                           <button
                             type="button"
                             className="cursor-pointer"
-                            onClick={() => startEditEntry(entry)}
+                            onClick={() => onAskAi(entry)}
+                            aria-label="Ask AI"
+                            title="Ask AI"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Bot className="h-4 w-4" />
                           </button>
-                          <button
-                            type="button"
-                            className="cursor-pointer"
-                            onClick={() => openDeleteConfirmation(entry.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        )}
+                        {isEditable && (
+                          <>
+                            <button
+                              type="button"
+                              className="cursor-pointer"
+                              onClick={() => startEditEntry(entry)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="cursor-pointer"
+                              onClick={() => openDeleteConfirmation(entry.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </li>
