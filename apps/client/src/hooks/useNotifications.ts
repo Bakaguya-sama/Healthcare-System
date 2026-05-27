@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import notificationSoundURL from "../../assets/sounds/notification_sound.wav";
 import { useHealthAlertStore } from "../store/useHealthAlertStore";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import { connectNotificationsSocket, notificationsSocket } from "@/lib/api";
@@ -25,6 +26,57 @@ type SocketNotificationPayload = {
 };
 
 const SOCKET_NOTIFICATION_EVENT = "notifications";
+
+let notificationAudio: HTMLAudioElement | null = null;
+let isAudioUnlocked = false;
+
+function ensureNotificationAudio() {
+  if (!notificationAudio) {
+    notificationAudio = new Audio(notificationSoundURL);
+    notificationAudio.preload = "auto";
+    notificationAudio.volume = 0.6;
+  }
+
+  return notificationAudio;
+}
+
+export async function unlockNotificationSound() {
+  if (typeof window === "undefined" || isAudioUnlocked) {
+    return;
+  }
+
+  try {
+    const audio = ensureNotificationAudio();
+    const previousVolume = audio.volume;
+    audio.volume = 0;
+    await audio.play();
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = previousVolume;
+    isAudioUnlocked = true;
+    console.log("✅ Notification sound unlocked by user interaction.");
+  } catch (error) {
+    isAudioUnlocked = false;
+    console.warn("Notification sound unlock failed", error);
+  }
+}
+
+function playNotificationSound() {
+  if (typeof window === "undefined" || !isAudioUnlocked) {
+    console.warn(
+      "🔊 Notification sound skipped: Audio has not been unlocked by user interaction yet.",
+    );
+    return;
+  }
+
+  try {
+    const audio = ensureNotificationAudio();
+    audio.currentTime = 0;
+    void audio.play();
+  } catch (error) {
+    console.warn("Notification sound unavailable", error);
+  }
+}
 
 /**
  * Hook để đồng bộ notifications theo realtime websocket.
@@ -190,7 +242,10 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
         setNotifications((prev) => {
           const exists = prev.some((item) => item.id === nextItem.id);
-          if (exists) return prev;
+          if (exists) {
+            return prev;
+          }
+          playNotificationSound();
           return [nextItem, ...prev];
         });
         return;

@@ -21,6 +21,7 @@ import { GlobalCriticalAlertHost } from "./components/GlobalCriticalAlertHost";
 import {
   useNotifications,
   useNotificationSync,
+  unlockNotificationSound,
 } from "./hooks/useNotifications";
 import { HealthMetric } from "./features/patient/health-metric/page/health-metric";
 import { MyDoctors } from "./features/patient/my-doctor/page/my-doctors";
@@ -154,6 +155,24 @@ function App() {
 
     connectPresenceSocket(token);
   }, [accessToken, hasHydrated, isAuthenticated]);
+
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      void unlockNotificationSound();
+    };
+
+    window.addEventListener("pointerdown", handleFirstInteraction, {
+      once: true,
+    });
+    window.addEventListener("keydown", handleFirstInteraction, {
+      once: true,
+    });
+
+    return () => {
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+    };
+  }, []);
 
   if (!hasHydrated) {
     return null;
