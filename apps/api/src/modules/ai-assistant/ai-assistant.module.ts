@@ -32,5 +32,6 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
     LlmGatewayService,
     CloudinaryService,
   ],
+  exports: [AiAssistantService],
 })
 export class AiAssistantModule {}

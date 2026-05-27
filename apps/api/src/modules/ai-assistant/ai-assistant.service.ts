@@ -33,6 +33,7 @@ import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { GenerateHealthMetricNotiInput } from './services/llm-gateway.service';
 
 type UploadedMedicalImage = {
   mimetype?: string;
@@ -675,6 +676,15 @@ export class AiAssistantService {
         `AI service error: ${errorMessage}. Make sure your Gemini API Key is valid and quota is available.`,
       );
     }
+  }
+
+  async getAiNotificationAlert(input: GenerateHealthMetricNotiInput) {
+    const aiResponse = await this.llmGatewayService.generateAINotificationAlert(
+      {
+        ...input,
+      },
+    );
+    return aiResponse;
   }
 
   /**

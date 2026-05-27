@@ -8,11 +8,13 @@ import {
   HealthMetricSchema,
 } from './entities/health-metric.entity';
 import { UsersModule } from '../users/users.module';
+import { AiAssistantModule } from '../ai-assistant/ai-assistant.module';
 
 @Module({
   imports: [
     NotificationsModule,
     UsersModule,
+    AiAssistantModule,
     MongooseModule.forFeature([
       { name: HealthMetric.name, schema: HealthMetricSchema },
     ]),

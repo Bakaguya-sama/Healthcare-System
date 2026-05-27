@@ -21,6 +21,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UsersService } from '../users/users.service';
+import { AiAssistantService } from '../ai-assistant/ai-assistant.service';
 
 type MetricEntry = {
   value: number;
@@ -97,6 +98,7 @@ export class HealthMetricsService {
     private healthMetricModel: Model<HealthMetricDocument>,
     private notificationsService: NotificationsService,
     private usersService: UsersService,
+    private aiAssistantService: AiAssistantService,
   ) {}
 
   /**
@@ -387,11 +389,23 @@ export class HealthMetricsService {
     const metricLabel = METRIC_LABEL_BY_TYPE[metricType] || metricType;
     const statusLabel = evaluation?.status ?? 'Outside safe threshold';
 
+    let advice = `${statusLabel}: ${metricLabel} is outside safe threshold.`;
+
+    const metricValue = this.extractMetricNumericValue(metricType, values);
+    const metricUnit = this.resolveUnitForType(metricType);
+
+    advice = await this.aiAssistantService.getAiNotificationAlert({
+      modelName: 'gemini-2.5-flash',
+      metricType: metricLabel,
+      metricValue,
+      metricUnit,
+    });
+
     const notification = await this.notificationsService.create(userId, {
       userId: userId,
       type: NotificationType.CRITICAL,
       title: `Critical ${metricLabel} alert`,
-      message: `${statusLabel}: ${metricLabel} is outside safe threshold.`,
+      message: advice,
     });
 
     return notification.data;
