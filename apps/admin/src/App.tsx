@@ -17,6 +17,9 @@ import { useEffect, useState } from "react";
 import { useLogout } from "./features/auth/hooks/useLogout";
 import { ConfirmationModal } from "@repo/ui/components/complex-modal/ConfirmationModal";
 import { useNavigate } from "react-router-dom";
+import { AboutUs } from "./features/shared/pages/about-us";
+import { Services } from "./features/shared/pages/services";
+import { Contact } from "./features/shared/pages/contact";
 
 function SessionExpiredModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -112,6 +115,9 @@ function App() {
           <Route path="/forget-password" element={<ForgetPassword />} />
           <Route path="/confirm-otp" element={<ConfirmOTP />} />
           <Route path="/change-password" element={<ChangePassword />} />
+          <Route path="/about-us" element={<AboutUs />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/contact" element={<Contact />} />
 
           <Route element={<ProtectedRoutes />}>
             <Route index element={<Overview />} />

@@ -24,19 +24,19 @@ export function Header() {
       {/* Nav links */}
       <nav className="flex items-center gap-10">
         <a
-          href=""
+          href="/services"
           className="text-gray-500 font-medium hover:text-gray-900 transition-colors no-underline"
         >
           Services
         </a>
         <a
-          href=""
+          href="/about-us"
           className="text-gray-500 font-medium hover:text-gray-900 transition-colors no-underline"
         >
           About us
         </a>
         <a
-          href=""
+          href="/contact"
           className="text-gray-500 font-medium hover:text-gray-900 transition-colors no-underline"
         >
           Contact

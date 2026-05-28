@@ -31,6 +31,9 @@ import { ConfirmationModal } from "@repo/ui/components/complex-modal/Confirmatio
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 import { useLogout } from "./features/auth/hooks/useLogout";
 import { connectPresenceSocket } from "@/lib/api";
+import { AboutUs } from "./features/shared/pages/about-us";
+import { Services } from "./features/shared/pages/services";
+import { Contact } from "./features/shared/pages/contact";
 
 function SessionExpiredModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -190,6 +193,9 @@ function App() {
           <Route path="/change-password" element={<ChangePassword />} />
           <Route path="/forget-password" element={<ForgetPassword />} />
           <Route path="/confirm-otp" element={<ConfirmOTP />} />
+          <Route path="/about-us" element={<AboutUs />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/contact" element={<Contact />} />
           <Route element={<ProtectedRoutes />}>
             <Route index element={<Navigate to={defaultHomePath} replace />} />
             {role === "doctor" ? (

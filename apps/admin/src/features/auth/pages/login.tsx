@@ -67,8 +67,8 @@ export function LogIn({
 
     if (!values.password) {
       nextErrors.password = "Please enter your password.";
-    } else if (values.password.length < 6) {
-      nextErrors.password = "Your password must have at least 6 characters.";
+    } else if (values.password.length < 8) {
+      nextErrors.password = "Your password must have at least 8 characters.";
     }
 
     return nextErrors;
