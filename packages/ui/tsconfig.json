@@ -2,13 +2,9 @@
   "extends": "@repo/typescript-config/react-library.json",
   "compilerOptions": {
     "outDir": "dist",
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "rootDir": "src"
   },
-  "include": [
-    "src",
-    "../../apps/client/src/components/ui/authen_header.tsx",
-    "../../apps/client/src/features/chat/window/chat-window.tsx",
-    "../../apps/admin/src/features/profile/page/profile.tsx"
-  ],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }
