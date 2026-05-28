@@ -24,6 +24,7 @@ import {
   UpdateConversationDto,
   QueryConversationDto,
   QueryConversationMessageDto,
+  AiHealthProfileSummaryDto,
 } from './dto/conversation.dto';
 import { Message, MessageDocument } from '../chat/entities/message.entity';
 import { RagRetrievalService } from '../rag/services/rag-retrieval.service';
@@ -33,7 +34,10 @@ import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import { GenerateHealthMetricNotiInput } from './services/llm-gateway.service';
+import {
+  GenerateHealthMetricNotiInput,
+  GenerateHealthProfileSummary,
+} from './services/llm-gateway.service';
 
 type UploadedMedicalImage = {
   mimetype?: string;
@@ -679,11 +683,22 @@ export class AiAssistantService {
   }
 
   async getAiNotificationAlert(input: GenerateHealthMetricNotiInput) {
+    this.logger.log('[AI Assistant] Generating health metric notifications...');
     const aiResponse = await this.llmGatewayService.generateAINotificationAlert(
       {
         ...input,
       },
     );
+    return aiResponse;
+  }
+
+  async getHealthProfileSummary(input: AiHealthProfileSummaryDto) {
+    this.logger.log('[AI Assistant] Generating health profile summary...');
+    const aiResponse =
+      await this.llmGatewayService.generateHealthProfileSummary({
+        patientProfile: input.patientProfile,
+        recentMetrics: input.recentMetrics,
+      });
     return aiResponse;
   }
 

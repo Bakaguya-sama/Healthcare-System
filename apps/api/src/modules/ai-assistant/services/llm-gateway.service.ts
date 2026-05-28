@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const MAX_GENERATE_ATTEMPTS = 4;
+const MAX_GENERATE_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 3000;
 
 export type GenerateMedicalAnswerInput = {
@@ -44,6 +44,11 @@ export type GenerateHealthMetricNotiInput = {
   metricType: string;
   metricValue: any;
   metricUnit: string;
+};
+
+export type GenerateHealthProfileSummary = {
+  patientProfile: any;
+  recentMetrics: any;
 };
 
 type MessagePayload =
@@ -221,6 +226,74 @@ ${input.text}`;
         if (!transient || isLastAttempt) {
           this.logger.error(
             `[LLM Gateway] Failed to generate alert notification: ${error}`,
+          );
+          throw error;
+        }
+
+        const retryDelayMs = this.extractRetryDelayMs(error) + attempt * 400;
+        this.logger.warn(
+          `Gemini generateContent (topic) transient error, attempt ${attempt}/${MAX_GENERATE_ATTEMPTS}. Retrying in ${retryDelayMs}ms.`,
+        );
+        await this.sleep(retryDelayMs);
+      }
+    }
+
+    throw new HttpException(
+      'AI provider (notification) retry attempts exceeded',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+
+  async generateHealthProfileSummary(
+    input: GenerateHealthProfileSummary,
+  ): Promise<string> {
+    const model = this.getClient().getGenerativeModel({
+      model: 'gemini-2.5-flash-lite',
+    });
+
+    const prompt = `
+Bạn là một Bác sĩ nội trú đang làm báo cáo tóm tắt bệnh án cho Bác sĩ điều trị. Dưới đây là dữ liệu thô của bệnh nhân:
+- Tiền sử & Tổng quan: ${JSON.stringify(input.patientProfile ?? {})}
+- Chỉ số sinh hiệu gần đây: ${JSON.stringify(input.recentMetrics ?? [])}
+
+YÊU CẦU ĐỊNH DẠNG VÀ VĂN PHONG (TUYỆT ĐỐI TUÂN THỦ):
+- KHÔNG nhắc đến thông tin định danh cá nhân (tên, email, số điện thoại, địa chỉ).
+- Không giải thích dữ liệu đầu vào, không nhắc lại hoặc liệt kê lại toàn bộ chỉ số.
+- Không xuất lại thông tin cá nhân (tên, địa chỉ, liên hệ, ...).
+- SỬ DỤNG MARKDOWN: Dùng thẻ Heading 3 (###) cho 3 mục chính. Trong mỗi mục, dùng dấu gạch ngang (-) để liệt kê các ý phân tích. In đậm (**) các từ khóa, triệu chứng hoặc chỉ số quan trọng.
+- VĂN PHONG: Chuyên môn y khoa, rành mạch, có chiều sâu phân tích lâm sàng (không trả lời cụt lủn 1-2 câu).
+
+HÃY XUẤT BẢN TÓM TẮT THEO ĐÚNG 3 MỤC DƯỚI ĐÂY:
+
+### 1. Đánh giá sức khỏe tổng quan
+- Phân tích ngắn gọn tình trạng dựa trên tiền sử bệnh lý và thể trạng.
+- Nêu bật các yếu tố nguy cơ tiềm ẩn cần lưu tâm (ví dụ: béo phì, tiền sử phẫu thuật, bệnh mãn tính...). 
+
+### 2. Biến động sinh hiệu gần đây
+- Chỉ chắt lọc và đánh giá các **chỉ số bất thường**. Nêu rõ mức độ chênh lệch và xu hướng (đang tăng hay giảm).
+- Nếu các chỉ số bình thường hoặc không có dữ liệu, hãy ghi nhận: "Chưa ghi nhận biến động sinh hiệu bất thường" hoặc "Chưa có dữ liệu sinh hiệu mới".
+
+### 3. Trọng tâm khai thác lâm sàng hôm nay
+- Đề xuất 2-3 câu hỏi cụ thể, xoáy sâu vào tiền sử để Bác sĩ khai thác thêm (VD: Thay vì nói "Hỏi về đau đầu", hãy viết "Khai thác tính chất cơn đau đầu: tần suất, cường độ, thời điểm xuất hiện và có đáp ứng với thuốc giảm đau không?").
+- Khuyến nghị chỉ định thêm cận lâm sàng (xét nghiệm, siêu âm) nếu thấy cần thiết để làm rõ chẩn đoán.
+`;
+
+    for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
+      try {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        if (!text?.trim()) {
+          throw new BadRequestException('Mô hình trả về tóm tắt rỗng');
+        }
+
+        return text;
+      } catch (error) {
+        const transient = this.isTransientProviderError(error);
+        const isLastAttempt = attempt === MAX_GENERATE_ATTEMPTS;
+
+        if (!transient || isLastAttempt) {
+          this.logger.error(
+            `[LLM Gateway] Failed to generate health profile summary: ${error}`,
           );
           throw error;
         }

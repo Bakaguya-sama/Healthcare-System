@@ -130,6 +130,11 @@ export type SendAiMessageResponse = {
   confidence: number;
 };
 
+export type HealthProfileSummaryPayload = {
+  patientProfile: Record<string, unknown>;
+  recentMetrics: Array<Record<string, unknown>>;
+};
+
 function mapConversation(item: AiConversationApiResponse): AiConversation {
   return {
     id: item._id,
@@ -328,4 +333,20 @@ export async function searchConversations(query: {
     data: res.data.data.map(mapConversation),
     pagination: res.data.pagination,
   };
+}
+
+export async function getHealthProfileSummary(
+  payload: HealthProfileSummaryPayload,
+): Promise<string> {
+  const res = await api.request<string>({
+    url: "/ai-assistant/conversations/summary",
+    method: "POST",
+    data: payload,
+  });
+
+  if (typeof res.data === "string") {
+    return res.data;
+  }
+
+  return String((res.data as { data?: unknown })?.data ?? "");
 }

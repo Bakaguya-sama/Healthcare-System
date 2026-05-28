@@ -10,6 +10,7 @@ import {
   Min,
   IsNumber,
   Max,
+  IsObject,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ConversationType } from '../entities/ai-conversation.entity';
@@ -189,4 +190,18 @@ export class QueryConversationMessageDto {
   @IsOptional()
   @IsNumber()
   sortOrder: -1 | 1 = -1;
+}
+
+export class AiHealthProfileSummaryDto {
+  @ApiProperty({
+    required: true,
+  })
+  @IsOptional()
+  @IsObject()
+  patientProfile?: any;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsArray()
+  recentMetrics?: any;
 }

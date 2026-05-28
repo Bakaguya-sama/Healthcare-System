@@ -31,9 +31,11 @@ import {
   ArchiveConversationDto,
   UpdateConversationDto,
   QueryConversationDto,
+  AiHealthProfileSummaryDto,
 } from './dto/conversation.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
+import { generateHealthMetricValue } from 'src/seeds/seed.config';
 
 @ApiTags('ai-assistant')
 @ApiBearerAuth()
@@ -284,5 +286,16 @@ export class AiAssistantController {
       searchQuery,
       query,
     );
+  }
+
+  @Post('conversations/summary')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Lấy tóm tắt hồ sơ bệnh án của bệnh nhân.',
+  })
+  @ApiBody({ type: AiHealthProfileSummaryDto })
+  async getHealthProfileSummary(@Body() dto: AiHealthProfileSummaryDto) {
+    const res = await this.aiAssistantService.getHealthProfileSummary(dto);
+    return res;
   }
 }

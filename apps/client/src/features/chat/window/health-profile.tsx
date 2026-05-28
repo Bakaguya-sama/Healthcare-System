@@ -5,12 +5,24 @@ import {
   NotebookTextIcon,
   UserRound,
 } from "lucide-react";
-import { useMemo, useState, type ComponentProps } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { cn } from "@/lib/utils";
 import { MetricCard } from "../components/metric-card";
 import { TrackingChart } from "@/components/TrackingChart";
 import { useHealthMetrics } from "../hooks/useHealthMetrics";
 import type { HealthMetric } from "../services/health-metrics.service";
+import { showToast } from "@repo/ui/components/ui/toasts";
+import { renderAiSummaryContent } from "@/features/shared/services/format-markdown";
+import {
+  getHealthProfileSummary,
+  type HealthProfileSummaryPayload,
+} from "@/features/patient/ai-chat/services/ai-chat.service";
 
 interface HealthProfileProps {
   patientId: string;
@@ -80,6 +92,8 @@ const CHART_METRIC_TYPES: MetricType[] = [
   "water_intake",
   "kcal_intake",
 ];
+
+const RECENT_METRICS_DAYS = 14;
 
 function formatDate(value?: Date | string): string {
   if (!value) return "-";
@@ -171,6 +185,10 @@ export function HealthProfile({
     sortOrder: -1,
     limit: 50,
   });
+  const [summary, setSummary] = useState("");
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const lastSummaryKeyRef = useRef<string | null>(null);
 
   const latestRecordedAt = useMemo(() => {
     if (!metrics.length) {
@@ -217,6 +235,24 @@ export function HealthProfile({
     }
 
     return latestMap;
+  }, [metrics]);
+
+  const recentMetrics = useMemo(() => {
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - RECENT_METRICS_DAYS);
+
+    const filtered = metrics.filter((metric) => {
+      const recordedTime = new Date(metric.recordedAt).getTime();
+      return (
+        Number.isFinite(recordedTime) && recordedTime >= threshold.getTime()
+      );
+    });
+
+    if (filtered.length > 0) {
+      return filtered;
+    }
+
+    return metrics.slice(0, 20);
   }, [metrics]);
 
   const metricCardMocks = useMemo<MetricCardMock[]>(
@@ -312,6 +348,65 @@ export function HealthProfile({
     );
   };
 
+  const handleSummarize = async () => {
+    try {
+      if (!showMetrics) {
+        throw new Error("Metrics are disabled for this profile.");
+      }
+      if (isLoading) {
+        throw new Error("Health metrics are still loading.");
+      }
+      if (error) {
+        throw new Error(error);
+      }
+      if (!patientId) {
+        throw new Error("Missing patient id.");
+      }
+      if (recentMetrics.length === 0) {
+        throw new Error("No recent metrics to summarize.");
+      }
+
+      const payload: HealthProfileSummaryPayload = {
+        patientProfile: {
+          id: patientId,
+          name: patientName,
+          gender,
+          birthday,
+          patientNote,
+          doctorNote,
+        },
+        recentMetrics,
+      };
+
+      console.log("Summary: ", recentMetrics);
+
+      const payloadKey = JSON.stringify({
+        patientId,
+        recentCount: recentMetrics.length,
+        latestRecordedAt,
+      });
+
+      if (lastSummaryKeyRef.current === payloadKey) {
+        throw new Error("Summary is already up to date.");
+      }
+      lastSummaryKeyRef.current = payloadKey;
+
+      setIsSummaryLoading(true);
+      setSummaryError(null);
+
+      const res = await getHealthProfileSummary(payload);
+
+      setSummary(res.trim());
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to load summary";
+      setSummaryError(message);
+      showToast.error(message);
+    } finally {
+      setIsSummaryLoading(false);
+    }
+  };
+
   return (
     <aside
       className={cn(
@@ -361,6 +456,44 @@ export function HealthProfile({
           </div>
         </div>
       ) : null}
+
+      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-400">
+            AI Summary
+          </p>
+          <div className="flex items-center gap-2">
+            {isSummaryLoading && (
+              <span className="text-xs text-slate-400">Summarizing...</span>
+            )}
+            <button
+              type="button"
+              onClick={handleSummarize}
+              disabled={
+                isSummaryLoading ||
+                isLoading ||
+                Boolean(error) ||
+                recentMetrics.length === 0 ||
+                Boolean(summary)
+              }
+              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Summarize
+            </button>
+          </div>
+        </div>
+        <div className="mt-3 text-sm text-slate-600 whitespace-pre-line">
+          {isSummaryLoading && "Generating summary..."}
+          {!isSummaryLoading && summaryError && summaryError}
+          {!isSummaryLoading &&
+            !summaryError &&
+            summary &&
+            renderAiSummaryContent(summary)}
+          {!isSummaryLoading && !summaryError && !summary && (
+            <span className="text-slate-400">No summary available yet.</span>
+          )}
+        </div>
+      </div>
 
       {showMetrics && (
         <div className="mt-4">
