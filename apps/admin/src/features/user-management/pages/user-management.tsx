@@ -41,13 +41,12 @@ import {
 } from "@/features/ai_management/components/add-admin-modal";
 import { ProfileModal } from "@repo/ui/components/complex-modal/ProfileModal";
 import { UserAvatar } from "@repo/ui/components/ui/user-avatar";
-import { useUsers } from "../hooks/useUserManagement";
+import { useUsers, useBanUser, useUnbanUser } from "../hooks/useUserManagement";
 import type { UserManagementUser } from "../services/user-management.service";
 import {
   createAdmin,
   changeAdminRole,
 } from "../services/admin-management.service";
-import { banUser, unbanUser } from "../services/user-management.service";
 import { showToast } from "@repo/ui/components/ui/toasts";
 import { useViewProfile } from "@/features/shared/hooks/useProfile";
 import { useReport } from "@/features/shared/hooks/useReport";
@@ -126,6 +125,12 @@ function mergeUsers(baseUsers: UserRecord[], localUsers: UserRecord[]) {
 
 export function UserManagement() {
   const { users: usersData, isLoading, error, refresh } = useUsers();
+  const { submitBanUser, isLoading: isBanning, error: banError } = useBanUser();
+  const {
+    submitUnbanUser,
+    isLoading: isUnbanning,
+    error: unbanError,
+  } = useUnbanUser();
   const { submitReport, error: submitReportError } = useReport();
   const [localUsers, setLocalUsers] = useState<UserRecord[]>([]);
   const [selectedRole, setSelectedRole] = useState<UserRole | "all">("patient");
@@ -193,6 +198,18 @@ export function UserManagement() {
       showToast.error(submitReportError);
     }
   }, [submitReportError]);
+
+  useEffect(() => {
+    if (banError) {
+      showToast.error(banError);
+    }
+  }, [banError]);
+
+  useEffect(() => {
+    if (unbanError) {
+      showToast.error(unbanError);
+    }
+  }, [unbanError]);
 
   const handleSubmitProfileReport = async (payload: {
     target: ReportActor;
@@ -387,49 +404,34 @@ export function UserManagement() {
     setOpenActionRect(null);
   };
 
+  const isTogglingStatus = isBanning || isUnbanning;
+
   const handleToggleStatus = async (userId: string) => {
-    console.log("Change status");
     const currentUser = users.find((item) => item.id === userId);
 
     if (!currentUser) {
       return;
     }
 
-    try {
-      if (currentUser.status === "active") {
-        await banUser({
+    const isBanningAction = currentUser.status === "active";
+
+    const result = isBanningAction
+      ? await submitBanUser({
           id: userId,
           reason: "Vi phạm quy định hệ thống",
-        });
-      } else {
-        await unbanUser({
+        })
+      : await submitUnbanUser({
           id: userId,
         });
-      }
 
+    if (result) {
       await refresh();
-      setLocalUsers((prevUsers) =>
-        prevUsers.map((item) =>
-          item.id === userId
-            ? {
-                ...item,
-                status: currentUser.status === "active" ? "banned" : "active",
-              }
-            : item,
-        ),
-      );
       setOpenActionUserId(null);
       setOpenActionRect(null);
       showToast.success(
-        currentUser.status === "active"
+        isBanningAction
           ? "User banned successfully"
           : "User unbanned successfully",
-      );
-    } catch (toggleError) {
-      showToast.error(
-        toggleError instanceof Error
-          ? toggleError.message
-          : "Failed to update user status",
       );
     }
   };
@@ -499,6 +501,7 @@ export function UserManagement() {
         iconColor:
           user.status === "active" ? "text-red-700" : "text-emerald-700",
         onHandle: () => void handleToggleStatus(user.id),
+        disabled: isTogglingStatus,
       });
     }
 
