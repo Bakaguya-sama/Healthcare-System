@@ -18,6 +18,7 @@ import { DoctorOverview } from "./features/doctor/overview/pages/doctor-overview
 import { Consultations } from "./features/doctor/consultations/pages/consultations";
 import { Overview } from "./features/patient/overview/page/overview";
 import { GlobalCriticalAlertHost } from "./components/GlobalCriticalAlertHost";
+import { AccountBannedModal } from "./components/AccountBannedModal";
 import {
   useNotifications,
   useNotificationSync,
@@ -186,6 +187,7 @@ function App() {
       <ToastContainer position="top-right" toastStyle={{ zIndex: 9999 }} />
       <BrowserRouter>
         <GlobalCriticalAlertHost />
+        <AccountBannedModal />
         <SessionExpiredModal />
         <Routes>
           <Route path="/login" element={<LogIn />} />

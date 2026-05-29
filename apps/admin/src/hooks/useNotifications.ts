@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import notificationSoundURL from "../../assets/sounds/notification_sound.wav";
 import { useHealthAlertStore } from "../store/useHealthAlertStore";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
-import { connectNotificationsSocket, notificationsSocket } from "@/lib/api";
+import { notificationsSocket } from "@/lib/api";
 import {
   deleteNotification,
   getNotifications,

@@ -29,6 +29,7 @@ import {
   AdminRole,
 } from '../admins/entities/admin.entity';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class AdminService {
@@ -38,6 +39,7 @@ export class AdminService {
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     private nodemailerService: NodemailerService,
+    private readonly notificationGateway: NotificationsGateway,
   ) {}
 
   // ============================================
@@ -283,6 +285,8 @@ export class AdminService {
     user.banReason = dto.reason;
 
     const updated = await user.save();
+
+    this.notificationGateway.sendToUser(userId, 'account_banned', null);
 
     await this.nodemailerService.sendBanEmail(user.email, dto.reason);
 
