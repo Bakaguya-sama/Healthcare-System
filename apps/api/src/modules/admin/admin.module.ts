@@ -7,6 +7,7 @@ import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
 import { Session, SessionSchema } from '../sessions/entities/session.entity';
 import { Admin, AdminSchema } from '../admins/entities/admin.entity';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { NodemailerService } from '../nodemailer/nodemailer.service';
       { name: Session.name, schema: SessionSchema },
       { name: Admin.name, schema: AdminSchema },
     ]),
+    NotificationsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService, NodemailerService],

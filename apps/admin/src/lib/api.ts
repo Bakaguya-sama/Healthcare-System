@@ -1,10 +1,88 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@repo/ui/store/useAuthStore";
 
+import { io } from "socket.io-client";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 if (!API_BASE_URL) {
   throw new Error("VITE_API_BASE_URL is missing");
+}
+
+const SOCKET_BASE_URL = API_BASE_URL.replace(/\/api(\/.*)?$/, "");
+
+function getAccessToken(): string {
+  return (
+    useAuthStore.getState().token || localStorage.getItem("accessToken") || ""
+  );
+}
+
+const socket = io(`${SOCKET_BASE_URL}/chat`, {
+  autoConnect: false,
+  auth: {
+    token: getAccessToken(),
+  },
+  reconnectionAttempts: 3,
+});
+
+const sessionSocket = io(`${SOCKET_BASE_URL}/session`, {
+  autoConnect: false,
+  auth: {
+    token: getAccessToken(),
+  },
+  reconnectionAttempts: 3,
+});
+
+const notificationsSocket = io(`${SOCKET_BASE_URL}/notifications`, {
+  autoConnect: false,
+  auth: {
+    token: getAccessToken(),
+  },
+  reconnectionAttempts: 3,
+});
+
+const presenceSocket = io(`${SOCKET_BASE_URL}`, {
+  autoConnect: false,
+  auth: {
+    token: getAccessToken(),
+  },
+  reconnectionAttempts: 3,
+});
+
+function updateSocketAuth(token: string) {
+  socket.auth = { token };
+  sessionSocket.auth = { token };
+  notificationsSocket.auth = { token };
+  presenceSocket.auth = { token };
+}
+
+function connectNotificationsSocket(token?: string): boolean {
+  if (!token) {
+    if (notificationsSocket.connected) {
+      notificationsSocket.disconnect();
+    }
+    console.log("Cannot connect notification socket");
+    return false;
+  }
+  updateSocketAuth(token);
+  if (!notificationsSocket.connected) {
+    notificationsSocket.connect();
+  }
+  console.log("Notification socket connected successfully");
+  return true;
+}
+
+// Listen for account_banned event and dispatch browser event
+if (typeof window !== "undefined") {
+  notificationsSocket.on("account_banned", () => {
+    window.dispatchEvent(
+      new CustomEvent("auth:account-banned", {
+        detail: {
+          message: "Your account is banned",
+        },
+      }),
+    );
+  });
 }
 
 const api = axios.create({
@@ -234,4 +312,12 @@ api.interceptors.response.use(
   },
 );
 
-export { API_BASE_URL, api };
+export {
+  API_BASE_URL,
+  api,
+  socket,
+  sessionSocket,
+  notificationsSocket,
+  presenceSocket,
+  connectNotificationsSocket,
+};

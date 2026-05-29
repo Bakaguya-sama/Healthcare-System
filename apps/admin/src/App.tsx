@@ -20,6 +20,8 @@ import { useNavigate } from "react-router-dom";
 import { AboutUs } from "./features/shared/pages/about-us";
 import { Services } from "./features/shared/pages/services";
 import { Contact } from "./features/shared/pages/contact";
+import { AccountBannedModal } from "./components/AccountBannedModal";
+import { useNotificationSync } from "./hooks/useNotificationSync";
 
 function SessionExpiredModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -69,6 +71,7 @@ function SessionExpiredModal() {
 
 function ProtectedRoutes() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   const { logout } = useLogout();
 
   if (!isAuthenticated) {
@@ -79,6 +82,10 @@ function ProtectedRoutes() {
 }
 
 function App() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const userId = useAuthStore((state) => state.user?.id);
+  useNotificationSync(isAuthenticated ? (userId ?? null) : null);
+
   const [hasHydrated, setHasHydrated] = useState(
     useAuthStore.persist.hasHydrated(),
   );
@@ -108,6 +115,7 @@ function App() {
     <>
       <ToastContainer position="top-right" toastStyle={{ zIndex: 9999 }} />
       <BrowserRouter>
+        <AccountBannedModal />
         <SessionExpiredModal />
         <Routes>
           {/* Authentication */}
