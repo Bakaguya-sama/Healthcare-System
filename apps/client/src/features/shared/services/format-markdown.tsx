@@ -40,7 +40,12 @@ function normalizeAiSummaryLines(lines: string[]): string[] {
 
     const headingMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
     if (headingMatch) {
-      normalized.push(headingMatch[1]);
+      const headingTextRaw = headingMatch[1];
+      const headingText = headingTextRaw.replace(
+        /^(\s*)(\d+)\.\s+/,
+        (_m, pre, num) => `${pre || ""}${num}\u200B. `,
+      );
+      normalized.push(headingText);
       expectedIndex = 1;
       continue;
     }
@@ -165,6 +170,8 @@ export function renderFormattedContent(content?: string): ReactNode {
 
 export function renderAiSummaryContent(content?: string): ReactNode {
   if (!content) return null;
+
+  console.log(content);
 
   const lines = content.split("\n");
   const sanitized = sanitizeAiSummaryLines(lines);
