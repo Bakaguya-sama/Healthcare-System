@@ -17,7 +17,7 @@ import {
   Doctor,
   DoctorDocument,
   DoctorVerificationStatus,
-} from '../users/entities/doctor.schema';
+} from '../users/entities/doctorProfile.schema';
 import { Admin, AdminDocument } from '../admins/entities/admin.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -41,7 +41,7 @@ export class AuthService {
     private configService: ConfigService,
     private nodemailerService: NodemailerService,
     private cloudinaryService: CloudinaryService,
-  ) {}
+  ) { }
 
   /**
    * 📝 ĐĂNG KÝ TÀI KHOẢN MỚI

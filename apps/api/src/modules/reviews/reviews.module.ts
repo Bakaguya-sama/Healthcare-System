@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ReviewsService } from './reviews.service';
 import { ReviewsController } from './reviews.controller';
 import { Review, ReviewSchema } from './entities/review.entity';
-import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
+import { Doctor, DoctorSchema } from '../users/entities/doctorProfile.schema';
 import { Session, SessionSchema } from '../sessions/entities/session.entity';
 
 @Module({
@@ -17,4 +17,4 @@ import { Session, SessionSchema } from '../sessions/entities/session.entity';
   controllers: [ReviewsController],
   providers: [ReviewsService],
 })
-export class ReviewsModule {}
+export class ReviewsModule { }

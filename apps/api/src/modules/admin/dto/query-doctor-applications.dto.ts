@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { DoctorVerificationStatus } from '../../users/entities/doctor.schema';
+import { DoctorVerificationStatus } from '../../users/entities/doctorProfile.schema';
 
 export class QueryDoctorApplicationsDto {
   @IsOptional()

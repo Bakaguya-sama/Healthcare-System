@@ -4,7 +4,7 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User, UserSchema } from '../auth/entities/user.schema';
 import { Patient, PatientSchema } from '../patients/entities/patient.entity';
-import { Doctor, DoctorSchema } from './entities/doctor.schema';
+import { Doctor, DoctorSchema } from './entities/doctorProfile.schema';
 import { Admin, AdminSchema } from '../admins/entities/admin.entity';
 import { Review, ReviewSchema } from '../reviews/entities/review.entity';
 import {
@@ -28,4 +28,4 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
   providers: [UsersService, CloudinaryService],
   exports: [UsersService],
 })
-export class UsersModule {}
+export class UsersModule { }

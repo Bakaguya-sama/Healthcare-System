@@ -6,7 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User, UserSchema } from './entities/user.schema';
-import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
+import { Doctor, DoctorSchema } from '../users/entities/doctorProfile.schema';
 import { Admin, AdminSchema } from '../admins/entities/admin.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
@@ -36,4 +36,4 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
   providers: [AuthService, JwtStrategy, NodemailerService, CloudinaryService],
   exports: [JwtModule, PassportModule],
 })
-export class AuthModule {}
+export class AuthModule { }

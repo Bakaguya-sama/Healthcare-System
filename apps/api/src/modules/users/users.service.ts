@@ -10,13 +10,11 @@ import { User, UserDocument } from '../auth/entities/user.schema';
 import {
   Doctor,
   DoctorDocument,
-  DoctorVerificationStatus,
-} from './entities/doctor.schema';
+} from './entities/doctorProfile.schema';
 import { Patient, PatientDocument } from '../patients/entities/patient.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
-import { UserRole } from './enums/user-role.enum';
-import { AccountStatus } from './entities/user.entity';
+import { UserRole, DoctorVerificationStatus, AccountStatus } from '@repo/shared-types';
 import { Admin, AdminDocument } from '../admins/entities/admin.entity';
 import { Review, ReviewDocument } from '../reviews/entities/review.entity';
 import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
@@ -86,7 +84,7 @@ export class UsersService {
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Violation.name) private violationModel: Model<Violation>,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) { }
 
   private formatAddress(address?: {
     street?: string;
@@ -363,11 +361,11 @@ export class UsersService {
 
       const reviewers = reviewerIds.length
         ? await this.userModel
-            .find({ _id: { $in: reviewerIds } })
-            .select('fullName avatarUrl')
-            .lean<
-              { _id: Types.ObjectId; fullName: string; avatarUrl?: string }[]
-            >()
+          .find({ _id: { $in: reviewerIds } })
+          .select('fullName avatarUrl')
+          .lean<
+            { _id: Types.ObjectId; fullName: string; avatarUrl?: string }[]
+          >()
         : [];
 
       const reviewerNameMap = new Map(

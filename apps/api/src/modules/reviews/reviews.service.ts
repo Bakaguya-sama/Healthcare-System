@@ -14,7 +14,7 @@ import {
   Doctor,
   DoctorDocument,
   DoctorVerificationStatus,
-} from '../users/entities/doctor.schema';
+} from '../users/entities/doctorProfile.schema';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
 
 @Injectable()
@@ -23,7 +23,7 @@ export class ReviewsService {
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
-  ) {}
+  ) { }
 
   private async getDoctorProfileByUserId(doctorUserId: string) {
     if (!Types.ObjectId.isValid(doctorUserId)) {

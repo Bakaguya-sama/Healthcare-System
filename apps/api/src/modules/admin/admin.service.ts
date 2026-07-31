@@ -15,7 +15,7 @@ import {
   Doctor,
   DoctorDocument,
   DoctorVerificationStatus,
-} from '../users/entities/doctor.schema';
+} from '../users/entities/doctorProfile.schema';
 import { UserRole } from '../users/enums/user-role.enum';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';
@@ -40,7 +40,7 @@ export class AdminService {
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     private nodemailerService: NodemailerService,
     private readonly notificationGateway: NotificationsGateway,
-  ) {}
+  ) { }
 
   // ============================================
   // DOCTOR VERIFICATION MANAGEMENT
