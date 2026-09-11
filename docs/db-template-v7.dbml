@@ -1,0 +1,634 @@
+// HEALTHCARE DB SCHEMA v7 - MongoDB + NestJS + Mongoose
+// Product scope: health consultation, not diagnosis.
+// MongoDB partial, sparse, TTL, time-series and Atlas Vector Search indexes
+// must be created and verified by versioned migration files.
+// Set Mongoose autoIndex/autoCreate=false in staging and production-like environments.
+
+Table Users {
+  id ObjectID [pk]
+  fullName varchar [not null]
+  email varchar [not null, unique, note: "Normalize to lowercase before persistence"]
+  passwordHash varchar [note: "Nullable for OAuth-only accounts; select:false; never return publicly"]
+  emailVerifiedAt datetime
+  gender varchar
+  dateOfBirth date
+  phoneNumber varchar
+  avatarUrl varchar
+  avatarPublicId varchar
+  role varchar [not null, note: "patient, doctor, admin"]
+  accountStatus varchar [not null, note: "active, banned"]
+  banReason varchar
+  lastSeenAt datetime
+  address json [note: "{ street, ward, district, city, country }"]
+  doctorProfile json [note: "{ specialty, workplace, verificationDocuments[], experienceYears, averageRating, ratingSum, reviewCount, verificationStatus: pending|approved|rejected, verifiedAt, rejectReason, bookingSettings: { bookingPolicy: instant|approval_required, minNoticeMinutes, maxAdvanceDays, cancellationDeadlineMinutes, checkInEarlyMinutes, noShowAfterMinutes } }"]
+  adminProfile json [note: "{ adminRole: super_admin|user_manager|ai_manager }"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    email [unique]
+    (role, accountStatus)
+    "doctorProfile.specialty"
+    "doctorProfile.verificationStatus"
+    "doctorProfile.averageRating"
+  }
+}
+
+Table OAuthAccounts {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  provider varchar [not null, note: "google, facebook, apple"]
+  providerAccountId varchar [not null, note: "Stable provider subject ID"]
+  providerEmail varchar
+  linkedAt datetime [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (provider, providerAccountId) [unique]
+    (userId, provider) [unique]
+  }
+}
+
+Table AuthSessions {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  familyId varchar [not null, note: "Groups refresh-token rotations for one device login"]
+  refreshTokenHash varchar [not null, unique, note: "Never store plaintext refresh token"]
+  deviceId varchar
+  userAgent varchar
+  ipAddress varchar
+  lastUsedAt datetime
+  expiresAt datetime [not null]
+  revokedAt datetime
+  revokedReason varchar [note: "logout, rotation, password_changed, account_banned, replay_detected"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    refreshTokenHash [unique]
+    familyId
+    (userId, revokedAt, expiresAt)
+    expiresAt [note: "TTL index created by MongoDB migration"]
+  }
+}
+
+Table AuthEvents {
+  id ObjectID [pk]
+  userId ObjectID
+  email varchar
+  eventType varchar [not null, note: "otp_sent, otp_verified, otp_failed, login_failed, login_success, refresh_reused, account_banned, account_unbanned"]
+  ipAddress varchar
+  userAgent varchar
+  metadata json [note: "Sanitized audit context"]
+  createdAt datetime
+
+  Indexes {
+    (email, eventType, createdAt)
+    (userId, createdAt)
+    createdAt [note: "Optional TTL index, for example 90 days"]
+  }
+}
+
+Table UserDevices {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  platform varchar [not null, note: "web, android, ios"]
+  pushToken varchar [not null, unique]
+  appVersion varchar
+  lastSeenAt datetime
+  disabledAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    pushToken [unique]
+    (userId, disabledAt)
+  }
+}
+
+// OTP is held in Redis with TTL and rate limiting:
+// otp:{purpose}:{email} -> { codeHash, attempts, expiresAt }
+
+Table AvailabilitySlots {
+  id ObjectID [pk]
+  doctorId ObjectID [not null]
+  startAt datetime [not null]
+  endAt datetime [not null]
+  timezone varchar [not null, note: "IANA timezone used for display/policy; timestamps remain UTC"]
+  status varchar [not null, note: "available, booked, blocked, expired"]
+  blockedAt datetime
+  blockedBy ObjectID
+  blockReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (doctorId, startAt) [unique]
+    (doctorId, status, startAt)
+  }
+}
+
+// Slot overlap (startAt < other.endAt and endAt > other.startAt) is enforced
+// by an application-level conditional check/transaction, not by the unique index alone.
+
+Table Consultations {
+  id ObjectID [pk]
+  patientId ObjectID [not null]
+  doctorId ObjectID [not null]
+  availabilitySlotId ObjectID [note: "Null for on-demand; sparse unique MongoDB index"]
+  mode varchar [not null, note: "on_demand, scheduled"]
+  requestStatus varchar [not null, note: "pending, accepted, declined, cancelled, expired; instant scheduled booking starts accepted"]
+  sessionStatus varchar [not null, note: "not_started, waiting, in_consultation, completed, no_show"]
+  requestedAt datetime [not null]
+  respondedAt datetime
+  requestExpiresAt datetime
+  declinedReason varchar
+  scheduledStartAt datetime [note: "Required for scheduled mode"]
+  scheduledEndAt datetime
+  timezone varchar
+  patientNotes text
+  doctorNotes text
+  followUpAt datetime
+  queueJoinedAt datetime
+  queuePriorityAt datetime [note: "Stable queue ordering key; normally scheduledStartAt or queueJoinedAt"]
+  calledAt datetime
+  estimatedWaitMinutes int
+  sessionStartedAt datetime
+  completedAt datetime
+  completedBy ObjectID
+  noShowAt datetime
+  noShowReason varchar
+  cancelledAt datetime
+  cancelledBy ObjectID
+  cancellationReason varchar
+  roomId varchar [note: "Sparse unique MongoDB index; Socket.IO/WebRTC room"]
+  callStartedAt datetime
+  callEndedAt datetime
+  callEndReason varchar
+  consultationConsent json [note: "{ acceptedAt, policyVersion }"]
+  aiConsultationBrief json [note: "{ summary, patientQuestions, recentContext, model, generatedAt, status: draft|doctor_reviewed }"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    availabilitySlotId [unique, note: "Sparse unique index created by migration"]
+    roomId [unique, note: "Sparse unique index created by migration"]
+    (doctorId, requestStatus, requestedAt)
+    (patientId, requestStatus, requestedAt)
+    (doctorId, sessionStatus, scheduledStartAt, queuePriorityAt)
+    (patientId, doctorId) [note: "Partial unique where mode=on_demand and requestStatus=pending"]
+    doctorId [note: "Partial unique where sessionStatus=in_consultation"]
+  }
+}
+
+Table ConsultationMessages {
+  id ObjectID [pk]
+  consultationId ObjectID [not null]
+  senderId ObjectID [not null]
+  senderType varchar [not null, note: "patient, doctor, system"]
+  clientMessageId varchar [note: "Client-generated retry/idempotency key; nullable for system messages"]
+  content text
+  attachments json [note: "[{ type, url, publicId, originalName, mimeType, size }]"]
+  deletedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (consultationId, createdAt)
+    (consultationId, clientMessageId) [unique, note: "Sparse unique MongoDB index"]
+    senderId
+  }
+}
+
+Table Reviews {
+  id ObjectID [pk]
+  consultationId ObjectID [not null]
+  patientId ObjectID [not null]
+  doctorId ObjectID [not null]
+  rating int [not null, note: "Integer from 1 to 5"]
+  comment text
+  status varchar [not null, note: "published, hidden, removed"]
+  moderation json [note: "{ flaggedAt, flaggedBy, reason, handledAt, handledBy }"]
+  createdAt datetime
+  updatedAt datetime
+  deletedAt datetime
+
+  Indexes {
+    consultationId [unique]
+    (doctorId, status, createdAt)
+    (patientId, createdAt)
+    (doctorId, rating)
+  }
+}
+
+Table AiConversations {
+  id ObjectID [pk]
+  patientId ObjectID [not null]
+  status varchar [not null, note: "active, completed, archived"]
+  feedbacks json [note: "[{ content, createdAt }]"]
+  startedAt datetime
+  endedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (patientId, status, createdAt)
+  }
+}
+
+Table AiMessages {
+  id ObjectID [pk]
+  aiConversationId ObjectID [not null]
+  senderType varchar [not null, note: "patient, ai"]
+  content text
+  attachments json [note: "[{ type, url, publicId, originalName, mimeType, size }]"]
+  citations json [note: "RAG source metadata; do not store secrets"]
+  model varchar
+  status varchar [not null, note: "pending, completed, failed"]
+  inputTokens int
+  outputTokens int
+  errorCode varchar
+  sentAt datetime [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (aiConversationId, sentAt)
+    (status, createdAt)
+  }
+}
+
+Table AiUsageDaily {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  usageDate date [not null]
+  requestCount int [not null, default: 0]
+  inputTokens int [not null, default: 0]
+  outputTokens int [not null, default: 0]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (userId, usageDate) [unique]
+  }
+}
+
+Table HealthMetrics {
+  id ObjectID [pk]
+  meta json [not null, note: "{ patientId, metricType, unit }"]
+  values json [not null, note: "Example: { systolic, diastolic } or { amount }"]
+  source varchar [not null, note: "manual, device"]
+  recordedAt datetime [not null, note: "MongoDB time-series timeField"]
+  ingestedAt datetime
+  createdAt datetime
+
+  Indexes {
+    ("meta.patientId", "meta.metricType", recordedAt)
+  }
+}
+
+Table AiDocuments {
+  id ObjectID [pk]
+  title varchar [not null]
+  fileUrl varchar [not null]
+  fileType varchar [not null]
+  publicId varchar
+  checksum varchar [not null, unique, note: "Prevent duplicate documents"]
+  status varchar [not null, note: "processing, active, error, inactive"]
+  processingError text
+  processedAt datetime
+  chunkCount int
+  uploadedBy ObjectID [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    checksum [unique]
+    uploadedBy
+    status
+  }
+}
+
+Table AiDocumentChunks {
+  id ObjectID [pk]
+  documentId ObjectID [not null]
+  chunkIndex int [not null]
+  content text [not null]
+  embedding json [note: "Atlas Vector Search index is provisioned separately"]
+  isActive boolean [not null, default: true]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (documentId, chunkIndex) [unique]
+    isActive
+  }
+}
+
+Table BlacklistKeywords {
+  id ObjectID [pk]
+  keyword varchar [not null, unique]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    keyword [unique]
+  }
+}
+
+Table Plans {
+  id ObjectID [pk]
+  name varchar [not null]
+  description text
+  price bigint [not null, note: "VND integer; never floating point"]
+  currency varchar [not null, default: "VND"]
+  durationDays int [not null]
+  dailyAiLimit int [not null]
+  features json
+  isActive boolean [not null, default: true]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    isActive
+  }
+}
+
+Table PaymentOrders {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  planId ObjectID [not null]
+  orderCode varchar [not null, unique]
+  idempotencyKey varchar [not null, unique, note: "Prevents duplicate create-order requests"]
+  orderSnapshot json [not null, note: "Immutable plan name, price, duration, quota and features"]
+  amount bigint [not null, note: "VND integer"]
+  currency varchar [not null, default: "VND"]
+  status varchar [not null, note: "created, pending, paid, expired, cancelled, failed, refund_pending, refunded"]
+  expiresAt datetime
+  paidAt datetime
+  cancelledAt datetime
+  cancelledBy ObjectID
+  cancellationReason varchar
+  refundedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    orderCode [unique]
+    idempotencyKey [unique]
+    (userId, status, createdAt)
+    expiresAt
+  }
+}
+
+Table PaymentTransactions {
+  id ObjectID [pk]
+  orderId ObjectID [not null]
+  provider varchar [not null, note: "vnpay"]
+  transactionRef varchar [not null, unique, note: "Merchant/provider transaction reference"]
+  providerTransactionNo varchar [note: "Sparse unique MongoDB index"]
+  amount bigint [not null, note: "VND integer"]
+  status varchar [not null, note: "pending, succeeded, failed"]
+  responseCode varchar
+  bankCode varchar
+  ipnReceivedAt datetime
+  signatureVerifiedAt datetime
+  gatewayPayload json [note: "Sanitized IPN payload only; never store secret key"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    transactionRef [unique]
+    providerTransactionNo [unique, note: "Sparse unique MongoDB index"]
+    (orderId, createdAt)
+  }
+}
+
+Table Subscriptions {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  planId ObjectID [not null]
+  sourceOrderId ObjectID [not null, unique, note: "One subscription grant per successful payment order"]
+  status varchar [not null, note: "active, expired, cancelled"]
+  planSnapshot json [not null, note: "Immutable purchased plan data"]
+  startedAt datetime [not null]
+  expiresAt datetime [not null]
+  cancelledAt datetime
+  cancelledBy ObjectID
+  cancellationReason varchar [note: "user_cancelled, payment_refunded, admin_revoked"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    sourceOrderId [unique]
+    (userId, status, expiresAt)
+  }
+}
+
+Table PaymentRefunds {
+  id ObjectID [pk]
+  orderId ObjectID [not null, unique, note: "One full-refund lifecycle per order in MVP"]
+  paymentTransactionId ObjectID [not null]
+  userId ObjectID [not null]
+  amount bigint [not null, note: "Must equal captured amount for full-refund MVP"]
+  currency varchar [not null, default: "VND"]
+  reasonCode varchar
+  reason text [not null]
+  status varchar [not null, note: "requested, approved, rejected, processing, succeeded, failed, manual_review"]
+  requestedBy ObjectID [not null]
+  requestedAt datetime [not null]
+  reviewedBy ObjectID
+  reviewedAt datetime
+  approvedAt datetime
+  rejectionReason text
+  provider varchar [not null, default: "vnpay"]
+  providerRequestId varchar [note: "Stable across safe retries; sparse unique MongoDB index"]
+  providerRefundTransactionNo varchar [note: "Provider refund transaction number if returned"]
+  providerResponseCode varchar
+  providerMessage varchar
+  attemptCount int [not null, default: 0]
+  lastAttemptAt datetime
+  completedAt datetime
+  lastError text
+  gatewayRequest json [note: "Sanitized request metadata; never store secret/hash key"]
+  gatewayResponse json [note: "Sanitized provider response"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    orderId [unique]
+    providerRequestId [unique, note: "Sparse unique MongoDB index"]
+    (status, updatedAt)
+    (userId, createdAt)
+  }
+}
+
+Table NotificationCampaigns {
+  id ObjectID [pk]
+  title varchar [not null]
+  message text [not null]
+  type varchar [not null, note: "info, success, warning, critical"]
+  targetType varchar [not null, note: "individual, group, broadcast"]
+  targetRef json [note: "Recipient criteria snapshot for audit"]
+  status varchar [not null, note: "draft, scheduled, processing, completed, cancelled"]
+  scheduledAt datetime
+  sentAt datetime
+  completedAt datetime
+  totalRecipients int [not null, default: 0]
+  readCount int [not null, default: 0]
+  createdBy ObjectID
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    createdBy
+    (status, scheduledAt)
+    (targetType, createdAt)
+  }
+}
+
+Table Notifications {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  campaignId ObjectID
+  title varchar [not null]
+  message text [not null]
+  type varchar [not null, note: "info, success, warning, critical"]
+  resourceType varchar [note: "consultation, paymentOrder, paymentRefund, subscription, violation"]
+  resourceId ObjectID
+  data json [note: "Deep-link payload for web/mobile"]
+  isRead boolean [not null, default: false]
+  readAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (userId, isRead, createdAt)
+    campaignId
+    (resourceType, resourceId)
+  }
+}
+
+Table OutboxEvents {
+  id ObjectID [pk]
+  eventType varchar [not null, note: "notification.deliver, appointment.reminder, payment.paid, payment.cancelled, refund.requested, refund.approved, refund.rejected, refund.succeeded, refund.failed, refund.manual_review"]
+  aggregateType varchar [not null, note: "consultation, paymentOrder, paymentRefund, notification"]
+  aggregateId ObjectID [not null]
+  payload json [not null]
+  idempotencyKey varchar [not null, unique]
+  status varchar [not null, note: "pending, processing, completed, failed, dead"]
+  availableAt datetime [not null]
+  lockedAt datetime
+  lockExpiresAt datetime [note: "Lease expiry for crash recovery"]
+  lockedBy varchar
+  attempts int [not null, default: 0]
+  lastError text
+  processedAt datetime
+  deadAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    idempotencyKey [unique]
+    (status, availableAt)
+    (status, lockExpiresAt)
+  }
+}
+
+Table ViolationReports {
+  id ObjectID [pk]
+  reporterId ObjectID [note: "Nullable for AI/system-generated report"]
+  reportedUserId ObjectID [note: "Nullable if report target is AI"]
+  reportType varchar [not null, note: "harassment, spam, misinformation, inappropriate_content, impersonation, fraud, ai_hallucination, other"]
+  reason text [not null]
+  status varchar [not null, note: "pending, processing, resolved, dismissed"]
+  severity varchar [not null, note: "low, medium, high"]
+  source json [note: "{ consultationId, consultationMessageIds[], aiConversationId, aiMessageIds[] }"]
+  evidences json [note: "[{ type, url, publicId, uploadedAt }]"]
+  aiClassification json [note: "{ category, severity, confidence, rationale, analyzedAt }"]
+  assignedTo ObjectID
+  resolution json [note: "{ note, action: warning|suspend|ban|none, handledBy, handledAt }"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (status, severity, createdAt)
+    (assignedTo, status, updatedAt)
+    reporterId
+    reportedUserId
+  }
+}
+
+Table SchemaMigrations [note: "Physical MongoDB collection: _schema_migrations"] {
+  id ObjectID [pk]
+  version varchar [not null, unique]
+  name varchar [not null]
+  checksum varchar [not null]
+  status varchar [not null, note: "running, applied, failed"]
+  startedAt datetime [not null]
+  appliedAt datetime
+  durationMs bigint
+  appliedBy varchar
+  appVersion varchar
+  error text
+  metadata json
+
+  Indexes {
+    version [unique]
+    (status, startedAt)
+  }
+}
+
+Table MigrationLocks [note: "Physical MongoDB collection: _migration_lock; normally contains one lock document"] {
+  id varchar [pk]
+  owner varchar [not null]
+  acquiredAt datetime [not null]
+  expiresAt datetime [not null]
+  updatedAt datetime
+
+  Indexes {
+    expiresAt [note: "Used for lease recovery; do not rely on TTL deletion alone"]
+  }
+}
+
+Ref: OAuthAccounts.userId > Users.id
+Ref: AuthSessions.userId > Users.id
+Ref: AuthEvents.userId > Users.id
+Ref: UserDevices.userId > Users.id
+Ref: AvailabilitySlots.doctorId > Users.id
+Ref: AvailabilitySlots.blockedBy > Users.id
+Ref: Consultations.patientId > Users.id
+Ref: Consultations.doctorId > Users.id
+Ref: Consultations.availabilitySlotId > AvailabilitySlots.id
+Ref: Consultations.completedBy > Users.id
+Ref: Consultations.cancelledBy > Users.id
+Ref: ConsultationMessages.consultationId > Consultations.id
+Ref: ConsultationMessages.senderId > Users.id
+Ref: Reviews.consultationId > Consultations.id
+Ref: Reviews.patientId > Users.id
+Ref: Reviews.doctorId > Users.id
+Ref: AiConversations.patientId > Users.id
+Ref: AiMessages.aiConversationId > AiConversations.id
+Ref: AiUsageDaily.userId > Users.id
+Ref: AiDocuments.uploadedBy > Users.id
+Ref: AiDocumentChunks.documentId > AiDocuments.id
+Ref: PaymentOrders.userId > Users.id
+Ref: PaymentOrders.planId > Plans.id
+Ref: PaymentOrders.cancelledBy > Users.id
+Ref: PaymentTransactions.orderId > PaymentOrders.id
+Ref: Subscriptions.userId > Users.id
+Ref: Subscriptions.planId > Plans.id
+Ref: Subscriptions.sourceOrderId > PaymentOrders.id
+Ref: Subscriptions.cancelledBy > Users.id
+Ref: PaymentRefunds.orderId > PaymentOrders.id
+Ref: PaymentRefunds.paymentTransactionId > PaymentTransactions.id
+Ref: PaymentRefunds.userId > Users.id
+Ref: PaymentRefunds.requestedBy > Users.id
+Ref: PaymentRefunds.reviewedBy > Users.id
+Ref: NotificationCampaigns.createdBy > Users.id
+Ref: Notifications.userId > Users.id
+Ref: Notifications.campaignId > NotificationCampaigns.id
+Ref: ViolationReports.reporterId > Users.id
+Ref: ViolationReports.reportedUserId > Users.id
+Ref: ViolationReports.assignedTo > Users.id
