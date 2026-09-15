@@ -6,17 +6,17 @@ Tài liệu này đóng băng hành vi source hiện tại để RF-1 viết cha
 
 Persisted status: `pending | active | completed | rejected`.
 
-| Command    | Actor check                     | From                     | To          | Side effect                                                              |
-| ---------- | ------------------------------- | ------------------------ | ----------- | ------------------------------------------------------------------------ | ------------------------------------------- |
-| create     | patient lấy từ JWT              | new                      | `pending`   | Ghi session; tạo notification cho doctor; emit `session_changed:created` |
-| confirm    | doctor participant              | `pending`                | `active`    | Notification cho patient; emit `confirmed`                               |
-| reject     | doctor participant              | `pending`                | `rejected`  | Notification cho patient; emit `rejected`                                |
-| start      | doctor participant              | `pending                 | active`     | `active`                                                                 | Set `startedAt`; không emit session event   |
-| complete   | doctor participant              | `active`                 | `completed` | Set notes/`endedAt`; emit `completed`                                    |
-| cancel     | patient hoặc doctor participant | mọi status trừ completed | `rejected`  | Gửi nội dung “rejected by doctor”; emit `rejected`                       |
-| reschedule | patient hoặc doctor participant | `pending                 | active`     | `pending`                                                                | Đổi `scheduledAt`; không notification/event |
-| update     | participant                     | `pending                 | active`     | giữ nguyên hoặc DTO có thể gán field/status được DTO cho phép            | Không event                                 |
-| delete     | patient participant             | `pending`                | deleted     | Không event                                                              |
+| Command    | Actor check                     | From                       | To          | Side effect                                                              |
+| ---------- | ------------------------------- | -------------------------- | ----------- | ------------------------------------------------------------------------ |
+| create     | patient lấy từ JWT              | new                        | `pending`   | Ghi session; tạo notification cho doctor; emit `session_changed:created` |
+| confirm    | doctor participant              | `pending`                  | `active`    | Notification cho patient; emit `confirmed`                               |
+| reject     | doctor participant              | `pending`                  | `rejected`  | Notification cho patient; emit `rejected`                                |
+| start      | doctor participant              | `pending`, `active`        | `active`    | Set `startedAt`; không emit session event                                |
+| complete   | doctor participant              | `active`                   | `completed` | Set notes/`endedAt`; emit `completed`                                    |
+| cancel     | patient hoặc doctor participant | mọi status trừ `completed` | `rejected`  | Gửi nội dung “rejected by doctor”; emit `rejected`                       |
+| reschedule | patient hoặc doctor participant | `pending`, `active`        | `pending`   | Đổi `scheduledAt`; không notification/event                              |
+| update     | participant                     | `pending`, `active`        | giữ nguyên  | DTO có thể gán field/status được phép; không event                       |
+| delete     | patient participant             | `pending`                  | deleted     | Không event                                                              |
 
 Session hiện trộn request consultation và appointment semantics. `scheduledAt` bắt buộc ngay từ create nhưng doctor vẫn confirm/reject; không có AvailabilitySlot, hold/booking, queue hoặc payment link.
 

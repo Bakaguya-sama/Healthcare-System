@@ -26,16 +26,16 @@ Không có acknowledgement callback contract; success/error được phát bằn
 
 ## 3. Server -> client events
 
-| Namespace/event                      | Producer                                                     | Payload                                                       |
-| ------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------- | ----------- | ------------- | -------- |
-| `/chat` `new_message`                | REST `POST /chat/send` và socket `send_message`              | Message document                                              |
-| `/chat` `message_sent`               | socket sender only                                           | Message document                                              |
-| `/session` `session_changed`         | Session controller sau create/confirm/reject/complete/cancel | `{action,sessionId,patientId,doctorId}`                       |
-| `/notifications` `connected`         | Gateway connect                                              | `{message,userId,socketId,timestamp}`                         |
-| `/notifications` `notifications`     | Notification service create/read/read-all/delete             | `{userId,action,notification?}`; action `send                 | mark_read   | mark_all_read | deleted` |
-| `/notifications` `chat_notification` | Chat gateway                                                 | `{sessionId,lastMessageAt,lastMessageId,senderId,senderType}` |
-| `/notifications` `account_banned`    | Admin service                                                | `null`                                                        |
-| `/` `userStatusChanged`              | Presence connect/disconnect                                  | `{userId,status:'online'                                      | 'offline'}` |
+| Namespace/event                      | Producer                                                     | Payload                                                                           |
+| ------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `/chat` `new_message`                | REST `POST /chat/send` và socket `send_message`              | Message document                                                                  |
+| `/chat` `message_sent`               | socket sender only                                           | Message document                                                                  |
+| `/session` `session_changed`         | Session controller sau create/confirm/reject/complete/cancel | `{action,sessionId,patientId,doctorId}`                                           |
+| `/notifications` `connected`         | Gateway connect                                              | `{message,userId,socketId,timestamp}`                                             |
+| `/notifications` `notifications`     | Notification service create/read/read-all/delete             | `{userId,action,notification?}`; actions: send, mark_read, mark_all_read, deleted |
+| `/notifications` `chat_notification` | Chat gateway                                                 | `{sessionId,lastMessageAt,lastMessageId,senderId,senderType}`                     |
+| `/notifications` `account_banned`    | Admin service                                                | `null`                                                                            |
+| `/` `userStatusChanged`              | Presence connect/disconnect                                  | `{userId,status}` với status online/offline                                       |
 
 `session_changed.action` hiện là `created|confirmed|rejected|completed`. `start` và `reschedule` không emit; `cancel` emit `rejected`. Type tên `SessionStatus` trong gateway không trùng enum persisted `pending|active|completed|rejected`.
 
