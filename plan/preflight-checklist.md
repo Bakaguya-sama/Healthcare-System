@@ -14,18 +14,18 @@
 
 Trạng thái tài liệu — **Chọn một**:
 
-- [x] `DRAFT` — đang lựa chọn, chưa được dùng làm căn cứ triển khai.
-- [ ] `APPROVED` — đã chốt, mọi thay đổi tiếp theo phải ghi vào Decision Log.
+- [ ] `DRAFT` — đang lựa chọn, chưa được dùng làm căn cứ triển khai.
+- [x] `APPROVED` — đã chốt, mọi thay đổi tiếp theo phải ghi vào Decision Log.
 
 Thông tin phê duyệt:
 
-| Thuộc tính                   | Giá trị                    |
-| ---------------------------- | -------------------------- |
-| Người chốt scope             | Huy                        |
-| Người chốt kiến trúc/backend | Huy                        |
-| Ngày chốt                    | `2026-09-15`               |
-| Deadline                     | `2026-12-31`               |
-| Link board/issues            | _Điền link hoặc đường dẫn_ |
+| Thuộc tính                   | Giá trị                                             |
+| ---------------------------- | --------------------------------------------------- |
+| Người chốt scope             | Huy                                                 |
+| Người chốt kiến trúc/backend | Huy                                                 |
+| Ngày chốt                    | `2026-09-15`                                        |
+| Deadline                     | `2026-12-31`                                        |
+| Link board/issues            | N/A — dùng backlog ID trong `plan/refactor-plan.md` |
 
 ---
 
@@ -99,12 +99,12 @@ Provider nếu bật — Chọn một:
 
 Thông tin cần điền:
 
-| Môi trường        | Database/cluster                                                                                   | Owner      | Đã backup? |
-| ----------------- | -------------------------------------------------------------------------------------------------- | ---------- | ---------- |
-| Legacy            | mongodb+srv://<db_username>:<db_password>@uithealthcare.wsiuw0a.mongodb.net/?appName=UITHealthCare | Khang      | [X]        |
-| Local development | _Điền tên_                                                                                         | _Điền tên_ | N/A        |
-| Automated test    | _Điền tên_                                                                                         | _Điền tên_ | N/A        |
-| Staging/demo      | _Điền tên_                                                                                         | _Điền tên_ | [ ]        |
+| Môi trường        | Database/cluster                                                                  | Owner      | Đã backup? |
+| ----------------- | --------------------------------------------------------------------------------- | ---------- | ---------- |
+| Legacy            | `UITHealthCare` legacy cluster; URI chỉ lưu trong secret store/biến `MONGODB_URI` | Khang      | [x]        |
+| Local development | _Điền tên_                                                                        | _Điền tên_ | N/A        |
+| Automated test    | _Điền tên_                                                                        | _Điền tên_ | N/A        |
+| Staging/demo      | _Điền tên_                                                                        | _Điền tên_ | [ ]        |
 
 ### 3.3 Dữ liệu test — Có thể chọn nhiều
 
@@ -207,11 +207,11 @@ Chính sách CI — Chọn một:
 
 ### 7.1 Quản lý cấu hình — BLOCKER
 
-- [ ] Có `.env.example` chỉ chứa tên biến và giá trị giả an toàn.
-- [ ] Không commit `.env` hoặc credential thật.
-- [ ] Đã tìm JWT, MongoDB, Redis, email, Cloudinary, AI và payment secrets bị lộ trong Git history.
-- [ ] Đã rotate mọi secret từng bị commit hoặc chia sẻ không an toàn.
-- [ ] Chốt danh sách biến bắt buộc theo environment.
+- [x] Có `.env.example` chỉ chứa tên biến và giá trị giả an toàn.
+- [x] Không commit `.env` hoặc credential thật; tracked-files scan ngày `2026-09-15` không phát hiện credential pattern.
+- [x] Đã tìm JWT, MongoDB, Redis, email, Cloudinary, AI và payment secrets bị lộ trong Git history.
+- [x] Đã rotate mọi secret từng bị commit hoặc chia sẻ không an toàn — owner xác nhận ngày `2026-09-15`.
+- [x] Chốt danh sách biến bắt buộc hiện tại trong `apps/api/.env.example`; biến feature mới bổ sung cùng phase tương ứng.
 - [ ] Production/staging không dùng default secret fallback.
 
 Environment validation — Chọn một:
@@ -436,12 +436,12 @@ Không tạo task feature mới chỉ để né blocker của các task trên. F
 
 ### 15.1 BLOCKER trước `BE-RF-001`
 
-- [ ] Scope Core/Payment/OAuth/Refund đã chọn đúng một phương án.
-- [ ] Người chốt scope và backend architecture đã được điền.
-- [ ] Tài liệu DB v7, business rules, overview, FE integration và refactor plan không còn mâu thuẫn đã biết.
-- [ ] Legacy database đã backup hoặc xác nhận không có dữ liệu cần giữ.
+- [x] Scope Core/Payment/OAuth/Refund đã chọn đúng một phương án.
+- [x] Người chốt scope và backend architecture đã được điền.
+- [x] Tài liệu DB v7, business rules, overview, FE integration và refactor plan không còn mâu thuẫn đã biết — owner xác nhận ngày `2026-09-15`.
+- [x] Legacy database đã backup hoặc xác nhận không có dữ liệu cần giữ — owner xác nhận ngày `2026-09-15`.
 - [x] Code/tài liệu hiện tại đã commit và có baseline SHA/tag.
-- [ ] Không có credential thật trong working tree.
+- [x] Không có credential thật trong tracked files/staged diff; local `.env` được ignore và chỉ lưu trên máy phát triển.
 - [x] Runtime/package manager versions đã chốt.
 
 ### 15.2 BLOCKER trước `BE-RF-002`
@@ -455,13 +455,13 @@ Không tạo task feature mới chỉ để né blocker của các task trên. F
 ### 15.3 Quyết định cuối — Chọn một
 
 - [x] **GO:** đủ blocker, bắt đầu `BE-RF-001`.
-- [] **NO-GO:** checklist còn ở trạng thái draft hoặc còn blocker.
+- [ ] **NO-GO:** checklist còn ở trạng thái draft hoặc còn blocker.
 
-Người phê duyệt: _Điền tên_
+Người phê duyệt: Huy
 
-Ngày phê duyệt: `YYYY-MM-DD`
+Ngày phê duyệt: `2026-09-15`
 
-Ghi chú/cut-line cuối cùng: _Điền nội dung_
+Ghi chú/cut-line cuối cùng: GO cho `BE-RF-001`; giữ Core P0, Payment/Refund/OAuth ở P1 và không mở rộng scope nếu chưa qua dependency gate.
 
 ---
 
