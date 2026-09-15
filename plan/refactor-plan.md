@@ -14,11 +14,14 @@
 | Database | MongoDB mới, Mongoose làm ODM, migration có version |
 | Nguồn nghiệp vụ | `docs/BUSINESS_RULES.md`, `docs/db-template-v7.dbml`, `docs/overview.md` |
 | Hợp đồng bàn giao frontend | OpenAPI, realtime event schemas và `docs/fe-integration.md` |
+| Điều kiện khởi động | Hoàn thành và chuyển `plan/preflight-checklist.md` sang `APPROVED` trước `BE-RF-001` |
 
 Tài liệu này cố ý chia thành hai phần lớn không đan xen:
 
 1. **Phần A — Refactor backend code cũ:** giữ hành vi đang có, sửa cấu trúc và nền kỹ thuật.
 2. **Phần B — Phát triển backend feature mới:** thêm hành vi/nghiệp vụ chưa có trong phiên bản cũ.
+
+Trước khi thực thi, dùng `plan/preflight-checklist.md` để chốt scope, baseline Git/database, runtime, secrets, môi trường, owner và Go/No-Go gate. Checklist là nơi ghi lựa chọn; tài liệu này là thứ tự thực hiện sau khi đã `GO`.
 
 Thứ tự ưu tiên khi có mâu thuẫn:
 
