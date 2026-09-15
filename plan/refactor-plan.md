@@ -382,6 +382,17 @@ Exit gate:
 
 Ước lượng: **2-3 person-days**.
 
+Trạng thái thực thi: **DONE ngày 2026-09-15 (`BE-RF-001`)**.
+
+Evidence:
+
+- `docs/current-state/endpoints.md` và source-derived `openapi-baseline.json`/Postman collection: 173 operations trên 121 paths.
+- `docs/current-state/realtime-events.md`: 4 namespaces và event/consumer/risk mapping.
+- `docs/current-state/database-inventory.md`: schema, collection, index và cross-model access.
+- `docs/current-state/legacy-behavior.md`, `known-defects.md`, `module-disposition.md`.
+- `docs/current-state/rf-backlog.md`: owner, dependency, estimate và trạng thái; `BE-RF-002` là task kế tiếp.
+- Runtime OpenAPI snapshot bị chặn bởi build baseline và phải được thay thế sau RF-1; blocker được lưu trong artifact, không giả lập response schema.
+
 ### RF-1 — Stabilize build, test và CI
 
 Mục tiêu: tạo safety net trước khi đổi cấu trúc.
@@ -1554,7 +1565,7 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
 
 Thực hiện đúng thứ tự:
 
-1. [ ] Tạo `BE-RF-001` và hoàn thành inventory/disposition.
+1. [x] Tạo `BE-RF-001` và hoàn thành inventory/disposition ngày `2026-09-15`.
 2. [ ] Tạo `BE-RF-002`, sửa API build/typecheck.
 3. [ ] Tạo `BE-RF-003`, bật CI fail-fast.
 4. [ ] Tạo `BE-RF-004`, viết characterization tests cho old flows.

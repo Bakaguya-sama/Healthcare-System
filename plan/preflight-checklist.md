@@ -172,7 +172,7 @@ Lựa chọn package manager — Chọn một:
 - [ ] yarn.
 
 - [ ] Clean install từ lockfile thành công.
-- [ ] Ghi lại lỗi lint/typecheck/build/test hiện tại mà chưa sửa.
+- [x] Ghi lại lỗi lint/typecheck/build/test hiện tại mà chưa sửa trong `docs/current-state/baseline-commands.md`; lint legacy có `--fix` nên được ghi nhận nhưng không chạy ở RF-0.
 
 ---
 
@@ -228,13 +228,13 @@ Không thêm Joi/Zod nếu chỉ dùng để lặp lại khả năng validation 
 
 ### 8.1 Contract hiện tại — BLOCKER
 
-- [ ] Inventory toàn bộ REST endpoints.
-- [ ] Inventory Socket namespaces/events/ack/error payload.
-- [ ] Lưu OpenAPI snapshot hiện tại.
-- [ ] Lưu Postman/API request collection hiện tại.
-- [ ] Ghi lại HTTP status và error envelope thực tế.
-- [ ] Đánh dấu endpoint/event đang được consumer nào sử dụng.
-- [ ] Ghi rõ disposition: giữ, adapter, thay thế hoặc xóa.
+- [x] Inventory toàn bộ 173 REST operations/121 paths trong `docs/current-state/endpoints.md` và OpenAPI baseline.
+- [x] Inventory 4 Socket namespaces cùng event/success/error payload trong `docs/current-state/realtime-events.md`.
+- [x] Lưu source-derived OpenAPI snapshot; runtime snapshot được ghi rõ là blocked vì API chưa compile.
+- [x] Lưu Postman request collection gồm 173 requests.
+- [x] Ghi lại HTTP status/error envelope theo source; runtime verification chuyển sang RF-1 sau khi bootstrap được.
+- [x] Đánh dấu Web Client/Admin consumer; repository không có Mobile source để xác minh.
+- [x] Ghi rõ disposition cho toàn bộ module legacy trong `docs/current-state/module-disposition.md`.
 
 ### 8.2 Swagger/OpenAPI — Chọn một
 
@@ -446,11 +446,11 @@ Không tạo task feature mới chỉ để né blocker của các task trên. F
 
 ### 15.2 BLOCKER trước `BE-RF-002`
 
-- [ ] Endpoint/event/schema/consumer inventory của `BE-RF-001` hoàn tất.
-- [ ] Build/test failures hiện tại đã được ghi thành baseline, chưa cần tất cả pass.
+- [x] Endpoint/event/schema/consumer inventory của `BE-RF-001` hoàn tất ngày `2026-09-15`.
+- [x] Build/test failures hiện tại đã được ghi thành baseline, chưa cần tất cả pass.
 - [ ] Có `.env.example` và local startup instructions.
 - [ ] MongoDB replica set và Redis local/test khởi động được.
-- [ ] Critical old flows có test hoặc expected-behavior artifact.
+- [x] Critical old flows có expected-behavior artifact tại `docs/current-state/legacy-behavior.md`; tests được viết ở BE-RF-004 sau khi build xanh.
 
 ### 15.3 Quyết định cuối — Chọn một
 

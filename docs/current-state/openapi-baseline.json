@@ -1,0 +1,3607 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Healthcare API — RF-0 source baseline",
+    "version": "legacy-rf0-2026-09-15",
+    "description": "Static source-derived contract inventory. It is not a runtime Swagger snapshot because the legacy API does not compile at the RF-0 baseline."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1/admin/dashboard/stats": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "AdminController_getDashboardStats",
+        "summary": "Lấy thống kê hệ thống",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 146,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/doctors/{id}/reject": {
+      "post": {
+        "tags": ["admin"],
+        "operationId": "AdminController_rejectDoctor",
+        "summary": "Từ chối tài khoản bác sĩ",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 68,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "RejectDoctorDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/doctors/{id}/verify": {
+      "post": {
+        "tags": ["admin"],
+        "operationId": "AdminController_verifyDoctor",
+        "summary": "Duyệt tài khoản bác sĩ",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 53,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "VerifyDoctorDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/doctors/applications": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "AdminController_getDoctorApplication",
+        "summary": "Lấy danh sách đơn tham gia của bác sĩ",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 42,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QueryDoctorApplicationsDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/sessions": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "AdminController_getAllSessions",
+        "summary": "Lấy tất cả sessions",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 120,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QuerySessionAdminDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/sessions/{id}": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "AdminController_getSessionById",
+        "summary": "Lấy chi tiết session",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 131,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/lock": {
+      "post": {
+        "tags": ["admin"],
+        "operationId": "AdminController_lockAccount",
+        "summary": "Khóa tài khoản vi phạm",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 87,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "LockAccountDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/unlock": {
+      "post": {
+        "tags": ["admin"],
+        "operationId": "AdminController_unlockAccount",
+        "summary": "Mở khóa tài khoản",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admin/admin.controller.ts",
+        "x-source-line": 102,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admins": {
+      "post": {
+        "tags": ["admins"],
+        "operationId": "AdminsController_create",
+        "summary": "Tạo hồ sơ admin mới (SUPER_ADMIN)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admins/admins.controller.ts",
+        "x-source-line": 34,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "CreateAdminDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["admins"],
+        "operationId": "AdminsController_findAll",
+        "summary": "Lấy danh sách admin (SUPER_ADMIN)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admins/admins.controller.ts",
+        "x-source-line": 50,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QueryAdminDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admins/{id}": {
+      "patch": {
+        "tags": ["admins"],
+        "operationId": "AdminsController_update",
+        "summary": "Cập nhật hồ sơ admin (SUPER_ADMIN)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admins/admins.controller.ts",
+        "x-source-line": 66,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "UpdateAdminDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["admins"],
+        "operationId": "AdminsController_delete",
+        "summary": "Xóa hồ sơ admin (SUPER_ADMIN)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/admins/admins.controller.ts",
+        "x-source-line": 83,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations": {
+      "get": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_getConversations",
+        "summary": "Lấy danh sách tất cả cuộc trò chuyện của người dùng",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 111,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryConversationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/{conversationId}": {
+      "get": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_getConversation",
+        "summary": "Lấy chi tiết một cuộc trò chuyện",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 126,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "1 | -1",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_updateConversation",
+        "summary": "Cập nhật thông tin cuộc trò chuyện (tiêu đề, ghi chú, tags)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 201,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateConversationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_deleteConversation",
+        "summary": "Xóa cuộc trò chuyện",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 222,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/{conversationId}/archive": {
+      "post": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_archiveConversation",
+        "summary": "Lưu trữ/Bỏ lưu trữ cuộc trò chuyện",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 163,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "ArchiveConversationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/{conversationId}/favorite": {
+      "post": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_toggleFavorite",
+        "summary": "Thêm/Bỏ cuộc trò chuyện vào danh sách yêu thích",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 149,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/{conversationId}/message": {
+      "post": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_sendMessage",
+        "summary": "Gửi tin nhắn cho AI trong cuộc trò chuyện",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 63,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "AiSendMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/{conversationId}/rate": {
+      "post": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_rateConversation",
+        "summary": "Đánh giá cuộc trò chuyện",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 182,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "RateConversationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/{conversationId}/stats": {
+      "get": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_getConversationStats",
+        "summary": "Lấy thống kê cuộc trò chuyện",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 236,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/start": {
+      "post": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_startConversation",
+        "summary": "Bắt đầu cuộc trò chuyện mới với AI",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 50,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "StartConversationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/conversations/summary": {
+      "post": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_getHealthProfileSummary",
+        "summary": "Lấy tóm tắt hồ sơ bệnh án của bệnh nhân.",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 291,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "AiHealthProfileSummaryDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/search": {
+      "get": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_searchConversations",
+        "summary": "Tìm kiếm cuộc trò chuyện",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 262,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-assistant/summary": {
+      "get": {
+        "tags": ["ai-assistant"],
+        "operationId": "AiAssistantController_getUserConversationSummary",
+        "summary": "Lấy tổng hợp thông tin cuộc trò chuyện của người dùng",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-assistant/ai-assistant.controller.ts",
+        "x-source-line": 250,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-document-chunks": {
+      "post": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_create",
+        "summary": "create",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 27,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "CreateAiDocumentChunkDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_getAllChunks",
+        "summary": "getAllChunks",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 49,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiDocumentChunkDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-document-chunks/{id}": {
+      "get": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_getChunk",
+        "summary": "getChunk",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 54,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_updateChunk",
+        "summary": "updateChunk",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 59,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "UpdateAiDocumentChunkDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_deleteChunk",
+        "summary": "deleteChunk",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 70,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-document-chunks/{id}/usage": {
+      "patch": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_incrementUsage",
+        "summary": "incrementUsage",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 65,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-document-chunks/batch": {
+      "post": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_createMany",
+        "summary": "createMany",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 33,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "CreateAiDocumentChunkDto[]",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-document-chunks/document/{documentId}": {
+      "get": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_getDocumentChunks",
+        "summary": "getDocumentChunks",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 39,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiDocumentChunkDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_deleteDocumentChunks",
+        "summary": "deleteDocumentChunks",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 76,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-document-chunks/search/{query}": {
+      "get": {
+        "tags": ["AI Document Chunks"],
+        "operationId": "AiDocumentChunksController_searchChunks",
+        "summary": "searchChunks",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-document-chunks/ai-document-chunks.controller.ts",
+        "x-source-line": 44,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-documents": {
+      "post": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_create",
+        "summary": "Create AI document (upload file and persist metadata in one request)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 44,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "CreateAiDocumentDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_getAllDocuments",
+        "summary": "getAllDocuments",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 81,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiDocumentDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-documents/{id}": {
+      "get": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_getDocument",
+        "summary": "getDocument",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 91,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_updateDocument",
+        "summary": "updateDocument",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 96,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "UpdateAiDocumentDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_deleteDocument",
+        "summary": "deleteDocument",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 129,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-documents/{id}/archive": {
+      "patch": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_archiveDocument",
+        "summary": "archiveDocument",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 120,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-documents/{id}/index": {
+      "patch": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_indexDocument",
+        "summary": "indexDocument",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 106,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "{ totalChunks: number }",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-documents/{id}/rag-ingesting": {
+      "post": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_ragIngesting",
+        "summary": "ragIngesting",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 138,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-documents/{id}/usage": {
+      "patch": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_incrementUsage",
+        "summary": "incrementUsage",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 115,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-documents/search/{query}": {
+      "get": {
+        "tags": ["AI Documents"],
+        "operationId": "AiDocumentsController_searchDocuments",
+        "summary": "searchDocuments",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-documents/ai-documents.controller.ts",
+        "x-source-line": 86,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-feedbacks": {
+      "post": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_create",
+        "summary": "create",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 29,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreateAiFeedbackDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_getAllFeedbacks",
+        "summary": "getAllFeedbacks",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 49,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QueryAiFeedbackDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-feedbacks/{id}": {
+      "get": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_getFeedback",
+        "summary": "getFeedback",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 55,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_updateFeedback",
+        "summary": "updateFeedback",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 60,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateAiFeedbackDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_deleteFeedback",
+        "summary": "deleteFeedback",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 80,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-feedbacks/{id}/helpful": {
+      "patch": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_markHelpful",
+        "summary": "markHelpful",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 69,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-feedbacks/{id}/verify": {
+      "patch": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_verifyFeedback",
+        "summary": "verifyFeedback",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 74,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-feedbacks/my-feedbacks": {
+      "get": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_getMyFeedbacks",
+        "summary": "getMyFeedbacks",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 34,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiFeedbackDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-feedbacks/session/{sessionId}": {
+      "get": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_getSessionFeedbacks",
+        "summary": "getSessionFeedbacks",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 39,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiFeedbackDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-feedbacks/session/{sessionId}/stats": {
+      "get": {
+        "tags": ["AI Feedbacks"],
+        "operationId": "AiFeedbacksController_getSessionStats",
+        "summary": "getSessionStats",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-feedbacks/ai-feedbacks.controller.ts",
+        "x-source-line": 44,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-health-insights": {
+      "post": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_create",
+        "summary": "Create new AI health insight",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 32,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.DOCTOR", "UserRole.ADMIN"],
+        "x-body-dto": "CreateAiHealthInsightDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_findAll",
+        "summary": "Get all insights",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 59,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.DOCTOR", "UserRole.ADMIN"],
+        "x-query-dto": "QueryAiHealthInsightDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-health-insights/{id}": {
+      "get": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_findById",
+        "summary": "Get insight by ID",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 67,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.PATIENT", "UserRole.DOCTOR", "UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_update",
+        "summary": "Update insight",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 75,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.DOCTOR", "UserRole.ADMIN"],
+        "x-body-dto": "UpdateAiHealthInsightDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_delete",
+        "summary": "Delete insight",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 102,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.DOCTOR", "UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-health-insights/{id}/acknowledge": {
+      "patch": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_acknowledgeInsight",
+        "summary": "Acknowledge insight",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 86,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.PATIENT", "UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-health-insights/{id}/notify": {
+      "patch": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_markAsNotified",
+        "summary": "Mark insight as notified",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 94,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-health-insights/my-insights": {
+      "get": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_getMyInsights",
+        "summary": "Get user own insights",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 40,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.PATIENT", "UserRole.DOCTOR", "UserRole.ADMIN"],
+        "x-query-dto": "QueryAiHealthInsightDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-health-insights/stats": {
+      "get": {
+        "tags": ["AI Health Insights"],
+        "operationId": "AiHealthInsightsController_getStats",
+        "summary": "Get user insights statistics",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-health-insights/controllers/ai-health-insights.controller.ts",
+        "x-source-line": 51,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.PATIENT", "UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-messages": {
+      "post": {
+        "tags": ["AI Messages"],
+        "operationId": "AiMessagesController_create",
+        "summary": "create",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-messages/ai-messages.controller.ts",
+        "x-source-line": 29,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreateAiMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["AI Messages"],
+        "operationId": "AiMessagesController_getAllMessages",
+        "summary": "getAllMessages",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-messages/ai-messages.controller.ts",
+        "x-source-line": 44,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QueryAiMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-messages/{id}": {
+      "get": {
+        "tags": ["AI Messages"],
+        "operationId": "AiMessagesController_getMessage",
+        "summary": "getMessage",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-messages/ai-messages.controller.ts",
+        "x-source-line": 50,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["AI Messages"],
+        "operationId": "AiMessagesController_updateMessage",
+        "summary": "updateMessage",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-messages/ai-messages.controller.ts",
+        "x-source-line": 55,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateAiMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["AI Messages"],
+        "operationId": "AiMessagesController_deleteMessage",
+        "summary": "deleteMessage",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-messages/ai-messages.controller.ts",
+        "x-source-line": 64,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-messages/my-messages": {
+      "get": {
+        "tags": ["AI Messages"],
+        "operationId": "AiMessagesController_getMyMessages",
+        "summary": "getMyMessages",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-messages/ai-messages.controller.ts",
+        "x-source-line": 39,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-messages/session/{sessionId}": {
+      "get": {
+        "tags": ["AI Messages"],
+        "operationId": "AiMessagesController_getSessionMessages",
+        "summary": "getSessionMessages",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-messages/ai-messages.controller.ts",
+        "x-source-line": 34,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-sessions": {
+      "post": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_create",
+        "summary": "create",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 26,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreateAiSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_getAllSessions",
+        "summary": "getAllSessions",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 36,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-sessions/{id}": {
+      "get": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_getSession",
+        "summary": "getSession",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 41,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_updateSession",
+        "summary": "updateSession",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 46,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateAiSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_deleteSession",
+        "summary": "deleteSession",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 68,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-sessions/{id}/archive": {
+      "patch": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_archiveSession",
+        "summary": "archiveSession",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 63,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-sessions/{id}/complete": {
+      "patch": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_completeSession",
+        "summary": "completeSession",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 55,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-sessions/my-sessions": {
+      "get": {
+        "tags": ["AI Sessions"],
+        "operationId": "AiSessionsController_getMySessionsHistory",
+        "summary": "getMySessionsHistory",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/ai-sessions/ai-sessions.controller.ts",
+        "x-source-line": 31,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryAiSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_changePassword",
+        "summary": "Đặt lại mật khẩu bằng email + OTP",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 98,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "ChangePasswordDto"
+      }
+    },
+    "/api/v1/auth/confirm-otp": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_confirmOtp",
+        "summary": "Xác nhận OTP",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 131,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "ConfirmOtpDto"
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_forgotPassword",
+        "summary": "Kiểm tra email trước khi gửi OTP",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 109,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "ForgotPasswordDto"
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_login",
+        "summary": "Đăng nhập",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 51,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "LoginDto"
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_logout",
+        "summary": "Đăng xuất",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 73,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "AuthController_getProfile",
+        "summary": "Lấy thông tin profile",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 86,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_refresh",
+        "summary": "Làm mới access token",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 62,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "RefreshTokenDto"
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_register",
+        "summary": "Đăng ký tài khoản mới",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 34,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "RegisterDto"
+      }
+    },
+    "/api/v1/auth/send-otp": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "AuthController_sendOtp",
+        "summary": "Gửi OTP qua email",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/auth/auth.controller.ts",
+        "x-source-line": 120,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "SendOtpDto"
+      }
+    },
+    "/api/v1/blacklist-keywords": {
+      "post": {
+        "tags": ["Blacklist Keywords"],
+        "operationId": "BlacklistKeywordsController_create",
+        "summary": "create",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/blacklist-keywords/blacklist-keywords.controller.ts",
+        "x-source-line": 27,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "CreateBlacklistKeywordDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["Blacklist Keywords"],
+        "operationId": "BlacklistKeywordsController_getAll",
+        "summary": "getAll",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/blacklist-keywords/blacklist-keywords.controller.ts",
+        "x-source-line": 33,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QueryBlacklistKeywordDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/blacklist-keywords/{id}": {
+      "get": {
+        "tags": ["Blacklist Keywords"],
+        "operationId": "BlacklistKeywordsController_getKeyword",
+        "summary": "getKeyword",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/blacklist-keywords/blacklist-keywords.controller.ts",
+        "x-source-line": 44,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["Blacklist Keywords"],
+        "operationId": "BlacklistKeywordsController_updateKeyword",
+        "summary": "updateKeyword",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/blacklist-keywords/blacklist-keywords.controller.ts",
+        "x-source-line": 50,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "UpdateBlacklistKeywordDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["Blacklist Keywords"],
+        "operationId": "BlacklistKeywordsController_deleteKeyword",
+        "summary": "deleteKeyword",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/blacklist-keywords/blacklist-keywords.controller.ts",
+        "x-source-line": 56,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/blacklist-keywords/check": {
+      "post": {
+        "tags": ["Blacklist Keywords"],
+        "operationId": "BlacklistKeywordsController_checkContent",
+        "summary": "checkContent",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/blacklist-keywords/blacklist-keywords.controller.ts",
+        "x-source-line": 39,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-body-dto": "{ content: string }",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chat": {
+      "get": {
+        "tags": ["chat"],
+        "operationId": "ChatController_findAll",
+        "summary": "Lấy tất cả tin nhắn",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/chat/chat.controller.ts",
+        "x-source-line": 119,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "1 | -1",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chat/{id}": {
+      "get": {
+        "tags": ["chat"],
+        "operationId": "ChatController_findOne",
+        "summary": "Lấy chi tiết một tin nhắn",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/chat/chat.controller.ts",
+        "x-source-line": 134,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["chat"],
+        "operationId": "ChatController_updateMessage",
+        "summary": "Cập nhật tin nhắn",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/chat/chat.controller.ts",
+        "x-source-line": 145,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["chat"],
+        "operationId": "ChatController_removeMessage",
+        "summary": "Xóa tin nhắn",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/chat/chat.controller.ts",
+        "x-source-line": 160,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chat/send": {
+      "post": {
+        "tags": ["chat"],
+        "operationId": "ChatController_sendMessage",
+        "summary": "Gửi tin nhắn mới",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/chat/chat.controller.ts",
+        "x-source-line": 46,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "SendMessageDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chat/session/{sessionId}": {
+      "get": {
+        "tags": ["chat"],
+        "operationId": "ChatController_getSessionMessages",
+        "summary": "Lấy tin nhắn trong phiên tư vấn",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/chat/chat.controller.ts",
+        "x-source-line": 97,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "1 | -1",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/health-metrics": {
+      "post": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_create",
+        "summary": "Ghi nhận chỉ số sức khỏe mới",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 33,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreateHealthMetricDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_findAll",
+        "summary": "Lấy danh sách chỉ số sức khỏe",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 47,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryHealthMetricDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/health-metrics/{id}": {
+      "get": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_findOne",
+        "summary": "Lấy chi tiết chỉ số sức khỏe",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 87,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_update",
+        "summary": "Cập nhật chỉ số sức khỏe",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 98,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateHealthMetricDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_remove",
+        "summary": "Xóa chỉ số sức khỏe",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 127,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/health-metrics/{id}/review": {
+      "post": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_markAsReviewed",
+        "summary": "Đánh dấu chỉ số đã review",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 113,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/health-metrics/alerts": {
+      "get": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_getAlerts",
+        "summary": "Lấy danh sách cảnh báo",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 76,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/health-metrics/statistics/{type}": {
+      "get": {
+        "tags": ["health-metrics"],
+        "operationId": "HealthMetricsController_getStatistics",
+        "summary": "Lấy thống kê chỉ số sức khỏe",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/health-metrics/health-metrics.controller.ts",
+        "x-source-line": 62,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "post": {
+        "tags": ["notifications"],
+        "operationId": "NotificationsController_create",
+        "summary": "Tạo thông báo mới",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/notifications/notifications.controller.ts",
+        "x-source-line": 34,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreateNotificationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["notifications"],
+        "operationId": "NotificationsController_findAll",
+        "summary": "Lấy danh sách thông báo",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/notifications/notifications.controller.ts",
+        "x-source-line": 51,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryNotificationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/{id}": {
+      "get": {
+        "tags": ["notifications"],
+        "operationId": "NotificationsController_findOne",
+        "summary": "Lấy chi tiết thông báo",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/notifications/notifications.controller.ts",
+        "x-source-line": 92,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["notifications"],
+        "operationId": "NotificationsController_update",
+        "summary": "Cập nhật thông báo",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/notifications/notifications.controller.ts",
+        "x-source-line": 112,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateNotificationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["notifications"],
+        "operationId": "NotificationsController_delete",
+        "summary": "Xóa thông báo",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/notifications/notifications.controller.ts",
+        "x-source-line": 128,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/mark-all-as-read": {
+      "patch": {
+        "tags": ["notifications"],
+        "operationId": "NotificationsController_markAllAsRead",
+        "summary": "Đánh dấu tất cả thông báo là đã đọc",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/notifications/notifications.controller.ts",
+        "x-source-line": 66,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/unread/count": {
+      "get": {
+        "tags": ["notifications"],
+        "operationId": "NotificationsController_countUnread",
+        "summary": "Đếm thông báo chưa đọc",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/notifications/notifications.controller.ts",
+        "x-source-line": 80,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients": {
+      "post": {
+        "tags": ["patients"],
+        "operationId": "PatientsController_create",
+        "summary": "Tạo hồ sơ bệnh nhân mới",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/patients/patients.controller.ts",
+        "x-source-line": 29,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreatePatientDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["patients"],
+        "operationId": "PatientsController_findAll",
+        "summary": "Lấy danh sách bệnh nhân (ADMIN)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/patients/patients.controller.ts",
+        "x-source-line": 56,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QueryPatientDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/profile": {
+      "get": {
+        "tags": ["patients"],
+        "operationId": "PatientsController_getProfile",
+        "summary": "Lấy hồ sơ bệnh nhân của tôi",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/patients/patients.controller.ts",
+        "x-source-line": 44,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["patients"],
+        "operationId": "PatientsController_update",
+        "summary": "Cập nhật hồ sơ bệnh nhân",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/patients/patients.controller.ts",
+        "x-source-line": 69,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdatePatientDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["patients"],
+        "operationId": "PatientsController_delete",
+        "summary": "Xóa hồ sơ bệnh nhân",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/patients/patients.controller.ts",
+        "x-source-line": 84,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/presence/status": {
+      "post": {
+        "tags": ["presence"],
+        "operationId": "PresenceController_checkUsersStatus",
+        "summary": "checkUsersStatus",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/presence/presence.controller.ts",
+        "x-source-line": 8,
+        "x-guards": [],
+        "x-roles": [],
+        "x-body-dto": "{ userIds: string[] }"
+      }
+    },
+    "/api/v1/reviews": {
+      "post": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_create",
+        "summary": "Patient tạo đánh giá cho doctor",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 31,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreateReviewDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_findAll",
+        "summary": "Lấy tất cả đánh giá (có filter & phân trang)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 41,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "QueryReviewDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/{id}": {
+      "get": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_findOne",
+        "summary": "Lấy chi tiết 1 đánh giá",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 84,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_update",
+        "summary": "Patient cập nhật đánh giá của mình",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 101,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateReviewDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_remove",
+        "summary": "Patient xóa đánh giá của mình",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 135,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/{id}/flag": {
+      "post": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_flagReview",
+        "summary": "Admin flag review (inappropriate content)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 145,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "{ adminNotes: string }",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/{id}/helpful": {
+      "post": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_markHelpful",
+        "summary": "Mark review as helpful",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 115,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_unmarkHelpful",
+        "summary": "Unmark review as helpful",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 125,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/doctor/{doctorId}": {
+      "get": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_findByDoctor",
+        "summary": "Lấy danh sách đánh giá của doctor",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 61,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "Partial<QueryReviewDto>",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/doctor/{doctorId}/rating": {
+      "get": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_getDoctorRating",
+        "summary": "Lấy điểm đánh giá trung bình của doctor",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 51,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/session/{id}": {
+      "get": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_findBySessionId",
+        "summary": "Lấy chi tiết 1 đánh giá",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 91,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/top/doctors": {
+      "get": {
+        "tags": ["reviews"],
+        "operationId": "ReviewsController_getTopDoctors",
+        "summary": "Lấy top 10 doctors được đánh giá cao nhất",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/reviews/reviews.controller.ts",
+        "x-source-line": 74,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_create",
+        "summary": "Đặt lịch tư vấn mới",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 40,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreateSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_findAll",
+        "summary": "Lấy danh sách sessions",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 65,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-query-dto": "QuerySessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}": {
+      "get": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_findOne",
+        "summary": "Lấy chi tiết session",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 95,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_update",
+        "summary": "Cập nhật session",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 106,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_remove",
+        "summary": "Xóa session",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 239,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}/cancel": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_cancel",
+        "summary": "Hủy session",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 198,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}/complete": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_complete",
+        "summary": "Kết thúc session (Doctor only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 172,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}/confirm": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_confirm",
+        "summary": "Xác nhận session (Doctor only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 121,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}/reject": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_reject",
+        "summary": "Từ chối session (Doctor only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 139,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}/reschedule": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_reschedule",
+        "summary": "Đổi lịch session",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 224,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateSessionDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}/start": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_start",
+        "summary": "Bắt đầu session (Doctor only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 161,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/upcoming": {
+      "get": {
+        "tags": ["sessions"],
+        "operationId": "SessionsController_getUpcoming",
+        "summary": "Lấy sessions sắp tới",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/sessions/sessions.controller.ts",
+        "x-source-line": 80,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/avatar": {
+      "post": {
+        "tags": ["upload"],
+        "operationId": "UploadController_uploadAvatar",
+        "summary": "👤 Upload user profile avatar (image only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 377,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/debug/list": {
+      "get": {
+        "tags": ["upload"],
+        "operationId": "UploadController_debugListFiles",
+        "summary": "DEBUG: List all files in Cloudinary",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 247,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/delete": {
+      "delete": {
+        "tags": ["upload"],
+        "operationId": "UploadController_deleteFile",
+        "summary": "Xóa file từ Cloudinary",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 274,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN", "UserRole.DOCTOR", "UserRole.PATIENT"],
+        "x-body-dto": "{ fileType?: 'image' | 'document' }",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/delete-multiple": {
+      "post": {
+        "tags": ["upload"],
+        "operationId": "UploadController_deleteMultiple",
+        "summary": "Xóa nhiều files từ Cloudinary (ADMIN ONLY)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 320,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "{ publicIds: string[]; fileType?: 'image' | 'document' }",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/doctor-verification": {
+      "post": {
+        "tags": ["upload"],
+        "operationId": "UploadController_uploadDoctorVerification",
+        "summary": "📄 Upload doctor verification documents (batch, max 5 files)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 466,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.DOCTOR", "UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/info": {
+      "get": {
+        "tags": ["upload"],
+        "operationId": "UploadController_getFileInfo",
+        "summary": "Lấy thông tin file từ Cloudinary (ADMIN ONLY)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 218,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/multiple": {
+      "post": {
+        "tags": ["upload"],
+        "operationId": "UploadController_uploadMultiple",
+        "summary": "Upload nhiều files lên Cloudinary",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 143,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN", "UserRole.DOCTOR", "UserRole.PATIENT"],
+        "x-body-dto": "UploadMultipleFilesDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/single": {
+      "post": {
+        "tags": ["upload"],
+        "operationId": "UploadController_uploadSingle",
+        "summary": "Upload 1 file lên Cloudinary",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/cloudinary/upload.controller.ts",
+        "x-source-line": 63,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN", "UserRole.DOCTOR", "UserRole.PATIENT"],
+        "x-body-dto": "UploadFileDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "UsersController_findAll",
+        "summary": "Admin: lấy danh sách tất cả users",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 35,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "UsersController_findOne",
+        "summary": "Lấy thông tin user theo ID",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 68,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["users"],
+        "operationId": "UsersController_deactivate",
+        "summary": "Admin: vô hiệu hoá tài khoản",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 87,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}/profile": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "UsersController_findProfile",
+        "summary": "Lấy profile user theo ID (role-aware)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 62,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/doctor/{email}": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "UsersController_findDoctorByEmail",
+        "summary": "Lấy thông tin bác sĩ dựa vào email",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 49,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": []
+      }
+    },
+    "/api/v1/users/doctors": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "UsersController_findDoctors",
+        "summary": "Lấy danh sách bác sĩ",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 43,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "UsersController_getMe",
+        "summary": "Lấy thông tin tài khoản hiện tại",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 56,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["users"],
+        "operationId": "UsersController_updateMe",
+        "summary": "Cập nhật thông tin tài khoản hiện tại",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 74,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "UpdateUserDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/profile": {
+      "post": {
+        "tags": ["users"],
+        "operationId": "UsersController_createPatientProfile",
+        "summary": "Bệnh nhân tạo profile",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 99,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreatePatientProfileDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["users"],
+        "operationId": "UsersController_getPatientProfile",
+        "summary": "Xem patient profile của mình",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 109,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["users"],
+        "operationId": "UsersController_updatePatientProfile",
+        "summary": "Cập nhật patient profile",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 115,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "x-body-dto": "CreatePatientProfileDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["users"],
+        "operationId": "UsersController_deletePatientProfile",
+        "summary": "Xóa patient profile",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/users/users.controller.ts",
+        "x-source-line": 124,
+        "x-guards": ["JwtAuthGuard"],
+        "x-roles": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/violations": {
+      "post": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_create",
+        "summary": "Report user violation",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 44,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.PATIENT", "UserRole.DOCTOR", "UserRole.ADMIN"],
+        "x-body-dto": "CreateViolationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_findAll",
+        "summary": "Get all violation reports (ADMIN only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 62,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-query-dto": "QueryViolationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/violations/{id}": {
+      "get": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_findById",
+        "summary": "Get violation detail (ADMIN only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 74,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_update",
+        "summary": "Update violation (ADMIN only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 101,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "UpdateViolationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_delete",
+        "summary": "Delete violation (ADMIN only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 139,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/violations/{id}/resolve": {
+      "post": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_resolve",
+        "summary": "Resolve violation (ADMIN only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 120,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "x-body-dto": "string",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/violations/stats/overview": {
+      "get": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_getStats",
+        "summary": "Get violation statistics (ADMIN only)",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 152,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.ADMIN"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/violations/user/{userId}": {
+      "get": {
+        "tags": ["Violations"],
+        "operationId": "ViolationsController_findByUserId",
+        "summary": "Get user violations",
+        "responses": {
+          "default": {
+            "description": "Legacy response; runtime schema was not capturable in RF-0."
+          }
+        },
+        "x-source": "apps/api/src/modules/violations/violations.controller.ts",
+        "x-source-line": 86,
+        "x-guards": ["JwtAuthGuard", "RolesGuard"],
+        "x-roles": ["UserRole.PATIENT", "UserRole.DOCTOR", "UserRole.ADMIN"],
+        "x-query-dto": "QueryViolationDto",
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "x-baseline-mode": "static-source-audit",
+  "x-runtime-snapshot-status": "blocked",
+  "x-runtime-snapshot-blockers": [
+    "apps/api/src/createIndex.ts is a Mongo shell script included in TypeScript compilation.",
+    "Doctor/DoctorDocument/DoctorSchema exports are missing from doctorProfile.schema.ts.",
+    "Mongoose cannot infer the runtime type of auth User.role during test bootstrap."
+  ],
+  "x-endpoint-count": 173
+}
