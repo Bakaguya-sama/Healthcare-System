@@ -121,18 +121,18 @@ Thông tin cần điền:
 
 ### 4.1 Baseline — BLOCKER
 
-- [ ] Commit riêng tài liệu đã chốt: overview, DB v7, business rules, FE integration và plan.
-- [ ] Working tree không còn thay đổi không rõ owner.
-- [ ] Tạo baseline tag cho phiên bản backend cũ.
-- [ ] Ghi commit SHA baseline vào bảng dưới.
-- [ ] Không thực hiện refactor trực tiếp trên nhánh demo/release đang ổn định.
+- [x] Commit riêng tài liệu đã chốt: overview, DB v7, business rules, FE integration và plan.
+- [x] Working tree không còn thay đổi không rõ owner.
+- [x] Tạo baseline tag cho phiên bản backend cũ.
+- [x] Ghi commit SHA baseline vào bảng dưới.
+- [x] Không thực hiện refactor trực tiếp trên nhánh demo/release đang ổn định.
 
-| Thuộc tính          | Giá trị                   |
-| ------------------- | ------------------------- |
-| Baseline commit SHA | _Điền SHA_                |
-| Baseline tag        | `backend-legacy-baseline` |
-| Integration branch  | `huy/refactor`            |
-| Release branch      | `huy/release`             |
+| Thuộc tính          | Giá trị                                    |
+| ------------------- | ------------------------------------------ |
+| Baseline commit SHA | `030b3e001737f79275cd93192f65b40bc1c65df3` |
+| Baseline tag        | `backend-legacy-baseline`                  |
+| Integration branch  | `huy/refactor`                             |
+| Release branch      | `huy/release`                              |
 
 ### 4.2 Cách chia PR — Chọn một
 
@@ -146,16 +146,16 @@ Thông tin cần điền:
 
 ### 5.1 Runtime baseline — BLOCKER
 
-| Thành phần | Version đã chốt | Cách khóa version |
-| ---------- | --------------- | ----------------- |
-| Node.js | `24.9.0` | `.nvmrc` và root `package.json#engines` |
-| pnpm | `9.0.0` | `packageManager` trong root `package.json` |
-| NestJS | `11.1.16` | Version resolved hiện tại trong `pnpm-lock.yaml`; không upgrade ở preflight |
-| MongoDB Driver | `7.1.0` | Version resolved hiện tại trong `pnpm-lock.yaml` |
-| MongoDB Server | `8.0.30` | Docker image `mongo:8.0.30`; Atlas dùng major release `8.0` |
-| Mongoose | `9.3.0` | Version resolved hiện tại trong `pnpm-lock.yaml` |
-| Redis Server | `8.2.9` | Docker image `redis:8.2.9`; nhánh Extended Support `8.2` |
-| TypeScript | `5.9.3` | Version resolved hiện tại trong `pnpm-lock.yaml` |
+| Thành phần     | Version đã chốt | Cách khóa version                                                           |
+| -------------- | --------------- | --------------------------------------------------------------------------- |
+| Node.js        | `24.9.0`        | `.nvmrc` và root `package.json#engines`                                     |
+| pnpm           | `9.0.0`         | `packageManager` trong root `package.json`                                  |
+| NestJS         | `11.1.16`       | Version resolved hiện tại trong `pnpm-lock.yaml`; không upgrade ở preflight |
+| MongoDB Driver | `7.1.0`         | Version resolved hiện tại trong `pnpm-lock.yaml`                            |
+| MongoDB Server | `8.0.30`        | Docker image `mongo:8.0.30`; Atlas dùng major release `8.0`                 |
+| Mongoose       | `9.3.0`         | Version resolved hiện tại trong `pnpm-lock.yaml`                            |
+| Redis Server   | `8.2.9`         | Docker image `redis:8.2.9`; nhánh Extended Support `8.2`                    |
+| TypeScript     | `5.9.3`         | Version resolved hiện tại trong `pnpm-lock.yaml`                            |
 
 Version policy:
 
@@ -440,9 +440,9 @@ Không tạo task feature mới chỉ để né blocker của các task trên. F
 - [ ] Người chốt scope và backend architecture đã được điền.
 - [ ] Tài liệu DB v7, business rules, overview, FE integration và refactor plan không còn mâu thuẫn đã biết.
 - [ ] Legacy database đã backup hoặc xác nhận không có dữ liệu cần giữ.
-- [ ] Code/tài liệu hiện tại đã commit và có baseline SHA/tag.
+- [x] Code/tài liệu hiện tại đã commit và có baseline SHA/tag.
 - [ ] Không có credential thật trong working tree.
-- [ ] Runtime/package manager versions đã chốt.
+- [x] Runtime/package manager versions đã chốt.
 
 ### 15.2 BLOCKER trước `BE-RF-002`
 
