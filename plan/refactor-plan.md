@@ -390,7 +390,7 @@ Evidence:
 - `docs/current-state/realtime-events.md`: 4 namespaces và event/consumer/risk mapping.
 - `docs/current-state/database-inventory.md`: schema, collection, index và cross-model access.
 - `docs/current-state/legacy-behavior.md`, `known-defects.md`, `module-disposition.md`.
-- `docs/current-state/rf-backlog.md`: owner, dependency, estimate và trạng thái; `BE-RF-002` là task kế tiếp.
+- `docs/current-state/rf-backlog.md`: owner, dependency, estimate và trạng thái; `BE-RF-002` là task kế tiếp sau khi qua RF-1 entry blockers trong preflight checklist.
 - Runtime OpenAPI snapshot bị chặn bởi build baseline và phải được thay thế sau RF-1; blocker được lưu trong artifact, không giả lập response schema.
 
 ### RF-1 — Stabilize build, test và CI
