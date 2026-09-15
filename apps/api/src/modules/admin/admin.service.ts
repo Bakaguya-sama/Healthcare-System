@@ -15,7 +15,7 @@ import {
   Doctor,
   DoctorDocument,
   DoctorVerificationStatus,
-} from '../users/entities/doctorProfile.schema';
+} from '../users/entities/doctor.schema';
 import { UserRole } from '../users/enums/user-role.enum';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';

@@ -1,3 +1,4 @@
+// Archived RF-1 baseline only. Do not use as the deployment migration mechanism.
 // ==========================================================
 // MONGODB — CREATE COLLECTIONS & INDEXES (camelCase, khớp Mongoose schema)
 // Chạy: mongosh "<connection_string>" create_indexes.js

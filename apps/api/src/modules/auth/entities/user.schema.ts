@@ -29,10 +29,10 @@ export class User {
   @Prop({ required: true })
   fullName: string;
 
-  @Prop({ enum: UserRole, default: UserRole.PATIENT })
+  @Prop({ type: String, enum: UserRole, default: UserRole.PATIENT })
   role: UserRole;
 
-  @Prop({ enum: AccountStatus, default: AccountStatus.ACTIVE })
+  @Prop({ type: String, enum: AccountStatus, default: AccountStatus.ACTIVE })
   accountStatus: AccountStatus;
 
   @Prop({ default: false })

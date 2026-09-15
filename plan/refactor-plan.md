@@ -2,19 +2,19 @@
 
 ## 1. Thông tin và phạm vi tài liệu
 
-| Thuộc tính | Giá trị |
-|---|---|
-| Ngày lập | 11/09/2026 |
-| Cập nhật gần nhất | 15/09/2026 - tách riêng kế hoạch refactor backend và feature backend; loại task triển khai frontend |
-| Deadline | 31/12/2026 |
-| Phạm vi thực thi | Chỉ Backend: NestJS, MongoDB/Mongoose, Redis, BullMQ, REST, Socket.IO, WebRTC signaling, worker, test, CI/CD và tài liệu API |
-| Ngoài phạm vi thực thi | Web Client, Web Admin và React Native; được triển khai ở repository frontend khác |
-| Kiến trúc đích | Modular Monolith, domain-oriented modules, DDD-lite cho domain phức tạp |
-| Chiến lược | Refactor có kiểm soát, không rebuild toàn bộ |
-| Database | MongoDB mới, Mongoose làm ODM, migration có version |
-| Nguồn nghiệp vụ | `docs/BUSINESS_RULES.md`, `docs/db-template-v7.dbml`, `docs/overview.md` |
-| Hợp đồng bàn giao frontend | OpenAPI, realtime event schemas và `docs/fe-integration.md` |
-| Điều kiện khởi động | Hoàn thành và chuyển `plan/preflight-checklist.md` sang `APPROVED` trước `BE-RF-001` |
+| Thuộc tính                 | Giá trị                                                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Ngày lập                   | 11/09/2026                                                                                                                   |
+| Cập nhật gần nhất          | 15/09/2026 - tách riêng kế hoạch refactor backend và feature backend; loại task triển khai frontend                          |
+| Deadline                   | 31/12/2026                                                                                                                   |
+| Phạm vi thực thi           | Chỉ Backend: NestJS, MongoDB/Mongoose, Redis, BullMQ, REST, Socket.IO, WebRTC signaling, worker, test, CI/CD và tài liệu API |
+| Ngoài phạm vi thực thi     | Web Client, Web Admin và React Native; được triển khai ở repository frontend khác                                            |
+| Kiến trúc đích             | Modular Monolith, domain-oriented modules, DDD-lite cho domain phức tạp                                                      |
+| Chiến lược                 | Refactor có kiểm soát, không rebuild toàn bộ                                                                                 |
+| Database                   | MongoDB mới, Mongoose làm ODM, migration có version                                                                          |
+| Nguồn nghiệp vụ            | `docs/BUSINESS_RULES.md`, `docs/db-template-v7.dbml`, `docs/overview.md`                                                     |
+| Hợp đồng bàn giao frontend | OpenAPI, realtime event schemas và `docs/fe-integration.md`                                                                  |
+| Điều kiện khởi động        | Hoàn thành và chuyển `plan/preflight-checklist.md` sang `APPROVED` trước `BE-RF-001`                                         |
 
 Tài liệu này cố ý chia thành hai phần lớn không đan xen:
 
@@ -66,14 +66,14 @@ Ví dụ thuộc feature mới:
 
 ### 2.3 Trường hợp dễ bị trộn
 
-| Nhu cầu | Phần refactor | Phần feature mới |
-|---|---|---|
+| Nhu cầu      | Phần refactor                                                                  | Phần feature mới                                       |
+| ------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------ |
 | Consultation | Chuyển request/accept/decline/chat cũ từ Session sang Consultation `on_demand` | Scheduled consultation, slot, check-in, queue, no-show |
-| Notification | Chuẩn hóa collection và chuyển cách gửi hiện có sang outbox/worker | Reminder, FCM, campaign mới |
-| AI | Hợp nhất persistence/orchestrator/RAG cũ | Quota ngày và usage reconciliation |
-| Auth | Hợp nhất User, refresh session, Redis OTP | OAuth login/linking nếu chưa tồn tại |
-| Review | Sửa unique/rating/placeholder hiện có | Violation/moderation workflow mới |
-| Realtime | Sửa auth, room, CORS, Redis presence | Queue events mới hoặc TURN capability mới |
+| Notification | Chuẩn hóa collection và chuyển cách gửi hiện có sang outbox/worker             | Reminder, FCM, campaign mới                            |
+| AI           | Hợp nhất persistence/orchestrator/RAG cũ                                       | Quota ngày và usage reconciliation                     |
+| Auth         | Hợp nhất User, refresh session, Redis OTP                                      | OAuth login/linking nếu chưa tồn tại                   |
+| Review       | Sửa unique/rating/placeholder hiện có                                          | Violation/moderation workflow mới                      |
+| Realtime     | Sửa auth, room, CORS, Redis presence                                           | Queue events mới hoặc TURN capability mới              |
 
 Quy tắc bắt buộc:
 
@@ -85,10 +85,10 @@ Quy tắc bắt buộc:
 
 Quy ước ID:
 
-| Tiền tố | Ý nghĩa |
-|---|---|
-| `BE-RF-*` | Backend refactor code/hành vi cũ |
-| `BE-NF-*` | Backend feature mới |
+| Tiền tố    | Ý nghĩa                                |
+| ---------- | -------------------------------------- |
+| `BE-RF-*`  | Backend refactor code/hành vi cũ       |
+| `BE-NF-*`  | Backend feature mới                    |
 | `BE-REL-*` | Tích hợp, hardening và release backend |
 
 ## 3. Kiến trúc backend đích
@@ -174,30 +174,30 @@ domain -> không phụ thuộc NestJS, Mongoose, Redis, Socket.IO hoặc provide
 
 Không cài lại hoặc thay công nghệ chỉ vì plan nhắc đến nó. Audit hiện tại cho thấy:
 
-| Nhóm | Hiện trạng | Quyết định |
-|---|---|---|
-| OpenAPI/Swagger | Đã có `@nestjs/swagger`; `main.ts` đã dựng Swagger UI | Giữ, chuẩn hóa contract và giới hạn cách public ở production |
-| JWT/Passport | Đã có `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` và `JwtStrategy` | Giữ; gom cấu hình/guard về Identity-Access, không cài auth framework khác |
-| Input validation | Đã có global `ValidationPipe`, `class-validator`, `class-transformer` | Giữ; bổ sung validation biến môi trường và DTO/query convention |
-| Rate limiting | Chưa có `@nestjs/throttler` | Thêm P0, policy khác nhau theo endpoint và event |
-| HTTP hardening | Chưa có Helmet | Thêm P0 và đăng ký trước route/Swagger |
-| Cache | Chưa có cache manager/cache policy | Chỉ thêm cache có chọn lọc sau khi query/index đã tối ưu |
-| Redis/worker | Chưa có Redis client, BullMQ module/worker | Thêm P0 khi bắt đầu OTP, outbox, reminder và job nền |
-| Health checks | Chưa có Terminus | Thêm P0 cho liveness/readiness và graceful shutdown |
-| Logging | Chủ yếu là `console`/Nest logger, chưa có correlation ID thống nhất | P0 dùng structured JSON + correlation ID; Pino chỉ là lựa chọn có điều kiện |
-| Configuration | Có `ConfigModule`, nhưng secret còn fallback và chưa fail-fast khi env sai | Bổ sung schema/validate function; production không có secret mặc định |
+| Nhóm             | Hiện trạng                                                                           | Quyết định                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| OpenAPI/Swagger  | Đã có `@nestjs/swagger`; `main.ts` đã dựng Swagger UI                                | Giữ, chuẩn hóa contract và giới hạn cách public ở production                |
+| JWT/Passport     | Đã có `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` và `JwtStrategy` | Giữ; gom cấu hình/guard về Identity-Access, không cài auth framework khác   |
+| Input validation | Đã có global `ValidationPipe`, `class-validator`, `class-transformer`                | Giữ; bổ sung validation biến môi trường và DTO/query convention             |
+| Rate limiting    | Chưa có `@nestjs/throttler`                                                          | Thêm P0, policy khác nhau theo endpoint và event                            |
+| HTTP hardening   | Chưa có Helmet                                                                       | Thêm P0 và đăng ký trước route/Swagger                                      |
+| Cache            | Chưa có cache manager/cache policy                                                   | Chỉ thêm cache có chọn lọc sau khi query/index đã tối ưu                    |
+| Redis/worker     | Chưa có Redis client, BullMQ module/worker                                           | Thêm P0 khi bắt đầu OTP, outbox, reminder và job nền                        |
+| Health checks    | Chưa có Terminus                                                                     | Thêm P0 cho liveness/readiness và graceful shutdown                         |
+| Logging          | Chủ yếu là `console`/Nest logger, chưa có correlation ID thống nhất                  | P0 dùng structured JSON + correlation ID; Pino chỉ là lựa chọn có điều kiện |
+| Configuration    | Có `ConfigModule`, nhưng secret còn fallback và chưa fail-fast khi env sai           | Bổ sung schema/validate function; production không có secret mặc định       |
 
 ### 3.4 Dependency và tool được chấp nhận
 
 #### Thêm ở P0
 
-| Package/tool | Dùng cho | Giới hạn |
-|---|---|---|
-| `helmet` | Security headers cho HTTP API | Cấu hình trước route; kiểm tra CSP nếu bật Swagger UI |
-| `@nestjs/throttler` | Rate limit auth, OTP, AI, upload, signaling, payment | In-memory chỉ dùng local/test; multi-instance dùng Redis-backed storage |
-| `ioredis` | Redis connection dùng chung | Một `RedisModule`, có namespace, timeout, retry và shutdown lifecycle |
-| `@nestjs/bullmq` + `bullmq` | Outbox delivery, notification, reminder và retryable jobs | Không đưa business transaction chính vào queue; job phải idempotent |
-| `@nestjs/terminus` | `/health/live` và `/health/ready` | Readiness kiểm tra dependency bắt buộc; liveness không gọi provider bên ngoài |
+| Package/tool                | Dùng cho                                                  | Giới hạn                                                                      |
+| --------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `helmet`                    | Security headers cho HTTP API                             | Cấu hình trước route; kiểm tra CSP nếu bật Swagger UI                         |
+| `@nestjs/throttler`         | Rate limit auth, OTP, AI, upload, signaling, payment      | In-memory chỉ dùng local/test; multi-instance dùng Redis-backed storage       |
+| `ioredis`                   | Redis connection dùng chung                               | Một `RedisModule`, có namespace, timeout, retry và shutdown lifecycle         |
+| `@nestjs/bullmq` + `bullmq` | Outbox delivery, notification, reminder và retryable jobs | Không đưa business transaction chính vào queue; job phải idempotent           |
+| `@nestjs/terminus`          | `/health/live` và `/health/ready`                         | Readiness kiểm tra dependency bắt buộc; liveness không gọi provider bên ngoài |
 
 Không cần thêm package để validate env ở vòng đầu vì `class-validator` và `class-transformer` đã có. Dùng custom `validate()` trong `ConfigModule.forRoot`, dừng ứng dụng ngay khi thiếu/sai `JWT_SECRET`, MongoDB URI, Redis URL hoặc provider secrets bắt buộc. Xóa mọi production fallback kiểu `default_secret_change_in_production`.
 
@@ -205,14 +205,14 @@ Structured logging vòng đầu dùng Nest `ConsoleLogger` dạng JSON, middlewa
 
 #### Thêm có điều kiện ở P1
 
-| Package/tool | Khi nào mới thêm |
-|---|---|
-| `@nestjs/cache-manager` + `cache-manager` + `@keyv/redis` | Sau RF-2D, khi có số liệu chứng minh read query lặp lại và cache đem lại lợi ích |
-| OAuth Passport strategy tương ứng, ví dụ `passport-google-oauth20` | Chỉ sau khi chốt provider OAuth; không cài nhiều strategy dự phòng |
-| `dependency-cruiser` | Khi cần CI chặn import ngược giữa presentation/application/domain/infrastructure |
-| `knip` | Trong cleanup để tìm dependency/export/file không còn dùng; mọi kết quả phải được review trước khi xóa |
-| OpenAPI lint/diff tool | Khi OpenAPI artifact đã ổn định; dùng để chặn breaking change ngoài allowlist |
-| OpenTelemetry hoặc Sentry | Sau basic logging/metrics; chọn một lộ trình quan sát, không tích hợp đồng thời nhiều SDK trước deadline |
+| Package/tool                                                       | Khi nào mới thêm                                                                                         |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `@nestjs/cache-manager` + `cache-manager` + `@keyv/redis`          | Sau RF-2D, khi có số liệu chứng minh read query lặp lại và cache đem lại lợi ích                         |
+| OAuth Passport strategy tương ứng, ví dụ `passport-google-oauth20` | Chỉ sau khi chốt provider OAuth; không cài nhiều strategy dự phòng                                       |
+| `dependency-cruiser`                                               | Khi cần CI chặn import ngược giữa presentation/application/domain/infrastructure                         |
+| `knip`                                                             | Trong cleanup để tìm dependency/export/file không còn dùng; mọi kết quả phải được review trước khi xóa   |
+| OpenAPI lint/diff tool                                             | Khi OpenAPI artifact đã ổn định; dùng để chặn breaking change ngoài allowlist                            |
+| OpenTelemetry hoặc Sentry                                          | Sau basic logging/metrics; chọn một lộ trình quan sát, không tích hợp đồng thời nhiều SDK trước deadline |
 
 #### Không thêm trong scope hiện tại
 
@@ -300,18 +300,18 @@ Không làm trong Phần A:
 
 Các file dưới đây đang gộp nhiều trách nhiệm. Số dòng chỉ là tín hiệu để ưu tiên audit, không phải tiêu chí duy nhất bắt buộc tách file:
 
-| File | LOC xấp xỉ | Trách nhiệm đang bị gộp |
-|---|---:|---|
-| `ai-assistant/ai-assistant.service.ts` | 1.185 | conversation, message orchestration, RAG, upload ảnh, prompt, LLM, summary, search và statistics |
-| `health-metrics/health-metrics.service.ts` | 895 | CRUD, authorization, validation, alert, notification, daily aggregation, BMI và statistics |
-| `users/users.service.ts` | 615 | user CRUD, doctor lookup, profile assembly, patient profile, reviews, violations và Cloudinary |
-| `reviews/reviews.service.ts` | 571 | review CRUD, session validation, rating projection, helpful/flag và top-doctor query |
-| `sessions/sessions.service.ts` | 549 | create/list, authorization và toàn bộ state transition |
-| `admin/admin.service.ts` | 456 | doctor verification, account sanction, session query và dashboard statistics |
-| `ai-assistant/services/llm-gateway.service.ts` | 419 | provider configuration, generation, retry và response transformation |
-| `auth/auth.service.ts` | 381 | register, doctor files, login, token, OTP, password và profile assembly |
-| `chat/chat.service.ts` | 374 | upload attachment, room authorization, message command và query |
-| `notifications/notifications.service.ts` | 312 | persistence, read state và realtime emission |
+| File                                           | LOC xấp xỉ | Trách nhiệm đang bị gộp                                                                          |
+| ---------------------------------------------- | ---------: | ------------------------------------------------------------------------------------------------ |
+| `ai-assistant/ai-assistant.service.ts`         |      1.185 | conversation, message orchestration, RAG, upload ảnh, prompt, LLM, summary, search và statistics |
+| `health-metrics/health-metrics.service.ts`     |        895 | CRUD, authorization, validation, alert, notification, daily aggregation, BMI và statistics       |
+| `users/users.service.ts`                       |        615 | user CRUD, doctor lookup, profile assembly, patient profile, reviews, violations và Cloudinary   |
+| `reviews/reviews.service.ts`                   |        571 | review CRUD, session validation, rating projection, helpful/flag và top-doctor query             |
+| `sessions/sessions.service.ts`                 |        549 | create/list, authorization và toàn bộ state transition                                           |
+| `admin/admin.service.ts`                       |        456 | doctor verification, account sanction, session query và dashboard statistics                     |
+| `ai-assistant/services/llm-gateway.service.ts` |        419 | provider configuration, generation, retry và response transformation                             |
+| `auth/auth.service.ts`                         |        381 | register, doctor files, login, token, OTP, password và profile assembly                          |
+| `chat/chat.service.ts`                         |        374 | upload attachment, room authorization, message command và query                                  |
+| `notifications/notifications.service.ts`       |        312 | persistence, read state và realtime emission                                                     |
 
 Code còn phân tán theo capability trùng lặp:
 
@@ -324,18 +324,18 @@ Code còn phân tán theo capability trùng lặp:
 
 Một số endpoint đã có `page/limit`, nhưng chưa có convention chung và vẫn còn các query không bounded:
 
-| Vị trí | Vấn đề quan sát được | Hướng refactor |
-|---|---|---|
-| `users.service.ts::findAll/findDoctors` | Tải toàn bộ doctor rồi toàn bộ user, join bằng `Map` trong memory; không pagination | Query/aggregation theo filter + projection + pagination; bỏ in-memory full join |
-| `users.service.ts::findProfileById` | Tải toàn bộ violations và reviews; tính rating distribution trong application | Tách paginated sub-resources; dùng aggregation cho summary/distribution |
-| `health-metrics.service.ts::getStatistics` | Tải toàn bộ lịch sử để tính avg/min/max; không sort nhưng lấy phần tử cuối làm `latest` | Bắt buộc time range hoặc window; dùng aggregation `$group`/sorted latest |
-| `sessions.service.ts::getUpcoming` | Có giới hạn ngày nhưng không giới hạn số record | Thêm cursor/limit và stable sort |
-| `ai-health-insights.service.ts` | Chỉ paginate khi client truyền đồng thời page + limit; stats tải toàn bộ documents | Default pagination bắt buộc; stats dùng aggregation hoặc loại module theo DB v7 |
-| `admin.service.ts::getDoctorApplication` | Search user bằng regex rồi đưa toàn bộ ID vào `$in` | Escape/min-length search; aggregate lookup hoặc search index; cap/maxTimeMS |
-| `blacklist-keywords.service.ts::checkContent` | Đọc toàn bộ blacklist từ MongoDB ở mỗi request | Cache active normalized keywords và invalidate khi CRUD |
-| Nhiều list DTO | `limit` thiếu `@Type`, `@IsInt`, `@Min`, `@Max`; `sortBy` nhận field tùy ý | Dùng DTO/convention chung và allowlist sort fields |
-| Nhiều read query | Trả hydrated Mongoose documents hoặc populate dù chỉ đọc một vài field | Dùng explicit projection + `lean()`; kiểm tra populate bằng query count |
-| Search regex | Regex không escape/không anchor có thể không dùng index và tốn CPU | Escape input; dùng text/Atlas Search hoặc normalized prefix strategy |
+| Vị trí                                        | Vấn đề quan sát được                                                                    | Hướng refactor                                                                  |
+| --------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `users.service.ts::findAll/findDoctors`       | Tải toàn bộ doctor rồi toàn bộ user, join bằng `Map` trong memory; không pagination     | Query/aggregation theo filter + projection + pagination; bỏ in-memory full join |
+| `users.service.ts::findProfileById`           | Tải toàn bộ violations và reviews; tính rating distribution trong application           | Tách paginated sub-resources; dùng aggregation cho summary/distribution         |
+| `health-metrics.service.ts::getStatistics`    | Tải toàn bộ lịch sử để tính avg/min/max; không sort nhưng lấy phần tử cuối làm `latest` | Bắt buộc time range hoặc window; dùng aggregation `$group`/sorted latest        |
+| `sessions.service.ts::getUpcoming`            | Có giới hạn ngày nhưng không giới hạn số record                                         | Thêm cursor/limit và stable sort                                                |
+| `ai-health-insights.service.ts`               | Chỉ paginate khi client truyền đồng thời page + limit; stats tải toàn bộ documents      | Default pagination bắt buộc; stats dùng aggregation hoặc loại module theo DB v7 |
+| `admin.service.ts::getDoctorApplication`      | Search user bằng regex rồi đưa toàn bộ ID vào `$in`                                     | Escape/min-length search; aggregate lookup hoặc search index; cap/maxTimeMS     |
+| `blacklist-keywords.service.ts::checkContent` | Đọc toàn bộ blacklist từ MongoDB ở mỗi request                                          | Cache active normalized keywords và invalidate khi CRUD                         |
+| Nhiều list DTO                                | `limit` thiếu `@Type`, `@IsInt`, `@Min`, `@Max`; `sortBy` nhận field tùy ý              | Dùng DTO/convention chung và allowlist sort fields                              |
+| Nhiều read query                              | Trả hydrated Mongoose documents hoặc populate dù chỉ đọc một vài field                  | Dùng explicit projection + `lean()`; kiểm tra populate bằng query count         |
+| Search regex                                  | Regex không escape/không anchor có thể không dùng index và tốn CPU                      | Escape input; dùng text/Atlas Search hoặc normalized prefix strategy            |
 
 Các index hiện có chưa đủ để kết luận query đã tối ưu. Ví dụ schema có index đơn lẻ nhưng API thường filter + sort nhiều field. Index cuối cùng phải được tạo từ **query catalog thực tế**, xác minh bằng `explain('executionStats')`, không thêm index theo cảm tính.
 
@@ -424,6 +424,17 @@ Exit gate:
 
 Ước lượng: **5-7 person-days**.
 
+Trạng thái thực thi: **DONE ngày 2026-09-15 (`BE-RF-002`, `BE-RF-003`, `BE-RF-004`)**.
+
+Evidence:
+
+- Mongo shell script cũ được lưu ngoài application compile tại `database/legacy/create-indexes.mongosh.js`; đây chỉ là baseline tham khảo, không thay migration runner của RF-4.
+- Standalone legacy `DoctorSchema` được khôi phục để sửa compile mismatch mà chưa hợp nhất/redesign Practitioner.
+- Mongoose enum metadata của legacy Auth User đã có runtime `type: String` rõ ràng.
+- `lint`, `typecheck`, `build`, `test:unit`, `test:integration`, `test:e2e` là command read-only/fail-fast; CI backend không còn `continue-on-error` hoặc `--passWithNoTests`.
+- Characterization coverage và kết quả chạy được ghi tại `docs/current-state/rf1-verification.md`.
+- Local/test infrastructure được khóa bằng `compose.yaml`: MongoDB replica set `rs0` và Redis.
+
 ### RF-2 — Tách service và chuẩn hóa data-access/query
 
 Mục tiêu: loại bỏ god service, gom code theo capability/owner và tạo chuẩn truy vấn dùng chung trước khi refactor từng domain.
@@ -441,17 +452,17 @@ Mục tiêu: loại bỏ god service, gom code theo capability/owner và tạo c
 
 Đích tách theo module:
 
-| Service hiện tại | Thành phần đích |
-|---|---|
-| `AiAssistantService` | `AiConversationCommandService`, `AiConversationQueryService`, `AiResponseOrchestrator`, `RagRetrievalService`, `AiMediaService`, `AiStatisticsQuery` |
+| Service hiện tại       | Thành phần đích                                                                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AiAssistantService`   | `AiConversationCommandService`, `AiConversationQueryService`, `AiResponseOrchestrator`, `RagRetrievalService`, `AiMediaService`, `AiStatisticsQuery`       |
 | `HealthMetricsService` | `HealthMetricCommandService`, `HealthMetricQueryService`, `MetricRuleEvaluator`, `HealthStatisticsQuery`, `BmiProjectionService`, `HealthAlertCoordinator` |
-| `UsersService` | `UserCommandService`, `UserQueryService`, `PractitionerQueryService`, `PatientProfileService`, `ProfileAssembler`; admin use case ở module admin |
-| `ReviewsService` | `ReviewCommandService`, `ReviewQueryService`, `RatingProjectionService`; helpful/flag theo module phù hợp |
-| `SessionsService` | Consultation commands, Consultation queries và state policies trong canonical module |
-| `AdminService` | `PractitionerVerificationService`, `AccountModerationService`, `AdminDashboardQuery` |
-| `AuthService` | `RegisterUser`, `LoginUser`, `RefreshSession`, `OtpService`, `PasswordService`; file upload qua port riêng |
-| `ChatService` | `MessageCommandService`, `MessageQueryService`, `AttachmentService`, room authorization policy |
-| `NotificationsService` | `NotificationCommandService`, `NotificationQueryService`, delivery/outbox adapter |
+| `UsersService`         | `UserCommandService`, `UserQueryService`, `PractitionerQueryService`, `PatientProfileService`, `ProfileAssembler`; admin use case ở module admin           |
+| `ReviewsService`       | `ReviewCommandService`, `ReviewQueryService`, `RatingProjectionService`; helpful/flag theo module phù hợp                                                  |
+| `SessionsService`      | Consultation commands, Consultation queries và state policies trong canonical module                                                                       |
+| `AdminService`         | `PractitionerVerificationService`, `AccountModerationService`, `AdminDashboardQuery`                                                                       |
+| `AuthService`          | `RegisterUser`, `LoginUser`, `RefreshSession`, `OtpService`, `PasswordService`; file upload qua port riêng                                                 |
+| `ChatService`          | `MessageCommandService`, `MessageQueryService`, `AttachmentService`, room authorization policy                                                             |
+| `NotificationsService` | `NotificationCommandService`, `NotificationQueryService`, delivery/outbox adapter                                                                          |
 
 Không dùng LOC làm gate cứng. Một service có thể dài nếu có một trách nhiệm thuần nhất; ngược lại service ngắn vẫn phải tách nếu vi phạm ownership. Mục tiêu review là mỗi class có một lý do nghiệp vụ/kỹ thuật rõ ràng để thay đổi và dependency list phù hợp.
 
@@ -514,19 +525,19 @@ Quy tắc:
 
 Tạo `docs/current-state/query-catalog.md` với mỗi query:
 
-| Thuộc tính cần ghi | Nội dung |
-|---|---|
-| Query ID | Ví dụ `Q-USR-001` |
-| Caller/API | Endpoint hoặc job sử dụng |
-| Collection | Collection owner |
-| Filter | Equality/range/search fields |
-| Sort | Thứ tự đầy đủ, gồm `_id` tie-breaker |
-| Projection | Field thực sự trả về |
-| Pagination | Page hoặc cursor |
-| Expected cardinality | Nhỏ/vừa/lớn và dữ liệu test đại diện |
-| Index candidate | Equality -> sort -> range theo query shape |
-| Explain result | winning plan, keys/docs examined, returned, execution time |
-| Budget | p95 mục tiêu trên staging/test fixture |
+| Thuộc tính cần ghi   | Nội dung                                                   |
+| -------------------- | ---------------------------------------------------------- |
+| Query ID             | Ví dụ `Q-USR-001`                                          |
+| Caller/API           | Endpoint hoặc job sử dụng                                  |
+| Collection           | Collection owner                                           |
+| Filter               | Equality/range/search fields                               |
+| Sort                 | Thứ tự đầy đủ, gồm `_id` tie-breaker                       |
+| Projection           | Field thực sự trả về                                       |
+| Pagination           | Page hoặc cursor                                           |
+| Expected cardinality | Nhỏ/vừa/lớn và dữ liệu test đại diện                       |
+| Index candidate      | Equality -> sort -> range theo query shape                 |
+| Explain result       | winning plan, keys/docs examined, returned, execution time |
+| Budget               | p95 mục tiêu trên staging/test fixture                     |
 
 Quy trình tối ưu một query:
 
@@ -912,39 +923,39 @@ Một task `BE-RF-*` chỉ Done khi:
 
 ## 7. Backlog refactor backend
 
-| ID | Công việc | Phụ thuộc | Done khi |
-|---|---|---|---|
-| BE-RF-001 | Audit endpoint/event/schema/consumer | Không | Inventory và disposition đầy đủ |
-| BE-RF-002 | Sửa API build/typecheck | BE-RF-001 | Build xanh |
-| BE-RF-003 | CI fail-fast và test commands | BE-RF-002 | CI chặn lỗi thật |
-| BE-RF-004 | Characterization tests | BE-RF-002 | Critical old flows có baseline |
-| BE-RF-005 | Service responsibility/dependency map | BE-RF-001, BE-RF-004 | God services có decomposition plan theo capability |
-| BE-RF-006 | Pagination/query/response conventions | BE-RF-005 | Shared DTO/result, max limit và sort allowlist được test |
-| BE-RF-007 | Query catalog + explain baseline | BE-RF-006 | P0 queries có index plan và representative baseline |
-| BE-RF-010 | Backend standalone boundary | BE-RF-002 | Không import source frontend |
-| BE-RF-011 | OpenAPI/realtime generation | BE-RF-010 | Contract artifact trong CI |
-| BE-RF-012 | Config/bootstrap hardening | BE-RF-010 | Env fail-fast, Helmet, versioning, CORS/proxy/body limits và graceful shutdown được test |
-| BE-RF-013 | Chuẩn hóa Passport/JWT + Swagger exposure | BE-RF-011, BE-RF-012 | Một auth registration; OpenAPI đủ auth/error contract; UI không public mặc định |
-| BE-RF-014 | HTTP/Socket throttling + correlation logging | BE-RF-012, BE-RF-013 | Policy theo route/event, `429`, Redis storage path và redaction tests pass |
-| BE-RF-020 | DatabaseModule + migration runner | BE-RF-003 | DB rỗng migrate/no-op |
-| BE-RF-021 | Verifier/index/validator/seed | BE-RF-020 | Drift test pass |
-| BE-RF-022 | RedisModule + Terminus health lifecycle | BE-RF-012, BE-RF-020 | API/worker dùng một Redis config; health/shutdown tests pass |
-| BE-RF-030 | Canonical User/AuthSessions/Redis OTP | BE-RF-022, BE-RF-013, BE-RF-004 | Local auth E2E pass |
-| BE-RF-031 | Canonical Practitioner | BE-RF-030 | Doctor query/approval pass |
-| BE-RF-032 | Tối ưu User/Practitioner/Admin queries | BE-RF-006, BE-RF-007, BE-RF-031 | Không unbounded join/list; explain baseline pass |
-| BE-RF-040 | Consultation core + Session adapter | BE-RF-020, BE-RF-004 | Old request flow E2E pass |
-| BE-RF-041 | Message migration | BE-RF-040 | Auth/idempotency tests pass |
-| BE-RF-042 | Review/rating refactor | BE-RF-040 | Unique/transaction tests pass |
-| BE-RF-043 | Socket auth/CORS/presence | BE-RF-014, BE-RF-030, BE-RF-040 | Room/multi-instance tests pass |
-| BE-RF-044 | Tối ưu Consultation/Message/Review queries | BE-RF-006, BE-RF-007, BE-RF-040, BE-RF-041, BE-RF-042 | Cursor/page, projection và critical explain pass |
-| BE-RF-050 | Health Tracking refactor | BE-RF-020, BE-RF-004 | Regression pass |
-| BE-RF-051 | AI/RAG consolidation | BE-RF-020, BE-RF-004 | Một canonical model/orchestrator |
-| BE-RF-052 | Tối ưu Health/AI queries | BE-RF-006, BE-RF-007, BE-RF-050, BE-RF-051 | Statistics aggregation và history/search budgets pass |
-| BE-RF-060 | Notification ownership | BE-RF-020, BE-RF-004 | API cũ không regression |
-| BE-RF-061 | Outbox/BullMQ cho effect cũ | BE-RF-022, BE-RF-060, BE-RF-021 | Crash/retry tests pass |
-| BE-RF-062 | Tối ưu Notification/Outbox queries | BE-RF-006, BE-RF-007, BE-RF-060, BE-RF-061 | Cursor và bounded claim explain tests pass |
-| BE-RF-063 | Cache-aside cho read query đã chứng minh | BE-RF-007, BE-RF-022 và query owner tương ứng | TTL/invalidation/fallback tests pass; có metric lợi ích trước/sau |
-| BE-RF-070 | Legacy cutover/cleanup | Tất cả RF trên | Không còn legacy consumer/code |
+| ID        | Công việc                                    | Phụ thuộc                                             | Done khi                                                                                 |
+| --------- | -------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| BE-RF-001 | Audit endpoint/event/schema/consumer         | Không                                                 | Inventory và disposition đầy đủ                                                          |
+| BE-RF-002 | Sửa API build/typecheck                      | BE-RF-001                                             | Build xanh                                                                               |
+| BE-RF-003 | CI fail-fast và test commands                | BE-RF-002                                             | CI chặn lỗi thật                                                                         |
+| BE-RF-004 | Characterization tests                       | BE-RF-002                                             | Critical old flows có baseline                                                           |
+| BE-RF-005 | Service responsibility/dependency map        | BE-RF-001, BE-RF-004                                  | God services có decomposition plan theo capability                                       |
+| BE-RF-006 | Pagination/query/response conventions        | BE-RF-005                                             | Shared DTO/result, max limit và sort allowlist được test                                 |
+| BE-RF-007 | Query catalog + explain baseline             | BE-RF-006                                             | P0 queries có index plan và representative baseline                                      |
+| BE-RF-010 | Backend standalone boundary                  | BE-RF-002                                             | Không import source frontend                                                             |
+| BE-RF-011 | OpenAPI/realtime generation                  | BE-RF-010                                             | Contract artifact trong CI                                                               |
+| BE-RF-012 | Config/bootstrap hardening                   | BE-RF-010                                             | Env fail-fast, Helmet, versioning, CORS/proxy/body limits và graceful shutdown được test |
+| BE-RF-013 | Chuẩn hóa Passport/JWT + Swagger exposure    | BE-RF-011, BE-RF-012                                  | Một auth registration; OpenAPI đủ auth/error contract; UI không public mặc định          |
+| BE-RF-014 | HTTP/Socket throttling + correlation logging | BE-RF-012, BE-RF-013                                  | Policy theo route/event, `429`, Redis storage path và redaction tests pass               |
+| BE-RF-020 | DatabaseModule + migration runner            | BE-RF-003                                             | DB rỗng migrate/no-op                                                                    |
+| BE-RF-021 | Verifier/index/validator/seed                | BE-RF-020                                             | Drift test pass                                                                          |
+| BE-RF-022 | RedisModule + Terminus health lifecycle      | BE-RF-012, BE-RF-020                                  | API/worker dùng một Redis config; health/shutdown tests pass                             |
+| BE-RF-030 | Canonical User/AuthSessions/Redis OTP        | BE-RF-022, BE-RF-013, BE-RF-004                       | Local auth E2E pass                                                                      |
+| BE-RF-031 | Canonical Practitioner                       | BE-RF-030                                             | Doctor query/approval pass                                                               |
+| BE-RF-032 | Tối ưu User/Practitioner/Admin queries       | BE-RF-006, BE-RF-007, BE-RF-031                       | Không unbounded join/list; explain baseline pass                                         |
+| BE-RF-040 | Consultation core + Session adapter          | BE-RF-020, BE-RF-004                                  | Old request flow E2E pass                                                                |
+| BE-RF-041 | Message migration                            | BE-RF-040                                             | Auth/idempotency tests pass                                                              |
+| BE-RF-042 | Review/rating refactor                       | BE-RF-040                                             | Unique/transaction tests pass                                                            |
+| BE-RF-043 | Socket auth/CORS/presence                    | BE-RF-014, BE-RF-030, BE-RF-040                       | Room/multi-instance tests pass                                                           |
+| BE-RF-044 | Tối ưu Consultation/Message/Review queries   | BE-RF-006, BE-RF-007, BE-RF-040, BE-RF-041, BE-RF-042 | Cursor/page, projection và critical explain pass                                         |
+| BE-RF-050 | Health Tracking refactor                     | BE-RF-020, BE-RF-004                                  | Regression pass                                                                          |
+| BE-RF-051 | AI/RAG consolidation                         | BE-RF-020, BE-RF-004                                  | Một canonical model/orchestrator                                                         |
+| BE-RF-052 | Tối ưu Health/AI queries                     | BE-RF-006, BE-RF-007, BE-RF-050, BE-RF-051            | Statistics aggregation và history/search budgets pass                                    |
+| BE-RF-060 | Notification ownership                       | BE-RF-020, BE-RF-004                                  | API cũ không regression                                                                  |
+| BE-RF-061 | Outbox/BullMQ cho effect cũ                  | BE-RF-022, BE-RF-060, BE-RF-021                       | Crash/retry tests pass                                                                   |
+| BE-RF-062 | Tối ưu Notification/Outbox queries           | BE-RF-006, BE-RF-007, BE-RF-060, BE-RF-061            | Cursor và bounded claim explain tests pass                                               |
+| BE-RF-063 | Cache-aside cho read query đã chứng minh     | BE-RF-007, BE-RF-022 và query owner tương ứng         | TTL/invalidation/fallback tests pass; có metric lợi ích trước/sau                        |
+| BE-RF-070 | Legacy cutover/cleanup                       | Tất cả RF trên                                        | Không còn legacy consumer/code                                                           |
 
 ---
 
@@ -954,18 +965,18 @@ Một task `BE-RF-*` chỉ Done khi:
 
 Không cần đợi toàn bộ refactor hoàn tất, nhưng mọi feature đều phụ thuộc `BE-RF-006` (query/pagination convention) và `BE-RF-007` (query catalog/performance baseline), sau đó mới xét dependency domain trực tiếp dưới đây.
 
-| Feature | Refactor bắt buộc hoàn thành trước |
-|---|---|
-| OAuth | BE-RF-030, BE-RF-011 |
-| AvailabilitySlot | BE-RF-020, BE-RF-031 |
-| Scheduled booking | BE-RF-040 và AvailabilitySlot |
+| Feature                | Refactor bắt buộc hoàn thành trước                |
+| ---------------------- | ------------------------------------------------- |
+| OAuth                  | BE-RF-030, BE-RF-011                              |
+| AvailabilitySlot       | BE-RF-020, BE-RF-031                              |
+| Scheduled booking      | BE-RF-040 và AvailabilitySlot                     |
 | Queue/check-in/no-show | BE-RF-040, BE-RF-043 và scheduled/on-demand rules |
-| Reminder/FCM | BE-RF-061 |
-| AI quota | BE-RF-051, BE-RF-022 |
-| Payment | BE-RF-030, BE-RF-061 |
-| Refund | Payment basic đã pass sandbox/IPN gate |
-| Moderation | BE-RF-030, BE-RF-040, BE-RF-042 |
-| WebRTC/TURN mở rộng | BE-RF-043 và Consultation authorization |
+| Reminder/FCM           | BE-RF-061                                         |
+| AI quota               | BE-RF-051, BE-RF-022                              |
+| Payment                | BE-RF-030, BE-RF-061                              |
+| Refund                 | Payment basic đã pass sandbox/IPN gate            |
+| Moderation             | BE-RF-030, BE-RF-040, BE-RF-042                   |
+| WebRTC/TURN mở rộng    | BE-RF-043 và Consultation authorization           |
 
 Mỗi feature được triển khai theo cùng trình tự:
 
@@ -1284,26 +1295,26 @@ Một task `BE-NF-*` chỉ Done khi:
 
 ## 11. Backlog feature backend
 
-| ID | Feature | Ưu tiên | Phụ thuộc | Done khi |
-|---|---|---:|---|---|
-| BE-NF-001 | OAuth login/linking | P1 | BE-RF-030, BE-RF-011 | Security/linking E2E pass |
-| BE-NF-010 | AvailabilitySlot | P0 | BE-RF-020, BE-RF-031 | Overlap/ownership tests pass |
-| BE-NF-011 | Scheduled booking | P0 | BE-NF-010, BE-RF-040 | Double-booking race pass |
-| BE-NF-012 | Scheduled cancel/reopen/expire | P0 | BE-NF-011 | Transaction/state tests pass |
-| BE-NF-020 | On-demand v2 expiry/retry | P0 | BE-RF-040 | Conditional transition tests pass |
-| BE-NF-021 | Check-in | P0 | BE-NF-011, BE-NF-020 | Window/state tests pass |
-| BE-NF-022 | Queue + atomic call-next | P0 | BE-NF-021, BE-RF-043 | Priority/race tests pass |
-| BE-NF-023 | No-show job | P0 | BE-NF-021, BE-RF-061 | Retry/idempotency pass |
-| BE-NF-030 | Appointment reminders | P0 | BE-NF-011, BE-RF-061 | Cancel/version/retry tests pass |
-| BE-NF-031 | UserDevices + FCM | P1 | BE-RF-061 | Revoke/retry/privacy tests pass |
-| BE-NF-032 | Campaign fan-out | P2 | BE-RF-061 | Batch/rate-limit/audit pass |
-| BE-NF-040 | AI daily quota | P0 | BE-RF-051 | Concurrent reserve/reconcile pass |
-| BE-NF-050 | VNPAY payment/subscription | P0/P1 | BE-RF-030, BE-RF-061 | Signature/IPN/idempotency pass |
-| BE-NF-051 | Cancel unpaid order | P0 cùng payment | BE-NF-050 | Cancel-vs-IPN race pass |
-| BE-NF-052 | Full refund | P1 | BE-NF-050, BE-RF-061 | Provider/reconcile/grant E2E pass |
-| BE-NF-060 | Manual moderation | P1 | BE-RF-030, BE-RF-040, BE-RF-042 | Workflow/audit pass |
-| BE-NF-061 | AI moderation draft | P2 | BE-NF-060, BE-RF-051 | Human approval enforced |
-| BE-NF-070 | WebRTC/TURN backend | P1 | BE-RF-043, BE-NF-022 | Authorized signaling demo pass |
+| ID        | Feature                        |         Ưu tiên | Phụ thuộc                       | Done khi                          |
+| --------- | ------------------------------ | --------------: | ------------------------------- | --------------------------------- |
+| BE-NF-001 | OAuth login/linking            |              P1 | BE-RF-030, BE-RF-011            | Security/linking E2E pass         |
+| BE-NF-010 | AvailabilitySlot               |              P0 | BE-RF-020, BE-RF-031            | Overlap/ownership tests pass      |
+| BE-NF-011 | Scheduled booking              |              P0 | BE-NF-010, BE-RF-040            | Double-booking race pass          |
+| BE-NF-012 | Scheduled cancel/reopen/expire |              P0 | BE-NF-011                       | Transaction/state tests pass      |
+| BE-NF-020 | On-demand v2 expiry/retry      |              P0 | BE-RF-040                       | Conditional transition tests pass |
+| BE-NF-021 | Check-in                       |              P0 | BE-NF-011, BE-NF-020            | Window/state tests pass           |
+| BE-NF-022 | Queue + atomic call-next       |              P0 | BE-NF-021, BE-RF-043            | Priority/race tests pass          |
+| BE-NF-023 | No-show job                    |              P0 | BE-NF-021, BE-RF-061            | Retry/idempotency pass            |
+| BE-NF-030 | Appointment reminders          |              P0 | BE-NF-011, BE-RF-061            | Cancel/version/retry tests pass   |
+| BE-NF-031 | UserDevices + FCM              |              P1 | BE-RF-061                       | Revoke/retry/privacy tests pass   |
+| BE-NF-032 | Campaign fan-out               |              P2 | BE-RF-061                       | Batch/rate-limit/audit pass       |
+| BE-NF-040 | AI daily quota                 |              P0 | BE-RF-051                       | Concurrent reserve/reconcile pass |
+| BE-NF-050 | VNPAY payment/subscription     |           P0/P1 | BE-RF-030, BE-RF-061            | Signature/IPN/idempotency pass    |
+| BE-NF-051 | Cancel unpaid order            | P0 cùng payment | BE-NF-050                       | Cancel-vs-IPN race pass           |
+| BE-NF-052 | Full refund                    |              P1 | BE-NF-050, BE-RF-061            | Provider/reconcile/grant E2E pass |
+| BE-NF-060 | Manual moderation              |              P1 | BE-RF-030, BE-RF-040, BE-RF-042 | Workflow/audit pass               |
+| BE-NF-061 | AI moderation draft            |              P2 | BE-NF-060, BE-RF-051            | Human approval enforced           |
+| BE-NF-070 | WebRTC/TURN backend            |              P1 | BE-RF-043, BE-NF-022            | Authorized signaling demo pass    |
 
 ---
 
@@ -1336,18 +1347,18 @@ Frontend repository chịu trách nhiệm:
 
 Lịch ưu tiên hoàn thành nền refactor trước, sau đó tập trung feature. Một vài contract/design feature có thể chuẩn bị sớm nhưng không code vào module legacy.
 
-| Thời gian | Nhóm việc | Kết quả bắt buộc |
-|---|---|---|
-| 15/09-20/09 | RF-0, RF-1 | Audit, backend build xanh, CI fail-fast, characterization tests |
-| 21/09-04/10 | RF-2, RF-3, RF-4 | Service/query standards, backend độc lập, OpenAPI, migration runner và DB rỗng bootstrap |
-| 05/10-18/10 | RF-5, RF-6 | Canonical Identity/Practitioner và old on-demand flow trên Consultation |
-| 19/10-01/11 | RF-7, RF-8, RF-9 | Chat/review/realtime, Health/AI, notification/outbox và module query optimization |
-| 02/11-15/11 | NF-2 | AvailabilitySlot và scheduled booking hoàn chỉnh |
-| 16/11-29/11 | NF-3, NF-4, NF-5 | Queue/check-in/no-show, reminder và AI quota |
-| 30/11-08/12 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line |
-| 09/12-13/12 | RF-10 + integration | Legacy cutover, reconciliation, contract freeze |
-| 14/12-23/12 | Release Candidate | Full regression, load/security, backup/restore, demo rehearsal |
-| 24/12-31/12 | Buffer | Chỉ blocker, security và lỗi demo; không thêm feature |
+| Thời gian   | Nhóm việc                     | Kết quả bắt buộc                                                                         |
+| ----------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| 15/09-20/09 | RF-0, RF-1                    | Audit, backend build xanh, CI fail-fast, characterization tests                          |
+| 21/09-04/10 | RF-2, RF-3, RF-4              | Service/query standards, backend độc lập, OpenAPI, migration runner và DB rỗng bootstrap |
+| 05/10-18/10 | RF-5, RF-6                    | Canonical Identity/Practitioner và old on-demand flow trên Consultation                  |
+| 19/10-01/11 | RF-7, RF-8, RF-9              | Chat/review/realtime, Health/AI, notification/outbox và module query optimization        |
+| 02/11-15/11 | NF-2                          | AvailabilitySlot và scheduled booking hoàn chỉnh                                         |
+| 16/11-29/11 | NF-3, NF-4, NF-5              | Queue/check-in/no-show, reminder và AI quota                                             |
+| 30/11-08/12 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line           |
+| 09/12-13/12 | RF-10 + integration           | Legacy cutover, reconciliation, contract freeze                                          |
+| 14/12-23/12 | Release Candidate             | Full regression, load/security, backup/restore, demo rehearsal                           |
+| 24/12-31/12 | Buffer                        | Chỉ blocker, security và lỗi demo; không thêm feature                                    |
 
 Quy tắc cut-line:
 
@@ -1361,39 +1372,39 @@ Quy tắc cut-line:
 
 ### 14.1 Refactor
 
-| Nhóm | Person-days |
-|---|---:|
-| Audit, build, tests và CI | 7-10 |
-| Service decomposition, pagination/query conventions và explain baseline | 8-12 |
-| Cache-aside có chọn lọc sau query baseline | 2-4 |
-| Backend boundary, contracts và platform hardening | 6-9 |
-| Mongoose/migration/database foundation | 7-10 |
-| Identity + Practitioner | 8-12 |
-| Session → Consultation core | 7-10 |
-| Chat + Review + Realtime | 7-10 |
-| Health + AI/RAG | 7-11 |
-| Notification + Outbox/BullMQ | 7-10 |
-| Cutover/cleanup | 4-6 |
-| **Tổng RF thô nếu làm cả cache P1** | **70-104** |
+| Nhóm                                                                    | Person-days |
+| ----------------------------------------------------------------------- | ----------: |
+| Audit, build, tests và CI                                               |        7-10 |
+| Service decomposition, pagination/query conventions và explain baseline |        8-12 |
+| Cache-aside có chọn lọc sau query baseline                              |         2-4 |
+| Backend boundary, contracts và platform hardening                       |         6-9 |
+| Mongoose/migration/database foundation                                  |        7-10 |
+| Identity + Practitioner                                                 |        8-12 |
+| Session → Consultation core                                             |        7-10 |
+| Chat + Review + Realtime                                                |        7-10 |
+| Health + AI/RAG                                                         |        7-11 |
+| Notification + Outbox/BullMQ                                            |        7-10 |
+| Cutover/cleanup                                                         |         4-6 |
+| **Tổng RF thô nếu làm cả cache P1**                                     |  **70-104** |
 
 Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nếu bỏ cache khỏi deadline, tổng RF thô là **68-100 person-days**; vẫn giữ Redis vì OTP, throttling phân tán, presence, quota và BullMQ cần Redis.
 
 ### 14.2 Feature mới
 
-| Feature | Person-days | Cut-line |
-|---|---:|---|
-| OAuth | 3-5 | P1 |
-| Slot + scheduled | 12-17 | P0 |
-| On-demand v2 + check-in + queue + no-show | 10-15 | P0 |
-| Reminder | 3-5 | P0 |
-| FCM | 3-5 | P1 |
-| Campaign | 3-5 | P2 |
-| AI quota | 4-6 | P0 |
-| Payment + cancel | 10-15 | P0/P1 tùy demo |
-| Full refund | 6-9 | P1 |
-| Manual moderation | 5-8 | P1 |
-| AI moderation draft | 2-4 | P2 |
-| WebRTC/TURN backend | 4-7 | P1 |
+| Feature                                   | Person-days | Cut-line       |
+| ----------------------------------------- | ----------: | -------------- |
+| OAuth                                     |         3-5 | P1             |
+| Slot + scheduled                          |       12-17 | P0             |
+| On-demand v2 + check-in + queue + no-show |       10-15 | P0             |
+| Reminder                                  |         3-5 | P0             |
+| FCM                                       |         3-5 | P1             |
+| Campaign                                  |         3-5 | P2             |
+| AI quota                                  |         4-6 | P0             |
+| Payment + cancel                          |       10-15 | P0/P1 tùy demo |
+| Full refund                               |         6-9 | P1             |
+| Manual moderation                         |         5-8 | P1             |
+| AI moderation draft                       |         2-4 | P2             |
+| WebRTC/TURN backend                       |         4-7 | P1             |
 
 Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF không an toàn trước 31/12. Committed scope nên là RF bắt buộc + Slot/Scheduled + Queue + Reminder + AI quota; Payment chỉ là P0 nếu đề cương/demo bắt buộc.
 
@@ -1524,25 +1535,25 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
 
 ## 20. Rủi ro chính
 
-| Rủi ro | Tác động | Giảm thiểu |
-|---|---|---|
-| Bắt đầu feature khi build chưa xanh | Cao | RF-1 hard gate |
-| God service chỉ bị chia file nhưng vẫn coupling | Cao | Responsibility map, port ownership và dependency tests/review gate |
-| List endpoint/query không bounded làm tăng RAM/latency | Cao | Shared pagination, hard max, cursor cho timeline và load test |
-| Index không khớp filter + sort thực tế | Cao | Query catalog, explain baseline và versioned index migration |
-| Regex search/populate gây query chậm | Trung bình | Escape/allowlist, Atlas/text search, projection/lean và query-count budget |
-| Cache che query xấu hoặc trả dữ liệu cũ | Cao | Chỉ cache sau explain baseline; TTL/invalidation owner, versioned key và Redis-failure tests |
-| Rate limit chỉ lưu memory nên lệch giữa instance | Cao | Redis-backed throttler storage; test IP/principal và cấu hình proxy |
-| Cài quá nhiều tool làm trễ deadline | Trung bình | P0/P1 gate; package có owner/use case/exit gate, cắt cache/APM/dev tools trước core flow |
-| Gắn feature mới trực tiếp vào Session legacy | Cao | Hoàn tất BE-RF-040 trước; feature dùng Consultation core |
-| Double booking/call-next race | Cao | Conditional update, partial unique index, transaction, race tests |
-| Worker gửi lặp | Cao | Outbox, stable idempotency key, consumer idempotent |
-| Mongoose schema/index drift | Cao | Versioned migration + verifier trong CI |
-| Scope payment/refund quá lớn | Cao | Payment conditional P0; refund P1 gate 29/11 |
-| WebRTC thất bại qua NAT | Trung bình | TURN spike; backend-only scope; P1 |
-| AI quota/cost | Trung bình | Redis reserve + daily reconciliation |
-| Dữ liệu sức khỏe lọt log | Cao | Allowlist logging và redaction tests |
-| Frontend chưa chuyển khỏi legacy | Trung bình | Giữ adapter, theo dõi access log; không nhận implement frontend vào plan BE |
+| Rủi ro                                                 | Tác động   | Giảm thiểu                                                                                   |
+| ------------------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------- |
+| Bắt đầu feature khi build chưa xanh                    | Cao        | RF-1 hard gate                                                                               |
+| God service chỉ bị chia file nhưng vẫn coupling        | Cao        | Responsibility map, port ownership và dependency tests/review gate                           |
+| List endpoint/query không bounded làm tăng RAM/latency | Cao        | Shared pagination, hard max, cursor cho timeline và load test                                |
+| Index không khớp filter + sort thực tế                 | Cao        | Query catalog, explain baseline và versioned index migration                                 |
+| Regex search/populate gây query chậm                   | Trung bình | Escape/allowlist, Atlas/text search, projection/lean và query-count budget                   |
+| Cache che query xấu hoặc trả dữ liệu cũ                | Cao        | Chỉ cache sau explain baseline; TTL/invalidation owner, versioned key và Redis-failure tests |
+| Rate limit chỉ lưu memory nên lệch giữa instance       | Cao        | Redis-backed throttler storage; test IP/principal và cấu hình proxy                          |
+| Cài quá nhiều tool làm trễ deadline                    | Trung bình | P0/P1 gate; package có owner/use case/exit gate, cắt cache/APM/dev tools trước core flow     |
+| Gắn feature mới trực tiếp vào Session legacy           | Cao        | Hoàn tất BE-RF-040 trước; feature dùng Consultation core                                     |
+| Double booking/call-next race                          | Cao        | Conditional update, partial unique index, transaction, race tests                            |
+| Worker gửi lặp                                         | Cao        | Outbox, stable idempotency key, consumer idempotent                                          |
+| Mongoose schema/index drift                            | Cao        | Versioned migration + verifier trong CI                                                      |
+| Scope payment/refund quá lớn                           | Cao        | Payment conditional P0; refund P1 gate 29/11                                                 |
+| WebRTC thất bại qua NAT                                | Trung bình | TURN spike; backend-only scope; P1                                                           |
+| AI quota/cost                                          | Trung bình | Redis reserve + daily reconciliation                                                         |
+| Dữ liệu sức khỏe lọt log                               | Cao        | Allowlist logging và redaction tests                                                         |
+| Frontend chưa chuyển khỏi legacy                       | Trung bình | Giữ adapter, theo dõi access log; không nhận implement frontend vào plan BE                  |
 
 ## 21. Quy tắc làm việc
 
@@ -1566,9 +1577,9 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
 Thực hiện đúng thứ tự:
 
 1. [x] Tạo `BE-RF-001` và hoàn thành inventory/disposition ngày `2026-09-15`.
-2. [ ] Tạo `BE-RF-002`, sửa API build/typecheck.
-3. [ ] Tạo `BE-RF-003`, bật CI fail-fast.
-4. [ ] Tạo `BE-RF-004`, viết characterization tests cho old flows.
+2. [x] Hoàn thành `BE-RF-002`, sửa API build/typecheck ngày `2026-09-15`.
+3. [x] Hoàn thành `BE-RF-003`, bật CI fail-fast ngày `2026-09-15`.
+4. [x] Hoàn thành `BE-RF-004`, viết characterization tests cho old flows ngày `2026-09-15`.
 5. [ ] Tạo service responsibility map (`BE-RF-005`), không bắt đầu bằng việc di chuyển file hàng loạt.
 6. [ ] Tạo pagination/query conventions và query catalog (`BE-RF-006`, `BE-RF-007`); đo baseline trước khi thêm index.
 7. [ ] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`).

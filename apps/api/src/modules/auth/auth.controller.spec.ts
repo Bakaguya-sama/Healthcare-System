@@ -1,20 +1,21 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 
-describe('AuthController', () => {
-  let controller: AuthController;
+describe('AuthController legacy characterization', () => {
+  it('delegates login and preserves its response', async () => {
+    const response = {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    };
+    const authService = {
+      login: jest.fn().mockResolvedValue(response),
+    };
+    const controller = new AuthController(
+      authService as unknown as AuthService,
+    );
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [AuthController],
-      providers: [AuthService],
-    }).compile();
-
-    controller = module.get<AuthController>(AuthController);
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+    await expect(
+      controller.login({ email: 'user@example.com', password: 'password' }),
+    ).resolves.toBe(response);
   });
 });

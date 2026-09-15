@@ -10,7 +10,7 @@ import { User, UserDocument } from '../auth/entities/user.schema';
 import {
   Doctor,
   DoctorDocument,
-} from './entities/doctorProfile.schema';
+} from './entities/doctor.schema';
 import { Patient, PatientDocument } from '../patients/entities/patient.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';

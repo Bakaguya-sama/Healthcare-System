@@ -27,6 +27,8 @@ Ngày audit: **2026-09-15**. Severity ở đây dùng để sắp thứ tự ref
 | KD-019 | Medium   | Swagger UI luôn bật; error/response DTO coverage không đủ để coi OpenAPI là contract                                | BE-RF-011, BE-RF-013                       |
 | KD-020 | Low      | Legacy AI có AiConversation và AiSession/AiMessage song song; owner/canonical path không rõ                         | BE-RF-051                                  |
 
+Resolution note: `KD-001`, `KD-002` và `KD-003` đã được xử lý trong RF-1 ngày 2026-09-15. Các dòng được giữ lại để bảo toàn lịch sử audit; những defect còn lại chưa được sửa chỉ vì đã có characterization test.
+
 ## 2. Feature requests — không được sửa lẫn trong RF defect task
 
 | Feature                                                   | Loại                               | Backlog                 |

@@ -171,7 +171,7 @@ Lựa chọn package manager — Chọn một:
 - [ ] npm.
 - [ ] yarn.
 
-- [ ] Clean install từ lockfile thành công.
+- [x] Clean install từ lockfile thành công ngày `2026-09-15`.
 - [x] Ghi lại lỗi lint/typecheck/build/test hiện tại mà chưa sửa trong `docs/current-state/baseline-commands.md`; lint legacy có `--fix` nên được ghi nhận nhưng không chạy ở RF-0.
 
 ---
@@ -186,12 +186,12 @@ Lựa chọn package manager — Chọn một:
 
 ### 6.2 Các command bắt buộc — BLOCKER
 
-- [ ] `lint`.
-- [ ] `typecheck`.
-- [ ] `build`.
-- [ ] `test:unit`.
-- [ ] `test:integration`.
-- [ ] `test:e2e`.
+- [x] `lint`.
+- [x] `typecheck`.
+- [x] `build`.
+- [x] `test:unit`.
+- [x] `test:integration`.
+- [x] `test:e2e`.
 - [ ] `db:migrate`.
 - [ ] `db:verify`.
 - [ ] `openapi:generate`.
@@ -448,8 +448,8 @@ Không tạo task feature mới chỉ để né blocker của các task trên. F
 
 - [x] Endpoint/event/schema/consumer inventory của `BE-RF-001` hoàn tất ngày `2026-09-15`.
 - [x] Build/test failures hiện tại đã được ghi thành baseline, chưa cần tất cả pass.
-- [ ] Có `.env.example` và local startup instructions.
-- [ ] MongoDB replica set và Redis local/test khởi động được.
+- [x] Có `.env.example` và local startup instructions (`docs/local-development.md`) ngày `2026-09-15`.
+- [x] MongoDB replica set và Redis local/test khởi động được bằng `compose.yaml`; integration test pass ngày `2026-09-15`.
 - [x] Critical old flows có expected-behavior artifact tại `docs/current-state/legacy-behavior.md`; tests được viết ở BE-RF-004 sau khi build xanh.
 
 ### 15.3 Quyết định cuối — Chọn một

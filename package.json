@@ -6,7 +6,13 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "check-types": "turbo run check-types",
+    "build:api": "pnpm --filter api build",
+    "lint:api": "pnpm --filter api lint",
+    "typecheck:api": "pnpm --filter api typecheck",
+    "test:unit": "pnpm --filter api test:unit",
+    "test:integration": "pnpm --filter api test:integration",
+    "test:e2e": "pnpm --filter api test:e2e"
   },
   "devDependencies": {
     "@types/multer": "^2.1.0",

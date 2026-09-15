@@ -21,3 +21,5 @@ Recorded: **2026-09-15**, Node `24.9.0`, pnpm `9.0.0`
 `lint` hiện được định nghĩa với `--fix`, nên RF-0 không chạy để tránh sửa source trong audit-only phase. RF-1 phải tạo command lint read-only/fail-fast rồi mới ghi baseline đáng tin cậy.
 
 RF-0 không sửa runtime source để làm xanh các check trên. Các failure này là đầu vào có chủ đích cho RF-1.
+
+RF-1 đã xử lý các blocker này. Kết quả sau sửa và danh sách test được lưu tại `rf1-verification.md`; bảng phía trên vẫn được giữ nguyên làm bằng chứng before-state của RF-0.

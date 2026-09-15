@@ -17,7 +17,7 @@ import {
   Doctor,
   DoctorDocument,
   DoctorVerificationStatus,
-} from '../users/entities/doctorProfile.schema';
+} from '../users/entities/doctor.schema';
 import { Admin, AdminDocument } from '../admins/entities/admin.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';

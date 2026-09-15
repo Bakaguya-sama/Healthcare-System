@@ -14,7 +14,7 @@ import {
   Doctor,
   DoctorDocument,
   DoctorVerificationStatus,
-} from '../users/entities/doctorProfile.schema';
+} from '../users/entities/doctor.schema';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
 
 @Injectable()

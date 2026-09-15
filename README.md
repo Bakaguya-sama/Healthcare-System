@@ -24,6 +24,8 @@ The project is built as a Monorepo utilizing Turborepo, featuring a robust NestJ
 
 ## Installation
 
+Backend setup cho refactor được chuẩn hóa tại [`docs/local-development.md`](docs/local-development.md), gồm MongoDB replica set, Redis, environment và quality commands.
+
 This project uses **pnpm** as the package manager within a **Turborepo** workspace.
 
 ### Requirements
