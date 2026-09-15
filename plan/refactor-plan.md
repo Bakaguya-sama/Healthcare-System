@@ -1,1935 +1,1590 @@
-# Kế hoạch refactor hệ thống Healthcare
+# Kế hoạch Backend: Refactor code cũ và phát triển tính năng mới
 
-## 1. Thông tin tài liệu
+## 1. Thông tin và phạm vi tài liệu
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | Baseline kế hoạch refactor, có thể cập nhật theo từng sprint |
 | Ngày lập | 11/09/2026 |
-| Deadline mục tiêu | 31/12/2026 |
-| Phạm vi | Backend, cơ sở dữ liệu, hợp đồng API, hạ tầng, kiểm thử, CI/CD và kế hoạch tách frontend |
-| Quyết định kiến trúc | Refactor có kiểm soát; không rebuild toàn bộ |
-| Kiến trúc backend đích | Modular Monolith, domain-oriented modules, DDD-lite cho domain phức tạp |
-| Kiến trúc frontend đích | Một repository riêng chứa Web Client, Web Admin, Mobile và các package dùng chung |
-| Chiến lược dữ liệu | MongoDB Atlas mới, Mongoose làm ODM, migration có version; MongoDB driver cho migration và tính năng đặc thù khi cần |
-| Nguồn nghiệp vụ chính | `docs/BUSINESS_RULES.md` và `docs/db-template-v7.dbml` |
+| Cập nhật gần nhất | 15/09/2026 - tách riêng kế hoạch refactor backend và feature backend; loại task triển khai frontend |
+| Deadline | 31/12/2026 |
+| Phạm vi thực thi | Chỉ Backend: NestJS, MongoDB/Mongoose, Redis, BullMQ, REST, Socket.IO, WebRTC signaling, worker, test, CI/CD và tài liệu API |
+| Ngoài phạm vi thực thi | Web Client, Web Admin và React Native; được triển khai ở repository frontend khác |
+| Kiến trúc đích | Modular Monolith, domain-oriented modules, DDD-lite cho domain phức tạp |
+| Chiến lược | Refactor có kiểm soát, không rebuild toàn bộ |
+| Database | MongoDB mới, Mongoose làm ODM, migration có version |
+| Nguồn nghiệp vụ | `docs/BUSINESS_RULES.md`, `docs/db-template-v7.dbml`, `docs/overview.md` |
+| Hợp đồng bàn giao frontend | OpenAPI, realtime event schemas và `docs/fe-integration.md` |
 
-Tài liệu này là kế hoạch thực thi. Khi có xung đột giữa code cũ, README cũ và nghiệp vụ mới, thứ tự ưu tiên là:
+Tài liệu này cố ý chia thành hai phần lớn không đan xen:
 
-1. Quyết định sản phẩm đã thống nhất: hệ thống **tư vấn sức khỏe**, không phải hệ thống khám hoặc chẩn đoán.
-2. `BUSINESS_RULES.md`.
+1. **Phần A — Refactor backend code cũ:** giữ hành vi đang có, sửa cấu trúc và nền kỹ thuật.
+2. **Phần B — Phát triển backend feature mới:** thêm hành vi/nghiệp vụ chưa có trong phiên bản cũ.
+
+Thứ tự ưu tiên khi có mâu thuẫn:
+
+1. Sản phẩm là hệ thống **tư vấn sức khỏe**, không khám hoặc chẩn đoán.
+2. `docs/BUSINESS_RULES.md`.
 3. `docs/db-template-v7.dbml`.
-4. Hợp đồng API đã được phê duyệt và xuất thành OpenAPI.
-5. Code hiện tại.
+4. OpenAPI/realtime contract đã được duyệt.
+5. Code cũ.
 
-## 2. Kết luận kiến trúc
+## 2. Quy tắc phân loại công việc
 
-### 2.1 Quyết định chính
+### 2.1 Refactor là gì
 
-Không rebuild toàn bộ hệ thống. Áp dụng chiến lược **selective rewrite trong cùng codebase**, thay lần lượt các domain có mô hình cũ không còn phù hợp, đồng thời giữ lại những phần có giá trị như UI, luồng xác thực, health metrics, RAG, upload, Socket.IO và các API có thể tương thích ngược.
+Một task là **refactor** khi người dùng thực hiện cùng một hành vi trước và sau thay đổi. Task có thể đổi module, schema, repository, API nội bộ hoặc hạ tầng, nhưng không thêm năng lực sản phẩm mới.
 
-Ba phần cần xây lõi mới hoặc refactor sâu nhất là:
+Ví dụ thuộc refactor:
 
-1. `consultations`: thay thế mô hình `sessions` cũ bằng consultation hỗ trợ `on_demand`, `scheduled`, slot và hàng đợi.
-2. `identity-access`: hợp nhất các User schema, session đăng nhập, OAuth và OTP.
-3. `ai-advisory`: hợp nhất các module AI trùng lặp và chia nhỏ service điều phối quá lớn.
+- Sửa API build và test.
+- Hợp nhất hai User schema.
+- Đổi `password` thành `passwordHash`.
+- Chuyển OTP từ MongoDB sang Redis.
+- Chuyển flow yêu cầu tư vấn cũ từ Session sang Consultation `on_demand`.
+- Chuyển message từ `sessionId` sang `consultationId`.
+- Hợp nhất các module AI/RAG trùng lặp.
+- Chuyển notification đang có sang outbox/BullMQ để retry an toàn.
+- Sửa authorization room và CORS của Socket.IO.
 
-### 2.2 DDD và layer được dùng như thế nào
+### 2.2 Feature mới là gì
 
-DDD không thay thế layer. Cấu trúc đích sử dụng hai chiều tổ chức:
+Một task là **feature mới** khi tạo thêm hành vi mà người dùng hoặc admin chưa thể thực hiện ở phiên bản cũ.
 
-- Cấp hệ thống: chia dọc theo domain hoặc business capability.
-- Bên trong domain phức tạp: chia thành `domain`, `application`, `infrastructure`, `presentation`.
-- Với module CRUD đơn giản: chỉ cần controller, service, repository/schema; không tạo aggregate và repository interface hình thức.
+Ví dụ thuộc feature mới:
 
-Quy tắc phụ thuộc:
+- Bác sĩ tạo AvailabilitySlot.
+- Bệnh nhân chủ động đặt lịch theo slot.
+- Check-in, hàng đợi, gọi bệnh nhân tiếp theo và no-show.
+- OAuth nếu phiên bản cũ chưa có flow hoạt động.
+- Nhắc lịch 24 giờ/15 phút và FCM device delivery.
+- AI daily quota.
+- Payment, cancel payment order và refund.
+- Moderation workflow đầy đủ.
 
-```text
-presentation  ──> application ──> domain
-infrastructure ────────────────> domain
-infrastructure ────────────────> application ports
-domain ──> không phụ thuộc NestJS, Mongoose, MongoDB driver, Socket.IO, Redis hoặc Cloudinary
-```
+### 2.3 Trường hợp dễ bị trộn
 
-### 2.3 Những kiến trúc không chọn
-
-| Lựa chọn | Quyết định | Lý do |
+| Nhu cầu | Phần refactor | Phần feature mới |
 |---|---|---|
-| Rebuild toàn bộ | Không | Khối lượng hiện tại lớn, thiếu test hồi quy, dễ mất các luồng đã hoạt động |
-| Layer ngang toàn hệ thống | Không | Làm domain bị rải giữa thư mục controller/service/repository và tăng coupling |
-| Full tactical DDD cho mọi module | Không | Quá nhiều boilerplate cho CRUD và không phù hợp deadline |
-| Microservices | Không | Chưa có nhu cầu deploy độc lập hoặc tải đủ lớn để bù chi phí vận hành |
-| Kafka | Không | Chưa có event streaming nhiều consumer; BullMQ và outbox đủ cho phạm vi hiện tại |
-| Event Sourcing | Không | Tăng mạnh độ phức tạp migration, truy vấn và debug |
-| Nest CQRS framework | Chưa dùng | Có thể tổ chức command/query bằng thư mục và use case trước, không cần thêm framework |
+| Consultation | Chuyển request/accept/decline/chat cũ từ Session sang Consultation `on_demand` | Scheduled consultation, slot, check-in, queue, no-show |
+| Notification | Chuẩn hóa collection và chuyển cách gửi hiện có sang outbox/worker | Reminder, FCM, campaign mới |
+| AI | Hợp nhất persistence/orchestrator/RAG cũ | Quota ngày và usage reconciliation |
+| Auth | Hợp nhất User, refresh session, Redis OTP | OAuth login/linking nếu chưa tồn tại |
+| Review | Sửa unique/rating/placeholder hiện có | Violation/moderation workflow mới |
+| Realtime | Sửa auth, room, CORS, Redis presence | Queue events mới hoặc TURN capability mới |
 
-## 3. Phạm vi sản phẩm đã chuẩn hóa
+Quy tắc bắt buộc:
 
-### 3.1 Trong phạm vi
+- Không tạo issue hoặc pull request mang đồng thời refactor và feature mới.
+- Nếu feature cần sửa nền, tạo task refactor riêng và merge trước.
+- Migration runner là refactor nền; migration collection/index của feature thuộc chính feature đó.
+- Test refactor chứng minh không regression; test feature chứng minh acceptance criteria mới.
+- Frontend không nằm trong Definition of Done của backend. Backend chỉ chịu trách nhiệm cung cấp contract và môi trường tích hợp ổn định.
 
-- Đăng ký, đăng nhập, JWT, refresh-token rotation, email OTP và OAuth.
-- Quản lý bệnh nhân, bác sĩ, admin và duyệt hồ sơ bác sĩ.
-- Bệnh nhân chủ động đặt lịch từ slot bác sĩ mở sẵn.
-- Bệnh nhân gửi yêu cầu tư vấn nhanh `on_demand`; bác sĩ chấp nhận hoặc từ chối.
-- Check-in và hàng đợi theo từng bác sĩ.
-- Chat realtime và signaling WebRTC trong consultation được phép.
-- Theo dõi chỉ số sức khỏe và cảnh báo tham khảo.
-- AI tư vấn thông tin, tóm tắt và RAG; không chẩn đoán.
-- Subscription, quota AI, thanh toán VNPAY Sandbox, hủy payment order chưa thanh toán và yêu cầu full refund có admin duyệt.
-- Notification trong ứng dụng, FCM, email, outbox và worker.
-- Review sau consultation và quản lý báo cáo vi phạm.
-- Web Client, Web Admin và React Native Mobile App ở repository frontend riêng.
-- Unit test, integration test, E2E, WebSocket test và k6 load test.
+Quy ước ID:
 
-### 3.2 Ngoài phạm vi MVP đến 31/12
-
-- Chẩn đoán bệnh hoặc thay thế bác sĩ.
-- AI tự động khóa tài khoản hoặc tự đưa ra quyết định y khoa.
-- Hồ sơ bệnh án điện tử chuẩn bệnh viện hoặc liên thông quốc gia.
-- Kết nối thiết bị IoT y tế thật.
-- Kafka, microservices, service mesh hoặc Kubernetes.
-- Admin mobile đầy đủ nếu Web Admin đã đáp ứng nghiệp vụ.
-- Huấn luyện mô hình AI chẩn đoán hình ảnh chuyên sâu.
-- Partial refund, nhiều lần refund trên một payment, chargeback/dispute và tự động duyệt refund.
-- Tự động refund do hủy consultation; payment hiện mua subscription, không thanh toán riêng cho từng consultation.
-
-### 3.3 Mâu thuẫn cần sửa trong đề cương và README
-
-| Nội dung hiện tại | Điều chỉnh bắt buộc |
+| Tiền tố | Ý nghĩa |
 |---|---|
-| “Khám bệnh trực tuyến”, “độ chính xác chẩn đoán”, “AI preliminary diagnosis/triage” | Đổi thành “tư vấn trực tuyến”, “hỗ trợ cung cấp thông tin”, “cảnh báo tham khảo”; thêm tuyên bố không chẩn đoán |
-| Đề cương tập trung hàng đợi nhưng chưa mô tả rõ đặt lịch theo slot | Bổ sung AvailabilitySlot, bệnh nhân chủ động đặt, check-in và quan hệ với Consultation |
-| Backend được ghi Node.js Express.js ở một phần và NestJS ở phần khác | Chuẩn hóa thành NestJS chạy trên Node.js; Express chỉ là HTTP adapter mặc định |
-| Gemini 2.0 Flash và 2.5 Flash xuất hiện không nhất quán | Chọn một model qua biến cấu hình, không gắn phiên bản model vào business rule |
-| Đề cương ghi `react-query` nhưng code chưa dùng | Hoặc thêm TanStack Query trong refactor frontend, hoặc xóa công nghệ này khỏi đề cương |
-| README nói “Book a consultation” nhưng code chỉ tạo session với thời gian tùy ý | Cập nhật sau khi slot booking được hoàn thành |
-| README lặp nguyên một README thứ hai bên trong mục Setup | Viết lại README sau khi tách repository |
-| “Tự động hóa 100% deploy” | Đổi thành pipeline build, test và triển khai tự động cho môi trường demo/staging |
+| `BE-RF-*` | Backend refactor code/hành vi cũ |
+| `BE-NF-*` | Backend feature mới |
+| `BE-REL-*` | Tích hợp, hardening và release backend |
 
-## 4. Hiện trạng codebase
+## 3. Kiến trúc backend đích
 
-### 4.1 Quy mô đã rà soát
+### 3.1 Quyết định chính
 
-| Khu vực | File TS/TSX | LOC xấp xỉ |
-|---|---:|---:|
-| `apps/api/src` | 181 | 17.911 |
-| `apps/client/src` | 95 | 16.617 |
-| `apps/admin/src` | 54 | 8.462 |
-| `packages/ui/src` | 42 | 5.045 |
-| `packages/shared-types/src` | 7 | 90 |
-| Tổng | 379 | 48.125 |
+- Giữ NestJS, TypeScript, MongoDB Atlas, Mongoose, Socket.IO, Cloudinary và Google GenAI SDK.
+- Dùng Modular Monolith; không tách microservices trong deadline.
+- Dùng DDD-lite cho Identity, Consultation, Billing và AI Usage.
+- Module CRUD đơn giản chỉ cần controller, service và repository/schema.
+- Redis phục vụ OTP, rate limit, quota, presence và BullMQ.
+- BullMQ phục vụ background jobs; Kafka chưa cần.
+- Transactional Outbox bảo đảm side effect không mất sau khi business transaction commit.
+- Mongoose schema phục vụ runtime mapping/validation; migration files quản lý collection, validator, index và backfill.
+- Không dùng `autoIndex`, `syncIndexes()` hoặc Mongo shell script như cơ chế deploy schema ở staging/demo.
 
-### 4.2 Điểm có thể giữ lại
-
-- NestJS, MongoDB Atlas và prefix `/api/v1`.
-- ValidationPipe, Swagger cơ bản và phân quyền hiện tại làm nền cho contract mới.
-- Các màn hình Web Client và Web Admin.
-- Socket.IO chat, notification và presence làm đầu vào refactor.
-- Health Metrics, biểu đồ và cảnh báo hiện có.
-- RAG, MongoDB Atlas Vector Search, Cloudinary và Google GenAI SDK.
-- Review đã được tách collection riêng.
-- Turborepo phù hợp với repository frontend sau khi tách vì frontend có nhiều app và package dùng chung.
-
-### 4.3 Vấn đề chặn phát triển tính năng mới
-
-#### Build và test
-
-- API hiện không build do Mongo shell script `src/createIndex.ts` bị TypeScript compile và do code vẫn import `Doctor`, `DoctorSchema` trong khi schema đã chuyển sang `DoctorProfile` embedded.
-- Client và Admin không qua TypeScript build; có lỗi contract, missing module, unused declaration và xung đột nhiều bản React types.
-- Hai test Auth dừng ngay lúc import schema; không có test nghiệp vụ hữu ích chạy thành công.
-- CI đang comment lint/typecheck và dùng `continue-on-error: true` cho build.
-- CI upload coverage nhưng không chạy `test:cov`.
-
-#### Ranh giới domain
-
-- Có hai `User` schema với `password` và `passwordHash` khác nhau.
-- Đồng thời tồn tại `admin` và `admins`, `users` và `patients`.
-- Đồng thời tồn tại AI CRUD modules cũ và `ai-assistant` mới.
-- `notifications` đăng ký cả `UploadController` và `CloudinaryService`, làm notification phụ thuộc vào file storage không đúng chiều.
-- Nhiều module inject trực tiếp Mongoose model của module khác thay vì gọi public facade.
-- Database/index hiện được mô tả bằng Mongoose schema và Mongo shell script nhưng chưa có migration history có version.
-
-#### Nghiệp vụ consultation
-
-- `SessionStatus.ACTIVE` vừa mang nghĩa đã xác nhận vừa mang nghĩa đang tư vấn.
-- Hủy consultation đang được lưu thành `REJECTED`.
-- Session cũ cho phép bệnh nhân chọn `scheduledAt` tùy ý, không bảo vệ bằng AvailabilitySlot.
-- Chưa có check-in window, no-show policy, hàng đợi atomic và chống double booking.
-- Socket event status không đồng nhất với entity status.
-
-#### Chất lượng triển khai
-
-- `AiAssistantService` và nhiều page/service dài từ 500 đến hơn 1.000 dòng.
-- Review helpful/flag hiện trả success nhưng chưa cập nhật dữ liệu.
-- Rating doctor được cập nhật bằng bù trừ thủ công, chưa đảm bảo transaction.
-- Presence và connected users dùng `Map` trong process, không hoạt động đúng khi scale nhiều instance.
-- Một số WebSocket gateway cho phép CORS `*` và lặp logic xác thực JWT.
-- Nhiều controller CRUD AI cung cấp endpoint quản trị quá rộng mà chưa thể hiện policy rõ ràng.
-
-## 5. Chiến lược tách repository frontend
-
-### 5.1 Repository đích
+### 3.2 Cấu trúc đề xuất
 
 ```text
-healthcare-api/
-├── src/
-├── test/
-├── scripts/
-├── database/
-│   ├── migrations/
-│   ├── seeds/
-│   ├── atlas/
-│   ├── migration-runner.ts
-│   └── verify-database.ts
-├── docs/
-├── package.json
-├── pnpm-lock.yaml
-├── Dockerfile
-└── README.md
-
-healthcare-frontend/
-├── apps/
-│   ├── web-client/
-│   ├── web-admin/
-│   └── mobile/
-├── packages/
-│   ├── ui/
-│   ├── api-client/
-│   ├── realtime-contracts/
-│   ├── config-eslint/
-│   └── config-typescript/
-├── package.json
-├── pnpm-workspace.yaml
-├── turbo.json
-└── README.md
-```
-
-Backend chỉ còn một app nên không cần giữ Turborepo. Frontend vẫn nên dùng pnpm workspace và Turborepo vì có Web Client, Web Admin, Mobile và package dùng chung.
-
-### 5.2 Thứ tự tách an toàn
-
-1. Gắn tag Git `pre-frontend-split-2026-09` sau khi build baseline được ghi nhận.
-2. Tạo repository frontend bằng công cụ giữ lịch sử Git, ưu tiên `git filter-repo`; không copy-paste rồi mất history.
-3. Giữ nguyên code frontend trong repository cũ tạm thời cho đến khi pipeline repository mới build được.
-4. Tạo biến môi trường `VITE_API_BASE_URL`, `VITE_SOCKET_URL` và cấu hình tương ứng cho Expo.
-5. Chuyển `apps/client`, `apps/admin`, `packages/ui`, config React/TypeScript sang frontend repo.
-6. Không chuyển `packages/shared-types` nguyên trạng. Backend phải sở hữu domain enum; REST type phía frontend được sinh từ OpenAPI.
-7. Chuyển dependency `cloudinary`, `multer` đang đặt ở package root về `healthcare-api/package.json`.
-8. Chỉ xóa frontend khỏi backend repo sau khi web-client và web-admin ở repo mới build xanh.
-9. Cập nhật CI, README, CORS origin và link giữa hai repository.
-
-### 5.3 Hợp đồng giữa hai repository
-
-REST API dùng OpenAPI làm nguồn chuẩn:
-
-```text
-NestJS DTO + decorators
-        │
-        ▼
-openapi.json được tạo trong CI backend
-        │
-        ▼
-frontend generate api-client và TypeScript types
-```
-
-Quy tắc:
-
-- Backend không import type từ frontend.
-- Frontend không chép tay enum nghiệp vụ đã có trong OpenAPI.
-- Breaking change phải tăng version API hoặc có compatibility adapter.
-- CI backend lưu `openapi.json` artifact và kiểm tra diff contract.
-- CI frontend chạy `generate:api` rồi typecheck; generated code không chứa business UI logic.
-- Socket.IO không được mô tả bởi OpenAPI. Duy trì `docs/realtime-events.md` trong backend và sinh `realtime-contracts` từ JSON Schema hoặc một package versioned nhỏ.
-
-### 5.4 Cấu trúc frontend sau khi tách
-
-```text
-apps/web-client/src/
-├── app/
-│   ├── router/
-│   └── providers/
-├── features/
-│   ├── auth/
-│   ├── consultation/
-│   ├── scheduling/
-│   ├── waiting-queue/
-│   ├── health-metrics/
-│   └── ai-advisory/
-├── entities/
-└── shared/
-
-packages/ui/src/                 # Chỉ component trình bày thuần
-packages/api-client/src/         # Axios, generated REST client, query keys
-packages/realtime-contracts/src/ # Socket event names và payload types
-```
-
-Các thay đổi bắt buộc cho frontend:
-
-- Chuyển `react` và `react-dom` của `packages/ui` sang `peerDependencies` để tránh nhiều bản React/@types React.
-- Chuyển `useAuthStore`, profile page và các business modal ra khỏi package UI thuần.
-- Hợp nhất hai Axios client đang lặp ở Client/Admin vào `packages/api-client`.
-- Dùng TanStack Query cho server state nếu giữ công nghệ đã ghi trong đề cương; Zustand chỉ giữ auth/session UI state và local UI state.
-- Tách các page 700-900 dòng thành page container, section component, hook và mapper.
-- Mobile dùng cùng generated API client nhưng có auth token storage adapter riêng; không tái sử dụng component DOM cho React Native.
-
-## 6. Kiến trúc backend đích
-
-### 6.1 Cấu trúc thư mục
-
-```text
-src/
+apps/api/src/
 ├── main.ts
 ├── app.module.ts
-├── config/
-│   ├── app.config.ts
-│   ├── auth.config.ts
-│   ├── consultation.config.ts
-│   ├── redis.config.ts
-│   ├── payment.config.ts
-│   └── validation.ts
-├── shared/
-│   ├── domain/
-│   │   ├── domain-event.ts
-│   │   └── domain-error.ts
-│   ├── application/
-│   │   ├── clock.port.ts
-│   │   └── id-generator.port.ts
-│   ├── infrastructure/
-│   │   ├── database/
-│   │   │   ├── mongoose/
-│   │   │   ├── migrations/
-│   │   │   └── transaction/
-│   │   ├── redis/
-│   │   ├── jobs/
-│   │   ├── logging/
-│   │   └── files/
-│   └── presentation/
-│       ├── filters/
-│       ├── guards/
-│       ├── interceptors/
-│       └── websocket/
+├── common/
+│   ├── auth/
+│   ├── errors/
+│   ├── logging/
+│   ├── pagination/
+│   └── validation/
+├── infrastructure/
+│   ├── database/
+│   ├── redis/
+│   ├── queue/
+│   ├── outbox/
+│   ├── cloudinary/
+│   └── observability/
 └── modules/
     ├── identity-access/
-    ├── practitioner-management/
+    ├── practitioners/
     ├── consultations/
     ├── health-tracking/
     ├── ai-advisory/
     ├── billing/
     ├── notifications/
     └── moderation/
-```
 
-### 6.2 Module ownership
-
-| Module đích | Collection sở hữu | Module hiện tại được thay thế hoặc nhập vào |
-|---|---|---|
-| `identity-access` | Users, OAuthAccounts, AuthSessions, AuthEvents, UserDevices | auth, users, patients, admins một phần |
-| `practitioner-management` | Doctor profile embedded trong Users; policy duyệt bác sĩ | users doctor profile, admin doctor verification |
-| `consultations` | AvailabilitySlots, Consultations, ConsultationMessages, Reviews | sessions, chat, reviews, presence một phần |
-| `health-tracking` | HealthMetrics; health alerts nếu lưu bền vững | health-metrics, ai-health-insights có chọn lọc |
-| `ai-advisory` | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords | ai-assistant, rag, ai-sessions, ai-messages, ai-feedbacks, ai-documents, ai-document-chunks |
-| `billing` | Plans, Subscriptions, PaymentOrders, PaymentTransactions, PaymentRefunds | module mới |
-| `notifications` | NotificationCampaigns, Notifications, OutboxEvents | notifications; email/FCM workers |
-| `moderation` | ViolationReports và moderation policy | violations, admin moderation |
-| `shared/files` | Không sở hữu business data; adapter Cloudinary | cloudinary và upload controller |
-
-### 6.3 Ranh giới dependency
-
-- Mỗi module chỉ export application facade hoặc query port cần thiết.
-- Không inject Mongoose Model, Mongo collection hoặc persistence model thuộc module khác.
-- Không import DTO từ controller module khác.
-- Cross-domain write đi qua use case của domain sở hữu dữ liệu.
-- Cross-domain async side effect đi qua outbox event.
-- Shared chỉ chứa primitive kỹ thuật thật sự dùng chung; không đặt `UserService`, `ConsultationService` hoặc business enum tùy tiện trong shared.
-- Không dùng circular dependency/`forwardRef` để che ranh giới sai. Nếu phát sinh vòng, tách port hoặc đổi quyền sở hữu dữ liệu.
-
-### 6.4 Mẫu module phức tạp
-
-```text
-modules/consultations/
-├── domain/
-│   ├── entities/
-│   ├── value-objects/
-│   ├── policies/
-│   ├── events/
-│   └── errors/
-├── application/
-│   ├── commands/
-│   ├── queries/
-│   ├── ports/
-│   └── dto/
-├── infrastructure/
-│   ├── persistence/mongoose/
-│   ├── persistence/vector-search/
-│   ├── jobs/
-│   └── realtime/
-├── presentation/
-│   ├── http/
-│   └── websocket/
-└── consultations.module.ts
-```
-
-Với module đơn giản như blacklist keyword, có thể dùng:
-
-```text
-blacklist-keywords/
-├── blacklist-keywords.controller.ts
-├── blacklist-keywords.service.ts
-├── blacklist-keyword.schema.ts
-└── blacklist-keywords.module.ts
-```
-
-## 7. Thiết kế domain Consultation
-
-### 7.1 Aggregate và trách nhiệm
-
-`Consultation` là aggregate root của một lần tư vấn. Nó chịu trách nhiệm bảo vệ:
-
-- Patient và doctor thuộc phiên.
-- Mode `on_demand` hoặc `scheduled`.
-- Request lifecycle và session lifecycle.
-- Quyền vào phòng chat/video.
-- Check-in, hàng đợi, gọi bệnh nhân và hoàn thành.
-- Consent và ghi nhận thời gian cuộc gọi.
-
-`AvailabilitySlot` là aggregate riêng nhưng thuộc cùng bounded context scheduling/consultation. Booking cần transaction giữa slot và consultation.
-
-`ConsultationMessage` và `Review` là collection riêng để tránh document consultation tăng không giới hạn.
-
-### 7.2 Luồng scheduled
-
-```mermaid
-sequenceDiagram
-    participant D as Doctor
-    participant P as Patient
-    participant API as Consultation API
-    participant DB as MongoDB
-    participant O as Outbox
-
-    D->>API: Mở AvailabilitySlot
-    API->>DB: Lưu slot available
-    P->>API: Đặt slot
-    API->>DB: Transaction claim slot available -> booked
-    API->>DB: Tạo Consultation scheduled + accepted
-    API->>O: Tạo reminder/notification events
-    API-->>P: Booking confirmed
-    P->>API: Check-in trong cửa sổ cho phép
-    API->>DB: not_started -> waiting
-    D->>API: Gọi người tiếp theo
-    API->>DB: Atomic waiting -> in_consultation
-    D->>API: Kết thúc tư vấn
-    API->>DB: in_consultation -> completed
-```
-
-### 7.3 Luồng on-demand
-
-```mermaid
-stateDiagram-v2
-    [*] --> pending: Patient tạo yêu cầu
-    pending --> accepted: Doctor accept
-    pending --> declined: Doctor decline
-    pending --> cancelled: Patient cancel
-    pending --> expired: requestExpiresAt
-    accepted --> waiting: Patient check-in hoặc join queue
-    accepted --> cancelled: Một bên hủy hợp lệ
-    waiting --> in_consultation: Doctor claim atomically
-    waiting --> no_show: Quá hạn
-    in_consultation --> completed: Doctor kết thúc
-```
-
-### 7.4 Trạng thái bắt buộc
-
-`requestStatus`:
-
-- `pending`
-- `accepted`
-- `declined`
-- `cancelled`
-- `expired`
-
-`sessionStatus`:
-
-- `not_started`
-- `waiting`
-- `in_consultation`
-- `completed`
-- `no_show`
-
-Không dùng một trạng thái `active` cho cả accepted và in-progress. Không dùng `rejected` để biểu diễn cancel.
-
-### 7.5 Hàng đợi
-
-Hàng đợi bệnh nhân là **truy vấn nghiệp vụ từ MongoDB**, không phải BullMQ queue.
-
-Nguồn dữ liệu chuẩn của hàng đợi là consultation có:
-
-```text
-requestStatus = accepted
-sessionStatus = waiting
-queueJoinedAt != null
-```
-
-Đề xuất bổ sung `queuePriorityAt` vào `Consultations`:
-
-- Scheduled: `queuePriorityAt = scheduledStartAt` khi check-in.
-- On-demand: `queuePriorityAt = queueJoinedAt`.
-- Index: `(doctorId, sessionStatus, queuePriorityAt, queueJoinedAt)`.
-
-Khi bác sĩ gọi người tiếp theo, dùng một `findOneAndUpdate` có filter `waiting`, sort theo priority và đổi atomically thành `in_consultation`. Thêm partial unique index để một doctor chỉ có tối đa một consultation `in_consultation`.
-
-Không lưu `queuePosition` làm nguồn chuẩn. API tính position tại thời điểm trả về; `estimatedWaitMinutes` chỉ là snapshot.
-
-### 7.6 Quy tắc cạnh tranh dữ liệu
-
-- Claim slot bằng conditional update `status: available -> booked` trong Mongo transaction.
-- Tạo Consultation và OutboxEvent trong cùng transaction.
-- Partial unique index ngăn một patient có hai yêu cầu on-demand pending tới cùng doctor.
-- Partial unique index ngăn doctor có hai consultation `in_consultation`.
-- Kiểm tra slot overlap ở application/domain service; unique `doctorId + startAt` không ngăn hai khoảng thời gian giao nhau.
-- Endpoint booking, accept, check-in và call-next nhận `Idempotency-Key` hoặc có điều kiện trạng thái để retry an toàn.
-- Mọi timestamp lưu UTC; timezone phải là tên IANA hợp lệ.
-
-### 7.7 Các quyết định đã đưa vào DB v7
-
-| Collection | Điều chỉnh trong v7 | Mức ưu tiên |
-|---|---|---|
-| Consultations | Thêm `queuePriorityAt` | P0 |
-| Consultations | Thêm `cancelledAt`, `cancelledBy`, `cancellationReason` | P0 |
-| Consultations | Thêm partial unique index cho doctor `in_consultation` | P0 |
-| Consultations | Thêm partial unique index cho pending on-demand theo patient + doctor | P0 |
-| AvailabilitySlots | Bổ sung service-level overlap check; giữ unique doctor + startAt | P0 |
-| Reviews | Giữ unique consultationId; cập nhật rating trong transaction | P0 |
-| PaymentOrders | Thêm trạng thái `refund_pending`, `refunded`; cancel chỉ áp dụng trước khi thanh toán | P0/P1 |
-| PaymentRefunds | Thêm collection riêng cho request/approval/provider result; full refund duy nhất trong MVP | P1 |
-| PaymentTransactions | Giữ bản ghi payment capture; chỉ thêm PaymentWebhookEvents nếu cần audit mọi lần IPN retry | P1 |
-| AI Health Insights | Không có trong DB v7; chỉ tạo lại dưới health-tracking nếu cần lưu insight dài hạn | P1 |
-| OutboxEvents | Bổ sung TTL/archive policy cho completed/dead event sau thời gian audit | P1 |
-
-## 8. Kế hoạch refactor theo module
-
-### 8.1 Identity Access
-
-Mục tiêu: một User schema duy nhất và một luồng session an toàn.
-
-Thực hiện:
-
-- Chọn `users/entities/user.schema.ts` làm dữ liệu nền; đổi tên/move vào identity module.
-- Xóa schema User trong Auth sau khi mọi import đã chuyển.
-- Dùng duy nhất `passwordHash`; cho phép null với tài khoản OAuth-only.
-- Không lưu OTP trong User hoặc MongoDB; lưu `{codeHash, attempts, expiresAt}` ở Redis với TTL.
-- Tạo OAuthAccounts, AuthSessions, AuthEvents và UserDevices đúng DB v7.
-- Refresh token chỉ lưu hash; triển khai rotation theo `familyId` và phát hiện replay.
-- Password change, ban account và logout-all phải revoke session liên quan.
-- Dùng access token ngắn hạn; refresh token ưu tiên HTTP-only Secure cookie cho web và secure storage cho mobile.
-- OAuth dùng `state`, PKCE khi phù hợp và callback URI allowlist.
-- Thêm rate limit riêng cho login, OTP send/verify, refresh và OAuth callback.
-
-Definition of Done:
-
-- Chỉ còn một Mongoose User schema/model cho collection Users và một domain mapper chuẩn.
-- Login local và OAuth trả cùng một principal shape.
-- Refresh replay revoke đúng token family.
-- OTP hết hạn tự động và không xuất hiện trong Mongo dump.
-- Unit/integration test cho login, rotate, replay, logout, password change và ban.
-
-### 8.2 Practitioner Management
-
-- Doctor vẫn là User role `doctor` với `doctorProfile` embedded theo DB v7.
-- Không tái tạo collection Doctor riêng nếu không có lý do truy vấn/ownership rõ ràng.
-- Tất cả truy vấn doctor đi qua PractitionerQueryService thay vì inject User model ở nhiều module.
-- Duyệt hồ sơ có state machine `pending -> approved|rejected`; ghi `verifiedAt`, reviewer/audit event và reason.
-- Chỉ doctor active + approved được mở slot, nhận on-demand hoặc bắt đầu tư vấn.
-- Booking settings được validate và có default tập trung trong config.
-
-### 8.3 Consultations, Chat và Review
-
-- Tạo module `consultations-v2` song song với sessions cũ trong giai đoạn chuyển đổi.
-- Viết use case: create slot, block slot, book slot, cancel booking, request on-demand, accept, decline, check-in, call-next, start, complete và mark no-show.
-- Message chỉ truy cập khi consultation accepted và user là participant.
-- Một WebSocket namespace/adapter dùng chung xác thực token, origin và room authorization.
-- Review chỉ được tạo bởi patient sau consultation completed.
-- Thay helpful placeholder bằng collection voter riêng hoặc bỏ tính năng khỏi API MVP. Không trả success giả.
-- Flag review phải đổi moderation state và tạo violation/outbox event.
-- Rating summary của doctor cập nhật transactionally hoặc được rebuild từ Reviews bằng job đối soát.
-
-### 8.4 Health Tracking
-
-- Giữ MongoDB time-series cho HealthMetrics nếu Atlas/local version hỗ trợ đúng cách.
-- Tách `MetricRuleEvaluator` khỏi CRUD service.
-- Cảnh báo quan trọng tạo Notification + OutboxEvent, không gọi Socket/AI trực tiếp trong transaction.
-- AI summary đọc qua `HealthProfileReader` port; AI module không inject HealthMetric model.
-- Lưu rõ `source: manual|device`, unit và timezone/recordedAt.
-- Không quảng bá threshold alert là chẩn đoán.
-
-### 8.5 AI Advisory và RAG
-
-Hợp nhất module cũ thành các capability:
-
-```text
-ai-advisory/
-├── conversation/
-├── generation/
-├── usage/
-├── knowledge-base/
-├── safety/
-└── infrastructure/
-```
-
-Tách service:
-
-- `AiConversationService`: lifecycle và persistence.
-- `AiResponseOrchestrator`: điều phối message, prompt và kết quả.
-- `RagRetrievalService`: tìm tài liệu và citation metadata.
-- `MedicalImageInformationService`: mô tả/thông tin ảnh; không chẩn đoán.
-- `AiUsageService`: reserve/commit/release quota.
-- `AiSafetyService`: blacklist, disclaimer và response policy.
-- `DocumentIngestionWorker`: extract, chunk, embed và activate tài liệu.
-
-Quy tắc quota:
-
-1. Reserve quota atomically trong Redis trước lời gọi LLM.
-2. Nếu request tới provider thất bại trước khi có kết quả, release reservation theo policy.
-3. Sau thành công, ghi AiMessage token usage và cập nhật AiUsageDaily.
-4. Job đối soát so sánh Redis với AiUsageDaily.
-5. Không reset toàn bộ key bằng cron; dùng key theo ngày có TTL.
-
-Loại bỏ sau migration:
-
-- CRUD endpoint công khai không cần thiết của `ai-sessions`, `ai-messages`, `ai-feedbacks`.
-- Một trong hai mô hình conversation đang trùng lặp.
-- Logic upload/RAG/LLM/statistics trộn trong một service.
-
-### 8.6 Billing và VNPAY
-
-Billing/VNPAY hiện là module mới, chưa có implementation trong `apps/api/src`. Vì vậy payment cơ bản phải đạt gate trước khi bắt đầu refund; không phát triển hai luồng song song từ ngày đầu.
-
-Phân biệt ba hành vi:
-
-1. **Cancel payment order**: hủy ý định thanh toán khi order còn `created|pending`; không có tiền cần hoàn.
-2. **Cancel subscription**: dừng quyền lợi theo policy sản phẩm; không đồng nghĩa tiền tự động được hoàn. MVP không có auto-renew nên chỉ dùng khi refund thành công hoặc admin thu hồi.
-3. **Refund**: hoàn lại giao dịch đã `paid`; bắt buộc có PaymentRefund riêng, approval, gọi VNPAY và đối soát.
-
-Luồng thanh toán cơ bản:
-
-1. Tạo order từ plan hiện hành nhưng snapshot giá, thời hạn, quota và feature.
-2. Tiền VND dùng integer; không dùng floating point.
-3. Return URL chỉ hiển thị trạng thái đã biết; không kích hoạt subscription.
-4. Chỉ IPN có chữ ký hợp lệ được xử lý thanh toán.
-5. Transaction reference và provider transaction number có unique index.
-6. Xử lý IPN trong transaction: upsert PaymentTransaction, đổi PaymentOrder sang `paid`, tạo Subscription và OutboxEvent.
-7. Duplicate IPN phải idempotent, không tạo hai subscription.
-8. Mỗi payment order thành công tạo một subscription grant riêng; không cộng dồn âm thầm vào record cũ. Cách này giúp refund có thể revoke đúng grant đã mua.
-
-Luồng cancel order:
-
-```text
-created|pending -- user/admin cancel --> cancelled
-created|pending -- expiresAt ---------> expired
-created|pending -- valid paid IPN ----> paid
-cancelled       -- valid late IPN ----> paid + cảnh báo reconciliation
-```
-
-- Cancel endpoint dùng conditional update và idempotency key; chỉ thành công nếu order chưa `paid|refund_pending|refunded`.
-- Cancel trên ứng dụng không đảm bảo gateway đã dừng xử lý. Nếu IPN hợp lệ đến sau cancel, không được bỏ qua tiền đã thu: ghi payment, chuyển order sang `paid`, cấp grant và thông báo để người dùng có thể yêu cầu refund.
-- Không gọi refund API trong request cancel.
-
-Luồng full refund MVP:
-
-```mermaid
-stateDiagram-v2
-    [*] --> requested: User gửi yêu cầu
-    requested --> rejected: Admin từ chối
-    requested --> approved: Admin duyệt
-    approved --> processing: Worker claim
-    processing --> succeeded: VNPAY xác nhận hoàn
-    processing --> failed: Kết quả thất bại rõ ràng
-    processing --> manual_review: Timeout hoặc kết quả không xác định
-    failed --> approved: Admin cho retry có kiểm soát
-    manual_review --> succeeded: Đối soát xác nhận thành công
-    manual_review --> failed: Đối soát xác nhận thất bại
-```
-
-Quy tắc refund MVP:
-
-- Chỉ **full refund một lần** cho một order; không partial refund và không nhiều refund thành công cộng dồn.
-- Patient tạo refund request kèm reason; admin approve/reject. Không để client tự gọi provider.
-- Khi tạo request: transaction tạo PaymentRefund `requested` và đổi PaymentOrder `paid -> refund_pending`. Khi reject hoặc thất bại có kết luận: order quay về `paid`; khi processing/manual review: giữ `refund_pending`; khi thành công: chuyển `refunded`.
-- Điều kiện mặc định có thể cấu hình: order đã paid, trong refund window, subscription grant thuộc order chưa bị refund và không có refund active khác.
-- Nếu muốn chặn refund sau khi đã dùng quyền lợi AI, lưu usage snapshot khi request và để admin quyết định; không tự động suy luận từ Redis hiện tại.
-- Khi admin approve, transaction chỉ đổi refund sang `approved` và ghi OutboxEvent. Worker gọi VNPAY bên ngoài MongoDB transaction.
-- `providerRequestId`/request date/idempotency key phải ổn định khi retry; timeout không được gửi lại bằng mã mới trước khi query/đối soát trạng thái.
-- Chỉ khi provider xác nhận thành công mới chạy transaction: PaymentRefund `succeeded`, PaymentOrder `refunded`, Subscription grant `cancelled`, ghi Auth/Billing audit và OutboxEvent notification.
-- Nếu refund thất bại hoặc chưa rõ kết quả, giữ subscription và order ở trạng thái không kết luận; đưa vào `manual_review`, không revoke quyền lợi sớm.
-- Refund response/request được sanitize; không lưu secret/hash key. Reconciliation command phải xử lý pending/unknown refund.
-
-Thay đổi dữ liệu tối thiểu:
-
-| Collection | Field/index cần bổ sung |
-|---|---|
-| PaymentOrders | `cancelledAt`, `cancelledBy`, `cancellationReason`, `refundId`, `refundedAt`; status thêm `refund_pending|refunded` |
-| Subscriptions | `sourceOrderId` unique, `cancelledAt`, `cancellationReason`; mỗi order paid tạo một grant riêng |
-| PaymentRefunds | `orderId`, `paymentTransactionId`, `userId`, `amount`, `currency`, `reason`, `status`, approval fields, provider request/result fields, timestamps và sanitized payload |
-
-Index cho PaymentRefunds:
-
-- `orderId` unique trong MVP để một order chỉ có một refund lifecycle; retry cập nhật cùng document.
-- `providerRequestId` sparse unique để chống gửi trùng tới provider.
-- `(status, updatedAt)` cho worker/reconciliation.
-- `(userId, createdAt)` cho lịch sử người dùng.
-
-PaymentRefund status gồm `requested|approved|rejected|processing|succeeded|failed|manual_review`. `amount` phải bằng captured amount đối với full-refund MVP và luôn được kiểm tra ở server.
-
-Giới hạn để bảo vệ deadline:
-
-- Không partial refund.
-- Không chargeback/dispute workflow.
-- Không auto-approve hoặc auto-refund khi consultation bị hủy.
-- Không refund nhiều payment trong một thao tác.
-- Không xây accounting ledger kép; PaymentTransactions + PaymentRefunds + immutable snapshots đủ cho đồ án.
-
-Để thêm refund mà không trượt deadline, ưu tiên RF-052 cao hơn WebRTC foreground/CallKeep hoặc AI moderation tự động. Không thực hiện đồng thời toàn bộ ba nhóm P1 nếu Sprint 5 chưa hoàn tất payment cơ bản trước 22/11.
-
-Trước khi commit RF-052, chạy một sandbox spike xác nhận merchant account có quyền gọi transaction query/refund và thống nhất cách nhận biết kết quả thành công, thất bại, trùng request và timeout. Nếu sandbox không cấp quyền, release chỉ trình bày refund-request/admin workflow với provider adapter giả lập và phải ghi rõ giới hạn; không mô tả đó là hoàn tiền VNPAY thật.
-
-### 8.7 Notifications, Outbox và Worker
-
-HTTP request chỉ ghi business entity, Notification và OutboxEvent. Worker chịu trách nhiệm side effect:
-
-```text
-Mongo transaction
-  ├── Consultation/Payment/Violation thay đổi
-  ├── Notification được tạo
-  └── OutboxEvent pending
-             │
-             ▼
-       Outbox dispatcher
-             │
-             ▼
-          BullMQ
-   ┌─────────┼─────────┐
-Socket.IO   FCM       Email
-```
-
-BullMQ dùng cho:
-
-- Reminder trước lịch 24 giờ và 15 phút.
-- No-show/expiration delayed job.
-- Notification retry.
-- Campaign fan-out theo batch.
-- RAG document ingestion.
-- Payment/refund processing, query reconciliation và subscription expiry notice.
-
-Outbox dispatcher cần atomic claim bằng `lockedAt`, `lockedBy`, lease timeout và attempts. Job BullMQ dùng `jobId = idempotencyKey` để hạn chế enqueue trùng. Consumer phải tự idempotent vì delivery thực tế là at-least-once.
-
-### 8.8 Presence và Realtime
-
-- Thay process-local Map bằng Redis presence với TTL/heartbeat.
-- Thêm Socket.IO Redis Adapter khi chạy nhiều API instance.
-- Gom xác thực socket vào một shared adapter/guard.
-- Cấm CORS `*`; dùng allowlist từ config.
-- Chuẩn hóa event name có version, ví dụ `consultation.v1.updated`, `queue.v1.changed`.
-- Client join room chỉ sau server-side authorization; không tin roomId gửi tự do từ client.
-- WebRTC signaling không lưu MongoDB; chỉ lưu call start/end và consent.
-- Nếu demo qua internet, chuẩn bị TURN server; STUN-only không đủ tin cậy cho nhiều mạng NAT.
-
-### 8.9 Moderation
-
-- Chuẩn hóa `pending -> processing -> resolved|dismissed`.
-- Severity `low|medium|high`.
-- Evidence tham chiếu consultation/message/AI message hoặc Cloudinary metadata.
-- AI classification chỉ đề xuất category/severity; admin quyết định chế tài.
-- Không hard-delete report/review có liên quan audit.
-- Ban/unban phải tạo AuthEvent, revoke AuthSessions và gửi notification.
-
-## 9. Công nghệ và dependency
-
-### 9.1 Giữ
-
-- Node.js, TypeScript, NestJS.
-- MongoDB Atlas.
-- Mongoose và `@nestjs/mongoose`.
-- Socket.IO.
-- Google GenAI SDK và MongoDB Atlas Vector Search.
-- Cloudinary.
-- React, React Native Expo, Tailwind/Shadcn cho web.
-- Jest, Supertest, k6 và GitHub Actions.
-
-Giữ Mongoose làm ODM chính. Refactor tập trung vào hợp nhất schema, giới hạn quyền sở hữu Model theo module và đưa truy cập dữ liệu qua repository/facade; không thay ODM trong deadline hiện tại.
-
-### 9.2 Bổ sung
-
-| Công nghệ | Mục đích |
-|---|---|
-| Migration runner TypeScript | Áp dụng migration MongoDB theo version, checksum, lock và verify |
-| MongoDB Node.js driver | Dùng trực tiếp trong migration/Atlas provisioning hoặc tính năng MongoDB Mongoose không biểu diễn thuận tiện |
-| Redis | OTP TTL, quota, cache, distributed presence, lock ngắn hạn |
-| `@nestjs/bullmq` + BullMQ | Delayed job, retry và worker |
-| Socket.IO Redis Adapter | Đồng bộ rooms/events giữa nhiều instance |
-| `@nestjs/throttler` với Redis storage | Rate limit phân tán |
-| Structured JSON logger | Correlation ID, request/job/payment audit |
-| Nest Terminus hoặc health endpoints tương đương | Liveness/readiness cho Mongo, Redis và worker |
-| OpenAPI client generator | Contract type-safe giữa backend và frontend repo |
-| Test MongoDB replica set | Kiểm thử transaction giống Atlas |
-
-### 9.3 Chưa bổ sung
-
-- Kafka.
-- RabbitMQ/NATS.
-- Elasticsearch.
-- Kubernetes.
-- Event Sourcing.
-- Một database riêng cho từng module.
-
-## 10. Mongoose và chiến lược tạo database mới
-
-### 10.1 Quyết định
-
-Vì hệ thống dùng MongoDB, thuật ngữ chính xác là **collection**, không phải table. Giữ **Mongoose 9 + `@nestjs/mongoose`** làm ODM chính vì codebase đã sử dụng chúng. Database mới vẫn phải được tạo bằng **migration file có version**; không tiếp tục dùng một file `createIndex.ts` chạy thủ công và không dựa vào `autoIndex` hoặc `syncIndexes()` để deploy staging/production.
-
-Phân chia trách nhiệm:
-
-| Thành phần | Trách nhiệm |
-|---|---|
-| Mongoose schema/model | Mapping document, application validation, query và persistence trong runtime |
-| Domain/application | Business invariant, state transition, authorization và orchestration |
-| Migration runner | Tạo/sửa collection, index, validator, backfill và ghi lịch sử schema |
-| MongoDB driver/`connection.db` | Lệnh MongoDB đặc thù, time-series, Atlas provisioning và migration |
-| `database:verify` | Phát hiện drift giữa database thực tế với manifest mong đợi |
-
-Schema Mongoose là mô tả cấu trúc runtime, không phải lịch sử thay đổi database. Migration mới là artifact thể hiện database đã chuyển từ version nào sang version nào.
-
-Mongoose không cung cấp sẵn một migration history engine cho các thay đổi schema/index/data. Với phạm vi dự án này, dùng một migration runner TypeScript nhỏ là đủ và dễ kiểm soát hơn việc tiếp tục tích lũy script rời; không cần thêm Prisma chỉ để có migration.
-
-### 10.2 Vì sao không dùng cách hiện tại
-
-Cách hiện tại gồm Mongoose schema cộng với Mongo shell `src/createIndex.ts`, nhưng không có trạng thái migration, checksum, lock hoặc verification. Điều này dẫn đến các môi trường có thể sở hữu index khác nhau và không biết script nào đã chạy.
-
-Không dùng các cơ chế sau làm deployment migration:
-
-- `autoIndex`: chỉ tiện cho local development; việc tạo index khi ứng dụng khởi động làm startup khó dự đoán và nhiều instance có thể cùng thực hiện.
-- `Model.syncIndexes()`: có thể drop index không còn trong schema; không được chạy tự động trên shared environment.
-- `Model.createIndexes()`: chỉ tạo index, không giải quyết collection options, validator, backfill hoặc migration history.
-- Mongo shell/script một lần không lưu version: không chứng minh được môi trường nào đã apply.
-
-Quy định theo môi trường:
-
-| Môi trường | `autoIndex` | `syncIndexes()` | Migration versioned |
-|---|---|---|---|
-| Local throw-away | Có thể bật | Chỉ chạy có chủ đích | Khuyến nghị |
-| Local database dùng chung | Tắt | Không tự động | Bắt buộc |
-| CI | Tắt | Không | Bắt buộc từ database rỗng |
-| Staging | Tắt | Chỉ dùng như công cụ audit, không tự drop | Bắt buộc |
-| Demo/production-like | Tắt | Không | Bắt buộc, có backup và verify |
-
-### 10.3 Version và dependency policy
-
-Codebase hiện khai báo `mongoose ^9.3.0`, `@nestjs/mongoose ^11.0.4` và `mongodb ^7.1.0`. Giữ major hiện tại, nhưng lockfile phải được commit và CI dùng `--frozen-lockfile`. Không nâng Mongoose/MongoDB driver cùng PR với một domain migration lớn.
-
-Trước Sprint 1 cần tạo ADR ghi rõ:
-
-- Exact version đã resolve trong lockfile.
-- MongoDB Atlas/server version và Feature Compatibility Version.
-- `autoIndex: false`, `autoCreate: false` cho staging/demo.
-- Transaction API chuẩn của dự án.
-- Cách migration runner dùng `mongoose.connection.db` hay một `MongoClient` riêng có lifecycle độc lập.
-
-Nếu dùng MongoClient riêng cho migration CLI, connection phải được mở/đóng bởi runner. Runtime API ưu tiên dùng cùng Mongoose connection và session để tránh nhiều connection pool không cần thiết.
-
-### 10.4 Cấu trúc database trong backend repository
-
-```text
 database/
 ├── migrations/
-│   ├── 202609210001_init_core_collections.ts
-│   ├── 202609210002_init_core_indexes.ts
-│   ├── 202609210003_init_health_metrics_timeseries.ts
-│   ├── 202609210004_init_partial_ttl_indexes.ts
-│   └── 202609210005_init_collection_validators.ts
 ├── seeds/
-│   ├── reference.seed.ts
-│   └── demo.seed.ts
 ├── atlas/
-│   └── vector-search-index.json
 ├── migration-runner.ts
-├── migration-context.ts
-├── migration-lock.ts
 └── verify-database.ts
 ```
 
-Không đặt migration trong `src/` để Nest application build compile chúng như runtime code. Migration runner là entry point CLI riêng. Mongoose schemas vẫn đặt trong infrastructure của module sở hữu dữ liệu.
-
-### 10.5 Hợp đồng migration file
-
-```ts
-export interface DatabaseMigration {
-  version: string;
-  name: string;
-  checksum: string;
-  up(context: MigrationContext): Promise<void>;
-  verify(context: MigrationContext): Promise<void>;
-  down?(context: MigrationContext): Promise<void>; // Chỉ dùng local nếu an toàn
-}
-```
-
-Mỗi migration phải:
-
-1. Có version tăng đơn điệu theo UTC timestamp.
-2. Chỉ giải quyết một thay đổi logic rõ ràng.
-3. Idempotent hoặc có precondition cụ thể.
-4. Có `verify()` kiểm tra hậu điều kiện.
-5. Không được sửa sau khi đã apply ở shared environment.
-6. Có checksum; runner dừng nếu checksum đã apply bị thay đổi.
-7. Không tự động drop collection/index hoặc chấp nhận data loss.
-8. Backfill lớn phải chạy theo batch, có resume cursor và progress log.
-9. Có timeout, structured log và không chứa secret.
-
-Collection `_schema_migrations` lưu:
+Module phức tạp:
 
 ```text
-version, name, checksum, status,
-startedAt, appliedAt, durationMs,
-appliedBy, appVersion, error, metadata
+consultations/
+├── domain/
+│   ├── entities/
+│   ├── policies/
+│   └── events/
+├── application/
+│   ├── commands/
+│   ├── queries/
+│   └── ports/
+├── infrastructure/
+│   ├── mongoose/
+│   └── jobs/
+└── presentation/
+    ├── http/
+    └── socket/
 ```
 
-Collection `_migration_lock` hoặc lock tương đương đảm bảo chỉ một runner apply migration. Migration lỗi giữ trạng thái `failed`; API/worker không được rollout nếu schema version thấp hơn `MIN_SCHEMA_VERSION` của release.
-
-### 10.6 Migration khởi tạo database rỗng
-
-Trình tự initial migrations:
-
-1. Tạo core collections: Users, OAuthAccounts, AuthSessions, AuthEvents, UserDevices.
-2. Tạo AvailabilitySlots, Consultations, ConsultationMessages và Reviews.
-3. Tạo AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks và BlacklistKeywords.
-4. Tạo Plans, Subscriptions, PaymentOrders, PaymentTransactions và PaymentRefunds.
-5. Tạo NotificationCampaigns, Notifications, OutboxEvents và ViolationReports.
-6. Tạo HealthMetrics dạng time-series nếu spike xác nhận query/update pattern phù hợp.
-7. Apply `$jsonSchema` validators cho collection cần database-level protection.
-8. Tạo standard, unique và compound indexes từ DB v7.
-9. Tạo partial indexes P0 cho pending on-demand và doctor in-consultation.
-10. Tạo TTL indexes cho AuthSessions/AuthEvents/Outbox retention theo policy.
-11. Provision Atlas Vector Search index từ JSON riêng và đợi trạng thái ready trước RAG E2E.
-12. Chạy `database:verify` để so collection options, validator và index với manifest.
-
-Không cần tạo trước mọi collection CRUD đơn giản chỉ để “có sẵn”, nhưng initial migration nên tạo rõ những collection cần options, validator hoặc index để mọi môi trường tái tạo giống nhau.
-
-### 10.7 Convention cho Mongoose schema
-
-- Mỗi collection chỉ có một canonical schema/model và một module sở hữu.
-- Luôn khai báo `collection` rõ ràng trong `@Schema()`; không phụ thuộc pluralization tự động.
-- Dùng `Types.ObjectId` trong document type và `Schema.Types.ObjectId` trong decorator/schema definition đúng ngữ cảnh.
-- Bật `timestamps`; đặt naming `createdAt`, `updatedAt` nhất quán.
-- Aggregate có concurrent write dùng `versionKey` và optimistic concurrency hoặc conditional update rõ ràng; không giả định mọi `findOneAndUpdate()` tự kiểm tra version.
-- Embedded subdocument chỉ dùng khi cùng lifecycle và không tăng vô hạn, như Address, DoctorProfile và snapshot nhỏ.
-- Message, Review, PaymentTransaction, OutboxEvent và AI Message là collection riêng.
-- Không dùng `populate()` như cơ chế thay thế ranh giới module; query cross-domain đi qua facade/query port.
-- Query đọc lớn dùng projection và `lean()` khi không cần document methods/change tracking.
-- Update query phải dùng DTO whitelist và `runValidators: true` khi phù hợp; business invariant vẫn phải nằm trong domain/use case.
-- Secret field đặt `select: false` và mapper public không bao giờ trả `passwordHash`, `refreshTokenHash` hoặc OAuth token.
-- Index có thể được khai báo cạnh schema để dễ đọc, nhưng migration manifest mới là nguồn triển khai index cho shared environment.
-- Không trả Mongoose Document trực tiếp khỏi repository hoặc API; luôn map sang domain object/read model/response DTO.
-
-### 10.8 Transaction với Mongoose
-
-Các use case bắt buộc transaction:
-
-- Claim AvailabilitySlot + tạo Consultation + Notification + OutboxEvent.
-- Cancel scheduled consultation + reopen slot + OutboxEvent.
-- Create/update/hide Review + cập nhật doctor rating summary.
-- VNPAY IPN + PaymentTransaction + PaymentOrder + Subscription + OutboxEvent.
-- Refund finalize + PaymentRefund + PaymentOrder + Subscription grant + OutboxEvent.
-- Ban account + revoke AuthSessions + AuthEvent + Notification/OutboxEvent.
-
-Chuẩn hóa một `TransactionManager` dùng `Connection#transaction()` hoặc `session.withTransaction()`. Tất cả Mongoose operation bên trong phải nhận cùng `ClientSession`; thiếu `session` ở một write sẽ làm write đó nằm ngoài transaction. Không chạy `Promise.all()` hoặc thao tác song song trong cùng transaction.
-
-```ts
-export interface TransactionManager {
-  execute<T>(work: (uow: UnitOfWork) => Promise<T>): Promise<T>;
-}
-```
-
-Repository nhận transaction context qua `UnitOfWork`, không để controller tự tạo session. Test transaction phải chạy trên MongoDB replica set giống Atlas.
-
-Transaction không chứa lời gọi Gemini, Cloudinary, FCM, email, VNPAY outbound hoặc Socket.IO. Chỉ ghi OutboxEvent trong transaction rồi thực hiện side effect sau commit.
-
-### 10.9 Seed không phải migration schema
-
-Tách ba loại dữ liệu:
-
-- Migration: collection, index, validator và backfill bắt buộc.
-- Reference seed idempotent: default Plans, system configuration và blacklist baseline.
-- Demo seed: patient/doctor/admin, health metrics, consultations và AI conversations giả.
-
-Demo seed chỉ chạy khi `ALLOW_DEMO_SEED=true`, không chạy tự động ở production. Seed dùng stable key/email để upsert và có cleanup command riêng cho local/staging.
-
-### 10.10 CI và schema drift
-
-Backend CI database stage:
+Quy tắc phụ thuộc:
 
 ```text
-start ephemeral MongoDB replica set
-  -> run db:migrate
-  -> run db:verify
-  -> compile Mongoose schemas/application
-  -> integration tests
-  -> run db:migrate again to prove no-op/idempotency
+presentation  -> application -> domain
+infrastructure -> application ports/domain
+domain -> không phụ thuộc NestJS, Mongoose, Redis, Socket.IO hoặc provider SDK
 ```
 
-Các script chuẩn:
+### 3.3 Hiện trạng công nghệ trong source
 
-```json
-{
-  "db:migrate": "tsx database/migration-runner.ts up",
-  "db:migrate:status": "tsx database/migration-runner.ts status",
-  "db:verify": "tsx database/verify-database.ts",
-  "db:seed:reference": "tsx database/seeds/reference.seed.ts",
-  "db:seed:demo": "tsx database/seeds/demo.seed.ts",
-  "db:index:audit": "tsx database/verify-database.ts --indexes"
-}
-```
+Không cài lại hoặc thay công nghệ chỉ vì plan nhắc đến nó. Audit hiện tại cho thấy:
 
-`db:verify` phải kiểm tra collection options, `$jsonSchema`, unique/compound/partial/TTL index definitions, time-series options và Atlas Search definition. Chênh lệch phải làm CI fail; công cụ không được tự drop index để “sửa” drift.
-
-### 10.11 Trình tự refactor persistence Mongoose hiện tại
-
-Không viết lại tất cả schema/service trong một PR. Refactor theo vertical slice:
-
-1. Tạo DatabaseModule chuẩn, cấu hình connection, transaction manager và migration runner.
-2. Inventory model token, schema trùng, collection thực tế và module đang inject từng Model.
-3. Chọn một canonical schema cho collection của slice; viết migration nếu field/index thay đổi.
-4. Đặt schema/model trong infrastructure của module sở hữu dữ liệu.
-5. Tạo repository interface ở application/domain boundary cho aggregate phức tạp.
-6. Viết Mongoose repository và mapper; repository contract test chạy với MongoDB thật/replica set.
-7. Chuyển use case/controller sang repository hoặc facade mới bằng provider token/feature flag.
-8. Loại bỏ cross-module `@InjectModel()` và thay bằng application query/command port.
-9. Chạy unit, integration, E2E, concurrency và query performance check.
-10. Xóa schema/model/service trùng chỉ sau khi không còn consumer.
-11. Lặp theo thứ tự: Identity -> Practitioner -> Consultation -> Review -> Notifications -> Billing -> Health -> AI/RAG -> Moderation.
-12. Cuối mỗi slice chạy tìm kiếm `@InjectModel`, model token và collection name để phát hiện đường truy cập cũ.
-
-Atlas Vector Search có thể dùng aggregation qua Mongoose Model hoặc một adapter MongoDB chuyên biệt phía sau `VectorSearchPort`; không để pipeline vector xuất hiện trong domain/application.
-
-### 10.12 Dữ liệu cũ khi database mới hoàn toàn
-
-Vì database đích được tạo mới, migration dữ liệu cũ **không nằm trong critical path**. Mặc định dùng reference seed và demo seed mới, không copy dữ liệu lỗi/mơ hồ từ database cũ.
-
-Chỉ viết legacy import nếu cần giữ tài khoản hoặc dữ liệu demo cũ. Khi đó mapping là:
-
-| Nguồn hiện tại | Đích | Xử lý |
+| Nhóm | Hiện trạng | Quyết định |
 |---|---|---|
-| Hai User schema cùng collection | Users | Chuyển `password` sang `passwordHash`, bỏ OTP fields, normalize role/status |
-| Patient collection/profile cũ | Users/patient data phù hợp | Merge theo userId; không tạo profile trùng |
-| Doctor collection giả định cũ | Users.doctorProfile | Merge specialty, documents, rating và verification |
-| Sessions | Consultations | Migrate thành `on_demand` nếu không chứng minh có slot; map status thận trọng |
-| Chat Messages | ConsultationMessages | Map sessionId sang consultationId và chuẩn hóa attachment |
-| Reviews | Reviews | Gắn consultationId, enforce unique, recompute rating summary |
-| AiSessions + AiMessages | AiConversations + AiMessages | Preserve timestamps, role, content, token usage nếu có |
-| AiAssistant embedded messages | AiMessages | Tách message nếu chọn collection riêng; không duy trì cả embedded và separate |
-| Notifications | Notifications | Normalize resourceType/resourceId và readAt |
-| Violation cũ | ViolationReports | Map status/severity; thiếu dữ liệu đánh dấu migration note |
+| OpenAPI/Swagger | Đã có `@nestjs/swagger`; `main.ts` đã dựng Swagger UI | Giữ, chuẩn hóa contract và giới hạn cách public ở production |
+| JWT/Passport | Đã có `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` và `JwtStrategy` | Giữ; gom cấu hình/guard về Identity-Access, không cài auth framework khác |
+| Input validation | Đã có global `ValidationPipe`, `class-validator`, `class-transformer` | Giữ; bổ sung validation biến môi trường và DTO/query convention |
+| Rate limiting | Chưa có `@nestjs/throttler` | Thêm P0, policy khác nhau theo endpoint và event |
+| HTTP hardening | Chưa có Helmet | Thêm P0 và đăng ký trước route/Swagger |
+| Cache | Chưa có cache manager/cache policy | Chỉ thêm cache có chọn lọc sau khi query/index đã tối ưu |
+| Redis/worker | Chưa có Redis client, BullMQ module/worker | Thêm P0 khi bắt đầu OTP, outbox, reminder và job nền |
+| Health checks | Chưa có Terminus | Thêm P0 cho liveness/readiness và graceful shutdown |
+| Logging | Chủ yếu là `console`/Nest logger, chưa có correlation ID thống nhất | P0 dùng structured JSON + correlation ID; Pino chỉ là lựa chọn có điều kiện |
+| Configuration | Có `ConfigModule`, nhưng secret còn fallback và chưa fail-fast khi env sai | Bổ sung schema/validate function; production không có secret mặc định |
 
-Legacy importer chạy theo cơ chế extract -> normalize -> validate -> load, ghi ID mapping và rejection report. Không tự suy luận record mơ hồ vào database mới.
+### 3.4 Dependency và tool được chấp nhận
 
-### 10.13 Triển khai migration giữa các môi trường
+#### Thêm ở P0
 
-1. CI tạo database rỗng và apply toàn bộ migration để chứng minh reproducibility.
-2. Deploy artifact ứng dụng backward-compatible.
-3. Backup database staging/demo trước migration thay đổi dữ liệu.
-4. Chạy `db:migrate:status`; fail nếu checksum drift hoặc có migration failed.
-5. Acquire migration lock và apply migration.
-6. Chạy `db:verify` và smoke query.
-7. Chỉ khởi động API/worker khi schema version đạt minimum required version.
-8. Nếu verify fail, dừng rollout; restore backup hoặc viết forward-fix migration.
-9. Không tự chạy destructive `down` trên shared environment.
-
-## 11. API và realtime contract
-
-### 11.1 REST convention
-
-- Giữ prefix `/api/v1` trong deadline hiện tại; không đổi version chỉ vì refactor nội bộ.
-- Chỉ tạo `/api/v2` nếu response/request breaking và không thể cung cấp adapter.
-- Response lỗi chuẩn gồm `code`, `message`, `details`, `correlationId`.
-- Pagination chuẩn gồm `items`, `page`, `limit`, `total`, `hasNext`.
-- Command nhạy cảm nhận `Idempotency-Key`.
-- Tất cả DTO có validation và Swagger metadata.
-- Không expose Mongoose Document hoặc raw MongoDB document trực tiếp; mapper trả API response model.
-
-Endpoint nhóm consultation đề xuất:
-
-```text
-POST   /availability-slots
-GET    /doctors/:doctorId/availability-slots
-PATCH  /availability-slots/:id/block
-DELETE /availability-slots/:id
-
-POST   /consultations/scheduled
-POST   /consultations/on-demand
-GET    /consultations
-GET    /consultations/:id
-POST   /consultations/:id/accept
-POST   /consultations/:id/decline
-POST   /consultations/:id/cancel
-POST   /consultations/:id/check-in
-POST   /doctors/me/queue/call-next
-POST   /consultations/:id/complete
-
-GET    /consultations/:id/messages
-POST   /consultations/:id/messages
-POST   /consultations/:id/review
-
-POST   /billing/orders
-GET    /billing/orders/:id
-POST   /billing/orders/:id/cancel
-POST   /billing/orders/:id/refunds
-GET    /billing/refunds/:id
-GET    /admin/billing/refunds
-POST   /admin/billing/refunds/:id/approve
-POST   /admin/billing/refunds/:id/reject
-```
-
-### 11.2 Socket contract tối thiểu
-
-| Event | Chiều | Payload chính |
+| Package/tool | Dùng cho | Giới hạn |
 |---|---|---|
-| `consultation.v1.join` | client -> server | consultationId |
-| `consultation.v1.updated` | server -> client | consultationId, requestStatus, sessionStatus, version |
-| `message.v1.send` | client -> server | consultationId, clientMessageId, content, attachments |
-| `message.v1.created` | server -> client | message DTO |
-| `queue.v1.changed` | server -> client | consultationId, position snapshot, estimatedWaitMinutes |
-| `call.v1.offer/answer/ice` | hai chiều | consultationId, signaling payload |
-| `notification.v1.created` | server -> client | notification DTO |
+| `helmet` | Security headers cho HTTP API | Cấu hình trước route; kiểm tra CSP nếu bật Swagger UI |
+| `@nestjs/throttler` | Rate limit auth, OTP, AI, upload, signaling, payment | In-memory chỉ dùng local/test; multi-instance dùng Redis-backed storage |
+| `ioredis` | Redis connection dùng chung | Một `RedisModule`, có namespace, timeout, retry và shutdown lifecycle |
+| `@nestjs/bullmq` + `bullmq` | Outbox delivery, notification, reminder và retryable jobs | Không đưa business transaction chính vào queue; job phải idempotent |
+| `@nestjs/terminus` | `/health/live` và `/health/ready` | Readiness kiểm tra dependency bắt buộc; liveness không gọi provider bên ngoài |
 
-Mọi event client gửi phải được validate và authorize. Dùng `clientMessageId` để message retry không tạo bản ghi trùng.
+Không cần thêm package để validate env ở vòng đầu vì `class-validator` và `class-transformer` đã có. Dùng custom `validate()` trong `ConfigModule.forRoot`, dừng ứng dụng ngay khi thiếu/sai `JWT_SECRET`, MongoDB URI, Redis URL hoặc provider secrets bắt buộc. Xóa mọi production fallback kiểu `default_secret_change_in_production`.
 
-## 12. Kiểm thử
+Structured logging vòng đầu dùng Nest `ConsoleLogger` dạng JSON, middleware/interceptor tạo `correlationId` và `AsyncLocalStorage` của Node. Chỉ thêm `nestjs-pino` nếu benchmark cho thấy cần throughput cao hơn hoặc cần transport/redaction/tích hợp log collector mà logger chuẩn không đáp ứng.
 
-### 12.1 Kim tự tháp test
+#### Thêm có điều kiện ở P1
 
-| Loại | Mục tiêu |
+| Package/tool | Khi nào mới thêm |
 |---|---|
-| Domain unit test | State transition, invariant, policy thời gian, quota và payment rules |
-| Application unit test | Use case orchestration với fake ports |
-| Integration test | Mongoose/native Mongo repository, unique/partial index, Mongo transaction, Redis và BullMQ |
-| API E2E | Auth, booking, on-demand, queue, chat authorization, payment IPN |
-| Contract test | OpenAPI generation và frontend client compilation |
-| WebSocket test | Join room, auth, reconnect, duplicate message, multi-instance adapter |
-| Load test | Booking race, queue claim, REST throughput và concurrent sockets |
+| `@nestjs/cache-manager` + `cache-manager` + `@keyv/redis` | Sau RF-2D, khi có số liệu chứng minh read query lặp lại và cache đem lại lợi ích |
+| OAuth Passport strategy tương ứng, ví dụ `passport-google-oauth20` | Chỉ sau khi chốt provider OAuth; không cài nhiều strategy dự phòng |
+| `dependency-cruiser` | Khi cần CI chặn import ngược giữa presentation/application/domain/infrastructure |
+| `knip` | Trong cleanup để tìm dependency/export/file không còn dùng; mọi kết quả phải được review trước khi xóa |
+| OpenAPI lint/diff tool | Khi OpenAPI artifact đã ổn định; dùng để chặn breaking change ngoài allowlist |
+| OpenTelemetry hoặc Sentry | Sau basic logging/metrics; chọn một lộ trình quan sát, không tích hợp đồng thời nhiều SDK trước deadline |
 
-### 12.2 Test bắt buộc trước release
+#### Không thêm trong scope hiện tại
 
-- 20 request đồng thời đặt cùng một slot: đúng một request thành công.
-- Hai call-next đồng thời của cùng doctor: chỉ một consultation chuyển `in_consultation`.
-- Patient không thuộc consultation không đọc/gửi được message.
-- Scheduled consultation ngoài check-in window bị từ chối.
-- No-show job chạy lặp không đổi record completed/cancelled.
-- Duplicate VNPAY IPN không tạo hai subscription.
-- Invalid VNPAY signature không đổi PaymentOrder.
-- Cancel cùng payment order hai lần vẫn trả kết quả idempotent; order paid không bị cancel.
-- Valid late IPN của order đã cancel vẫn được ghi nhận và đưa về `paid`, không làm mất dấu tiền đã thu.
-- Hai refund request đồng thời cho cùng order: tối đa một request active được tạo.
-- Duplicate refund worker/retry không hoàn tiền hoặc revoke subscription grant hai lần.
-- Refund timeout chuyển `manual_review`; không tự retry bằng provider request ID mới.
-- Refund chỉ revoke subscription grant sau khi provider xác nhận thành công.
-- Refresh token replay revoke family.
-- OTP hết hạn, vượt attempts và resend rate limit.
-- Outbox worker crash sau khi gửi nhưng trước khi mark completed không tạo side effect nghiêm trọng lặp.
-- Review thứ hai cho cùng consultation bị unique index chặn.
-- Ban user ngắt session và từ chối socket reconnect.
+- Không thêm Kafka, RabbitMQ hoặc microservice transport: Redis + BullMQ + Outbox đủ cho tải và deadline dự kiến.
+- Không thêm `@nestjs/cqrs` chỉ để đổi tên service; command/query class thuần TypeScript đã đủ cho DDD-lite.
+- Không thêm Elasticsearch trước khi Atlas Search/query catalog chứng minh MongoDB không đáp ứng.
+- Không thêm Prisma, TypeORM hoặc repository framework khác; persistence đích là Mongoose.
+- Không thêm GraphQL khi REST + Socket đã là contract đã chọn.
+- Không dùng global cache interceptor cho toàn API và không tạo generic `BaseRepository`.
+- Compression ưu tiên reverse proxy/CDN; chỉ bật trong Nest khi hạ tầng triển khai không đảm nhiệm và đã đo CPU/latency.
 
-### 12.3 Ngưỡng chất lượng
+### 3.5 Chính sách caching
 
-- Domain/application critical code: branch coverage mục tiêu từ 80%.
-- Tổng backend: line coverage mục tiêu từ 70%; không dùng coverage để thay thế test case nghiệp vụ.
-- Không merge nếu build, lint, typecheck hoặc critical E2E fail.
-- k6 threshold ban đầu: error rate dưới 1%, p95 REST thông thường dưới 500 ms trong môi trường test; endpoint AI đo riêng.
-- Chỉ tuyên bố hỗ trợ số lượng kết nối WebSocket đã được đo trên staging tương đương deployment demo.
+Cache là lớp tối ưu sau pagination, projection, aggregation và index; không dùng cache để che `COLLSCAN`, N+1 hoặc endpoint không giới hạn.
 
-## 13. CI CD cho hai repository
+Áp dụng manual cache-aside sau một `CachePort`, với key có namespace/version, TTL ngắn, timeout/fallback rõ ràng và metric hit/miss/error. Ưu tiên cache:
 
-### 13.1 Backend pipeline
+- danh sách bác sĩ đã duyệt và search facets ít thay đổi;
+- plan/subscription product catalog và reference/config data;
+- blacklist/moderation keywords đang active;
+- dữ liệu đọc ổn định khác chỉ sau khi query catalog chứng minh có tỷ lệ đọc lặp cao.
 
-```text
-install --frozen-lockfile
-  -> lint không --fix
-  -> typecheck
-  -> khởi tạo MongoDB replica set + Redis cho CI
-  -> db:migrate + db:verify từ database rỗng
-  -> unit test + coverage
-  -> integration test
-  -> chạy lại db:migrate để chứng minh no-op/idempotency
-  -> build
-  -> generate/diff openapi.json
-  -> container build
-  -> E2E staging
-  -> deploy demo/staging
-```
+Không cache hoặc chỉ cache cực ngắn với invalidation/version chặt:
 
-Bắt buộc bỏ `continue-on-error: true`. Coverage artifact chỉ upload khi lệnh thực sự tạo coverage.
+- quyết định authorization, account ban/status và refresh-session state;
+- claim slot, booking command, queue position/call-next/check-in/no-show;
+- message write path, unread count cần nhất quán tức thời;
+- health alert/latest health data nhạy cảm;
+- payment, IPN, cancel và refund state;
+- AI quota reserve/commit/release.
 
-### 13.2 Frontend pipeline
+Invalidation phát từ domain event/outbox sau khi transaction commit. Cache lỗi phải fail-open cho read không nhạy cảm nhưng không được làm auth/payment/booking fail-open. Có chống cache stampede cho hot key, không lưu token/OTP/raw health payload, và phải có integration test cho TTL, invalidation và Redis unavailable.
 
-```text
-install --frozen-lockfile
-  -> generate API client từ contract version đã pin
-  -> lint
-  -> typecheck packages và từng app
-  -> unit/component test
-  -> build web-client + web-admin
-  -> Expo checks/mobile build theo milestone
-  -> smoke test staging
-```
+### 3.6 Chính sách Swagger, Passport và throttling
 
-### 13.3 Môi trường
+**Swagger/OpenAPI**
 
-| Môi trường | Mục đích | Dữ liệu |
+- Giữ `@nestjs/swagger`; không thay bằng thư viện tài liệu API khác.
+- Bổ sung tags, operation ID ổn định, request/response/error schema, auth scheme, pagination và examples không chứa dữ liệu thật.
+- CI xuất `openapi.json`, lint và diff với baseline; artifact là contract cho repo frontend.
+- Swagger UI chỉ bật ở local/staging hoặc được bảo vệ ở production; không public mặc định.
+- API versioning được cấu hình trước khi generate document; realtime event có schema riêng.
+
+**Passport/Auth**
+
+- Giữ Passport cho HTTP JWT và OAuth strategy tương lai; không tự viết lại toàn bộ authentication middleware.
+- Chỉ một nơi đăng ký `JwtModule`, `JwtStrategy`, token verifier và auth policy; module khác import public auth facade/guard.
+- Nếu phần lớn endpoint là private, dùng global JWT guard và decorator `@Public()` cho allowlist nhỏ.
+- Socket handshake dùng token verifier/policy dùng chung nhưng không cố tái sử dụng nguyên HTTP `AuthGuard`.
+- Việc kiểm tra account active trên mỗi request chỉ được tối ưu bằng short-lived account/session version cache sau khi có revoke/ban/logout-all test; không bỏ kiểm tra để giảm query.
+
+**Throttling**
+
+- Có baseline theo IP cho public route và theo authenticated principal cho private route.
+- Dùng bucket riêng: login, refresh, OTP send/verify, AI, upload, payment/IPN, consultation request và Socket signaling/message.
+- OTP và AI quota vẫn có business counter riêng trong Redis; throttler không thay thế quota/attempt policy.
+- Multi-instance dùng Redis-backed throttler storage; thiết lập `trust proxy` đúng số hop trước khi tin forwarded IP.
+- Socket event phải có guard/rate-limit riêng; HTTP global throttler không tự bảo vệ gateway events.
+- Trả lỗi `429` nhất quán, có audit/metric cho abuse nhưng không log credential hoặc health payload.
+
+---
+
+# PHẦN A — REFACTOR BACKEND CODE CŨ
+
+## 4. Mục tiêu và giới hạn phần refactor
+
+Mục tiêu:
+
+- Đưa backend hiện tại về trạng thái build/test/CI ổn định.
+- Giữ luồng đang có: local auth, quản lý user/bác sĩ, gửi yêu cầu tư vấn, bác sĩ accept/decline, chat, review, health metrics, AI/RAG và notification hiện có.
+- Thay cấu trúc ngang/trùng lặp bằng module ownership rõ ràng.
+- Chuẩn bị persistence, contract và hạ tầng đủ ổn định để phát triển feature mới.
+
+Không làm trong Phần A:
+
+- Không tạo slot hoặc booking.
+- Không tạo hàng đợi/check-in/no-show.
+- Không thêm OAuth mới.
+- Không thêm payment/refund.
+- Không thêm reminder/FCM/campaign mới.
+- Không thêm AI quota.
+- Không implement Web, Admin hoặc Mobile.
+
+### 4.1 Kết quả audit service hiện tại
+
+Các file dưới đây đang gộp nhiều trách nhiệm. Số dòng chỉ là tín hiệu để ưu tiên audit, không phải tiêu chí duy nhất bắt buộc tách file:
+
+| File | LOC xấp xỉ | Trách nhiệm đang bị gộp |
+|---|---:|---|
+| `ai-assistant/ai-assistant.service.ts` | 1.185 | conversation, message orchestration, RAG, upload ảnh, prompt, LLM, summary, search và statistics |
+| `health-metrics/health-metrics.service.ts` | 895 | CRUD, authorization, validation, alert, notification, daily aggregation, BMI và statistics |
+| `users/users.service.ts` | 615 | user CRUD, doctor lookup, profile assembly, patient profile, reviews, violations và Cloudinary |
+| `reviews/reviews.service.ts` | 571 | review CRUD, session validation, rating projection, helpful/flag và top-doctor query |
+| `sessions/sessions.service.ts` | 549 | create/list, authorization và toàn bộ state transition |
+| `admin/admin.service.ts` | 456 | doctor verification, account sanction, session query và dashboard statistics |
+| `ai-assistant/services/llm-gateway.service.ts` | 419 | provider configuration, generation, retry và response transformation |
+| `auth/auth.service.ts` | 381 | register, doctor files, login, token, OTP, password và profile assembly |
+| `chat/chat.service.ts` | 374 | upload attachment, room authorization, message command và query |
+| `notifications/notifications.service.ts` | 312 | persistence, read state và realtime emission |
+
+Code còn phân tán theo capability trùng lặp:
+
+- User/Auth/Profile nằm ở `auth`, `users`, `patients`, `admin` và `admins`.
+- AI persistence/API nằm đồng thời ở `ai-assistant`, `ai-sessions`, `ai-messages`, `ai-feedbacks`, `ai-documents`, `ai-document-chunks`, `ai-health-insights` và `rag`.
+- Session, Chat, Review và Admin trực tiếp inject model của nhau, làm ownership và transaction boundary không rõ.
+- Controller upload khoảng 569 dòng và service Cloudinary khoảng 409 dòng cũng cần tách command/validation/provider adapter dù không mang tên business service.
+
+### 4.2 Kết quả audit database query hiện tại
+
+Một số endpoint đã có `page/limit`, nhưng chưa có convention chung và vẫn còn các query không bounded:
+
+| Vị trí | Vấn đề quan sát được | Hướng refactor |
 |---|---|---|
-| Local | Phát triển | Seed giả; Mongo replica set + Redis qua Docker Compose |
-| Test CI | Unit/integration | Ephemeral; không dùng secret thật |
-| Staging | E2E, k6, demo nội bộ | Dữ liệu giả, VNPAY Sandbox, FCM test |
-| Demo/Production-like | Bảo vệ bản trình diễn | Không load test trực tiếp; backup và monitoring |
+| `users.service.ts::findAll/findDoctors` | Tải toàn bộ doctor rồi toàn bộ user, join bằng `Map` trong memory; không pagination | Query/aggregation theo filter + projection + pagination; bỏ in-memory full join |
+| `users.service.ts::findProfileById` | Tải toàn bộ violations và reviews; tính rating distribution trong application | Tách paginated sub-resources; dùng aggregation cho summary/distribution |
+| `health-metrics.service.ts::getStatistics` | Tải toàn bộ lịch sử để tính avg/min/max; không sort nhưng lấy phần tử cuối làm `latest` | Bắt buộc time range hoặc window; dùng aggregation `$group`/sorted latest |
+| `sessions.service.ts::getUpcoming` | Có giới hạn ngày nhưng không giới hạn số record | Thêm cursor/limit và stable sort |
+| `ai-health-insights.service.ts` | Chỉ paginate khi client truyền đồng thời page + limit; stats tải toàn bộ documents | Default pagination bắt buộc; stats dùng aggregation hoặc loại module theo DB v7 |
+| `admin.service.ts::getDoctorApplication` | Search user bằng regex rồi đưa toàn bộ ID vào `$in` | Escape/min-length search; aggregate lookup hoặc search index; cap/maxTimeMS |
+| `blacklist-keywords.service.ts::checkContent` | Đọc toàn bộ blacklist từ MongoDB ở mỗi request | Cache active normalized keywords và invalidate khi CRUD |
+| Nhiều list DTO | `limit` thiếu `@Type`, `@IsInt`, `@Min`, `@Max`; `sortBy` nhận field tùy ý | Dùng DTO/convention chung và allowlist sort fields |
+| Nhiều read query | Trả hydrated Mongoose documents hoặc populate dù chỉ đọc một vài field | Dùng explicit projection + `lean()`; kiểm tra populate bằng query count |
+| Search regex | Regex không escape/không anchor có thể không dùng index và tốn CPU | Escape input; dùng text/Atlas Search hoặc normalized prefix strategy |
 
-## 14. Security và privacy
+Các index hiện có chưa đủ để kết luận query đã tối ưu. Ví dụ schema có index đơn lẻ nhưng API thường filter + sort nhiều field. Index cuối cùng phải được tạo từ **query catalog thực tế**, xác minh bằng `explain('executionStats')`, không thêm index theo cảm tính.
 
-- Helmet/security headers và CORS allowlist theo môi trường.
-- Rate limit cho auth, OTP, AI, upload, booking và Socket.IO.
-- Không log password, token, OTP, VNPAY secret, health content hoặc raw AI prompt chứa dữ liệu nhạy cảm.
-- Refresh token hash trong Mongo; OTP hash trong Redis.
-- Cloudinary upload giới hạn MIME, kích thước, số lượng và ownership; loại bỏ debug/list endpoint khỏi production.
-- Message/file access kiểm tra participant ở server.
-- Consent policyVersion trước audio/video.
-- AI response luôn có disclaimer phù hợp; cảnh báo khẩn cấp hướng người dùng tới cơ sở y tế/dịch vụ cấp cứu thay vì chẩn đoán.
-- Retention policy cho AuthEvents, OutboxEvents, notification, attachment và AI conversation.
-- Audit các thao tác admin: duyệt bác sĩ, ban/unban, sửa plan, xử lý violation và moderation review.
-- Secrets chỉ qua secret manager/environment; `.env.example` không chứa giá trị thật.
+### 4.3 Mục tiêu chất lượng sau refactor
 
-## 15. Observability và vận hành
+- Không có public/admin list endpoint trả mảng không giới hạn, trừ lookup cấu hình nhỏ có hard cap và lý do ghi rõ.
+- Timeline tăng liên tục như Message, Notification, HealthMetric dùng cursor pagination; danh sách quản trị hữu hạn có thể dùng page/limit.
+- `limit` có default và hard max ở DTO/service; không tin query parameter thô.
+- Sort field dùng allowlist và luôn có tie-breaker `_id` để kết quả ổn định.
+- Read-only queries dùng projection và `lean()` khi không cần document methods/hooks.
+- Không tải toàn bộ collection chỉ để count/average/group trong Node.js nếu Mongo aggregation xử lý được.
+- Critical query không `COLLSCAN` trên representative dataset, trừ collection cấu hình rất nhỏ được ghi nhận.
+- Query performance có baseline trước/sau và được regression test ở repository/integration level.
 
-- Structured log JSON có `correlationId`, `userId` đã mask khi cần, `consultationId`, `jobId`, `orderCode`.
-- Request logging không ghi body nhạy cảm mặc định.
-- Health endpoint tách liveness và readiness.
-- Metrics tối thiểu:
-  - API latency/error rate.
-  - Mongo/Redis connection health.
-  - Socket connections và reconnect rate.
-  - BullMQ waiting/active/failed/dead jobs.
-  - Outbox oldest pending age.
-  - Booking conflict rate.
-  - AI provider latency/error/token usage.
-  - Payment IPN invalid signature/duplicate rate.
-  - Refund requested/processing/succeeded/failed/manual-review và oldest pending age.
-- Alert demo/staging cho worker dead jobs, outbox backlog, payment mismatch và refund stuck/unknown.
-- Có command đối soát rating, AI usage, payment/refund và stuck outbox.
+## 5. Các bước refactor backend
 
-## 16. Lộ trình đến cuối tháng 12
+### RF-0 — Audit và đóng băng hành vi cũ
 
-Kế hoạch giả định hai workstream có thể chạy song song: Backend/Platform và Frontend/Mobile. Không cố định tên người để nhóm tự phân công.
-
-### 16.1 Trình tự refactor đầy đủ theo phase
-
-Không đổi thứ tự các phase nền tảng. Một phase chỉ bắt đầu khi gate của phase trước đạt, ngoại trừ công việc frontend độc lập đã có contract ổn định.
-
-```mermaid
-flowchart LR
-    A[Phase 0 Audit và freeze] --> B[Phase 1 Stabilize]
-    B --> C[Phase 2 Tách repository]
-    C --> D[Phase 3 Mongoose và DB mới]
-    D --> E[Phase 4 Identity]
-    E --> F[Phase 5 Consultation]
-    F --> G[Phase 6 Async và realtime]
-    G --> H[Phase 7 AI Billing Moderation]
-    H --> I[Phase 8 Frontend Mobile]
-    I --> J[Phase 9 Hardening Cutover]
-```
-
-#### Phase 0 Audit, scope freeze và baseline
-
-Mục tiêu: biết chính xác hành vi nào được giữ, thay hoặc loại bỏ trước khi sửa code.
+Mục tiêu: biết chính xác cái gì đang tồn tại trước khi thay đổi.
 
 Các bước:
 
-1. Tạo tag/branch baseline từ commit hiện tại; ghi lại dirty files và không trộn thay đổi ngoài phạm vi.
-2. Inventory toàn bộ REST endpoint, Socket.IO event, cron/job, collection, index và external integration.
-3. Map từng endpoint frontend tới endpoint backend đang gọi.
-4. Đánh dấu mỗi capability: `keep`, `refactor`, `replace`, `remove`, `defer`.
-5. Chốt thuật ngữ ubiquitous language: User, DoctorProfile, AvailabilitySlot, Consultation, RequestStatus, SessionStatus, Notification, OutboxEvent.
-6. Chốt P0/P1/P2 và sửa mâu thuẫn “tư vấn” so với “khám/chẩn đoán” trong docs.
-7. Chốt DB v7 và migration manifest từ mục 7.7.
-8. Lập risk register, owner, deadline và dependency cho RF tasks.
-9. Lưu output baseline: build logs, test logs, endpoint inventory, schema inventory và known defects.
+1. Gắn tag/branch baseline và ghi nhận dirty worktree.
+2. Inventory REST endpoints, guards, DTO, Socket.IO events, cron/job và external integrations.
+3. Inventory Mongoose schemas, collection names, indexes và cross-module `@InjectModel()`.
+4. Map các API/event đang được Web Client/Admin/Mobile cũ sử dụng; chỉ audit consumer, không sửa frontend.
+5. Đánh dấu từng capability: `keep`, `refactor`, `replace`, `remove`, `defer`.
+6. Chụp OpenAPI hiện tại và lưu baseline.
+7. Viết current-state status mapping cho Session, Chat, Review và Notification.
+8. Lập danh sách known defects riêng với feature requests.
 
 Deliverables:
 
 - `docs/current-state/endpoints.md`.
 - `docs/current-state/realtime-events.md`.
 - `docs/current-state/database-inventory.md`.
-- `docs/adr/ADR-001-modular-monolith.md`.
-- Backlog RF có owner/priority.
+- OpenAPI baseline.
+- Backlog `BE-RF-*` có owner, dependency và estimate.
 
 Exit gate:
 
-- Không còn yêu cầu lõi chưa rõ làm thay đổi mô hình Consultation hoặc DB.
-- Mọi module hiện tại đã có disposition keep/refactor/replace/remove/defer.
+- Mỗi module cũ có disposition rõ ràng.
+- Không còn feature request bị ghi nhầm thành defect/refactor.
 
-#### Phase 1 Stabilize codebase hiện tại
+Ước lượng: **2-3 person-days**.
 
-Mục tiêu: tạo safety net tối thiểu trước khi đổi kiến trúc.
+### RF-1 — Stabilize build, test và CI
+
+Mục tiêu: tạo safety net trước khi đổi cấu trúc.
+
+Các bước:
+
+1. Di chuyển `createIndex.ts` khỏi application compile hoặc thay bằng migration script đúng chỗ.
+2. Sửa mismatch `Doctor`/`DoctorProfile` mà chưa redesign nghiệp vụ.
+3. Sửa Mongoose enum metadata làm Auth test không khởi động.
+4. Sửa TypeScript errors theo root cause; không tắt strict để che lỗi.
+5. Chuẩn hóa scripts `lint`, `typecheck`, `build`, `test:unit`, `test:integration`, `test:e2e`.
+6. Bật CI fail-fast; bỏ `continue-on-error` ở build/test bắt buộc.
+7. Viết characterization tests tối thiểu cho:
+   - register/login/refresh/logout;
+   - doctor profile/approval;
+   - create request/accept/decline Session;
+   - chat authorization;
+   - create Review/rating;
+   - health metric create/query;
+   - AI conversation/RAG happy path;
+   - notification create/read.
+8. Lưu log baseline và test fixtures ổn định.
+
+Exit gate:
+
+- Backend build xanh từ checkout sạch.
+- CI đỏ khi cố tình tạo type/test error.
+- Critical behavior cũ có characterization test.
+
+Ước lượng: **5-7 person-days**.
+
+### RF-2 — Tách service và chuẩn hóa data-access/query
+
+Mục tiêu: loại bỏ god service, gom code theo capability/owner và tạo chuẩn truy vấn dùng chung trước khi refactor từng domain.
+
+#### RF-2A Inventory và tách trách nhiệm service
+
+1. Với mỗi service, lập bảng `method -> responsibility -> models/providers -> caller -> transaction -> side effects`.
+2. Đánh dấu method thuộc command, query, domain policy, provider adapter hay orchestration.
+3. Tách theo capability; không tách máy móc mỗi method thành một class.
+4. Controller/gateway chỉ parse input, gọi use case và map response; không chứa query/business branching dài.
+5. Không tạo `CommonService`, `BaseService` hoặc repository tổng quát biết mọi model.
+6. Module khác gọi public facade/port, không inject Mongoose model trực tiếp.
+7. Side effect email/socket/upload/LLM đi qua port hoặc outbox, không trộn trong persistence query.
+8. Mỗi bước tách phải giữ characterization tests xanh.
+
+Đích tách theo module:
+
+| Service hiện tại | Thành phần đích |
+|---|---|
+| `AiAssistantService` | `AiConversationCommandService`, `AiConversationQueryService`, `AiResponseOrchestrator`, `RagRetrievalService`, `AiMediaService`, `AiStatisticsQuery` |
+| `HealthMetricsService` | `HealthMetricCommandService`, `HealthMetricQueryService`, `MetricRuleEvaluator`, `HealthStatisticsQuery`, `BmiProjectionService`, `HealthAlertCoordinator` |
+| `UsersService` | `UserCommandService`, `UserQueryService`, `PractitionerQueryService`, `PatientProfileService`, `ProfileAssembler`; admin use case ở module admin |
+| `ReviewsService` | `ReviewCommandService`, `ReviewQueryService`, `RatingProjectionService`; helpful/flag theo module phù hợp |
+| `SessionsService` | Consultation commands, Consultation queries và state policies trong canonical module |
+| `AdminService` | `PractitionerVerificationService`, `AccountModerationService`, `AdminDashboardQuery` |
+| `AuthService` | `RegisterUser`, `LoginUser`, `RefreshSession`, `OtpService`, `PasswordService`; file upload qua port riêng |
+| `ChatService` | `MessageCommandService`, `MessageQueryService`, `AttachmentService`, room authorization policy |
+| `NotificationsService` | `NotificationCommandService`, `NotificationQueryService`, delivery/outbox adapter |
+
+Không dùng LOC làm gate cứng. Một service có thể dài nếu có một trách nhiệm thuần nhất; ngược lại service ngắn vẫn phải tách nếu vi phạm ownership. Mục tiêu review là mỗi class có một lý do nghiệp vụ/kỹ thuật rõ ràng để thay đổi và dependency list phù hợp.
+
+#### RF-2B Chuẩn pagination và query contract
+
+Tạo shared query primitives ở `common/pagination`:
+
+```ts
+type PageRequest = {
+  page: number;
+  limit: number;
+};
+
+type CursorRequest = {
+  cursor?: string;
+  limit: number;
+};
+
+type PageResult<T> = {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+type CursorResult<T> = {
+  items: T[];
+  nextCursor: string | null;
+  hasNextPage: boolean;
+};
+```
+
+Quy tắc:
+
+1. Default `limit = 20`, hard max `100`; endpoint đặc thù có thể thấp hơn.
+2. DTO dùng `@Type(() => Number)`, `@IsInt()`, `@Min(1)` và `@Max(...)`.
+3. Không dùng `query.page`/`query.limit` chưa normalize trực tiếp trong `.skip()`/`.limit()`.
+4. Message, Notification, HealthMetric và audit/event timelines dùng cursor `(sortValue, _id)` để tránh `skip` lớn.
+5. Admin lists có nhu cầu nhảy trang được dùng page/limit, nhưng phải đặt max và index hỗ trợ sort.
+6. Cursor được encode/validate phía server, không cho client chèn raw Mongo filter.
+7. Sort fields dùng enum/allowlist; sort luôn thêm `_id` làm tie-breaker.
+8. Chỉ trả `total` khi consumer thực sự cần. Cursor response dùng `limit + 1` để xác định `hasNextPage`.
+9. Response pagination thống nhất; không xen kẽ `{data,total}`, `{pagination.pages}` và `{count}` tùy module.
+10. Endpoint lookup/config không pagination phải có hard cap và comment/contract giải thích.
+
+#### RF-2C Chuẩn projection, populate và aggregation
+
+1. Mọi query đọc phải khai báo response projection; không mặc định trả toàn document.
+2. Dùng `.lean()` cho read model nếu không cần Mongoose methods, virtuals hoặc save hooks.
+3. Không populate document lớn bằng mặc định; chỉ select field cần thiết.
+4. Với hot list, cân nhắc aggregation `$lookup` + `$project` hoặc denormalized snapshot thay cho nhiều populate round trips.
+5. Không query collection A toàn bộ để tạo `$in` cho collection B.
+6. Count/average/min/max/distribution dùng aggregation thay vì tải toàn bộ documents vào memory.
+7. Các query độc lập được chạy song song có kiểm soát; không đặt `await` nối tiếp nếu không có dependency.
+8. Bulk read/write dùng `$in`, `bulkWrite` hoặc transaction phù hợp thay vì loop query từng record.
+9. Chỉ chọn denormalization khi có owner và reconciliation strategy rõ ràng.
+
+#### RF-2D Query catalog, index và performance verification
+
+Tạo `docs/current-state/query-catalog.md` với mỗi query:
+
+| Thuộc tính cần ghi | Nội dung |
+|---|---|
+| Query ID | Ví dụ `Q-USR-001` |
+| Caller/API | Endpoint hoặc job sử dụng |
+| Collection | Collection owner |
+| Filter | Equality/range/search fields |
+| Sort | Thứ tự đầy đủ, gồm `_id` tie-breaker |
+| Projection | Field thực sự trả về |
+| Pagination | Page hoặc cursor |
+| Expected cardinality | Nhỏ/vừa/lớn và dữ liệu test đại diện |
+| Index candidate | Equality -> sort -> range theo query shape |
+| Explain result | winning plan, keys/docs examined, returned, execution time |
+| Budget | p95 mục tiêu trên staging/test fixture |
+
+Quy trình tối ưu một query:
+
+```text
+capture current query + representative data
+ -> measure baseline
+ -> normalize filter/sort/projection/pagination
+ -> propose compound/partial/text/search index
+ -> run explain('executionStats')
+ -> compare before/after
+ -> add repository integration/performance assertion
+ -> add versioned index migration
+```
+
+Gate cho critical/hot queries:
+
+- Không có `COLLSCAN`, blocking in-memory sort hoặc unbounded result trên representative dataset, trừ ngoại lệ được ADR/query catalog ghi rõ.
+- `docsExamined`/`keysExamined` và response p95 có baseline; regression vượt budget phải làm test/CI cảnh báo hoặc fail theo mức đã chốt.
+- Index phải khớp filter + sort thực tế; không thêm index đơn lẻ chỉ vì field xuất hiện trong schema.
+- Duplicate/redundant index được loại sau khi kiểm tra usage và observation window.
+- Search regex được escape, có min/max input; ưu tiên text/Atlas Search hoặc normalized prefix search.
+
+#### RF-2E Cache có chọn lọc sau tối ưu query
+
+1. Không tạo cache task trước khi query có pagination/projection/index và baseline ở RF-2D.
+2. Chọn tối đa 2-3 read query có reuse cao cho vòng đầu, ưu tiên doctor directory, plan catalog hoặc active moderation keywords.
+3. Tạo `CachePort` và Redis adapter; business/application layer không phụ thuộc trực tiếp Keyv/Redis client.
+4. Định nghĩa cache key version, TTL, owner, dữ liệu được phép lưu và event invalidation cho từng entry trong query catalog.
+5. Invalidation chỉ phát sau transaction commit, ưu tiên domain event/outbox; không xóa cache trước khi write chắc chắn thành công.
+6. Có timeout/fallback, chống stampede và test Redis unavailable; cache miss/error không được làm hỏng read flow không nhạy cảm.
+7. Đo hit ratio, latency và database load trước/sau; loại cache nếu không tạo lợi ích đo được.
+
+Deliverables:
+
+- Service responsibility map và danh sách class/use case đích.
+- `common/pagination` cùng DTO/response conventions.
+- `docs/current-state/query-catalog.md`.
+- Script/fixture tạo representative dataset.
+- Explain baselines cho Users/Practitioners, Consultations, Messages, HealthMetrics, Notifications và AI conversations.
+- Cache decision record cho từng query được cache hoặc quyết định không cache.
+
+Exit gate:
+
+- Không còn list endpoint công khai nào thiếu pagination/hard cap trong contract mới.
+- Các query được ưu tiên P0 có query ID, index plan và baseline.
+- Service decomposition plan được map vào từng task module; không thực hiện big-bang rewrite.
+
+Ước lượng: **8-12 person-days** cho decomposition/query foundation; cache có chọn lọc **2-4 person-days P1** sau khi Redis foundation sẵn sàng.
+
+### RF-3 — Chuẩn hóa backend repository và API contract
+
+Mục tiêu: backend hoạt động độc lập với repository frontend.
 
 Các bước backend:
 
-1. Đưa Mongo shell `createIndex.ts` ra khỏi `src` hoặc exclude khỏi application build.
-2. Sửa mismatch `Doctor`/`DoctorProfile`, nhưng chưa redesign domain trong cùng commit.
-3. Sửa User schema enum metadata để test có thể khởi động.
-4. Sửa TypeScript build theo nhóm root cause, không tắt strict rule để che lỗi.
-5. Viết characterization test cho auth, user/profile, session, chat, health metrics, AI và review.
-6. Chụp OpenAPI hiện tại và lưu làm contract baseline.
-7. Bật lint/typecheck/build trong CI; xóa `continue-on-error`.
-8. Tách test unit, integration và E2E commands.
+1. Đưa dependency backend về đúng `package.json` của backend.
+2. Loại bỏ import source trực tiếp từ `apps/client`, `apps/admin` hoặc package UI.
+3. Backend sở hữu domain enum và DTO.
+4. Chuẩn hóa `ConfigModule` bằng fail-fast environment validation; xóa secret fallback và truy cập `process.env` rải rác.
+5. Hardening bootstrap: Helmet, API versioning, CORS allowlist, body/upload limits, `trust proxy` theo topology và graceful shutdown.
+6. Giữ Swagger hiện có nhưng bổ sung tags, operation ID, response/error schema, bearer/cookie/OAuth scheme khi tương ứng.
+7. Tạo OpenAPI generation trong CI và chỉ bật Swagger UI ở local/staging hoặc sau lớp bảo vệ.
+8. Kiểm tra breaking contract bằng OpenAPI diff.
+9. Tạo `docs/realtime-events.md` hoặc JSON Schema cho Socket events.
+10. Chuẩn hóa biến môi trường `CORS_ORIGINS`, API prefix và Socket path.
+11. Gom Passport/JWT registration, strategy, verifier, guard/decorator về Identity-Access; xóa `JwtModule` cấu hình lặp ở feature modules.
+12. Thêm global/route throttling cho HTTP; định nghĩa policy và guard riêng cho Socket events.
+13. Thêm JSON logging, correlation ID, error envelope và redaction test.
+14. Cập nhật `docs/fe-integration.md` khi REST/event contract thay đổi.
 
-Các bước frontend:
+Backend không chịu trách nhiệm:
 
-1. Đồng bộ React/@types React.
-2. Chuyển React của shared UI sang peerDependencies.
-3. Khôi phục các notification service/store bị thiếu ở Admin.
-4. Sửa API type mismatch và unused/type-only import.
-5. Build Web Client và Web Admin độc lập.
+- Tạo repository frontend.
+- Cài TanStack Query/Zustand.
+- Viết page/component/hook.
+- Generate client hoặc sửa build frontend.
 
 Exit gate:
 
-- Backend, Web Client và Web Admin build xanh.
-- CI fail khi cố tình tạo type error.
-- Có ít nhất smoke/characterization test cho critical current flows.
+- Backend clone/build/test độc lập.
+- OpenAPI artifact và realtime contract được xuất tự động.
+- Không có dependency source từ frontend.
+- Ứng dụng từ chối khởi động khi production configuration không hợp lệ.
+- Helmet, throttling, correlation ID và Swagger exposure có integration test.
 
-Rollback:
+Ước lượng: **6-9 person-days**, gồm backend boundary, contract và platform hardening.
 
-- Các commit sửa build nhỏ, độc lập; revert từng commit mà không đổi database.
+### RF-4 — Mongoose và database foundation
 
-#### Phase 2 Tách repository và thiết lập contract
-
-Mục tiêu: backend và frontend có lifecycle độc lập nhưng không làm vỡ tích hợp.
+Mục tiêu: database mới được tạo lặp lại hoàn toàn từ source control.
 
 Các bước:
 
-1. Gắn tag `pre-frontend-split-2026-09`.
-2. Tạo frontend repo bằng `git filter-repo` hoặc phương pháp giữ history tương đương.
-3. Thiết lập pnpm workspace/Turborepo cho web-client, web-admin, mobile và packages.
-4. Thiết lập backend repo standalone và chuyển dependency root vào đúng package.
-5. Tạo OpenAPI generation trong backend CI.
-6. Tạo API client generation trong frontend CI.
-7. Tạo realtime event contract versioned.
-8. Duy trì `docs/fe-integration.md`: page → DTO → REST/event → query key → permission/state.
-9. Chuẩn hóa URL/CORS/env cho local, staging và demo.
-10. Chạy contract smoke test giữa hai repo.
-11. Chỉ xóa frontend khỏi backend repo khi hai pipeline xanh trên cùng contract version.
+1. Chốt MongoDB/Mongoose version, connection lifecycle và transaction policy trong ADR.
+2. Tạo `DatabaseModule` chuẩn; thêm Terminus liveness/readiness và `enableShutdownHooks()`.
+3. Tắt `autoIndex`/`autoCreate` ở staging/demo.
+4. Tạo migration runner có:
+   - migration version/name/checksum;
+   - `_schema_migrations`;
+   - migration lock;
+   - trạng thái running/applied/failed;
+   - kiểm tra `MIN_SCHEMA_VERSION`.
+5. Tạo `database:verify` để kiểm tra collection options, validators và indexes.
+6. Tạo reference seed và demo seed tách biệt, idempotent.
+7. Dùng replica set cho local/CI để test transaction.
+8. CI chạy migrate database rỗng, verify, test và migrate lần hai phải no-op.
+9. Viết transaction proof trung lập với feature mới.
+10. Tạo Atlas Vector Search definition dưới source control.
+11. Tạo `RedisModule` dùng chung cho API/worker với connection lifecycle, namespace, timeout/retry policy và health indicator.
+12. Quy định key naming/TTL/data classification cho OTP, throttling, presence, quota, cache và BullMQ; không để từng module tự tạo Redis connection/config riêng.
+
+Migration ownership:
+
+- Runner/verifier/framework thuộc `BE-RF-020` và `BE-RF-021`.
+- Canonical collection của code cũ thuộc task refactor module tương ứng.
+- AvailabilitySlots, Payments, Refunds hoặc feature collections không được tạo trong task foundation; chúng thuộc Phần B.
 
 Exit gate:
 
-- Hai repository clone/build/test độc lập từ máy sạch.
-- Không còn workspace import từ frontend vào backend.
-- Frontend có thể pin contract/backend release version.
+- Một command dựng được database local/CI từ rỗng.
+- Không cần thao tác Mongo shell thủ công.
+- Transaction rollback proof pass.
+- Migration lần hai không thay đổi database.
+- Readiness phản ánh MongoDB/Redis bắt buộc; shutdown đóng HTTP, Socket, MongoDB, Redis và worker có trật tự.
 
-Rollback:
+Ước lượng: **7-10 person-days**.
 
-- Repository cũ vẫn giữ tag đầy đủ; chưa xóa code frontend trước gate.
+### RF-5 — Refactor Identity và Practitioner hiện có
 
-#### Phase 3 Mongoose foundation và database mới
-
-Mục tiêu: database rỗng có thể được tạo lặp lại từ source control, không thao tác tay.
-
-Các bước:
-
-1. Inventory tất cả Mongoose schema/model token, collection name và cross-module `@InjectModel()`.
-2. Chốt ADR về Mongoose/MongoDB version, `autoIndex`, connection lifecycle và transaction strategy.
-3. Tạo DatabaseModule chuẩn, connection config và health/lifecycle hooks.
-4. Tắt `autoIndex`/`autoCreate` ở staging và demo; local chỉ bật khi có chủ đích.
-5. Tạo migration runner, migration lock và `_schema_migrations`.
-6. Tạo `database:verify` cùng collection/index/validator manifest.
-7. Chọn canonical schema và explicit collection name cho Identity + Consultation trước.
-8. Viết initial collection migrations.
-9. Viết standard/unique/partial/TTL index migrations.
-10. Viết HealthMetrics time-series migration và Atlas Vector Search provisioning.
-11. Tạo reference seed và demo seed riêng.
-12. CI apply migration từ database rỗng hai lần, lần hai phải no-op.
-13. Chạy transaction proof: slot + consultation + outbox rollback toàn bộ khi cố tình throw.
-
-Exit gate:
-
-- Một command tạo được database local/CI hoàn chỉnh từ rỗng.
-- Schema/index/search definition không cần thao tác Mongo shell thủ công.
-- Transaction proof pass trên replica set.
-- `autoIndex` và `syncIndexes()` không được dùng như migration trong staging/demo pipeline.
-
-Rollback:
-
-- Database rỗng có thể drop/recreate ở local/CI.
-- Shared environment dùng backup/forward-fix; không chạy down phá dữ liệu tự động.
-
-#### Phase 4 Identity và Practitioner vertical slices
-
-Mục tiêu: tạo nền principal/user duy nhất trước các domain phụ thuộc user.
+Mục tiêu: chỉ còn một nguồn dữ liệu User và giữ nguyên local authentication.
 
 Các bước Identity:
 
-1. Viết domain policy cho account status, role, local password và OAuth-only account.
-2. Tạo Mongoose repositories cho Users, OAuthAccounts, AuthSessions, AuthEvents, UserDevices.
-3. Viết mapper giữa Mongoose document, domain object và API DTO.
-4. Chuyển register/login/me/password change.
-5. Chuyển Redis OTP và rate limit.
-6. Chuyển refresh rotation/family replay detection.
-7. Thêm OAuth link/login/callback.
-8. Chuyển logout, logout-all và account ban session revocation.
-9. Chạy security/integration/E2E tests.
-10. Feature-flag provider mới, chuyển staging rồi xóa Auth User schema cũ.
+1. Chọn canonical User schema/model và explicit collection name.
+2. Hợp nhất `password`/`passwordHash` thành `passwordHash`.
+3. Chuẩn hóa role, status và principal shape.
+4. Tạo AuthSessions, chỉ lưu refresh-token hash.
+5. Triển khai refresh rotation, token family và replay detection.
+6. Chuyển OTP sang Redis dưới dạng code hash + attempts + TTL.
+7. Password change, ban và logout-all revoke sessions liên quan.
+8. Chuẩn hóa auth guard/decorator/policy.
+9. Thêm audit AuthEvents cho hành động bảo mật quan trọng.
+10. Xóa User schema trùng chỉ sau khi mọi consumer đã chuyển.
 
 Các bước Practitioner:
 
-1. Chuyển DoctorProfile embedded mapping.
-2. Chuyển doctor search/profile query.
-3. Chuyển verification workflow và admin audit.
-4. Chuyển booking settings.
-5. Xóa `patients`, `admins` và Doctor model trùng khi không còn consumer.
+1. Giữ Doctor là User role với `doctorProfile` embedded theo DB v7.
+2. Chuyển doctor search/profile query qua Practitioner service/facade.
+3. Chuẩn hóa workflow duyệt hồ sơ bác sĩ đang có.
+4. Ghi reviewer, reason, `verifiedAt` và audit event.
+5. Xóa `patients`, `admins` hoặc Doctor model trùng khi không còn consumer.
+6. Thay `UsersService.findAll/findDoctors` không giới hạn bằng paginated Practitioner/User queries có projection và stable sort.
+7. Không tải toàn bộ Doctor rồi join User bằng `Map`; dùng canonical embedded profile hoặc aggregation/query phù hợp.
+8. Tách reviews/violations khỏi profile detail thành paginated sub-resources; rating distribution dùng aggregation/read model.
+9. Doctor application search không tạo `$in` từ danh sách User không giới hạn; dùng aggregate lookup/search strategy đã benchmark.
+10. Allowlist filter/sort, escape search input và xác minh indexes bằng query catalog.
+
+Không thuộc phase này:
+
+- OAuthAccounts/login OAuth.
+- UserDevices/FCM.
+- Booking settings hoặc AvailabilitySlot.
 
 Exit gate:
 
 - Một User source of truth.
-- Không còn plaintext refresh token/OTP trong MongoDB.
-- Auth/role/doctor approval E2E pass.
+- Local login/refresh/logout/password/ban E2E pass.
+- Không có plaintext OTP hoặc refresh token trong MongoDB.
+- Doctor approval/search không regression.
+- User/doctor/admin list queries có pagination, projection, `lean()` phù hợp và explain baseline.
 
-#### Phase 5 Consultation vertical slices
+Ước lượng: **8-12 person-days**.
 
-Mục tiêu: thay Session cũ bằng domain Consultation mới mà không làm gián đoạn frontend.
+### RF-6 — Chuyển Session cũ sang Consultation core
 
-Thứ tự slice bắt buộc:
+Mục tiêu: giữ nguyên luồng cũ nhưng chuyển sang tên và trạng thái domain đúng.
 
-1. Domain types, state machines, policies và invariant tests.
-2. AvailabilitySlot create/list/block/expire.
-3. Scheduled booking atomic.
-4. Scheduled cancel/reopen policy.
-5. On-demand request/accept/decline/expire.
-6. Check-in window và waiting transition.
-7. Queue query, `queuePriorityAt` và atomic call-next.
-8. No-show worker transition.
-9. Consultation room authorization.
-10. Message persistence/retry/idempotency.
-11. Review unique, rating transaction và moderation.
-12. Legacy `/sessions` compatibility adapter.
-13. OpenAPI/realtime contract update.
-14. Frontend staging cutover theo từng slice.
-15. Xóa Session/Chat code cũ chỉ sau E2E và data verification.
-
-Mỗi slice thực hiện cùng một mini-cycle:
+Luồng cũ bắt buộc được giữ:
 
 ```text
-characterize old behavior
- -> define business rule
- -> domain test
- -> schema/migration
- -> repository contract test
- -> application use case
- -> HTTP/socket adapter
- -> E2E
- -> feature flag staging
- -> observe
- -> remove old path
+Patient gửi yêu cầu tư vấn cho Doctor
+ -> Doctor xem danh sách yêu cầu
+ -> Doctor accept hoặc decline một hay nhiều yêu cầu
+ -> Khi accepted, hai bên chat/tư vấn
+ -> Consultation hoàn tất hoặc bị hủy theo policy
 ```
 
-Exit gate:
-
-- Scheduled và on-demand chạy end-to-end.
-- Concurrency tests double-booking/call-next pass.
-- Không còn `ACTIVE`/`REJECTED` mang hai nghĩa.
-
-#### Phase 6 Async processing và realtime scaling
-
-Mục tiêu: side effect có retry, quan sát được và không mất khi process restart.
+Luồng trên được biểu diễn bằng Consultation `type = on_demand`; đây là refactor, không phải feature mới.
 
 Các bước:
 
-1. Provision Redis và cấu hình namespace/key convention.
-2. Tạo BullMQ queues, default retry/backoff, dead-job policy.
-3. Tạo Outbox repository và transaction integration.
-4. Tạo dispatcher claim/lease/idempotency.
-5. Tách worker process khỏi API process.
-6. Chuyển email, FCM, Socket notification sang worker.
-7. Chuyển reminders, expirations, no-show và campaign fan-out.
-8. Chuyển AI document ingestion.
-9. Thay in-memory presence bằng Redis TTL/heartbeat.
-10. Thêm Socket.IO Redis Adapter và shared auth guard.
-11. Test worker crash/restart, duplicate delivery và multi-instance socket.
-12. Thêm metrics/health cho Redis, queues và outbox backlog.
+1. Chốt state machine tối thiểu cho hành vi cũ:
+   - request status: `pending -> accepted|declined|expired`;
+   - consultation status: `confirmed -> in_progress -> completed|cancelled`.
+2. Không tiếp tục dùng `ACTIVE` cho cả confirmed và in-progress.
+3. Không dùng `REJECTED` để biểu diễn cancellation.
+4. Tạo Consultation schema/repository/domain mapper tối thiểu.
+5. Tạo use cases request, accept, decline, start, complete và cancel tương ứng hành vi cũ.
+6. Viết compatibility adapter `/sessions` nếu consumer cũ còn hoạt động.
+7. Map Session ID/status sang Consultation ID/status rõ ràng.
+8. Không dual-write âm thầm; nếu cần dual-write phải có reconciliation và kill switch.
+9. Chạy regression test so sánh old/new behavior.
+10. Chỉ xóa Session code/collection sau consumer audit và observation window.
+11. Chuẩn hóa list/history query theo PageResult hoặc CursorResult; `getUpcoming` phải có hard limit/cursor dù đã giới hạn ngày.
+12. Tạo compound indexes theo actor + status/type + thời gian + `_id` dựa trên query catalog.
+13. Dùng projection/`lean()` cho list; chỉ hydrate aggregate khi thực hiện command/state transition.
+
+Không thuộc phase này:
+
+- AvailabilitySlot hoặc scheduled booking.
+- Check-in, queue position, call-next hoặc no-show.
+- Reminder lịch hẹn.
 
 Exit gate:
 
-- API restart không mất event pending.
-- Job retry không tạo duplicate business effect.
-- Socket multi-instance test pass.
+- Flow request/accept/decline/tư vấn cũ chạy end-to-end qua Consultation core.
+- Status không còn nhập nhằng.
+- Compatibility mapping được tài liệu hóa.
+- Consultation list/upcoming không trả unbounded data và critical explain plan không COLLSCAN.
 
-#### Phase 7 AI, Billing và Moderation
+Ước lượng: **7-10 person-days**.
 
-Thực hiện theo thứ tự để giảm coupling:
+### RF-7 — Refactor Chat, Review và Realtime hiện có
 
-AI:
+Mục tiêu: chuyển consumer của Session sang Consultation mà không thêm nghiệp vụ mới.
 
-1. Chốt một AI Conversation/Message model.
-2. Chuyển persistence sang canonical Mongoose repositories và vector adapter.
-3. Tách orchestration, RAG, image information, safety và usage.
-4. Tạo Redis quota reserve/commit/release.
-5. Chuyển document ingestion sang BullMQ.
-6. Xóa CRUD AI endpoints/module trùng sau frontend cutover.
+Chat/Realtime:
 
-Billing:
+1. Chuyển message foreign key từ `sessionId` sang `consultationId`.
+2. Chỉ participant của consultation hợp lệ được join room và đọc/gửi message.
+3. Chuẩn hóa JWT verification dùng chung cho gateway.
+4. Thay Socket CORS `*` bằng allowlist.
+5. Thêm message idempotency/client message ID và retry-safe persistence.
+6. Chuẩn hóa event name/version cho các event đang có.
+7. Chuyển process-local presence sang Redis TTL/heartbeat nếu chạy nhiều instance.
+8. Thêm Socket.IO Redis Adapter sau multi-instance proof.
+9. Giữ basic WebRTC signaling hiện có nếu đã tồn tại; không mở rộng TURN/mobile ở đây.
+10. Message history dùng cursor `(sentAt, _id)`; không dùng page/skip cho lịch sử dài.
+11. Chỉ project fields cần cho message DTO; attachment metadata lớn có contract riêng nếu cần.
 
-1. Xác nhận VNPAY Sandbox merchant có quyền payment/query/refund và ghi kết quả spike.
-2. Tạo Plan/Order/Transaction/Subscription/Refund migrations và repository.
-3. Tạo order snapshot.
-4. Tạo VNPAY URL và signature service.
-5. Tạo IPN idempotent transaction.
-6. Tạo một subscription grant cho mỗi order paid.
-7. Tạo cancel order bằng conditional update và xử lý late IPN.
-8. Tạo refund request + admin approve/reject.
-9. Tạo refund worker, provider idempotency và trạng thái `manual_review`.
-10. Finalize refund transactionally và revoke đúng subscription grant.
-11. Tạo payment/refund reconciliation command và notification events.
+Review:
 
-Moderation:
-
-1. Chuyển four-state workflow.
-2. Chuyển evidence references và Cloudinary metadata.
-3. Thêm AI classification draft.
-4. Thêm admin decision/audit và account sanction integration.
+1. Giữ Reviews là collection riêng và unique theo consultation.
+2. Chỉ patient participant được review consultation completed.
+3. Cập nhật doctor rating trong transaction hoặc rebuildable projection.
+4. Endpoint helpful/flag phải thực sự thay đổi dữ liệu hoặc bị loại khỏi contract; không trả success giả.
+5. Chưa tạo moderation workflow đầy đủ trong refactor.
+6. Review list dùng bounded page/cursor và compound index `(doctorId, createdAt, _id)` hoặc query shape tương đương.
+7. Rating summary/distribution chạy bằng aggregation hoặc maintained projection, không tải toàn bộ reviews vào Node.js.
 
 Exit gate:
 
-- AI quota, duplicate IPN, cancel/late-IPN, full refund và moderation workflow E2E pass.
-- Không còn service AI nguyên khối hoặc endpoint success giả.
+- Room authorization/socket tests pass.
+- Message retry không tạo duplicate.
+- Review unique/rating transaction pass.
+- Không còn message dùng Session model trực tiếp.
+- Message/review list queries có stable cursor/sort và performance baseline.
 
-#### Phase 8 Frontend và Mobile cutover
+Ước lượng: **7-10 person-days**.
 
-Mục tiêu: frontend dùng contract mới và không mang lại coupling với backend source.
+### RF-8 — Refactor Health Tracking và AI/RAG hiện có
+
+Mục tiêu: chia nhỏ service và làm rõ ownership nhưng giữ output nghiệp vụ hiện tại.
+
+Health Tracking:
+
+1. Chuẩn hóa metric type, unit, `recordedAt`, timezone và source.
+2. Tách CRUD/query khỏi `MetricRuleEvaluator`.
+3. Giữ threshold warning là cảnh báo tham khảo, không chẩn đoán.
+4. Tạo `HealthProfileReader` port cho AI; AI không inject HealthMetric model.
+5. Dùng time-series collection nếu spike xác nhận query/update pattern phù hợp.
+6. HealthMetric history dùng cursor `(recordedAt, _id)` và bắt buộc bounded result.
+7. `getStatistics` nhận time range/window; dùng Mongo aggregation cho count/avg/min/max và `$top`/sorted latest.
+8. Không tải toàn bộ metric history vào application memory để thống kê.
+
+AI/RAG:
+
+1. Chọn một canonical AiConversation/AiMessage model.
+2. Hợp nhất các module AI CRUD cũ và `ai-assistant`.
+3. Tách `AiConversationService`, `AiResponseOrchestrator`, `RagRetrievalService`, `AiSafetyService` và provider adapters.
+4. Đưa Vector Search pipeline sau `VectorSearchPort`.
+5. Tách document ingestion thành job nếu hiện tại đã có ingestion.
+6. Chuẩn hóa disclaimer, safety rules và error mapping.
+7. Xóa endpoint/module AI trùng sau contract audit.
+8. Conversation/message history dùng cursor; summary/statistics dùng aggregation/projection.
+9. Allowlist sort fields; regex search phải escape và có min/max input hoặc chuyển sang Atlas Search/text index.
+10. Quyết định rõ `ai-health-insights`: loại khỏi canonical DB v7 hoặc chuyển use case cần thiết vào Health/AI; không giữ CRUD module mồ côi.
+11. `BlacklistKeywordsService.checkContent` dùng cache active keywords có invalidation/version thay vì đọc toàn collection mỗi request.
+
+Không thuộc phase này:
+
+- Daily quota/AiUsageDaily.
+- AI tự chẩn đoán hoặc tự sanction user.
+- Loại AI insight mới chưa có acceptance criteria.
+
+Exit gate:
+
+- Health và AI/RAG regression tests pass.
+- Không còn AI service nguyên khối hoặc model conversation trùng.
+- Domain/application không phụ thuộc provider SDK trực tiếp.
+- Health/AI queries không còn unbounded statistics/history và có explain baseline cho hot paths.
+
+Ước lượng: **7-11 person-days**.
+
+### RF-9 — Refactor Notification và background processing hiện có
+
+Mục tiêu: side effect đang có không mất khi API/worker restart.
 
 Các bước:
 
-1. Hoàn thiện generated API client và auth storage adapters.
-2. Chuyển Web Client theo feature: auth -> practitioner -> slot -> consultation -> queue -> chat -> AI -> billing.
-3. Chuyển Web Admin: verification -> users -> AI knowledge -> plans/payment -> moderation.
-4. Tách shared UI thuần khỏi feature/business components.
-5. Đưa server state sang TanStack Query nếu giữ trong đề cương.
-6. Tạo mobile foundation và reuse API/realtime contracts, không reuse DOM component.
-7. Chuyển mobile patient/doctor critical flow.
-8. Thêm FCM và secure token storage.
-9. Thêm WebRTC foreground call; CallKeep/background là scope sau gate.
-10. Chạy browser/mobile smoke test với backend staging pinned version.
+1. Tách Notification khỏi Upload/Cloudinary ownership sai chiều.
+2. Chuẩn hóa Notification schema và read/unread APIs đang có.
+3. Tạo OutboxEvents, outbox repository và transaction integration.
+4. Tạo BullMQ module, queue naming, retry/backoff và dead-job policy.
+5. Tạo dispatcher claim/lease/idempotency.
+6. Chạy worker ở process riêng với readiness/health.
+7. Chuyển email/Socket side effect đang tồn tại sang worker.
+8. Dùng `jobId = idempotencyKey`; consumer vẫn phải idempotent.
+9. Thêm metrics cho waiting/active/failed/dead và oldest pending outbox.
+10. Test crash sau commit, duplicate enqueue và retry delivery.
+11. Notification history dùng cursor `(createdAt, _id)`; unread filter có compound index khớp filter + sort.
+12. Outbox claim query có index theo status/nextAttemptAt/lockedAt và hard batch size.
+13. Worker không load toàn bộ pending events; claim theo bounded batch/lease.
+
+Không thuộc phase này:
+
+- Appointment reminder mới.
+- FCM/UserDevices mới.
+- Notification campaign mới.
+- No-show job của queue mới.
+- Payment/refund worker.
 
 Exit gate:
 
-- Không còn gọi legacy `/sessions` từ frontend.
-- Web critical journeys xanh.
-- Mobile P1 journey chạy trên thiết bị/emulator mục tiêu.
+- API restart không mất pending event.
+- Retry không tạo duplicate business effect.
+- Dead/stuck job quan sát và xử lý lại được.
+- Notification/outbox queries bounded, dùng stable sort và pass repository performance tests.
 
-#### Phase 9 Hardening, cutover và cleanup
+Ước lượng: **7-10 person-days**.
 
-Mục tiêu: release có thể tái tạo, quan sát và rollback.
+### RF-10 — Cutover và xóa code cũ
+
+Mục tiêu: kết thúc refactor thay vì duy trì hai implementation lâu dài.
 
 Các bước:
 
-1. Feature freeze.
-2. Apply toàn bộ migrations trên staging database rỗng và database snapshot.
-3. Full unit/integration/E2E/contract/socket suites.
-4. k6 booking race, REST load và socket soak test.
-5. Security review auth, OAuth, upload, payment, room access và logs.
-6. Outbox/payment/rating/AI usage reconciliation.
-7. Backup/restore và rollback rehearsal.
-8. Canary/feature-flag cutover.
-9. Theo dõi logs/metrics trong observation window.
-10. Xóa compatibility adapters, schema/model Mongoose trùng và legacy collections sau sign-off.
-11. Cập nhật README, đề cương, ERD/DBML, OpenAPI, realtime events và runbook.
-12. Tag Release Candidate và final release.
+1. Chạy full regression trên staging.
+2. Kiểm tra access log để xác định legacy endpoint/event còn consumer hay không.
+3. Đối soát User, Consultation, Message, Review, Notification và AI data.
+4. Tắt legacy provider bằng feature flag.
+5. Theo dõi observation window.
+6. Xóa duplicate schemas, services, modules, model tokens và dependencies.
+7. Xóa compatibility adapter chỉ sau khi frontend repo xác nhận không còn dùng; đây là điều kiện phối hợp, không phải task implement frontend.
+8. Cập nhật OpenAPI, realtime docs, migration manifest và runbook.
 
 Exit gate:
 
-- Không có P0 bug; P1 có owner/workaround rõ.
-- Rebuild từ repo sạch và database rỗng thành công.
-- Demo không cần sửa database thủ công.
+- Không còn duplicate User/AI/Session implementation.
+- Không còn cross-module model injection trái ownership.
+- Backend build/test từ checkout sạch và DB rỗng.
 
-### 16.2 Checklist refactor áp dụng cho mọi module
+Ước lượng: **4-6 person-days**.
 
-Trước khi refactor một module:
+## 6. Definition of Done cho refactor
 
-- [ ] Xác định owner dữ liệu và public API.
-- [ ] Liệt kê consumer backend/frontend.
-- [ ] Viết characterization tests.
-- [ ] Chốt keep/remove behavior.
-- [ ] Chốt schema/index/migration.
+Một task `BE-RF-*` chỉ Done khi:
 
-Trong khi refactor:
+- Hành vi cần giữ đã có characterization test trước thay đổi.
+- Không thêm endpoint hoặc state transition mang nghiệp vụ mới.
+- Old/new output hoặc contract đã được so sánh.
+- Unit/integration/regression tests liên quan pass.
+- Không có TypeScript, lint hoặc build error.
+- Migration/index được version hóa nếu data model thay đổi.
+- Không leak Mongoose Document ra khỏi infrastructure.
+- OpenAPI/realtime contract được cập nhật nếu adapter thay đổi.
+- Code cũ được xóa hoặc có issue cutover cụ thể; không để TODO vô thời hạn.
+- Class/service sau refactor có trách nhiệm và dependency boundary rõ ràng; không chỉ chuyển một god service sang tên khác.
+- List/history endpoint có pagination hoặc hard cap đã được duyệt.
+- Query parameter được normalize/validate; sort field có allowlist và stable tie-breaker.
+- Read query có projection/`lean()` phù hợp; aggregation thay cho full collection processing khi khả thi.
+- Critical query có query-catalog entry, index migration và `explain('executionStats')` trước/sau.
 
-- [ ] Viết domain rule trước persistence cho logic phức tạp.
-- [ ] Tạo repository/port và mapper.
-- [ ] Không leak Mongoose Document khỏi infrastructure.
-- [ ] Tạo use case nhỏ theo command/query.
-- [ ] Giữ controller/gateway mỏng.
-- [ ] Tạo transaction/outbox ở đúng boundary.
-- [ ] Cập nhật OpenAPI/realtime contract.
-- [ ] Viết unit/integration/E2E.
-
-Sau khi refactor:
-
-- [ ] Cutover bằng provider token hoặc feature flag.
-- [ ] So sánh output/metrics với baseline.
-- [ ] Xóa dead code và dependency cũ.
-- [ ] Chạy full build/test từ máy sạch.
-- [ ] Cập nhật ADR, README và runbook.
-- [ ] Không đóng task khi vẫn còn TODO/placeholder trả success giả.
-
-### 16.3 Ánh xạ phase vào lịch sprint
-
-#### Sprint 0 từ 11/09 đến 20/09: Stabilization
-
-Backend/Platform:
-
-- [ ] Di chuyển `createIndex.ts` ra khỏi `src`.
-- [ ] Hợp nhất import DoctorProfile để API build.
-- [ ] Sửa `@Prop({ type: String, enum: ... })` cho enum schema lỗi.
-- [ ] Bật lint/typecheck/build fail-fast trong CI.
-- [ ] Viết characterization test cho auth, sessions, chat và reviews hiện tại.
-- [ ] Review/chốt DB v7 cùng migration manifest ở mục 7.7.
-
-Frontend:
-
-- [ ] Đồng bộ React/@types React và peer dependencies.
-- [ ] Sửa missing notification modules của Admin.
-- [ ] Đưa Client/Admin về trạng thái typecheck và build xanh.
-- [ ] Lập contract inventory cho các service frontend đang gọi.
-
-Exit criteria: API, Client, Admin build xanh; CI đỏ thật khi lỗi; không thêm feature mới khi chưa đạt.
-
-#### Sprint 1 từ 21/09 đến 04/10: Repository split, Mongoose foundation và Identity
-
-Backend/Platform:
-
-- [ ] Tạo repository backend standalone và cấu trúc module đích.
-- [ ] Chốt Mongoose/database ADR, canonical schemas và tạo migration runner.
-- [ ] Tạo database rỗng từ initial versioned migrations và verify trong CI.
-- [ ] Hợp nhất User/Auth; tạo AuthSessions, OAuthAccounts, AuthEvents, UserDevices.
-- [ ] Redis OTP, refresh rotation và auth rate limit.
-- [ ] Generate OpenAPI artifact.
-
-Frontend:
-
-- [ ] Tách repository frontend có giữ Git history.
-- [ ] Tạo `packages/api-client` và cấu hình môi trường.
-- [ ] Di chuyển auth store/business component ra khỏi `packages/ui`.
-- [ ] Tích hợp contract auth mới.
-
-Exit criteria: login local cũ vẫn chạy; OAuth foundation và session tests chạy; hai repository build độc lập.
-
-#### Sprint 2 từ 05/10 đến 18/10: Slot và Scheduled Consultation
-
-Backend/Platform:
-
-- [ ] AvailabilitySlot CRUD + overlap policy.
-- [ ] Atomic booking, cancel, reopen và expire slot.
-- [ ] Consultation aggregate và scheduled flow.
-- [ ] Notification/outbox record trong transaction.
-
-Frontend:
-
-- [ ] Doctor quản lý slot.
-- [ ] Patient xem lịch và đặt slot.
-- [ ] Danh sách upcoming/cancel.
-
-Exit criteria: concurrency test một slot chỉ được book một lần; UI không còn gửi scheduledAt tùy ý.
-
-#### Sprint 3 từ 19/10 đến 01/11: On-demand, Queue, Chat và Review
-
-Backend/Platform:
-
-- [ ] On-demand request accept/decline/expire.
-- [ ] Check-in, queue priority, call-next atomic và no-show.
-- [ ] Migrate chat sang consultationId và chuẩn hóa socket auth.
-- [ ] Review unique + rating transaction + moderation state.
-
-Frontend:
-
-- [ ] Patient on-demand request và waiting screen.
-- [ ] Doctor queue dashboard.
-- [ ] Chat/review chuyển sang consultation contract.
-
-Exit criteria: cả hai luồng scheduled/on-demand chạy E2E; không truy cập room trái phép.
-
-#### Sprint 4 từ 02/11 đến 15/11: Redis, BullMQ, Outbox, FCM và Realtime scaling
-
-- [ ] Redis presence/heartbeat.
-- [ ] BullMQ module và worker process.
-- [ ] Outbox dispatcher, retry, dead state và dashboard/log cơ bản.
-- [ ] Appointment reminders, campaign batch và no-show jobs.
-- [ ] Socket.IO Redis Adapter.
-- [ ] UserDevices và FCM delivery.
-- [ ] WebRTC signaling + TURN configuration cho demo.
-
-Exit criteria: restart worker không mất job; multi-instance socket test; reminder retry an toàn.
-
-#### Sprint 5 từ 16/11 đến 29/11: AI quota, RAG refactor và Billing
-
-Backend/Platform:
-
-- [ ] Tách AiAssistantService theo capability.
-- [ ] Migrate AI conversation/message model.
-- [ ] Redis daily quota + AiUsageDaily reconciliation.
-- [ ] Plans, Orders, Transactions, Subscriptions.
-- [ ] VNPAY Sandbox payment/query/refund capability spike.
-- [ ] VNPAY create URL, return và IPN idempotent.
-- [ ] Cancel unpaid order + late-IPN handling.
-- [ ] PaymentRefund request/approve/reject và full-refund worker sau feature flag.
-
-Frontend/Mobile:
-
-- [ ] Plan/subscription/payment screens.
-- [ ] Cancel order, refund request và admin refund-review screens tối thiểu.
-- [ ] AI quota status và hết lượt UX.
-- [ ] Mobile auth, consultation list/chat foundation.
-
-Exit criteria: duplicate IPN, cancel race và full-refund idempotency test pass; quota retry an toàn; AI disclaimer đúng phạm vi tư vấn. Nếu refund chưa đạt gate trước 29/11, tắt `VNPAY_REFUND_ENABLED` và giữ payment/cancel cơ bản cho release.
-
-#### Sprint 6 từ 30/11 đến 13/12: Moderation, Mobile và Hardening
-
-- [ ] Violation workflow bốn trạng thái + severity + evidence.
-- [ ] AI classification có human approval.
-- [ ] Mobile patient/doctor core flow.
-- [ ] Audio/video call foreground demo.
-- [ ] Security test, upload validation, audit logs.
-- [ ] k6 baseline REST và WebSocket.
-
-Exit criteria: critical user journey chạy trên web và ít nhất một Android/iOS demo target; moderation audit đầy đủ.
-
-#### Release Candidate từ 14/12 đến 23/12
-
-- [ ] Freeze feature.
-- [ ] Full regression, diễn tập bootstrap database từ rỗng và legacy import dry-run nếu thực sự cần dữ liệu cũ.
-- [ ] Fix P0/P1 bugs.
-- [ ] Backup/restore rehearsal.
-- [ ] Demo script và seed data ổn định.
-- [ ] Cập nhật đề cương, README, architecture diagram và API docs.
-
-#### Buffer từ 24/12 đến 31/12
-
-- [ ] Chỉ sửa blocker, security issue và lỗi demo.
-- [ ] Không thêm tính năng mới.
-- [ ] Tag release và lưu migration/rollback guide.
-
-## 17. Ước lượng công việc
-
-| Work package | Ước lượng person-days | Ưu tiên |
-|---|---:|---|
-| Stabilize build, dependency và CI | 7-10 | P0 |
-| Tách repositories và API contract | 5-8 | P0 |
-| Chuẩn hóa Mongoose schema và hạ tầng migration DB mới | 6-10 | P0 |
-| Identity, OAuth, AuthSessions, Redis OTP | 9-13 | P0 |
-| Consultation aggregate + migration | 7-10 | P0 |
-| AvailabilitySlot + atomic booking | 7-10 | P0 |
-| On-demand + queue + no-show | 8-12 | P0 |
-| Chat/socket authorization migration | 6-9 | P0 |
-| Review/rating/moderation | 5-8 | P0/P1 |
-| Redis/BullMQ/outbox/notification | 10-14 | P0 |
-| AI refactor + quota | 9-14 | P0 |
-| Billing/VNPAY payment cơ bản | 9-13 | P0 nếu demo thanh toán bắt buộc |
-| Cancel unpaid order | 1-2 | P0 |
-| Full refund request/admin approval/worker | 5-8 | P1 có feature flag |
-| Frontend web migration/refactor | 15-22 | P0 |
-| Mobile core patient/doctor | 15-25 | P1 |
-| WebRTC + TURN + mobile foreground call | 10-18 | P1 |
-| Test, k6, security và observability | 15-22 | P0 |
-
-Tổng toàn phạm vi sau khi thêm cancel và full refund khoảng 148-228 person-days. Đây là ước lượng thô, có phần giao nhau giữa hạ tầng Mongoose/migration và từng vertical slice. Với hai thành viên và thời gian học tập song song, phạm vi đầy đủ có rủi ro cao. Refund chỉ an toàn cho deadline nếu thay thế một phần P1 khác, không cộng thêm vô điều kiện vào toàn bộ scope.
-
-- Release bắt buộc: build xanh, identity, slot, scheduled/on-demand, queue, chat, notification/outbox, AI quota, VNPAY cơ bản, cancel unpaid order, web và test critical flow.
-- Release nếu còn thời gian/gate đạt trước 29/11: full refund có admin duyệt, mobile patient/doctor core, video foreground và FCM.
-- Hoãn: partial refund, chargeback, auto-approve refund, Admin mobile đầy đủ, CallKeep background chuyên nghiệp, AI image diagnosis và scale “hàng ngàn concurrent users” nếu chưa có kết quả đo.
-
-## 18. Work breakdown và phụ thuộc
+## 7. Backlog refactor backend
 
 | ID | Công việc | Phụ thuộc | Done khi |
 |---|---|---|---|
-| RF-001 | Build baseline xanh | Không | Ba app build; CI fail đúng |
-| RF-002 | Chốt DB/index v7 | RF-001 | Schema review + index tests |
-| RF-003 | Tách frontend repo | RF-001 | Hai repo build độc lập |
-| RF-004 | OpenAPI generated client | RF-003 | Frontend compile từ contract |
-| RF-005 | Audit và chuẩn hóa Mongoose persistence | RF-001, RF-002 | ADR khóa version, model ownership, connection/index và transaction strategy |
-| RF-006 | Canonical schemas + Mongo migration runner | RF-005 | Database rỗng migrate/verify được; lần chạy thứ hai no-op |
-| RF-007 | Initial collections/indexes/validators | RF-006 | CI drift/index/validator tests pass |
-| RF-008 | Reference seed + demo seed | RF-007 | Seed idempotent; demo seed bị chặn ở production |
-| RF-010 | Canonical User | RF-006 | Một User model |
-| RF-011 | AuthSessions/rotation | RF-010 | Replay tests pass |
-| RF-012 | Redis OTP/OAuth | RF-010 | TTL/rate-limit tests pass |
-| RF-020 | Consultation aggregate | RF-007 | State tests pass |
-| RF-021 | AvailabilitySlot | RF-020 | Overlap/atomic claim tests pass |
-| RF-022 | Scheduled booking | RF-021 | E2E booking pass |
-| RF-023 | On-demand | RF-020 | Accept/decline/expire pass |
-| RF-024 | Queue/call-next/no-show | RF-022, RF-023 | Race tests pass |
-| RF-025 | Message migration | RF-020 | Auth/socket tests pass |
-| RF-026 | Review/rating | RF-020 | Unique + transaction pass |
-| RF-030 | Redis presence/socket adapter | RF-012 | Multi-instance test pass |
-| RF-031 | Outbox/BullMQ | RF-007 | Crash/retry test pass |
-| RF-032 | FCM/email/reminders | RF-031 | Idempotent delivery pass |
-| RF-040 | AI model consolidation | RF-001 | Legacy model removed after migration |
-| RF-041 | AI quota | RF-012, RF-040 | Concurrency/reconcile test pass |
-| RF-050 | Billing/VNPAY payment cơ bản | RF-010, RF-031 | Signature/IPN/idempotency E2E pass |
-| RF-051 | Cancel unpaid payment order | RF-050 | Conditional cancel + late-IPN race tests pass |
-| RF-052 | Full refund workflow | RF-050, RF-031 | Request/approval/provider retry/reconciliation E2E pass |
-| RF-060 | Moderation | RF-010, RF-020 | Workflow/audit E2E pass |
-| RF-070 | Mobile core | RF-003, RF-004, RF-022 | Demo flow pass |
-| RF-071 | WebRTC | RF-024, RF-030, RF-070 | Two-device call demo pass |
-| RF-080 | Load/security hardening | Critical features | Thresholds pass |
-| RF-090 | Cutover/cleanup | All P0 | Rollback rehearsal + sign-off |
+| BE-RF-001 | Audit endpoint/event/schema/consumer | Không | Inventory và disposition đầy đủ |
+| BE-RF-002 | Sửa API build/typecheck | BE-RF-001 | Build xanh |
+| BE-RF-003 | CI fail-fast và test commands | BE-RF-002 | CI chặn lỗi thật |
+| BE-RF-004 | Characterization tests | BE-RF-002 | Critical old flows có baseline |
+| BE-RF-005 | Service responsibility/dependency map | BE-RF-001, BE-RF-004 | God services có decomposition plan theo capability |
+| BE-RF-006 | Pagination/query/response conventions | BE-RF-005 | Shared DTO/result, max limit và sort allowlist được test |
+| BE-RF-007 | Query catalog + explain baseline | BE-RF-006 | P0 queries có index plan và representative baseline |
+| BE-RF-010 | Backend standalone boundary | BE-RF-002 | Không import source frontend |
+| BE-RF-011 | OpenAPI/realtime generation | BE-RF-010 | Contract artifact trong CI |
+| BE-RF-012 | Config/bootstrap hardening | BE-RF-010 | Env fail-fast, Helmet, versioning, CORS/proxy/body limits và graceful shutdown được test |
+| BE-RF-013 | Chuẩn hóa Passport/JWT + Swagger exposure | BE-RF-011, BE-RF-012 | Một auth registration; OpenAPI đủ auth/error contract; UI không public mặc định |
+| BE-RF-014 | HTTP/Socket throttling + correlation logging | BE-RF-012, BE-RF-013 | Policy theo route/event, `429`, Redis storage path và redaction tests pass |
+| BE-RF-020 | DatabaseModule + migration runner | BE-RF-003 | DB rỗng migrate/no-op |
+| BE-RF-021 | Verifier/index/validator/seed | BE-RF-020 | Drift test pass |
+| BE-RF-022 | RedisModule + Terminus health lifecycle | BE-RF-012, BE-RF-020 | API/worker dùng một Redis config; health/shutdown tests pass |
+| BE-RF-030 | Canonical User/AuthSessions/Redis OTP | BE-RF-022, BE-RF-013, BE-RF-004 | Local auth E2E pass |
+| BE-RF-031 | Canonical Practitioner | BE-RF-030 | Doctor query/approval pass |
+| BE-RF-032 | Tối ưu User/Practitioner/Admin queries | BE-RF-006, BE-RF-007, BE-RF-031 | Không unbounded join/list; explain baseline pass |
+| BE-RF-040 | Consultation core + Session adapter | BE-RF-020, BE-RF-004 | Old request flow E2E pass |
+| BE-RF-041 | Message migration | BE-RF-040 | Auth/idempotency tests pass |
+| BE-RF-042 | Review/rating refactor | BE-RF-040 | Unique/transaction tests pass |
+| BE-RF-043 | Socket auth/CORS/presence | BE-RF-014, BE-RF-030, BE-RF-040 | Room/multi-instance tests pass |
+| BE-RF-044 | Tối ưu Consultation/Message/Review queries | BE-RF-006, BE-RF-007, BE-RF-040, BE-RF-041, BE-RF-042 | Cursor/page, projection và critical explain pass |
+| BE-RF-050 | Health Tracking refactor | BE-RF-020, BE-RF-004 | Regression pass |
+| BE-RF-051 | AI/RAG consolidation | BE-RF-020, BE-RF-004 | Một canonical model/orchestrator |
+| BE-RF-052 | Tối ưu Health/AI queries | BE-RF-006, BE-RF-007, BE-RF-050, BE-RF-051 | Statistics aggregation và history/search budgets pass |
+| BE-RF-060 | Notification ownership | BE-RF-020, BE-RF-004 | API cũ không regression |
+| BE-RF-061 | Outbox/BullMQ cho effect cũ | BE-RF-022, BE-RF-060, BE-RF-021 | Crash/retry tests pass |
+| BE-RF-062 | Tối ưu Notification/Outbox queries | BE-RF-006, BE-RF-007, BE-RF-060, BE-RF-061 | Cursor và bounded claim explain tests pass |
+| BE-RF-063 | Cache-aside cho read query đã chứng minh | BE-RF-007, BE-RF-022 và query owner tương ứng | TTL/invalidation/fallback tests pass; có metric lợi ích trước/sau |
+| BE-RF-070 | Legacy cutover/cleanup | Tất cả RF trên | Không còn legacy consumer/code |
 
-## 19. Definition of Done chung
+---
 
-Một task chỉ được Done khi:
+# PHẦN B — PHÁT TRIỂN BACKEND FEATURE MỚI
 
-- Business rule được chỉ ra rõ và code không mâu thuẫn rule.
-- DTO/contract được cập nhật.
-- Unit/integration test phù hợp đã pass.
-- Không phát sinh TypeScript, lint hoặc build error.
-- Có authorization và validation cho endpoint/event mới.
-- Log không chứa dữ liệu nhạy cảm.
-- Migration/index được cập nhật nếu thay data model.
-- OpenAPI/realtime documentation được cập nhật.
-- Frontend staging đã kiểm tra nếu contract thay đổi.
-- Không để endpoint placeholder trả success mà không thay đổi dữ liệu.
+## 8. Điều kiện bắt đầu feature mới
 
-Release chỉ được chấp nhận khi:
+Không cần đợi toàn bộ refactor hoàn tất, nhưng mọi feature đều phụ thuộc `BE-RF-006` (query/pagination convention) và `BE-RF-007` (query catalog/performance baseline), sau đó mới xét dependency domain trực tiếp dưới đây.
 
-- Hai repository có CI xanh.
-- Critical E2E suite xanh.
-- Bootstrap database từ rỗng, migration dry-run và rollback/forward-fix rehearsal hoàn thành.
-- Không còn P0 bug.
-- VNPAY Sandbox, Redis, worker, Socket.IO và Mongo readiness pass.
-- Demo không phụ thuộc dữ liệu chỉnh tay trong database.
+| Feature | Refactor bắt buộc hoàn thành trước |
+|---|---|
+| OAuth | BE-RF-030, BE-RF-011 |
+| AvailabilitySlot | BE-RF-020, BE-RF-031 |
+| Scheduled booking | BE-RF-040 và AvailabilitySlot |
+| Queue/check-in/no-show | BE-RF-040, BE-RF-043 và scheduled/on-demand rules |
+| Reminder/FCM | BE-RF-061 |
+| AI quota | BE-RF-051, BE-RF-022 |
+| Payment | BE-RF-030, BE-RF-061 |
+| Refund | Payment basic đã pass sandbox/IPN gate |
+| Moderation | BE-RF-030, BE-RF-040, BE-RF-042 |
+| WebRTC/TURN mở rộng | BE-RF-043 và Consultation authorization |
 
-## 20. Feature flags và rollback
+Mỗi feature được triển khai theo cùng trình tự:
 
-Feature flags đề xuất:
+```text
+business rules
+ -> state/authorization/error contract
+ -> DB schema/index/migration
+ -> domain policy và tests
+ -> application use cases
+ -> REST/Socket adapters
+ -> outbox/jobs nếu có
+ -> integration/E2E/concurrency tests
+ -> OpenAPI/realtime docs
+ -> feature flag staging
+ -> sign-off
+```
+
+## 9. Các feature backend mới
+
+### NF-1 — OAuth login và account linking
+
+Ưu tiên: **P1**, nâng thành P0 nếu là yêu cầu bắt buộc của đề cương/demo.
+
+Các bước:
+
+1. Tạo OAuthAccounts migration/repository với unique `(provider, providerUserId)`.
+2. Chốt policy cho:
+   - login account đã link;
+   - link vào account đang đăng nhập;
+   - email trùng với local account;
+   - OAuth-only account không có password;
+   - unlink provider cuối cùng.
+3. Thêm `state`, PKCE khi phù hợp và callback URI allowlist.
+4. Callback tạo cùng principal/AuthSession shape với local login.
+5. Rate limit callback/linking và ghi AuthEvent.
+6. Viết E2E cho login, link, conflict, replay state và banned account.
+7. Cập nhật OpenAPI/security documentation.
+
+Không thực hiện UI OAuth trong repository backend.
+
+Done khi:
+
+- OAuth không tạo User trùng.
+- Session rotation/revocation dùng chung với local auth.
+- State/callback/linking tests pass.
+
+Ước lượng: **3-5 person-days**.
+
+### NF-2 — AvailabilitySlot và Scheduled Consultation
+
+Ưu tiên: **P0**.
+
+#### NF-2A AvailabilitySlot
+
+1. Tạo AvailabilitySlots migration, validator và indexes.
+2. Chốt timezone và lưu `startsAt`/`endsAt` theo UTC.
+3. Doctor active + approved mới được tạo slot.
+4. Validate duration, lead time, booking horizon và overlap.
+5. Use cases: create, create batch, list, block/cancel và expire.
+6. Không cho sửa thời gian của slot đã booked; dùng cancel/recreate theo policy.
+7. REST endpoints cho doctor quản lý và patient query available slots.
+8. Test ownership, overlap, timezone và concurrent writes.
+
+#### NF-2B Scheduled booking
+
+1. Patient chọn một slot ID; không gửi `scheduledAt` tùy ý.
+2. Atomic claim slot bằng conditional update hoặc transaction.
+3. Cùng transaction tạo Consultation `type = scheduled`, cập nhật slot và ghi outbox.
+4. Chống double booking bằng unique/partial index phù hợp.
+5. Implement list upcoming/history theo actor.
+6. Implement cancel theo actor, cancellation window và reason.
+7. Reopen slot chỉ khi policy cho phép và thời gian vẫn hợp lệ.
+8. Expire slot quá hạn bằng idempotent job/query.
+9. E2E và race test nhiều request book cùng slot.
+
+Done khi:
+
+- Một slot chỉ được gắn với tối đa một consultation hợp lệ.
+- Booking/cancel/reopen transaction và concurrency tests pass.
+- OpenAPI mô tả đầy đủ request, response, status và error codes.
+
+Ước lượng: **12-17 person-days**.
+
+### NF-3 — On-demand v2, Check-in và hàng đợi
+
+Ưu tiên: **P0**.
+
+#### NF-3A On-demand v2
+
+1. Giữ hành vi bệnh nhân gửi yêu cầu và bác sĩ accept/decline từ Consultation core.
+2. Bổ sung request expiry, retry/cooldown và pending uniqueness policy.
+3. Doctor chỉ nhận request khi active, approved và đủ điều kiện nhận tư vấn.
+4. Accept/decline dùng conditional update để chống xử lý lặp/race.
+5. Phát consultation/outbox events sau transition.
+
+#### NF-3B Check-in
+
+1. Chốt cửa sổ check-in sớm/muộn cho scheduled consultation.
+2. On-demand accepted có thể vào waiting theo rule riêng, không cần giả slot.
+3. Transition chỉ hợp lệ khi consultation confirmed và chưa cancelled/completed.
+4. Lưu `checkedInAt` và `queuePriorityAt` phía server.
+
+#### NF-3C Queue và call-next
+
+1. Queue là query/projection từ Consultations; không tạo BullMQ job cho từng bệnh nhân trong hàng đợi.
+2. Sắp xếp theo doctor, status, `queuePriorityAt` và tie-breaker ổn định.
+3. Atomic `call-next` chỉ chuyển đúng một patient sang called/invited state.
+4. Repeated call-next hoặc retry phải idempotent.
+5. Chỉ doctor owner hoặc admin có quyền xem/thao tác queue.
+6. Phát `queue.v1.changed` và consultation update event.
+
+#### NF-3D No-show
+
+1. Delayed job kiểm tra lại trạng thái tại thời điểm chạy.
+2. Không mark no-show nếu consultation đã started/cancelled/completed.
+3. Job retry không tạo transition hoặc notification trùng.
+
+Done khi:
+
+- Scheduled và on-demand đều có đường vào Consultation hợp lệ.
+- Check-in/call-next/no-show state tests pass.
+- Race test chứng minh không gọi hai patient cho cùng một lượt.
+- REST và realtime contracts đầy đủ cho frontend repo sử dụng.
+
+Ước lượng: **10-15 person-days**.
+
+### NF-4 — Notification mới: reminder, FCM và campaign
+
+Ưu tiên:
+
+- Appointment reminder: **P0**.
+- FCM/UserDevices: **P1**.
+- Campaign: **P2/defer**.
+
+Appointment reminder:
+
+1. Khi booking commit, tạo outbox/job schedule theo timezone chuẩn.
+2. Reminder mặc định trước lịch 24 giờ và 15 phút; cấu hình được.
+3. Cancel/reschedule làm job cũ trở nên no-op hoặc bị thay bằng version mới.
+4. Worker re-read consultation trước khi gửi.
+5. Idempotency key gồm consultation, reminder type và schedule version.
+
+FCM:
+
+1. Tạo UserDevices migration/repository.
+2. Register/revoke device token và notification preference APIs.
+3. Không log full device token.
+4. Xử lý invalid token và delivery retry.
+
+Campaign chỉ triển khai nếu P0 đã ổn định; cần batch fan-out, rate limit và audit.
+
+Done khi:
+
+- Reminder đúng thời điểm và không gửi sau cancel.
+- Retry không gửi trùng ngoài policy.
+- FCM failure không rollback business transaction.
+
+Ước lượng: reminder **3-5**, FCM **3-5**, campaign **3-5 person-days**.
+
+### NF-5 — AI daily quota
+
+Ưu tiên: **P0** nếu subscription/quota nằm trong demo.
+
+Các bước:
+
+1. Tạo AiUsageDaily migration/index.
+2. Reserve quota atomically trong Redis trước provider call.
+3. Commit reservation khi thành công; release theo policy khi provider thất bại.
+4. Ghi token/model usage vào AiMessage và daily aggregate.
+5. Dùng key theo user/date/timezone với TTL; không reset toàn Redis bằng cron.
+6. Tạo reconciliation command Redis ↔ AiUsageDaily.
+7. API trả remaining/limit/resetAt và error code ổn định khi hết quota.
+8. Test concurrency, provider timeout, retry và reconciliation.
+
+Done khi:
+
+- Concurrent requests không vượt quota ngoài sai số đã chốt.
+- Failure/retry không trừ lượt hai lần.
+- Không ảnh hưởng disclaimer “tư vấn, không chẩn đoán”.
+
+Ước lượng: **4-6 person-days**.
+
+### NF-6 — Billing, VNPAY và cancel unpaid order
+
+Ưu tiên: **P0 nếu payment bắt buộc trong demo**, nếu không có thể hạ P1 để bảo vệ Consultation P0.
+
+Các bước payment:
+
+1. Spike VNPAY Sandbox cho create/query/IPN và quyền merchant.
+2. Tạo Plans, PaymentOrders, PaymentTransactions và Subscriptions migrations.
+3. Order snapshot giá, currency, duration, quota và features tại thời điểm mua.
+4. Tiền VND dùng integer; không dùng floating point.
+5. Tạo signed payment URL phía server.
+6. Return URL chỉ hiển thị/truy vấn trạng thái; không cấp subscription.
+7. IPN verify signature, amount, currency, reference và merchant data.
+8. Xử lý IPN idempotent trong transaction:
+   - ghi/upsert PaymentTransaction;
+   - order chuyển sang paid;
+   - tạo đúng một subscription grant cho order;
+   - tạo Notification/OutboxEvent.
+9. Unique provider transaction/reference indexes.
+10. Tạo reconciliation command cho pending/paid mismatch.
+
+Các bước cancel unpaid order:
+
+1. Chỉ cancel order `created|pending` bằng conditional update.
+2. Cancel endpoint idempotent và lưu reason/actor/time.
+3. Không gọi refund API vì chưa có captured payment.
+4. Nếu valid IPN đến sau cancel, vẫn ghi nhận tiền và grant; đánh dấu cần thông báo/đối soát.
+5. Test cancel-vs-IPN race.
+
+Done khi:
+
+- Invalid signature không thay đổi dữ liệu.
+- Duplicate IPN không tạo duplicate transaction/subscription.
+- Cancel/late-IPN behavior nhất quán và audit được.
+
+Ước lượng: payment **9-13**, cancel **1-2 person-days**.
+
+### NF-7 — Full refund có admin duyệt
+
+Ưu tiên: **P1, feature flag, chỉ bắt đầu sau NF-6 đạt gate**.
+
+Phạm vi MVP:
+
+- Chỉ full refund một lần cho một paid order.
+- Không partial refund, multiple refund, chargeback hoặc auto-approve.
+- Không tự động refund khi consultation bị hủy.
+
+Các bước:
+
+1. Tạo PaymentRefunds migration với unique order lifecycle và provider request ID.
+2. Patient tạo request; admin approve/reject.
+3. Transaction request chuyển order `paid -> refund_pending` và ghi outbox.
+4. Worker claim approved refund và gọi provider ngoài Mongo transaction.
+5. Giữ stable `providerRequestId` khi retry.
+6. Timeout/unknown chuyển `manual_review`; query/reconcile trước khi retry provider.
+7. Chỉ khi provider xác nhận thành công mới transactionally:
+   - refund `succeeded`;
+   - order `refunded`;
+   - subscription grant của order `cancelled`;
+   - audit + notification/outbox.
+8. Failure có kết luận đưa order về paid theo policy; không revoke grant sớm.
+9. Tạo reconciliation command và admin audit endpoints.
+10. E2E cho approve/reject/retry/unknown/duplicate/entitlement rollback.
+
+Cut-line:
+
+- Nếu VNPAY basic chưa pass trước 29/11, không implement provider refund.
+- Có thể giữ request/admin workflow với fake adapter cho demo nhưng phải ghi rõ không phải VNPAY refund thật.
+
+Ước lượng: **6-9 person-days**.
+
+### NF-8 — Moderation workflow
+
+Ưu tiên: **P1**; AI classification là **P2**.
+
+Các bước:
+
+1. Tạo ViolationReports migration/repository.
+2. Workflow `pending -> processing -> resolved|dismissed`.
+3. Severity `low|medium|high` và evidence references.
+4. Admin decision, reason, audit và sanction integration.
+5. Ban/unban tạo AuthEvent, revoke AuthSessions và notification.
+6. AI chỉ tạo classification draft; admin luôn quyết định.
+7. Không hard-delete evidence/report phục vụ audit.
+
+Done khi:
+
+- Authorization và state transition tests pass.
+- Mọi sanction truy được actor, reason và evidence.
+- AI không tự động khóa tài khoản.
+
+Ước lượng: manual workflow **5-8**, AI draft **2-4 person-days**.
+
+### NF-9 — WebRTC backend/TURN mở rộng
+
+Ưu tiên: **P1**.
+
+Chỉ phần backend/infrastructure nằm trong kế hoạch:
+
+1. Signaling events có version và payload validation.
+2. Server authorize consultation participant trước join/signal.
+3. Lưu call start/end/consent metadata cần thiết; không lưu signaling noise.
+4. Cấu hình TURN credentials ngắn hạn nếu hạ tầng hỗ trợ.
+5. Rate limit signaling và chống room spoofing.
+6. Test signaling giữa hai clients giả lập và qua hai network khi demo.
+
+Không thuộc kế hoạch backend:
+
+- Camera/microphone UI.
+- React Native foreground/background call.
+- CallKeep hoặc native call screen.
+
+Ước lượng backend: **4-7 person-days**.
+
+## 10. Definition of Done cho feature mới
+
+Một task `BE-NF-*` chỉ Done khi:
+
+- Business rule, actor, precondition và state transition được chốt.
+- API/event/error contract được mô tả trước hoặc cùng implementation.
+- Schema, validator và index có migration version riêng.
+- Controller/gateway có authentication, authorization và validation.
+- Domain/use-case unit tests pass.
+- Repository integration tests chạy với MongoDB replica set.
+- E2E happy/error path pass.
+- Concurrency/idempotency tests có cho booking, queue, quota, payment và worker.
+- Outbox/job consumers idempotent nếu có side effect.
+- OpenAPI, realtime docs và `docs/fe-integration.md` được cập nhật.
+- Feature flag/rollback có cho feature rủi ro hoặc P1.
+- Không cần frontend code để chứng minh backend Done; dùng API/Socket E2E tests.
+- Mọi list/history endpoint dùng shared pagination contract, hard max và stable sort.
+- Query mới có entry trong query catalog; compound/partial index được chứng minh bằng explain trên representative data.
+- Không đưa query/business logic mới trở lại service cũ đang chờ xóa.
+
+## 11. Backlog feature backend
+
+| ID | Feature | Ưu tiên | Phụ thuộc | Done khi |
+|---|---|---:|---|---|
+| BE-NF-001 | OAuth login/linking | P1 | BE-RF-030, BE-RF-011 | Security/linking E2E pass |
+| BE-NF-010 | AvailabilitySlot | P0 | BE-RF-020, BE-RF-031 | Overlap/ownership tests pass |
+| BE-NF-011 | Scheduled booking | P0 | BE-NF-010, BE-RF-040 | Double-booking race pass |
+| BE-NF-012 | Scheduled cancel/reopen/expire | P0 | BE-NF-011 | Transaction/state tests pass |
+| BE-NF-020 | On-demand v2 expiry/retry | P0 | BE-RF-040 | Conditional transition tests pass |
+| BE-NF-021 | Check-in | P0 | BE-NF-011, BE-NF-020 | Window/state tests pass |
+| BE-NF-022 | Queue + atomic call-next | P0 | BE-NF-021, BE-RF-043 | Priority/race tests pass |
+| BE-NF-023 | No-show job | P0 | BE-NF-021, BE-RF-061 | Retry/idempotency pass |
+| BE-NF-030 | Appointment reminders | P0 | BE-NF-011, BE-RF-061 | Cancel/version/retry tests pass |
+| BE-NF-031 | UserDevices + FCM | P1 | BE-RF-061 | Revoke/retry/privacy tests pass |
+| BE-NF-032 | Campaign fan-out | P2 | BE-RF-061 | Batch/rate-limit/audit pass |
+| BE-NF-040 | AI daily quota | P0 | BE-RF-051 | Concurrent reserve/reconcile pass |
+| BE-NF-050 | VNPAY payment/subscription | P0/P1 | BE-RF-030, BE-RF-061 | Signature/IPN/idempotency pass |
+| BE-NF-051 | Cancel unpaid order | P0 cùng payment | BE-NF-050 | Cancel-vs-IPN race pass |
+| BE-NF-052 | Full refund | P1 | BE-NF-050, BE-RF-061 | Provider/reconcile/grant E2E pass |
+| BE-NF-060 | Manual moderation | P1 | BE-RF-030, BE-RF-040, BE-RF-042 | Workflow/audit pass |
+| BE-NF-061 | AI moderation draft | P2 | BE-NF-060, BE-RF-051 | Human approval enforced |
+| BE-NF-070 | WebRTC/TURN backend | P1 | BE-RF-043, BE-NF-022 | Authorized signaling demo pass |
+
+---
+
+# PHẦN C — TÍCH HỢP VÀ PHÁT HÀNH BACKEND
+
+## 12. Bàn giao contract cho repository frontend
+
+Backend phải cung cấp; không implement consumer:
+
+1. `openapi.json` sinh tự động từ NestJS DTO/decorators.
+2. Version API và changelog breaking/non-breaking.
+3. Realtime event catalog gồm event name, direction, auth, payload và error.
+4. Error envelope/code ổn định.
+5. `docs/fe-integration.md` mô tả page → DTO → API/event → permission/state.
+6. Seed data và staging account phục vụ frontend integration.
+7. CORS origins và environment contract.
+8. Contract smoke tests chạy độc lập với UI.
+
+Frontend repository chịu trách nhiệm:
+
+- Generate API client và query hooks.
+- State management/cache invalidation.
+- Web/Admin/Mobile pages và components.
+- UI loading/error/empty/offline/reconnect.
+- Browser/mobile E2E.
+
+Điều kiện phối hợp duy nhất chặn xóa legacy backend: frontend xác nhận không còn gọi legacy endpoint/event. Đây không phải công việc implement frontend trong plan này.
+
+## 13. Lịch thực hiện backend đến 31/12
+
+Lịch ưu tiên hoàn thành nền refactor trước, sau đó tập trung feature. Một vài contract/design feature có thể chuẩn bị sớm nhưng không code vào module legacy.
+
+| Thời gian | Nhóm việc | Kết quả bắt buộc |
+|---|---|---|
+| 15/09-20/09 | RF-0, RF-1 | Audit, backend build xanh, CI fail-fast, characterization tests |
+| 21/09-04/10 | RF-2, RF-3, RF-4 | Service/query standards, backend độc lập, OpenAPI, migration runner và DB rỗng bootstrap |
+| 05/10-18/10 | RF-5, RF-6 | Canonical Identity/Practitioner và old on-demand flow trên Consultation |
+| 19/10-01/11 | RF-7, RF-8, RF-9 | Chat/review/realtime, Health/AI, notification/outbox và module query optimization |
+| 02/11-15/11 | NF-2 | AvailabilitySlot và scheduled booking hoàn chỉnh |
+| 16/11-29/11 | NF-3, NF-4, NF-5 | Queue/check-in/no-show, reminder và AI quota |
+| 30/11-08/12 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line |
+| 09/12-13/12 | RF-10 + integration | Legacy cutover, reconciliation, contract freeze |
+| 14/12-23/12 | Release Candidate | Full regression, load/security, backup/restore, demo rehearsal |
+| 24/12-31/12 | Buffer | Chỉ blocker, security và lỗi demo; không thêm feature |
+
+Quy tắc cut-line:
+
+- Feature freeze tuyệt đối từ 14/12.
+- Không nhận toàn bộ OAuth + refund + moderation + WebRTC cùng lúc.
+- Nếu payment không bắt buộc cho demo, ưu tiên Consultation/Queue stability hơn Billing.
+- Nếu payment được giữ, refund chỉ làm khi payment basic pass trước 29/11.
+- FCM và campaign không được làm chậm in-app notification/reminder P0.
+
+## 14. Ước lượng backend
+
+### 14.1 Refactor
+
+| Nhóm | Person-days |
+|---|---:|
+| Audit, build, tests và CI | 7-10 |
+| Service decomposition, pagination/query conventions và explain baseline | 8-12 |
+| Cache-aside có chọn lọc sau query baseline | 2-4 |
+| Backend boundary, contracts và platform hardening | 6-9 |
+| Mongoose/migration/database foundation | 7-10 |
+| Identity + Practitioner | 8-12 |
+| Session → Consultation core | 7-10 |
+| Chat + Review + Realtime | 7-10 |
+| Health + AI/RAG | 7-11 |
+| Notification + Outbox/BullMQ | 7-10 |
+| Cutover/cleanup | 4-6 |
+| **Tổng RF thô nếu làm cả cache P1** | **70-104** |
+
+Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nếu bỏ cache khỏi deadline, tổng RF thô là **68-100 person-days**; vẫn giữ Redis vì OTP, throttling phân tán, presence, quota và BullMQ cần Redis.
+
+### 14.2 Feature mới
+
+| Feature | Person-days | Cut-line |
+|---|---:|---|
+| OAuth | 3-5 | P1 |
+| Slot + scheduled | 12-17 | P0 |
+| On-demand v2 + check-in + queue + no-show | 10-15 | P0 |
+| Reminder | 3-5 | P0 |
+| FCM | 3-5 | P1 |
+| Campaign | 3-5 | P2 |
+| AI quota | 4-6 | P0 |
+| Payment + cancel | 10-15 | P0/P1 tùy demo |
+| Full refund | 6-9 | P1 |
+| Manual moderation | 5-8 | P1 |
+| AI moderation draft | 2-4 | P2 |
+| WebRTC/TURN backend | 4-7 | P1 |
+
+Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF không an toàn trước 31/12. Committed scope nên là RF bắt buộc + Slot/Scheduled + Queue + Reminder + AI quota; Payment chỉ là P0 nếu đề cương/demo bắt buộc.
+
+## 15. Kiểm thử backend
+
+### 15.1 Test pyramid
+
+- Unit: domain policies, state machines, mappers, signature và error mapping.
+- Integration: Mongoose repositories, indexes, transactions, Redis và BullMQ consumers.
+- Contract: OpenAPI snapshot/diff và realtime payload schemas.
+- E2E: HTTP + Socket critical journeys không cần UI.
+- Concurrency: booking, accept request, call-next, quota, IPN và refund.
+- Load/soak: REST, queue query, Socket connect/reconnect và worker throughput.
+
+### 15.2 Critical suites trước release
+
+- Auth rotation/replay/logout-all/ban.
+- Doctor approval/authorization.
+- Old on-demand request compatibility.
+- Scheduled double booking.
+- Check-in/call-next/no-show races.
+- Message room authorization/idempotency.
+- Review unique/rating transaction.
+- Outbox crash/retry/dead job.
+- AI quota reserve/commit/release.
+- VNPAY signature/duplicate-IPN/cancel race nếu payment bật.
+- Refund unknown/reconcile nếu refund bật.
+- Database bootstrap/no-op/drift.
+
+### 15.3 Query và pagination performance tests
+
+1. Tạo seed profile tối thiểu cho performance test, ví dụ nhiều Users/Doctors, Consultation histories, Messages, HealthMetrics và Notifications; kích thước cụ thể được lưu trong query catalog.
+2. Contract test mọi list endpoint với:
+   - thiếu page/cursor;
+   - `limit = 0`, số âm và vượt hard max;
+   - sort field không hợp lệ;
+   - cursor hỏng/hết hạn;
+   - nhiều record có cùng timestamp để kiểm tra `_id` tie-breaker;
+   - page/cursor kế tiếp không thiếu hoặc lặp record.
+3. Repository test chạy `explain('executionStats')` cho P0 query shapes và lưu winning plan/keys/docs examined.
+4. Test/query instrumentation đếm số Mongo operations để phát hiện populate hoặc loop gây N+1 ngoài budget.
+5. Không assert thời gian millisecond tuyệt đối trong CI không ổn định; CI kiểm tra plan shape, bounded scan và query count. p95 latency được đo trên staging với dataset đã ghi nhận.
+6. Load test riêng cho message history, doctor search, health history/statistics, consultation list/queue và notification history.
+
+## 16. Security và privacy
+
+- Dùng Helmet trước route registration; CORS, CSP, upload/body size và proxy trust là cấu hình allowlist, không dùng wildcard tùy tiện.
+- Production configuration fail-fast; không có JWT/provider secret mặc định trong source.
+- Access token ngắn hạn; refresh token chỉ lưu hash.
+- OTP chỉ ở Redis với TTL/attempt limit.
+- OAuth dùng state/PKCE/callback allowlist khi bật.
+- `@nestjs/throttler` đặt baseline và bucket riêng cho auth, OTP, AI, upload, payment và signaling; multi-instance dùng Redis storage.
+- Socket events có limiter riêng; cấu hình HTTP global guard không được xem là đã bảo vệ WebSocket.
+- Không tin `userId`, role, amount, price hoặc queue priority từ client.
+- Sanitize rich text/message; validate MIME, size, magic bytes và ownership upload.
+- Không log password, OTP, token, cookie, provider secret, raw health payload hoặc device token.
+- Room authorization luôn kiểm tra participant phía server.
+- Payment/refund verify signature và idempotency server-side.
+- Audit admin actions, doctor approval, ban/unban, plan changes và refund/moderation decisions.
+- Không hard-delete dữ liệu audit quan trọng.
+
+## 17. Observability và vận hành
+
+- Structured JSON logs với `correlationId`; thêm `consultationId`, `jobId` hoặc `orderCode` khi liên quan. Vòng đầu dùng Nest JSON logger + `AsyncLocalStorage`; Pino chỉ thêm khi có nhu cầu đã đo.
+- `@nestjs/terminus` cung cấp liveness/readiness tách riêng; readiness kiểm tra MongoDB, Redis và dependency bắt buộc, liveness không phụ thuộc API bên thứ ba.
+- Cache metrics gồm hit/miss/error/latency và invalidation failure; không đưa key/value chứa dữ liệu nhạy cảm vào log/metric label.
+- Metrics tối thiểu:
+  - API latency/error rate;
+  - Mongo/Redis health;
+  - Socket connections/reconnect;
+  - BullMQ waiting/active/failed/dead;
+  - oldest pending outbox;
+  - booking conflict/call-next race;
+  - AI provider latency/token/quota;
+  - payment invalid/duplicate IPN;
+  - refund pending/manual-review nếu bật.
+- Theo dõi Mongo slow query, operation/route, documents examined/returned, pool wait và query timeout; không log filter chứa dữ liệu sức khỏe nhạy cảm.
+- Dashboard p95/p99 cho các query ID P0 và cảnh báo khi pagination endpoint trả vượt hard cap.
+- Alert staging/demo cho worker dead jobs, outbox backlog, payment mismatch và migration version mismatch.
+- Có reconciliation commands cho rating, outbox, AI usage và payment/refund.
+
+## 18. Feature flags và rollback
 
 ```text
 CONSULTATIONS_V2_ENABLED
 SCHEDULED_BOOKING_ENABLED
 ON_DEMAND_QUEUE_ENABLED
 OUTBOX_DELIVERY_ENABLED
+OAUTH_ENABLED
 AI_DAILY_QUOTA_ENABLED
 VNPAY_ENABLED
 VNPAY_REFUND_ENABLED
+MODERATION_V2_ENABLED
 WEBRTC_ENABLED
 ```
 
-Rollback nguyên tắc:
+Nguyên tắc:
 
+- Migration additive trước; không xóa field/collection trong cùng release cutover.
 - Deploy code backward-compatible trước migration phá vỡ.
-- Migration chỉ additive ở giai đoạn đầu.
-- Không xóa field/collection cũ trong cùng release cutover.
-- Có backup Mongo và export index definitions.
-- Worker có kill switch nhưng OutboxEvents vẫn giữ pending để xử lý lại.
-- `VNPAY_ENABLED` chỉ chặn tạo order mới; không chặn xử lý IPN hợp lệ của order đã tạo.
-- `VNPAY_REFUND_ENABLED` chỉ chặn tạo/approve refund mới; refund đã `approved|processing|manual_review` vẫn phải được worker/reconciliation xử lý đến trạng thái kết luận.
-- Nếu consultations v2 rollback, frontend chuyển về compatibility endpoint; không dual-write ngược dữ liệu mới một cách âm thầm.
+- Worker có kill switch nhưng giữ OutboxEvents pending.
+- Tắt VNPAY chỉ chặn tạo order mới, không bỏ IPN của order đã tạo.
+- Tắt refund chỉ chặn request/approve mới; refund processing phải đi đến kết luận.
+- Có backup/restore rehearsal và export index definitions.
+- Legacy adapter chỉ bị xóa sau consumer confirmation và observation window.
 
-## 21. Rủi ro và biện pháp giảm thiểu
+## 19. CI/CD backend
 
-| Rủi ro | Xác suất/Tác động | Biện pháp |
+Pipeline bắt buộc:
+
+```text
+install --frozen-lockfile
+ -> lint
+ -> typecheck
+ -> unit tests
+ -> start Mongo replica set + Redis
+ -> db:migrate
+ -> db:verify
+ -> integration/E2E/contract tests
+ -> generate + lint + diff openapi.json
+ -> dependency-boundary check nếu đã bật
+ -> db:migrate lần hai, phải no-op
+ -> build API + worker
+ -> container scan/build
+```
+
+Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical tests. Staging/demo chỉ deploy khi schema version đáp ứng `MIN_SCHEMA_VERSION`.
+
+## 20. Rủi ro chính
+
+| Rủi ro | Tác động | Giảm thiểu |
 |---|---|---|
-| Refactor khi build chưa xanh | Cao/Cao | Sprint 0 hard gate |
-| Tách repo làm vỡ shared types | Cao/Cao | OpenAPI generated client trước khi xóa shared workspace |
-| Double booking/call-next race | Cao/Cao | Conditional update, partial unique index, transaction và concurrency tests |
-| Mongo local không hỗ trợ transaction | Cao/Cao | Docker Compose replica set cho local/CI |
-| Worker gửi notification/IPN lặp | Trung bình/Cao | Idempotency key, BullMQ jobId, consumer idempotent |
-| WebRTC không kết nối qua NAT | Cao/Trung bình | TURN cho demo, test hai mạng thật |
-| Scope Mobile + WebRTC quá lớn | Cao/Cao | Cut-line P0/P1, foreground call trước CallKeep |
-| AI API quota/cost | Cao/Trung bình | Redis reserve quota, token accounting, timeout/fallback |
-| Refund API timeout hoặc kết quả không xác định | Trung bình/Cao | Stable providerRequestId, `manual_review`, query/reconciliation trước retry |
-| Refund làm revoke sai quyền lợi đã mua | Trung bình/Cao | Một subscription grant cho mỗi paid order; finalize trong transaction; full refund only |
-| Dữ liệu y tế xuất hiện trong log | Trung bình/Cao | Redaction, structured logger allowlist |
-| Đề cương và sản phẩm dùng thuật ngữ “khám/chẩn đoán” | Cao/Cao | Documentation alignment trong Sprint 0 và RC |
-| Hai thành viên sửa cùng domain | Trung bình/Trung bình | Module ownership, small PR, contract-first |
+| Bắt đầu feature khi build chưa xanh | Cao | RF-1 hard gate |
+| God service chỉ bị chia file nhưng vẫn coupling | Cao | Responsibility map, port ownership và dependency tests/review gate |
+| List endpoint/query không bounded làm tăng RAM/latency | Cao | Shared pagination, hard max, cursor cho timeline và load test |
+| Index không khớp filter + sort thực tế | Cao | Query catalog, explain baseline và versioned index migration |
+| Regex search/populate gây query chậm | Trung bình | Escape/allowlist, Atlas/text search, projection/lean và query-count budget |
+| Cache che query xấu hoặc trả dữ liệu cũ | Cao | Chỉ cache sau explain baseline; TTL/invalidation owner, versioned key và Redis-failure tests |
+| Rate limit chỉ lưu memory nên lệch giữa instance | Cao | Redis-backed throttler storage; test IP/principal và cấu hình proxy |
+| Cài quá nhiều tool làm trễ deadline | Trung bình | P0/P1 gate; package có owner/use case/exit gate, cắt cache/APM/dev tools trước core flow |
+| Gắn feature mới trực tiếp vào Session legacy | Cao | Hoàn tất BE-RF-040 trước; feature dùng Consultation core |
+| Double booking/call-next race | Cao | Conditional update, partial unique index, transaction, race tests |
+| Worker gửi lặp | Cao | Outbox, stable idempotency key, consumer idempotent |
+| Mongoose schema/index drift | Cao | Versioned migration + verifier trong CI |
+| Scope payment/refund quá lớn | Cao | Payment conditional P0; refund P1 gate 29/11 |
+| WebRTC thất bại qua NAT | Trung bình | TURN spike; backend-only scope; P1 |
+| AI quota/cost | Trung bình | Redis reserve + daily reconciliation |
+| Dữ liệu sức khỏe lọt log | Cao | Allowlist logging và redaction tests |
+| Frontend chưa chuyển khỏi legacy | Trung bình | Giữ adapter, theo dõi access log; không nhận implement frontend vào plan BE |
 
-## 22. Quy tắc làm việc nhóm
+## 21. Quy tắc làm việc
 
-- Mỗi PR chỉ nên xử lý một vertical slice hoặc một migration rõ ràng.
-- PR lớn hơn khoảng 500 dòng logic mới cần tách nếu có thể; generated code/migration data được loại trừ.
-- Không refactor format toàn repository cùng feature PR.
-- Commit migration, schema, use case và test liên quan cùng nhau.
-- Dùng Architecture Decision Record trong `docs/adr/` cho quyết định khó đảo ngược.
-- Tối thiểu cần các ADR:
-  - ADR-001 Modular Monolith và DDD-lite.
-  - ADR-002 Tách frontend repository và OpenAPI contract.
-  - ADR-003 Consultation status model.
-  - ADR-004 Redis, BullMQ và Transactional Outbox.
-  - ADR-005 OAuth/refresh-token rotation.
-  - ADR-006 VNPAY payment, cancel, refund idempotency và entitlement rollback.
-  - ADR-007 Mongoose model ownership, MongoDB migration runner và transaction strategy.
-- Không merge trực tiếp vào nhánh release; PR cần một người còn lại review.
-- Mỗi sprint demo luồng end-to-end, không chỉ báo cáo số file đã viết.
+- Một PR chỉ thuộc `BE-RF`, `BE-NF` hoặc `BE-REL`.
+- Không refactor format toàn repo trong feature PR.
+- Nếu feature phát hiện nợ kỹ thuật chặn triển khai, tạo `BE-RF` issue riêng.
+- PR lớn hơn khoảng 500 dòng logic nên tách khi có thể; generated migration/contract được loại trừ.
+- Migration, schema, repository, use case và test của một slice được review cùng nhau nhưng chia commit rõ.
+- Không merge trực tiếp vào release branch.
+- ADR bắt buộc cho quyết định khó đảo ngược:
+  - Modular Monolith/DDD-lite;
+  - Mongoose ownership/migrations/transactions;
+  - Consultation state model;
+  - Redis/BullMQ/Outbox;
+  - OAuth/session rotation;
+  - VNPAY/refund idempotency.
+- Mỗi sprint demo bằng API/Socket test hoặc scripted scenario; không cần chờ frontend UI.
 
-## 23. Checklist bắt đầu ngay
+## 22. Checklist bắt đầu ngay
 
-Thứ tự thực thi trong tuần đầu:
+Thực hiện đúng thứ tự:
 
-1. [ ] Tạo issue RF-001 đến RF-008 và gắn owner cho stabilization, database và repository split.
-2. [ ] Sửa API build bằng cách đưa Mongo shell script ra ngoài `src`.
-3. [ ] Chọn canonical User/DoctorProfile và sửa toàn bộ import bị gãy.
-4. [ ] Đồng bộ React types và sửa build Client/Admin.
-5. [ ] Bật lại lint/typecheck; xóa `continue-on-error` trong CI.
-6. [ ] Chốt bốn thay đổi P0 cho `Consultations` trong DB.
-7. [ ] Viết test cho trạng thái Session cũ để làm characterization trước migration.
-8. [ ] Xuất OpenAPI hiện tại và lập danh sách endpoint frontend đang dùng.
-9. [ ] Audit Mongoose models trên một vertical slice nhỏ; ghi ADR-007 về model ownership, index và transaction.
-10. [ ] Tạo canonical schemas, migration runner, `_schema_migrations`, database verifier và CI bootstrap từ MongoDB rỗng.
-11. [ ] Gắn Git tag trước khi split.
-12. [ ] Tạo repository frontend, build xanh rồi mới xóa code frontend ở backend.
+1. [ ] Tạo `BE-RF-001` và hoàn thành inventory/disposition.
+2. [ ] Tạo `BE-RF-002`, sửa API build/typecheck.
+3. [ ] Tạo `BE-RF-003`, bật CI fail-fast.
+4. [ ] Tạo `BE-RF-004`, viết characterization tests cho old flows.
+5. [ ] Tạo service responsibility map (`BE-RF-005`), không bắt đầu bằng việc di chuyển file hàng loạt.
+6. [ ] Tạo pagination/query conventions và query catalog (`BE-RF-006`, `BE-RF-007`); đo baseline trước khi thêm index.
+7. [ ] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`).
+8. [ ] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`).
+9. [ ] Tạo DatabaseModule, migration runner, verifier, DB bootstrap và Redis/health lifecycle (`BE-RF-020` đến `BE-RF-022`).
+10. [ ] Refactor Identity/Practitioner và query của chúng (`BE-RF-030` đến `BE-RF-032`).
+11. [ ] Chuyển old request flow, Message/Review/Realtime và tối ưu query (`BE-RF-040` đến `BE-RF-044`).
+12. [ ] Refactor Health/AI cùng query aggregation/search (`BE-RF-050` đến `BE-RF-052`).
+13. [ ] Refactor Notification/Outbox cùng cursor/bounded claims (`BE-RF-060` đến `BE-RF-062`).
+14. [ ] Chỉ nhận cache task `BE-RF-063` nếu query baseline chứng minh cần; không coi đây là P0.
+15. [ ] Chỉ sau các gate tương ứng mới nhận `BE-NF-010` trở đi.
+16. [ ] Không tạo task Web/Admin/Mobile trong repository hoặc board backend.
 
-Không bắt đầu BullMQ, VNPAY hoặc WebRTC trước khi RF-001 hoàn thành. Nếu nền build/test chưa ổn định, các tính năng hạ tầng mới sẽ làm tăng số biến lỗi và kéo dài thời gian tích hợp.
+## 23. Tóm tắt quyết định
 
-## 24. Tài liệu tham chiếu
-
-Nguồn nội bộ:
-
-- `BUSINESS_RULES.md`.
-- `docs/db-template-v7.dbml`.
-- `docs/overview.md` và `docs/fe-integration.md`.
-- `README.md` và `apps/api/README.md`.
-- `apps/api/src/app.module.ts`.
-- `apps/api/src/modules/auth/entities/user.schema.ts`.
-- `apps/api/src/modules/users/entities/user.schema.ts`.
-- `apps/api/src/modules/sessions`.
-- `apps/api/src/modules/ai-assistant` và `apps/api/src/modules/rag`.
-- `.github/workflows/ci.yml`.
-- Đề cương `23520657_23520682_Healthcare_Application_DA2.docx`, cập nhật ngày 10/09/2026.
-
-Nguồn kỹ thuật chính thức:
-
-- [NestJS Modules](https://docs.nestjs.com/modules).
-- [NestJS OpenAPI](https://docs.nestjs.com/openapi/introduction).
-- [NestJS Queues and BullMQ](https://docs.nestjs.com/techniques/queues).
-- [NestJS Rate Limiting](https://docs.nestjs.com/security/rate-limiting).
-- [MongoDB Transactions](https://www.mongodb.com/docs/manual/core/transactions/).
-- [Mongoose schemas và index](https://mongoosejs.com/docs/guide.html#indexes).
-- [Mongoose `Model.syncIndexes()`](<https://mongoosejs.com/docs/api/model.html#Model.syncIndexes()>).
-- [Mongoose transactions](https://mongoosejs.com/docs/transactions.html).
-- [MongoDB Node.js driver transactions](https://www.mongodb.com/docs/drivers/node/current/crud/transactions/).
-- [VNPAY Sandbox payment, query và refund API](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html).
-- [Socket.IO Redis Adapter](https://socket.io/docs/v4/redis-adapter/).
-- [Microsoft guidance on applying rich DDD selectively](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/microservice-domain-model).
-
-## 25. Tóm tắt quyết định cuối cùng
-
-1. Giữ NestJS, MongoDB, Socket.IO và code có giá trị; không rebuild toàn bộ.
-2. Backend trở thành repository độc lập, không cần Turborepo.
-3. Frontend chuyển sang repository monorepo riêng cho Web Client, Web Admin và Mobile.
-4. REST contract được sinh từ OpenAPI; không chia sẻ source TypeScript thủ công giữa hai repository.
-5. Backend dùng Modular Monolith; DDD-lite chỉ áp dụng sâu cho consultation, identity, billing và AI usage.
-6. Giữ Mongoose 9 và `@nestjs/mongoose`; không chuyển sang Prisma.
-7. Database MongoDB mới được dựng bằng migration file có version; không dùng `createIndex.ts`, `autoIndex` hoặc `syncIndexes()` như cơ chế deploy môi trường dùng chung.
-8. Mongoose quản lý mapping/validation/query runtime; migration runner quản lý collection, index, validator và backfill; MongoDB driver chỉ dùng cho thao tác đặc thù.
-9. Consultation v2 thay Session cũ và hỗ trợ đồng thời scheduled booking cùng on-demand request.
-10. Hàng đợi bệnh nhân nằm trong dữ liệu Consultation; BullMQ chỉ là hàng đợi tác vụ nền.
-11. Redis + BullMQ + transactional outbox được bổ sung; Kafka chưa cần.
-12. Cancel unpaid payment order là P0; full refund một lần có admin duyệt là P1 sau feature flag và dùng PaymentRefunds riêng.
-13. Partial refund, chargeback, auto-approve và auto-refund do hủy consultation nằm ngoài deadline.
-14. Sprint 0 đưa build/test/CI về xanh là điều kiện bắt buộc trước feature mới.
-15. Deadline 31/12 khả thi cho P0 nếu giữ cut-line; muốn đưa full refund vào release thì nên hoãn ít nhất một P1 như WebRTC foreground hoặc AI moderation tự động.
+1. Chỉ backend được thực hiện theo tài liệu này; frontend nằm ở repository và kế hoạch khác.
+2. Refactor và feature mới nằm ở hai phần riêng, có ID và Definition of Done riêng.
+3. Luồng request/accept/decline/chat cũ được giữ và refactor thành Consultation `on_demand`.
+4. Slot, scheduled booking, check-in, queue và no-show là feature mới.
+5. Mongoose tiếp tục là ODM; database mới được dựng bằng migration versioned.
+6. Redis + BullMQ + Outbox được dùng; Kafka chưa cần.
+7. Notification worker foundation là refactor; reminder/FCM/campaign là feature mới.
+8. AI/RAG consolidation là refactor; AI quota là feature mới.
+9. Payment/cancel/refund đều là feature mới; refund là P1 có gate.
+10. Backend bàn giao OpenAPI, realtime schemas và `fe-integration.md`; không implement frontend.
+11. Feature freeze ngày 14/12; 24/12-31/12 chỉ dành cho buffer và blocker.
+12. Deadline 31/12 chỉ khả thi khi giữ P0 và không nhận đồng thời toàn bộ OAuth, refund, moderation và WebRTC.
+13. Service dài/rải rác được refactor theo capability và ownership; không dùng LOC làm tiêu chí tách máy móc.
+14. Mọi list/history query phải bounded, có pagination chuẩn, projection, sort allowlist và index được xác minh bằng query catalog/explain.
+15. Giữ Swagger, Passport/JWT và ValidationPipe hiện có; chuẩn hóa thay vì thay framework.
+16. Thêm P0: Helmet, Throttler, Redis/ioredis, BullMQ và Terminus; dùng structured JSON logging/correlation ID không cần package mới ở vòng đầu.
+17. Cache manager là P1, chỉ dùng cache-aside có chọn lọc sau tối ưu query; không cache state nhạy cảm của auth, booking/queue, health, payment/refund hoặc AI quota.
+18. Dev tools/APM/OAuth strategy chỉ thêm khi có use case và owner rõ; Kafka, CQRS package, Elasticsearch, Prisma và GraphQL không thuộc scope deadline này.
