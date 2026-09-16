@@ -29,6 +29,8 @@ const USER_PUBLIC_READ_PROJECTION =
   '_id fullName email gender dateOfBirth role phoneNumber avatarUrl accountStatus isOnline address banReason createdAt updatedAt';
 const DOCTOR_PROFILE_READ_PROJECTION =
   '_id userId specialty workplace experienceYears averageRating ratingSum reviewCount verifiedAt verificationStatus rejectReason createdAt updatedAt';
+// Legacy array endpoints remain bounded until their canonical paginated adapters are introduced.
+const DIRECTORY_RESULT_HARD_CAP = 100;
 
 type ProfileReport = {
   id: string;
@@ -139,6 +141,8 @@ export class UsersService {
     const approvedDoctors = await this.doctorModel
       .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
       .select('userId specialty -_id')
+      .sort({ userId: 1 })
+      .limit(DIRECTORY_RESULT_HARD_CAP)
       .lean<
         {
           userId?: Types.ObjectId | string | null;
@@ -164,6 +168,8 @@ export class UsersService {
         ],
       })
       .select(USER_PUBLIC_READ_PROJECTION)
+      .sort({ _id: 1 })
+      .limit(DIRECTORY_RESULT_HARD_CAP)
       .lean();
 
     return users.map((user) => {
@@ -182,6 +188,8 @@ export class UsersService {
     const approvedDoctors = await this.doctorModel
       .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
       .select('userId specialty -_id')
+      .sort({ userId: 1 })
+      .limit(DIRECTORY_RESULT_HARD_CAP)
       .lean<
         {
           userId?: Types.ObjectId | string | null;
@@ -207,6 +215,8 @@ export class UsersService {
         _id: { $in: approvedDoctorUserIds },
       })
       .select(USER_PUBLIC_READ_PROJECTION)
+      .sort({ _id: 1 })
+      .limit(DIRECTORY_RESULT_HARD_CAP)
       .lean();
 
     return doctorUsers.map((doctorUser) => ({

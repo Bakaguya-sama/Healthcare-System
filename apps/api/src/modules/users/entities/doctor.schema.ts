@@ -47,3 +47,8 @@ export class Doctor {
 }
 
 export const DoctorSchema = SchemaFactory.createForClass(Doctor);
+
+DoctorSchema.index(
+  { verificationStatus: 1, userId: 1 },
+  { name: 'verificationStatus_1_userId_1' },
+);

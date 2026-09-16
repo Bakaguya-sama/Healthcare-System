@@ -46,7 +46,21 @@ export class Session {
 export const SessionSchema = SchemaFactory.createForClass(Session);
 
 // Indexes for better query performance
-SessionSchema.index({ patientId: 1, scheduledAt: -1 });
-SessionSchema.index({ doctorId: 1, scheduledAt: -1 });
+SessionSchema.index(
+  { patientId: 1, scheduledAt: -1, _id: -1 },
+  { name: 'patientId_1_scheduledAt_-1__id_-1' },
+);
+SessionSchema.index(
+  { patientId: 1, status: 1, scheduledAt: -1, _id: -1 },
+  { name: 'patientId_1_status_1_scheduledAt_-1__id_-1' },
+);
+SessionSchema.index(
+  { doctorId: 1, scheduledAt: -1, _id: -1 },
+  { name: 'doctorId_1_scheduledAt_-1__id_-1' },
+);
+SessionSchema.index(
+  { doctorId: 1, status: 1, scheduledAt: -1, _id: -1 },
+  { name: 'doctorId_1_status_1_scheduledAt_-1__id_-1' },
+);
 SessionSchema.index({ status: 1, scheduledAt: -1 });
 SessionSchema.index({ scheduledAt: 1 }); // For reminders/notifications

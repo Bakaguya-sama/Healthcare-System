@@ -38,6 +38,7 @@ import {
   GenerateHealthMetricNotiInput,
   GenerateHealthProfileSummary,
 } from './services/llm-gateway.service';
+import { toLiteralCaseInsensitiveRegex } from '../../common/query/search-pattern';
 
 type UploadedMedicalImage = {
   mimetype?: string;
@@ -755,9 +756,10 @@ export class AiAssistantService {
     }
 
     if (query.searchQuery) {
+      const searchPattern = toLiteralCaseInsensitiveRegex(query.searchQuery);
       filter.$or = [
-        { topic: { $regex: query.searchQuery, $options: 'i' } },
-        { summary: { $regex: query.searchQuery, $options: 'i' } },
+        { topic: searchPattern },
+        { summary: searchPattern },
       ];
     }
 
@@ -1162,12 +1164,13 @@ export class AiAssistantService {
       throw new BadRequestException('Invalid user ID');
     }
 
+    const searchPattern = toLiteralCaseInsensitiveRegex(searchQuery);
     const filter = {
       userId: new Types.ObjectId(userId),
       $or: [
-        { topic: { $regex: searchQuery, $options: 'i' } },
-        { summary: { $regex: searchQuery, $options: 'i' } },
-        { tags: { $in: [new RegExp(searchQuery, 'i')] } },
+        { topic: searchPattern },
+        { summary: searchPattern },
+        { tags: { $in: [searchPattern] } },
       ],
     };
 

@@ -1,4 +1,10 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { DoctorVerificationStatus } from '../../users/entities/doctor.schema';
 import { PageQueryDto } from '../../../common/pagination';
 
@@ -13,6 +19,8 @@ export class QueryDoctorApplicationsDto extends PageQueryDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()

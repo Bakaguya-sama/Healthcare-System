@@ -426,7 +426,7 @@ Tạo task theo thứ tự:
 - [x] `BE-RF-004` — characterization tests hoàn tất ngày `2026-09-15`.
 - [x] `BE-RF-005` — service responsibility/dependency map hoàn tất ngày `2026-09-16`.
 - [x] `BE-RF-006` — pagination/query/response conventions hoàn tất ngày `2026-09-16`.
-- [ ] `BE-RF-007` — query catalog và explain baseline.
+- [x] `BE-RF-007` — query catalog và explain baseline (RF-2D, 2026-09-16).
 
 Không tạo task feature mới chỉ để né blocker của các task trên. Feature có thể được viết thành backlog, nhưng không chuyển sang `In Progress` trước dependency gate trong refactor plan.
 

@@ -30,6 +30,7 @@ import {
 } from '../admins/entities/admin.entity';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { toLiteralCaseInsensitiveRegex } from '../../common/query/search-pattern';
 
 const DOCTOR_APPLICATION_READ_PROJECTION =
   '_id userId specialty workplace verificationDocuments experienceYears averageRating ratingSum reviewCount verifiedAt verificationStatus rejectReason createdAt updatedAt';
@@ -75,12 +76,15 @@ export class AdminService {
     }
 
     if (search) {
-      const regex = new RegExp(search, 'i');
+      const regex = toLiteralCaseInsensitiveRegex(search);
       const matchedUsers = await this.userModel
         .find({
           $or: [{ fullName: regex }, { email: regex }],
         })
-        .select('_id');
+        .select('_id')
+        .limit(500)
+        .lean()
+        .exec();
 
       const userIds = matchedUsers.map((user) => user._id);
       if (userIds.length === 0) {

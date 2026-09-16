@@ -49,14 +49,13 @@ export interface FollowUpAction {
 
 @Schema({ timestamps: true })
 export class AiConversation {
-  @Prop({ type: Types.ObjectId, required: true, index: true })
+  @Prop({ type: Types.ObjectId, required: true })
   userId: Types.ObjectId;
 
   @Prop({
     type: String,
     enum: Object.values(ConversationType),
     default: ConversationType.GENERAL_CONSULTATION,
-    index: true,
   })
   type: ConversationType;
 
@@ -81,7 +80,7 @@ export class AiConversation {
   @Prop({ type: Date })
   lastMessageAt: Date;
 
-  @Prop({ type: Boolean, default: false, index: true })
+  @Prop({ type: Boolean, default: false })
   isArchived: boolean;
 
   @Prop({ type: Date })
@@ -100,7 +99,6 @@ export class AiConversation {
     type: String,
     enum: ['draft', 'active', 'completed', 'archived'],
     default: 'active',
-    index: true,
   })
   status: 'draft' | 'active' | 'completed' | 'archived';
 
@@ -123,8 +121,19 @@ export const AiConversationSchema =
   SchemaFactory.createForClass(AiConversation);
 
 // Indexes
-AiConversationSchema.index({ userId: 1, createdAt: -1 });
-AiConversationSchema.index({ userId: 1, type: 1 });
-AiConversationSchema.index({ userId: 1, status: 1 });
-AiConversationSchema.index({ userId: 1, isFavorite: 1 });
-AiConversationSchema.index({ createdAt: -1 });
+AiConversationSchema.index(
+  { userId: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_createdAt_-1__id_-1' },
+);
+AiConversationSchema.index(
+  { userId: 1, type: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_type_1_createdAt_-1__id_-1' },
+);
+AiConversationSchema.index(
+  { userId: 1, status: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_status_1_createdAt_-1__id_-1' },
+);
+AiConversationSchema.index(
+  { userId: 1, isArchived: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_isArchived_1_createdAt_-1__id_-1' },
+);

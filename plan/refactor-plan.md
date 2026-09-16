@@ -552,6 +552,16 @@ Evidence:
 
 #### RF-2D Query catalog, index và performance verification
 
+Trạng thái RF-2D: **DONE ngày 2026-09-16** (`BE-RF-007`).
+
+Evidence:
+
+- `docs/current-state/query-catalog.md` ghi 8 query P0, cardinality, projection, pagination, index, budget và cache decision.
+- Fixture 66.000 documents đo explain + 25 samples/query trước/sau; 8/8 query sau tối ưu dùng managed `IXSCAN`, không blocking `SORT`, và examine tối đa 20 keys/docs cho page 20.
+- Migration versioned tạo 14 index, có runner idempotent và đồng bộ tên/index shape với Mongoose schemas.
+- Integration regression apply migration hai lần và kiểm tra plans; regex search được escape/giới hạn, directory legacy có hard cap 100.
+- Exit gate đạt: typecheck/build pass, lint 398/402 warnings, 41 unit + 4 integration + 2 E2E tests pass.
+
 Tạo `docs/current-state/query-catalog.md` với mỗi query:
 
 | Thuộc tính cần ghi   | Nội dung                                                   |
@@ -1610,7 +1620,7 @@ Thực hiện đúng thứ tự:
 3. [x] Hoàn thành `BE-RF-003`, bật CI fail-fast ngày `2026-09-15`.
 4. [x] Hoàn thành `BE-RF-004`, viết characterization tests cho old flows ngày `2026-09-15`.
 5. [x] Hoàn thành service responsibility map (`BE-RF-005`) ngày `2026-09-16`; chưa di chuyển file hàng loạt.
-6. [ ] Tạo pagination/query conventions và query catalog (`BE-RF-006`, `BE-RF-007`); đo baseline trước khi thêm index.
+6. [x] Hoàn thành pagination/query conventions và query catalog (`BE-RF-006`, `BE-RF-007`) ngày `2026-09-16`; đã đo baseline trước/sau index.
 7. [ ] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`).
 8. [ ] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`).
 9. [ ] Tạo DatabaseModule, migration runner, verifier, DB bootstrap và Redis/health lifecycle (`BE-RF-020` đến `BE-RF-022`).

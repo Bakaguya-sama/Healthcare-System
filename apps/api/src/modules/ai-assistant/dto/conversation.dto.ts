@@ -139,6 +139,8 @@ export class QueryConversationDto extends PageSortQueryDto {
   @ApiProperty({ example: 'health', required: false })
   @IsOptional()
   @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   searchQuery?: string;
 
   @ApiProperty({ example: ['urgent'], required: false })
@@ -162,7 +164,8 @@ export class QueryConversationMessageDto extends PageSortQueryDto {
 export class SearchConversationDto extends QueryConversationDto {
   @ApiProperty({ example: 'health' })
   @IsString()
-  @MinLength(1)
+  @MinLength(2)
+  @MaxLength(100)
   q: string;
 }
 

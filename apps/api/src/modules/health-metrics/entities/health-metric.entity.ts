@@ -44,5 +44,11 @@ export class HealthMetric {
 export const HealthMetricSchema = SchemaFactory.createForClass(HealthMetric);
 
 // Index for better query performance
-HealthMetricSchema.index({ patientId: 1, recordedAt: -1 });
-HealthMetricSchema.index({ patientId: 1, type: 1, recordedAt: -1 });
+HealthMetricSchema.index(
+  { patientId: 1, recordedAt: -1, _id: -1 },
+  { name: 'patientId_1_recordedAt_-1__id_-1' },
+);
+HealthMetricSchema.index(
+  { patientId: 1, type: 1, recordedAt: -1, _id: -1 },
+  { name: 'patientId_1_type_1_recordedAt_-1__id_-1' },
+);

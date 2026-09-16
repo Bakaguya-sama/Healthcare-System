@@ -62,5 +62,11 @@ export class Notification {
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
 
 // Indexes for better query performance
-NotificationSchema.index({ userId: 1, createdAt: -1 });
-NotificationSchema.index({ userId: 1, isRead: 1 });
+NotificationSchema.index(
+  { userId: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_createdAt_-1__id_-1' },
+);
+NotificationSchema.index(
+  { userId: 1, isRead: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_isRead_1_createdAt_-1__id_-1' },
+);
