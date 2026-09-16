@@ -7,14 +7,15 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../auth/entities/user.schema';
-import {
-  Doctor,
-  DoctorDocument,
-} from './entities/doctor.schema';
+import { Doctor, DoctorDocument } from './entities/doctor.schema';
 import { Patient, PatientDocument } from '../patients/entities/patient.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
-import { UserRole, DoctorVerificationStatus, AccountStatus } from '@repo/shared-types';
+import {
+  UserRole,
+  DoctorVerificationStatus,
+  AccountStatus,
+} from '@repo/shared-types';
 import { Admin, AdminDocument } from '../admins/entities/admin.entity';
 import { Review, ReviewDocument } from '../reviews/entities/review.entity';
 import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
@@ -23,6 +24,11 @@ import {
   ViolationStatus,
 } from '../violations/entities/violation.entity';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+
+const USER_PUBLIC_READ_PROJECTION =
+  '_id fullName email gender dateOfBirth role phoneNumber avatarUrl accountStatus isOnline address banReason createdAt updatedAt';
+const DOCTOR_PROFILE_READ_PROJECTION =
+  '_id userId specialty workplace experienceYears averageRating ratingSum reviewCount verifiedAt verificationStatus rejectReason createdAt updatedAt';
 
 type ProfileReport = {
   id: string;
@@ -84,7 +90,7 @@ export class UsersService {
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Violation.name) private violationModel: Model<Violation>,
     private readonly cloudinaryService: CloudinaryService,
-  ) { }
+  ) {}
 
   private formatAddress(address?: {
     street?: string;
@@ -157,18 +163,17 @@ export class UsersService {
           },
         ],
       })
-      .select('-password -refreshToken');
+      .select(USER_PUBLIC_READ_PROJECTION)
+      .lean();
 
     return users.map((user) => {
-      const userObject = user.toObject();
-
-      if (userObject.role !== UserRole.DOCTOR) {
-        return userObject;
+      if (user.role !== UserRole.DOCTOR) {
+        return user;
       }
 
       return {
-        ...userObject,
-        specialty: specialtyByDoctorUserId.get(userObject._id.toString()),
+        ...user,
+        specialty: specialtyByDoctorUserId.get(user._id.toString()),
       };
     });
   }
@@ -201,16 +206,20 @@ export class UsersService {
         accountStatus: AccountStatus.ACTIVE,
         _id: { $in: approvedDoctorUserIds },
       })
-      .select('-password -refreshToken');
+      .select(USER_PUBLIC_READ_PROJECTION)
+      .lean();
 
     return doctorUsers.map((doctorUser) => ({
-      ...doctorUser.toObject(),
+      ...doctorUser,
       specialty: specialtyByDoctorUserId.get(doctorUser._id.toString()),
     }));
   }
 
   async findDoctorByEmail(email: string): Promise<DoctorPrefillData> {
-    const user = await this.userModel.findOne({ email: email });
+    const user = await this.userModel
+      .findOne({ email: email })
+      .select('_id fullName email phoneNumber role')
+      .lean();
 
     if (!user) {
       throw new NotFoundException('User not found with this email.');
@@ -220,7 +229,12 @@ export class UsersService {
       throw new NotFoundException('User is not a doctor.');
     }
 
-    const doctorProfile = await this.doctorModel.findOne({ userId: user._id });
+    const doctorProfile = await this.doctorModel
+      .findOne({ userId: user._id })
+      .select(
+        'specialty workplace experienceYears verificationDocuments verificationStatus rejectReason',
+      )
+      .lean();
 
     if (!doctorProfile) {
       throw new NotFoundException('Doctor profile not found for this user.');
@@ -242,7 +256,7 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.userModel
       .findById(id)
-      .select('-password -refreshToken')
+      .select(USER_PUBLIC_READ_PROJECTION)
       .lean();
 
     if (!user) {
@@ -276,7 +290,8 @@ export class UsersService {
   async findProfileById(id: string): Promise<UserProfileResponse> {
     const user = await this.userModel
       .findById(id)
-      .select('-password -refreshToken');
+      .select(USER_PUBLIC_READ_PROJECTION)
+      .lean();
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -305,7 +320,8 @@ export class UsersService {
 
     const reportedViolations = await this.violationModel
       .find({ reportedUserId: userObjectId })
-      .sort({ createdAt: -1 })
+      .select('_id reportType status createdAt')
+      .sort({ createdAt: -1, _id: -1 })
       .lean<
         {
           _id: Types.ObjectId;
@@ -325,9 +341,30 @@ export class UsersService {
     }));
 
     if (user.role === UserRole.DOCTOR) {
-      const doctor = await this.doctorModel
-        .findOne({ userId: userObjectId })
-        .lean<DoctorDocument>();
+      const [doctor, doctorReviews, ratingGroups] = await Promise.all([
+        this.doctorModel
+          .findOne({ userId: userObjectId })
+          .select(DOCTOR_PROFILE_READ_PROJECTION)
+          .lean<DoctorDocument>(),
+        this.reviewModel
+          .find({ doctorId: userObjectId })
+          .select('_id patientId rating comment createdAt')
+          .sort({ createdAt: -1, _id: -1 })
+          .lean<
+            {
+              _id: Types.ObjectId;
+              patientId: Types.ObjectId;
+              rating: number;
+              comment: string;
+              createdAt?: Date;
+            }[]
+          >(),
+        this.reviewModel.aggregate<{ _id: number; count: number }>([
+          { $match: { doctorId: userObjectId } },
+          { $group: { _id: '$rating', count: { $sum: 1 } } },
+          { $project: { _id: 1, count: 1 } },
+        ]),
+      ]);
 
       if (doctor) {
         profile.role_specific = {
@@ -342,30 +379,17 @@ export class UsersService {
         };
       }
 
-      const doctorReviews = await this.reviewModel
-        .find({ doctorId: userObjectId })
-        .sort({ createdAt: -1 })
-        .lean<
-          {
-            _id: Types.ObjectId;
-            patientId: Types.ObjectId;
-            rating: number;
-            comment: string;
-            createdAt?: Date;
-          }[]
-        >();
-
       const reviewerIds = Array.from(
         new Set(doctorReviews.map((review) => review.patientId.toString())),
       ).map((reviewerId) => new Types.ObjectId(reviewerId));
 
       const reviewers = reviewerIds.length
         ? await this.userModel
-          .find({ _id: { $in: reviewerIds } })
-          .select('fullName avatarUrl')
-          .lean<
-            { _id: Types.ObjectId; fullName: string; avatarUrl?: string }[]
-          >()
+            .find({ _id: { $in: reviewerIds } })
+            .select('fullName avatarUrl')
+            .lean<
+              { _id: Types.ObjectId; fullName: string; avatarUrl?: string }[]
+            >()
         : [];
 
       const reviewerNameMap = new Map(
@@ -394,9 +418,9 @@ export class UsersService {
         5: 0,
       };
 
-      for (const review of doctorReviews) {
-        if (ratingDistribution[review.rating] != null) {
-          ratingDistribution[review.rating] += 1;
+      for (const group of ratingGroups) {
+        if (ratingDistribution[group._id] != null) {
+          ratingDistribution[group._id] = group.count;
         }
       }
 
@@ -410,6 +434,7 @@ export class UsersService {
     if (user.role === UserRole.ADMIN) {
       const admin = await this.adminModel
         .findOne({ userId: userObjectId })
+        .select('_id userId adminRole createdAt updatedAt')
         .lean<AdminDocument>();
 
       if (admin) {

@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AiHealthInsight, AiHealthInsightDocument, RiskLevel } from '../entities/ai-health-insight.entity';
+import { AiHealthInsight, AiHealthInsightDocument } from '../entities/ai-health-insight.entity';
 import { CreateAiHealthInsightDto, UpdateAiHealthInsightDto, QueryAiHealthInsightDto } from '../dto/create-ai-health-insight.dto';
+
+const AI_HEALTH_INSIGHT_READ_PROJECTION = '_id patientId analyzedMetrics riskLevel advice createdAt updatedAt';
 
 @Injectable()
 export class AiHealthInsightsService {
@@ -40,7 +42,10 @@ export class AiHealthInsightsService {
       queryBuilder = queryBuilder.skip(skip).limit(query.limit);
     }
 
-    return queryBuilder.exec();
+    return queryBuilder
+      .select(AI_HEALTH_INSIGHT_READ_PROJECTION)
+      .lean<AiHealthInsight[]>()
+      .exec();
   }
 
   async findAll(query?: QueryAiHealthInsightDto): Promise<AiHealthInsight[]> {
@@ -62,7 +67,10 @@ export class AiHealthInsightsService {
       queryBuilder = queryBuilder.skip(skip).limit(query.limit);
     }
 
-    return queryBuilder.exec();
+    return queryBuilder
+      .select(AI_HEALTH_INSIGHT_READ_PROJECTION)
+      .lean<AiHealthInsight[]>()
+      .exec();
   }
 
   async findById(insightId: string): Promise<AiHealthInsight> {
@@ -150,17 +158,36 @@ export class AiHealthInsightsService {
   }
 
   async getStatsByPatient(patientId: string): Promise<Record<string, any>> {
-    const insights = await this.insightModel.find({
-      patientId: new Types.ObjectId(patientId),
-    });
+    const riskGroups = await this.insightModel.aggregate<{
+      _id: string;
+      count: number;
+    }>([
+      {
+        $match: {
+          patientId: new Types.ObjectId(patientId),
+        },
+      },
+      {
+        $group: {
+          _id: '$riskLevel',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          count: 1,
+        },
+      },
+    ]);
 
     const stats = {
-      total: insights.length,
+      total: riskGroups.reduce((total, group) => total + group.count, 0),
       byRiskLevel: {} as Record<string, number>,
     };
 
-    insights.forEach(insight => {
-      stats.byRiskLevel[insight.riskLevel] = (stats.byRiskLevel[insight.riskLevel] || 0) + 1;
+    riskGroups.forEach((group) => {
+      stats.byRiskLevel[group._id] = group.count;
     });
 
     return stats;

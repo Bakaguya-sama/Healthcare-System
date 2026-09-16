@@ -26,6 +26,9 @@ type MessageDbAttachment = {
   mimeType: string;
 };
 
+const MESSAGE_READ_PROJECTION =
+  '_id doctorSessionId senderId senderType content attachments sentAt createdAt updatedAt';
+
 @Injectable()
 export class ChatService {
   private static readonly maxImageSizeBytes = 10 * 1024 * 1024;
@@ -245,9 +248,12 @@ export class ChatService {
     const [messages, total] = await Promise.all([
       this.messageModel
         .find(filter)
+        .select(MESSAGE_READ_PROJECTION)
         .sort({ sentAt: 'desc' as any, _id: 'desc' })
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.messageModel.countDocuments(filter),
     ]);
 
@@ -275,9 +281,12 @@ export class ChatService {
     const [messages, total] = await Promise.all([
       this.messageModel
         .find(filter)
+        .select(MESSAGE_READ_PROJECTION)
         .sort({ sentAt: 'desc' as any, _id: 'desc' })
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.messageModel.countDocuments(filter),
     ]);
 
@@ -302,7 +311,11 @@ export class ChatService {
       throw new BadRequestException('Invalid message ID');
     }
 
-    const message = await this.messageModel.findById(new Types.ObjectId(id));
+    const message = await this.messageModel
+      .findById(new Types.ObjectId(id))
+      .select(MESSAGE_READ_PROJECTION)
+      .lean()
+      .exec();
 
     if (!message) {
       throw new NotFoundException('Message not found');

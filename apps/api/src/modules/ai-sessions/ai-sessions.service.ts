@@ -27,6 +27,9 @@ type AiSessionFilter = {
 
 type SortOrder = 1 | -1;
 
+const AI_SESSION_READ_PROJECTION =
+  '_id patientId status startedAt endedAt createdAt updatedAt';
+
 @Injectable()
 export class AiSessionsService {
   constructor(
@@ -78,14 +81,17 @@ export class AiSessionsService {
     const resolvedSortOrder: SortOrder = sortOrder === 1 ? 1 : -1;
 
     const skip = (page - 1) * limit;
-    const data = await this.aiSessionModel
-      .find(filter)
-      .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiSessionModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiSessionModel
+        .find(filter)
+        .select(AI_SESSION_READ_PROJECTION)
+        .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiSession[]>()
+        .exec(),
+      this.aiSessionModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -127,14 +133,17 @@ export class AiSessionsService {
     const resolvedSortOrder: SortOrder = sortOrder === 1 ? 1 : -1;
 
     const skip = (page - 1) * limit;
-    const data = await this.aiSessionModel
-      .find(filter)
-      .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiSessionModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiSessionModel
+        .find(filter)
+        .select(AI_SESSION_READ_PROJECTION)
+        .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiSession[]>()
+        .exec(),
+      this.aiSessionModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }

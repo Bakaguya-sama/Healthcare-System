@@ -2,6 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { AdminService } from '../modules/admin/admin.service';
 import { AiAssistantService } from '../modules/ai-assistant/ai-assistant.service';
+import { AiHealthInsightsService } from '../modules/ai-health-insights/services/ai-health-insights.service';
+import { AiMessagesService } from '../modules/ai-messages/ai-messages.service';
 import {
   ConversationType,
   MessageRole,
@@ -242,11 +244,14 @@ describe('legacy critical-flow characterization', () => {
       const metrics = [
         { _id: new Types.ObjectId(), type: MetricType.HEART_RATE },
       ];
-      const limit = jest.fn().mockResolvedValue(metrics);
+      const exec = jest.fn().mockResolvedValue(metrics);
+      const lean = jest.fn().mockReturnValue({ exec });
+      const limit = jest.fn().mockReturnValue({ lean });
       const skip = jest.fn().mockReturnValue({ limit });
       const sort = jest.fn().mockReturnValue({ skip });
+      const select = jest.fn().mockReturnValue({ sort });
       const metricModel = {
-        find: jest.fn().mockReturnValue({ sort }),
+        find: jest.fn().mockReturnValue({ select }),
         countDocuments: jest.fn().mockResolvedValue(1),
       };
       const service = new HealthMetricsService(
@@ -270,6 +275,69 @@ describe('legacy critical-flow characterization', () => {
       expect(metricModel.find).toHaveBeenCalledWith({
         patientId: new Types.ObjectId(patientId.toString()),
       });
+      expect(select).toHaveBeenCalledWith(
+        expect.stringContaining('patientId type values unit recordedAt'),
+      );
+      expect(lean).toHaveBeenCalled();
+    });
+
+    it('calculates metric statistics in MongoDB without hydrating the history', async () => {
+      const latest = {
+        _id: new Types.ObjectId(),
+        patientId,
+        type: MetricType.HEART_RATE,
+        values: { value: { value: 80, recordedAt: new Date() } },
+        unit: 'bpm',
+        recordedAt: new Date(),
+      };
+      const aggregate = jest.fn().mockResolvedValue([
+        {
+          stats: [{ count: 3 }],
+          numericStats: [{ average: 80.126, minimum: 70, maximum: 90 }],
+          latest: [latest],
+        },
+      ]);
+      const service = new HealthMetricsService(
+        { aggregate } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      );
+
+      const result = await service.getStatistics(
+        patientId.toString(),
+        MetricType.HEART_RATE,
+      );
+
+      expect(result.data).toMatchObject({
+        count: 3,
+        average: 80.13,
+        minimum: 70,
+        maximum: 90,
+        latest,
+      });
+      expect(aggregate).toHaveBeenCalled();
+      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$facet"');
+    });
+  });
+
+  describe('AI health insight statistics', () => {
+    it('groups risk counts in MongoDB instead of loading every insight', async () => {
+      const aggregate = jest.fn().mockResolvedValue([
+        { _id: 'warning', count: 2 },
+        { _id: 'danger', count: 1 },
+      ]);
+      const service = new AiHealthInsightsService({ aggregate } as never);
+
+      await expect(
+        service.getStatsByPatient(patientId.toString()),
+      ).resolves.toEqual({
+        total: 3,
+        byRiskLevel: { warning: 2, danger: 1 },
+      });
+      expect(aggregate).toHaveBeenCalled();
+      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$group"');
+      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$project"');
     });
   });
 
@@ -334,6 +402,30 @@ describe('legacy critical-flow characterization', () => {
 
       expect(result.hits).toHaveLength(1);
       expect(result.hits[0].chunkId).toBe('1');
+    });
+
+    it('queries user AI messages through a bounded lookup instead of loading session IDs', async () => {
+      const aggregate = jest
+        .fn()
+        .mockResolvedValue([{ data: [{ content: 'hello' }], total: 1 }]);
+      const sessionsService = { findByUserId: jest.fn() };
+      const service = new AiMessagesService(
+        { aggregate } as never,
+        sessionsService as never,
+      );
+
+      await expect(
+        service.findByUserId(patientId.toString(), {
+          page: 1,
+          limit: 20,
+          sortBy: 'sentAt',
+          sortOrder: -1,
+        }),
+      ).resolves.toEqual({ data: [{ content: 'hello' }], total: 1 });
+      expect(sessionsService.findByUserId).not.toHaveBeenCalled();
+      expect(aggregate).toHaveBeenCalled();
+      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$lookup"');
+      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$facet"');
     });
   });
 

@@ -32,8 +32,29 @@ type DailyTotalAlertMetricType =
   | MetricType.WATER_INTAKE
   | MetricType.KCAL_INTAKE;
 
+type HealthMetricStatisticsAggregation = {
+  stats: Array<{ count: number }>;
+  numericStats: Array<{
+    average: number;
+    minimum: number;
+    maximum: number;
+  }>;
+  latest: Array<{
+    _id: Types.ObjectId;
+    patientId: Types.ObjectId;
+    type: MetricType;
+    values: Record<string, MetricEntry>;
+    unit: string;
+    recordedAt: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
+  }>;
+};
+
 const BMI_UNIT = 'kg/m2';
 const WATER_INTAKE_CUTOFF_HOUR = 21;
+const HEALTH_METRIC_READ_PROJECTION =
+  '_id patientId type values unit recordedAt createdAt updatedAt';
 const LOW_STATUS_KEYWORDS = ['low', 'hypo', 'under', 'below'];
 const METRIC_LABEL_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'Blood Pressure',
@@ -199,9 +220,12 @@ export class HealthMetricsService {
     const [data, total] = await Promise.all([
       this.healthMetricModel
         .find(filter)
+        .select(HEALTH_METRIC_READ_PROJECTION)
         .sort(sort)
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.healthMetricModel.countDocuments(filter),
     ]);
 
@@ -226,10 +250,14 @@ export class HealthMetricsService {
       throw new BadRequestException('Invalid metric ID');
     }
 
-    const metric = await this.healthMetricModel.findOne({
-      _id: new Types.ObjectId(id),
-      patientId: new Types.ObjectId(userId),
-    });
+    const metric = await this.healthMetricModel
+      .findOne({
+        _id: new Types.ObjectId(id),
+        patientId: new Types.ObjectId(userId),
+      })
+      .select(HEALTH_METRIC_READ_PROJECTION)
+      .lean()
+      .exec();
 
     if (!metric) {
       throw new NotFoundException('Health metric not found');
@@ -617,41 +645,85 @@ export class HealthMetricsService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const metrics = await this.healthMetricModel.find({
-      patientId: new Types.ObjectId(userId),
-      type,
-    });
+    if (!Object.values(MetricType).includes(type as MetricType)) {
+      throw new BadRequestException('Invalid metric type');
+    }
 
-    if (metrics.length === 0) {
+    const metricType = type as MetricType;
+    const primaryValueKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
+    const [result] =
+      await this.healthMetricModel.aggregate<HealthMetricStatisticsAggregation>(
+        [
+          {
+            $match: {
+              patientId: new Types.ObjectId(userId),
+              type: metricType,
+            },
+          },
+          { $sort: { recordedAt: -1, _id: -1 } },
+          {
+            $facet: {
+              stats: [{ $count: 'count' }],
+              numericStats: [
+                {
+                  $project: {
+                    numericValue: `$values.${primaryValueKey}.value`,
+                  },
+                },
+                {
+                  $match: {
+                    numericValue: { $type: 'number', $gt: 0 },
+                  },
+                },
+                {
+                  $group: {
+                    _id: null,
+                    average: { $avg: '$numericValue' },
+                    minimum: { $min: '$numericValue' },
+                    maximum: { $max: '$numericValue' },
+                  },
+                },
+                { $project: { _id: 0 } },
+              ],
+              latest: [
+                { $limit: 1 },
+                {
+                  $project: {
+                    _id: 1,
+                    patientId: 1,
+                    type: 1,
+                    values: 1,
+                    unit: 1,
+                    recordedAt: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      );
+
+    if (!result?.latest.length) {
       throw new NotFoundException('No metrics found for this type');
     }
 
-    // Extract numeric values from values.<key>.value
-    const values = metrics
-      .map((metric) =>
-        this.extractMetricNumericValue(metric.type, metric.values),
-      )
-      .filter((v) => v > 0);
-
-    if (values.length === 0) {
+    const stats = result.numericStats[0];
+    if (!stats) {
       throw new BadRequestException('No numeric values found in metrics');
     }
-
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const latest = metrics[metrics.length - 1];
 
     return {
       statusCode: 200,
       message: 'Statistics retrieved successfully',
       data: {
-        type,
-        count: metrics.length,
-        average: Math.round(avg * 100) / 100,
-        minimum: min,
-        maximum: max,
-        latest,
+        type: metricType,
+        count: result.stats[0].count,
+        average: Math.round(stats.average * 100) / 100,
+        minimum: stats.minimum,
+        maximum: stats.maximum,
+        latest: result.latest[0],
       },
     };
   }
@@ -738,13 +810,19 @@ export class HealthMetricsService {
           patientId,
           type: MetricType.HEIGHT,
         })
-        .sort({ recordedAt: -1 }),
+        .select('_id values unit recordedAt')
+        .sort({ recordedAt: -1, _id: -1 })
+        .lean()
+        .exec(),
       this.healthMetricModel
         .findOne({
           patientId,
           type: MetricType.WEIGHT,
         })
-        .sort({ recordedAt: -1 }),
+        .select('_id values unit recordedAt')
+        .sort({ recordedAt: -1, _id: -1 })
+        .lean()
+        .exec(),
     ]);
 
     if (!latestHeightMetric || !latestWeightMetric) {
@@ -855,8 +933,11 @@ export class HealthMetricsService {
       .find({
         patientId: new Types.ObjectId(userId),
       })
-      .sort({ recordedAt: -1 })
-      .limit(20);
+      .select(HEALTH_METRIC_READ_PROJECTION)
+      .sort({ recordedAt: -1, _id: -1 })
+      .limit(20)
+      .lean()
+      .exec();
 
     return {
       statusCode: 200,

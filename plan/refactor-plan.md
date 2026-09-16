@@ -529,6 +529,17 @@ Quy tắc:
 
 #### RF-2C Chuẩn projection, populate và aggregation
 
+Trạng thái RF-2C: **DONE ngày 2026-09-16**.
+
+Evidence:
+
+- 18 service owners đã có explicit projection cho list/read paths; read model không cần document methods dùng `.lean()`.
+- Populate paths đều khai báo field; internal/sensitive fields không còn bị serialize ngầm từ các list đã chuyển đổi.
+- HealthMetric statistics, AI Health Insight risk counts và doctor rating distribution dùng aggregation thay vì hydrate toàn bộ collection để tính trong Node.js.
+- AI Message user history dùng `$lookup` + `$facet`, loại bỏ flow tải tối đa 1.000 session IDs để dựng `$in`.
+- Data/count độc lập ở các legacy AI/config lists chạy song song. Contract, exception và verification nằm tại `docs/current-state/read-query-contract.md`.
+- Exit gate đạt: typecheck/build pass, lint 398/402 warnings, 38 unit + 2 integration + 2 E2E tests pass.
+
 1. Mọi query đọc phải khai báo response projection; không mặc định trả toàn document.
 2. Dùng `.lean()` cho read model nếu không cần Mongoose methods, virtuals hoặc save hooks.
 3. Không populate document lớn bằng mặc định; chỉ select field cần thiết.

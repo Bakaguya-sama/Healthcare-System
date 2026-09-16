@@ -56,6 +56,12 @@ type UploadedImageMetadata = {
   base64Data: string;
 };
 
+const AI_CONVERSATION_LIST_PROJECTION =
+  '_id userId type topic summary followUpAction totalTokens totalMessages lastMessageAt isArchived archivedAt isFavorite rating status completedAt tags createdAt updatedAt';
+const AI_CONVERSATION_DETAIL_PROJECTION = `${AI_CONVERSATION_LIST_PROJECTION} messages ratingComment`;
+const AI_CONVERSATION_MESSAGE_READ_PROJECTION =
+  '_id doctorSessionId senderId senderType content attachments sentAt createdAt updatedAt';
+
 @Injectable()
 export class AiAssistantService {
   private readonly logger = new Logger(AiAssistantService.name);
@@ -776,9 +782,12 @@ export class AiAssistantService {
     const [conversations, total] = await Promise.all([
       this.aiConversationModel
         .find(filter)
+        .select(AI_CONVERSATION_LIST_PROJECTION)
         .sort(sort)
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.aiConversationModel.countDocuments(filter),
     ]);
 
@@ -810,9 +819,11 @@ export class AiAssistantService {
       throw new BadRequestException('Invalid conversation ID');
     }
 
-    const conversation = await this.aiConversationModel.findById(
-      new Types.ObjectId(conversationId),
-    );
+    const conversation = await this.aiConversationModel
+      .findById(new Types.ObjectId(conversationId))
+      .select(AI_CONVERSATION_DETAIL_PROJECTION)
+      .lean()
+      .exec();
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -833,9 +844,12 @@ export class AiAssistantService {
     const [messages, total] = await Promise.all([
       this.messageModel
         .find(filter)
+        .select(AI_CONVERSATION_MESSAGE_READ_PROJECTION)
         .sort({ sentAt: 'desc' as any, _id: 'desc' })
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.messageModel.countDocuments(filter),
     ]);
 
@@ -1166,9 +1180,12 @@ export class AiAssistantService {
     const [conversations, total] = await Promise.all([
       this.aiConversationModel
         .find(filter)
+        .select(AI_CONVERSATION_LIST_PROJECTION)
         .sort(sort)
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.aiConversationModel.countDocuments(filter),
     ]);
 

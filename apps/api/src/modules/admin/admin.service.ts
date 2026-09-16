@@ -31,6 +31,13 @@ import {
 import { NodemailerService } from '../nodemailer/nodemailer.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 
+const DOCTOR_APPLICATION_READ_PROJECTION =
+  '_id userId specialty workplace verificationDocuments experienceYears averageRating ratingSum reviewCount verifiedAt verificationStatus rejectReason createdAt updatedAt';
+const ADMIN_SESSION_READ_PROJECTION =
+  '_id patientId doctorId scheduledAt startedAt endedAt status patientNotes doctorNotes lastMessageAt lastMessageId createdAt updatedAt';
+const POPULATED_USER_READ_PROJECTION =
+  'fullName email gender dateOfBirth phoneNumber avatarUrl address role accountStatus createdAt updatedAt';
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -100,10 +107,13 @@ export class AdminService {
     const [data, total, pending, approved, rejected] = await Promise.all([
       this.doctorModel
         .find(filter)
-        .populate('userId', '-password -refreshToken')
+        .select(DOCTOR_APPLICATION_READ_PROJECTION)
+        .populate('userId', POPULATED_USER_READ_PROJECTION)
         .sort({ createdAt: sortOrder, _id: sortOrder })
         .limit(limit)
-        .skip(skip),
+        .skip(skip)
+        .lean()
+        .exec(),
       this.doctorModel.countDocuments(filter),
       this.doctorModel.countDocuments({
         ...(filter.userId ? { userId: filter.userId } : {}),
@@ -187,7 +197,9 @@ export class AdminService {
 
     await this.nodemailerService.sendApproveEmail(doctorUserDetails.email);
     console.log('✅ DOCTOR VERIFIED:', updated._id);
-    return (await updated.populate('userId')).toObject({ versionKey: false });
+    return (
+      await updated.populate('userId', POPULATED_USER_READ_PROJECTION)
+    ).toObject({ versionKey: false });
   }
 
   /**
@@ -234,7 +246,9 @@ export class AdminService {
       dto.reason,
     );
 
-    return (await updated.populate('userId')).toObject({ versionKey: false });
+    return (
+      await updated.populate('userId', POPULATED_USER_READ_PROJECTION)
+    ).toObject({ versionKey: false });
   }
 
   // ============================================
@@ -381,16 +395,19 @@ export class AdminService {
     const [data, total] = await Promise.all([
       this.sessionModel
         .find(filter)
+        .select(ADMIN_SESSION_READ_PROJECTION)
         .populate('patientId', 'fullName email phoneNumber')
         .populate('doctorId', 'fullName email specialty')
         .sort(sort)
         .limit(limit)
-        .skip(skip),
+        .skip(skip)
+        .lean()
+        .exec(),
       this.sessionModel.countDocuments(filter),
     ]);
 
     return {
-      data: data.map((s) => s.toObject({ versionKey: false })),
+      data,
       pagination: {
         total,
         page,
@@ -407,14 +424,17 @@ export class AdminService {
   async getSessionById(id: string) {
     const session = await this.sessionModel
       .findById(id)
+      .select(ADMIN_SESSION_READ_PROJECTION)
       .populate('patientId', 'fullName email phoneNumber')
-      .populate('doctorId', 'fullName email specialty licenseNumber');
+      .populate('doctorId', 'fullName email specialty licenseNumber')
+      .lean()
+      .exec();
 
     if (!session) {
       throw new NotFoundException('Session not found');
     }
 
-    return session.toObject({ versionKey: false });
+    return session;
   }
 
   /**

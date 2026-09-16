@@ -12,6 +12,9 @@ import {
   QueryViolationDto,
 } from './dto/create-violation.dto';
 
+const VIOLATION_READ_PROJECTION =
+  '_id reporterId reportedUserId reportType reason status resolutionNote resolvedAt createdAt updatedAt';
+
 @Injectable()
 export class ViolationsService {
   constructor(
@@ -66,6 +69,7 @@ export class ViolationsService {
     const [data, total] = await Promise.all([
       this.violationModel
         .find(filter)
+        .select(VIOLATION_READ_PROJECTION)
         .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)
@@ -89,6 +93,7 @@ export class ViolationsService {
   async findById(id: string): Promise<Violation> {
     const violation = await this.violationModel
       .findById(id)
+      .select(VIOLATION_READ_PROJECTION)
       .populate('reporterId', 'email fullName')
       .populate('reportedUserId', 'email fullName')
       .lean();
@@ -129,6 +134,7 @@ export class ViolationsService {
     const [data, total] = await Promise.all([
       this.violationModel
         .find(filter)
+        .select(VIOLATION_READ_PROJECTION)
         .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)

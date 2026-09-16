@@ -27,6 +27,8 @@ type AdminListFilter = {
 
 type AdminSort = Record<string, 1 | -1>;
 
+const ADMIN_READ_PROJECTION = '_id userId adminRole createdAt updatedAt';
+
 @Injectable()
 export class AdminsService {
   constructor(
@@ -103,7 +105,10 @@ export class AdminsService {
       .findOne({
         userId: new Types.ObjectId(userId),
       })
-      .populate('userId', 'fullName email');
+      .select(ADMIN_READ_PROJECTION)
+      .populate('userId', 'fullName email')
+      .lean()
+      .exec();
 
     if (!admin) {
       throw new NotFoundException('Admin profile not found');
@@ -146,10 +151,12 @@ export class AdminsService {
     const [data, total] = await Promise.all([
       this.adminModel
         .find(filter)
+        .select(ADMIN_READ_PROJECTION)
         .populate('userId', 'fullName email')
         .sort(sort)
         .skip(skip)
         .limit(query.limit)
+        .lean()
         .exec(),
       this.adminModel.countDocuments(filter),
     ]);

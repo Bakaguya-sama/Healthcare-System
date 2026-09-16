@@ -17,6 +17,7 @@ Status: **DONE — 2026-09-15** (`BE-RF-001`).
 | `rf1-verification.md`              | Build/test/CI results và characterization coverage sau RF-1                      |
 | `service-responsibility-map.md`    | RF-2A inventory 32 services, method ownership và decomposition task map          |
 | `pagination-query-contract.md`     | RF-2B shared pagination/cursor contract, allowlist và compatibility policy       |
+| `read-query-contract.md`           | RF-2C projection, lean, aggregation và hydrated-command exception                |
 
 Generator `scripts/rf0-openapi-baseline.cjs` có thể tái tạo OpenAPI/Postman source snapshot. Không dùng snapshot generator này thay cho runtime OpenAPI CI artifact mục tiêu ở `BE-RF-011`.
 
@@ -29,4 +30,4 @@ Generator `scripts/rf0-openapi-baseline.cjs` có thể tái tạo OpenAPI/Postma
 - [x] Backlog có owner/dependency/estimate.
 - [x] Baseline failure được ghi lại mà không sửa runtime source.
 
-RF-2B (`BE-RF-006`) đã hoàn tất ngày 2026-09-16. Next: **BE-RF-007 / RF-2D** — lập query catalog và explain baseline trước khi chọn index/tối ưu query theo domain.
+RF-2C đã hoàn tất ngày 2026-09-16. Next: **BE-RF-007 / RF-2D** — lập query catalog và explain baseline trước khi chọn index/tối ưu query theo domain.

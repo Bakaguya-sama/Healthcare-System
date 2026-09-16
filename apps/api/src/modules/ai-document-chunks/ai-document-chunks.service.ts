@@ -4,6 +4,9 @@ import { Model, Types } from 'mongoose';
 import { AiDocumentChunk, AiDocumentChunkDocument } from './entities/ai-document-chunk.entity';
 import { CreateAiDocumentChunkDto, UpdateAiDocumentChunkDto, QueryAiDocumentChunkDto } from './dto/create-ai-document-chunk.dto';
 
+const AI_DOCUMENT_CHUNK_READ_PROJECTION =
+  '_id documentId chunkIndex content isActive createdAt updatedAt';
+
 @Injectable()
 export class AiDocumentChunksService {
   constructor(
@@ -51,14 +54,17 @@ export class AiDocumentChunksService {
     }
 
     const skip = (page - 1) * limit;
-    const data = await this.chunkModel
-      .find(filter)
-      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.chunkModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.chunkModel
+        .find(filter)
+        .select(AI_DOCUMENT_CHUNK_READ_PROJECTION)
+        .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiDocumentChunk[]>()
+        .exec(),
+      this.chunkModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -73,14 +79,17 @@ export class AiDocumentChunksService {
     }
 
     const skip = (page - 1) * limit;
-    const data = await this.chunkModel
-      .find(filter)
-      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.chunkModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.chunkModel
+        .find(filter)
+        .select(AI_DOCUMENT_CHUNK_READ_PROJECTION)
+        .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiDocumentChunk[]>()
+        .exec(),
+      this.chunkModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -120,7 +129,9 @@ export class AiDocumentChunksService {
   async search(query: string, limit: number = 10): Promise<AiDocumentChunk[]> {
     return await this.chunkModel
       .find({ $text: { $search: query } })
+      .select(AI_DOCUMENT_CHUNK_READ_PROJECTION)
       .limit(limit)
+      .lean<AiDocumentChunk[]>()
       .exec();
   }
 

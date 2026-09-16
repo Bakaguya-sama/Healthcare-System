@@ -19,6 +19,9 @@ type MessageSessionFilter = {
 
 type MessageSortOrder = 1 | -1;
 
+const AI_MESSAGE_READ_PROJECTION =
+  '_id aiSessionId senderType content attachments sentAt createdAt updatedAt';
+
 @Injectable()
 export class AiMessagesService {
   constructor(
@@ -67,14 +70,17 @@ export class AiMessagesService {
     };
 
     const skip = (page - 1) * limit;
-    const data = await this.aiMessageModel
-      .find(filter)
-      .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiMessageModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiMessageModel
+        .find(filter)
+        .select(AI_MESSAGE_READ_PROJECTION)
+        .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiMessage[]>()
+        .exec(),
+      this.aiMessageModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -85,35 +91,61 @@ export class AiMessagesService {
   ): Promise<{ data: AiMessage[]; total: number }> {
     const { page = 1, limit = 10, sortBy = 'sentAt', sortOrder = -1 } = query;
     const resolvedSortOrder: MessageSortOrder = sortOrder === 1 ? 1 : -1;
-
-    const sessions = await this.aiSessionsService.findByUserId(userId, {
-      page: 1,
-      limit: 1000,
-      sortBy: 'createdAt',
-      sortOrder: -1,
-    });
-
-    const sessionIds = sessions.data.map(
-      (session) => new Types.ObjectId(session._id.toString()),
-    );
-
-    if (sessionIds.length === 0) {
-      return { data: [], total: 0 };
-    }
-
-    const filter: MessageSessionFilter = { aiSessionId: { $in: sessionIds } };
-
     const skip = (page - 1) * limit;
-    const data = await this.aiMessageModel
-      .find(filter)
-      .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const [result] = await this.aiMessageModel.aggregate<{
+      data: AiMessage[];
+      total: number;
+    }>([
+      {
+        $lookup: {
+          from: 'aisessions',
+          let: { sessionId: '$aiSessionId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$_id', '$$sessionId'] },
+                patientId: new Types.ObjectId(userId),
+              },
+            },
+            { $project: { _id: 1 } },
+          ],
+          as: 'ownedSession',
+        },
+      },
+      { $match: { 'ownedSession.0': { $exists: true } } },
+      { $sort: { [sortBy]: resolvedSortOrder, _id: resolvedSortOrder } },
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 1,
+                aiSessionId: 1,
+                senderType: 1,
+                content: 1,
+                attachments: 1,
+                sentAt: 1,
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            },
+          ],
+          metadata: [{ $count: 'total' }],
+        },
+      },
+      {
+        $project: {
+          data: 1,
+          total: {
+            $ifNull: [{ $arrayElemAt: ['$metadata.total', 0] }, 0],
+          },
+        },
+      },
+    ]);
 
-    const total = await this.aiMessageModel.countDocuments(filter);
-
-    return { data, total };
+    return result ?? { data: [], total: 0 };
   }
 
   async findAll(
@@ -125,14 +157,17 @@ export class AiMessagesService {
     const filter = {};
 
     const skip = (page - 1) * limit;
-    const data = await this.aiMessageModel
-      .find(filter)
-      .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiMessageModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiMessageModel
+        .find(filter)
+        .select(AI_MESSAGE_READ_PROJECTION)
+        .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiMessage[]>()
+        .exec(),
+      this.aiMessageModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }

@@ -17,6 +17,9 @@ import {
 } from '../users/entities/doctor.schema';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
 
+const REVIEW_READ_PROJECTION =
+  '_id patientId doctorId doctorSessionId rating comment createdAt updatedAt';
+
 @Injectable()
 export class ReviewsService {
   constructor(
@@ -199,11 +202,14 @@ export class ReviewsService {
     const [data, total] = await Promise.all([
       this.reviewModel
         .find(filter)
+        .select(REVIEW_READ_PROJECTION)
         .populate('patientId', 'fullName email avatarUrl')
         .populate('doctorId', 'fullName email specialty avatarUrl')
         .sort(sort)
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.reviewModel.countDocuments(filter),
     ]);
 
@@ -237,10 +243,13 @@ export class ReviewsService {
         .find({
           doctorId: new Types.ObjectId(doctorId),
         })
+        .select(REVIEW_READ_PROJECTION)
         .populate('patientId', 'fullName avatarUrl')
         .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
-        .limit(limitNum),
+        .limit(limitNum)
+        .lean()
+        .exec(),
       this.reviewModel.countDocuments({
         doctorId: new Types.ObjectId(doctorId),
       }),
@@ -337,8 +346,11 @@ export class ReviewsService {
 
     const review = await this.reviewModel
       .findById(new Types.ObjectId(id))
+      .select(REVIEW_READ_PROJECTION)
       .populate('patientId', 'fullName email avatarUrl')
-      .populate('doctorId', 'fullName email specialty avatarUrl');
+      .populate('doctorId', 'fullName email specialty avatarUrl')
+      .lean()
+      .exec();
 
     if (!review) {
       throw new NotFoundException('Review not found');
@@ -366,8 +378,11 @@ export class ReviewsService {
       .findOne({
         doctorSessionId: new Types.ObjectId(id),
       })
+      .select(REVIEW_READ_PROJECTION)
       .populate('patientId', 'fullName email avatarUrl')
-      .populate('doctorId', 'fullName email specialty avatarUrl');
+      .populate('doctorId', 'fullName email specialty avatarUrl')
+      .lean()
+      .exec();
 
     if (!review) {
       throw new NotFoundException('Review not found');
@@ -551,6 +566,7 @@ export class ReviewsService {
         verificationStatus: DoctorVerificationStatus.APPROVED,
         reviewCount: { $gt: 0 },
       })
+      .select('_id userId specialty averageRating reviewCount')
       .populate('userId', 'fullName avatarUrl email')
       .sort({ averageRating: -1, reviewCount: -1, _id: 1 })
       .limit(limit)

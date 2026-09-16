@@ -18,6 +18,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UsersService } from '../users/users.service';
 
+const SESSION_READ_PROJECTION =
+  '_id patientId doctorId scheduledAt startedAt endedAt status patientNotes doctorNotes lastMessageAt lastMessageId createdAt updatedAt';
+
 @Injectable()
 export class SessionsService {
   constructor(
@@ -126,11 +129,14 @@ export class SessionsService {
     const [data, total] = await Promise.all([
       this.sessionModel
         .find(filter)
+        .select(SESSION_READ_PROJECTION)
         .populate('patientId', 'fullName email phoneNumber avatarUrl')
         .populate('doctorId', 'fullName email phoneNumber avatarUrl specialty')
         .sort(sort)
         .skip(skip)
-        .limit(query.limit),
+        .limit(query.limit)
+        .lean()
+        .exec(),
       this.sessionModel.countDocuments(filter),
     ]);
 
@@ -157,6 +163,7 @@ export class SessionsService {
 
     const session = await this.sessionModel
       .findById(new Types.ObjectId(id))
+      .select(SESSION_READ_PROJECTION)
       .populate('patientId', 'fullName email phoneNumber avatarUrl')
       .populate('doctorId', 'fullName email specialty avatarUrl');
 
@@ -536,9 +543,12 @@ export class SessionsService {
 
     const sessions = await this.sessionModel
       .find(filter)
+      .select(SESSION_READ_PROJECTION)
       .populate('patientId', 'fullName email phoneNumber avatarUrl')
       .populate('doctorId', 'fullName email specialty avatarUrl')
-      .sort({ scheduledAt: 1, _id: 1 });
+      .sort({ scheduledAt: 1, _id: 1 })
+      .lean()
+      .exec();
 
     return {
       statusCode: 200,

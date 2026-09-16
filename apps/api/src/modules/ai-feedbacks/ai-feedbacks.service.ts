@@ -12,6 +12,9 @@ import {
   QueryAiFeedbackDto,
 } from './dto/create-ai-feedback.dto';
 
+const AI_FEEDBACK_READ_PROJECTION =
+  '_id aiSessionId patientId content createdAt updatedAt';
+
 @Injectable()
 export class AiFeedbacksService {
   constructor(
@@ -54,14 +57,17 @@ export class AiFeedbacksService {
     if (aiSessionId) filter.aiSessionId = new Types.ObjectId(aiSessionId);
 
     const skip = (page - 1) * limit;
-    const data = await this.aiFeedbackModel
-      .find(filter)
-      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiFeedbackModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiFeedbackModel
+        .find(filter)
+        .select(AI_FEEDBACK_READ_PROJECTION)
+        .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiFeedback[]>()
+        .exec(),
+      this.aiFeedbackModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -80,14 +86,17 @@ export class AiFeedbacksService {
     const filter: any = { aiSessionId: new Types.ObjectId(aiSessionId) };
 
     const skip = (page - 1) * limit;
-    const data = await this.aiFeedbackModel
-      .find(filter)
-      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiFeedbackModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiFeedbackModel
+        .find(filter)
+        .select(AI_FEEDBACK_READ_PROJECTION)
+        .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiFeedback[]>()
+        .exec(),
+      this.aiFeedbackModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -105,14 +114,17 @@ export class AiFeedbacksService {
     const filter: any = {};
 
     const skip = (page - 1) * limit;
-    const data = await this.aiFeedbackModel
-      .find(filter)
-      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiFeedbackModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiFeedbackModel
+        .find(filter)
+        .select(AI_FEEDBACK_READ_PROJECTION)
+        .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean<AiFeedback[]>()
+        .exec(),
+      this.aiFeedbackModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -196,17 +208,11 @@ export class AiFeedbacksService {
   async getAverageRating(
     sessionId: string,
   ): Promise<{ totalFeedbacks: number }> {
-    const feedbacks = await this.aiFeedbackModel
-      .find({ aiSessionId: new Types.ObjectId(sessionId) })
-      .exec();
+    const totalFeedbacks = await this.aiFeedbackModel.countDocuments({
+      aiSessionId: new Types.ObjectId(sessionId),
+    });
 
-    if (feedbacks.length === 0) {
-      return { totalFeedbacks: 0 };
-    }
-
-    return {
-      totalFeedbacks: feedbacks.length,
-    };
+    return { totalFeedbacks };
   }
 
   async delete(feedbackId: string, userId: string): Promise<AiFeedback> {

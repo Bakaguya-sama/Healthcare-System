@@ -15,6 +15,8 @@ import {
   QueryBlacklistKeywordDto,
 } from './dto/create-blacklist-keyword.dto';
 
+const BLACKLIST_KEYWORD_READ_PROJECTION = '_id keyword createdAt updatedAt';
+
 @Injectable()
 export class BlacklistKeywordsService {
   constructor(
@@ -63,14 +65,17 @@ export class BlacklistKeywordsService {
     const sort = { [sortBy]: normalizedSortOrder, _id: normalizedSortOrder };
 
     const skip = (page - 1) * limit;
-    const data = await this.keywordModel
-      .find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.keywordModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.keywordModel
+        .find(filter)
+        .select(BLACKLIST_KEYWORD_READ_PROJECTION)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean<BlacklistKeyword[]>()
+        .exec(),
+      this.keywordModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -107,7 +112,13 @@ export class BlacklistKeywordsService {
   async checkContent(
     content: string,
   ): Promise<{ flagged: boolean; flaggedWords: string[] }> {
-    const blacklists = await this.keywordModel.find().exec();
+    // Configuration lookup is intentionally capped until the matcher moves to Redis.
+    const blacklists = await this.keywordModel
+      .find()
+      .select('keyword')
+      .limit(1000)
+      .lean<Array<{ keyword: string }>>()
+      .exec();
 
     const flaggedWords: Set<string> = new Set();
     const lowerContent = content.toLowerCase();

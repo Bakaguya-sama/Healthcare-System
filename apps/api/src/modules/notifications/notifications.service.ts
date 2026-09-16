@@ -16,6 +16,9 @@ import {
 } from './dto/create-notification.dto';
 import { NotificationsGateway } from './notifications.gateway';
 
+const NOTIFICATION_READ_PROJECTION =
+  '_id userId type title message isRead readAt attachments metadata expiresAt createdAt updatedAt';
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -93,9 +96,11 @@ export class NotificationsService {
     const [data, total] = await Promise.all([
       this.notificationModel
         .find(filter)
+        .select(NOTIFICATION_READ_PROJECTION)
         .sort(sort)
         .skip(skip)
         .limit(query.limit)
+        .lean()
         .exec(),
       this.notificationModel.countDocuments(filter),
     ]);

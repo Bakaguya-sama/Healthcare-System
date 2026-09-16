@@ -13,6 +13,8 @@ import {
   QueryPatientDto,
 } from './dto/create-patient.dto';
 
+const PATIENT_READ_PROJECTION = '_id userId createdAt updatedAt';
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -60,7 +62,10 @@ export class PatientsService {
       .findOne({
         userId: new Types.ObjectId(userId),
       })
-      .populate('userId', 'fullName email phoneNumber avatarUrl');
+      .select(PATIENT_READ_PROJECTION)
+      .populate('userId', 'fullName email phoneNumber avatarUrl')
+      .lean()
+      .exec();
 
     if (!patient) {
       throw new NotFoundException('Patient profile not found');
@@ -87,10 +92,12 @@ export class PatientsService {
     const [data, total] = await Promise.all([
       this.patientModel
         .find(filter)
+        .select(PATIENT_READ_PROJECTION)
         .populate('userId', 'fullName email')
         .sort(sort)
         .skip(skip)
         .limit(query.limit)
+        .lean()
         .exec(),
       this.patientModel.countDocuments(filter),
     ]);

@@ -23,6 +23,9 @@ import {
   QueryAiDocumentDto,
 } from './dto/create-ai-document.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+
+const AI_DOCUMENT_READ_PROJECTION =
+  '_id title fileUrl fileType status uploadedBy createdAt updatedAt';
 import type { UploadableFile } from '../cloudinary/cloudinary.service';
 import { RagIngestionService } from '../rag/services/rag-ingestion.service';
 
@@ -177,14 +180,17 @@ export class AiDocumentsService {
     const sort = { [sortBy]: normalizedSortOrder, _id: normalizedSortOrder };
 
     const skip = (page - 1) * limit;
-    const data = await this.aiDocumentModel
-      .find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.aiDocumentModel.countDocuments(filter);
+    const [data, total] = await Promise.all([
+      this.aiDocumentModel
+        .find(filter)
+        .select(AI_DOCUMENT_READ_PROJECTION)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean<AiDocument[]>()
+        .exec(),
+      this.aiDocumentModel.countDocuments(filter),
+    ]);
 
     return { data, total };
   }
@@ -284,7 +290,9 @@ export class AiDocumentsService {
         status: DocumentStatus.ACTIVE,
         $text: { $search: query },
       })
+      .select(AI_DOCUMENT_READ_PROJECTION)
       .limit(10)
+      .lean<AiDocument[]>()
       .exec();
   }
 
