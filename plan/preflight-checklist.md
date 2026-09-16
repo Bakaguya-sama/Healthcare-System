@@ -420,11 +420,11 @@ Với mỗi scenario phải có ít nhất một trong các bằng chứng:
 
 Tạo task theo thứ tự:
 
-- [ ] `BE-RF-001` — endpoint/event/schema/consumer inventory.
-- [ ] `BE-RF-002` — build/typecheck stabilization.
-- [ ] `BE-RF-003` — CI fail-fast và commands.
-- [ ] `BE-RF-004` — characterization tests.
-- [ ] `BE-RF-005` — service responsibility/dependency map.
+- [x] `BE-RF-001` — endpoint/event/schema/consumer inventory hoàn tất ngày `2026-09-15`.
+- [x] `BE-RF-002` — build/typecheck stabilization hoàn tất ngày `2026-09-15`.
+- [x] `BE-RF-003` — CI fail-fast và commands hoàn tất ngày `2026-09-15`.
+- [x] `BE-RF-004` — characterization tests hoàn tất ngày `2026-09-15`.
+- [x] `BE-RF-005` — service responsibility/dependency map hoàn tất ngày `2026-09-16`.
 - [ ] `BE-RF-006` — pagination/query/response conventions.
 - [ ] `BE-RF-007` — query catalog và explain baseline.
 

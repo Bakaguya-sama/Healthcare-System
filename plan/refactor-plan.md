@@ -466,6 +466,15 @@ Mục tiêu: loại bỏ god service, gom code theo capability/owner và tạo c
 
 Không dùng LOC làm gate cứng. Một service có thể dài nếu có một trách nhiệm thuần nhất; ngược lại service ngắn vẫn phải tách nếu vi phạm ownership. Mục tiêu review là mỗi class có một lý do nghiệp vụ/kỹ thuật rõ ràng để thay đổi và dependency list phù hợp.
 
+Trạng thái RF-2A: **DONE ngày 2026-09-16 (`BE-RF-005`)**.
+
+Evidence:
+
+- `docs/current-state/service-responsibility-map.md` inventory 32/32 service files.
+- Chín hotspot được map đến từng method theo responsibility, model/provider, caller, transaction/side effect và class/task đích.
+- Controller/gateway orchestration, cross-module model injection và chuỗi multi-write/provider side effect không có transaction đã được gán owner/port và backlog task xử lý.
+- RF-2A chỉ tạo decomposition plan; không di chuyển runtime source hoặc trộn feature mới trước khi RF-2B/RF-2D tạo data/query boundary ổn định.
+
 #### RF-2B Chuẩn pagination và query contract
 
 Tạo shared query primitives ở `common/pagination`:
@@ -1580,7 +1589,7 @@ Thực hiện đúng thứ tự:
 2. [x] Hoàn thành `BE-RF-002`, sửa API build/typecheck ngày `2026-09-15`.
 3. [x] Hoàn thành `BE-RF-003`, bật CI fail-fast ngày `2026-09-15`.
 4. [x] Hoàn thành `BE-RF-004`, viết characterization tests cho old flows ngày `2026-09-15`.
-5. [ ] Tạo service responsibility map (`BE-RF-005`), không bắt đầu bằng việc di chuyển file hàng loạt.
+5. [x] Hoàn thành service responsibility map (`BE-RF-005`) ngày `2026-09-16`; chưa di chuyển file hàng loạt.
 6. [ ] Tạo pagination/query conventions và query catalog (`BE-RF-006`, `BE-RF-007`); đo baseline trước khi thêm index.
 7. [ ] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`).
 8. [ ] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`).
