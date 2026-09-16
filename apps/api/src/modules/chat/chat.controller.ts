@@ -12,7 +12,6 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFiles,
-  Req,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -29,6 +28,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { ChatGateway } from './chat.gateway';
+import { QueryMessageDto } from './dto/query-message.dto';
 
 @ApiTags('chat')
 @ApiBearerAuth()
@@ -100,17 +100,9 @@ export class ChatController {
   @ApiParam({ name: 'sessionId', description: 'ID của phiên tư vấn' })
   async getSessionMessages(
     @Param('sessionId') sessionId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @Query('sortBy') sortBy: string = 'sentAt',
-    @Query('sortOrder') sortOrder: 1 | -1 = -1,
+    @Query() query: QueryMessageDto,
   ) {
-    return this.chatService.getSessionMessages(sessionId, {
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-    });
+    return this.chatService.getSessionMessages(sessionId, query);
   }
 
   /**
@@ -119,13 +111,8 @@ export class ChatController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lấy tất cả tin nhắn' })
-  async findAll(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-    @Query('sortBy') sortBy: string = 'sentAt',
-    @Query('sortOrder') sortOrder: 1 | -1 = -1,
-  ) {
-    return this.chatService.findAll({ page, limit, sortBy, sortOrder });
+  async findAll(@Query() query: QueryMessageDto) {
+    return this.chatService.findAll(query);
   }
 
   /**

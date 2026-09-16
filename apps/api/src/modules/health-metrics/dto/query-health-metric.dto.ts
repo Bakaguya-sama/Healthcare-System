@@ -2,16 +2,17 @@ import {
   IsEnum,
   IsOptional,
   IsDateString,
-  IsNumber,
-  Min,
-  Max,
   IsMongoId,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import { MetricType } from '../entities/health-metric.entity';
+import { PageSortQueryDto } from '../../../common/pagination';
 
-export class QueryHealthMetricDto {
+export const HEALTH_METRIC_SORT_FIELDS = ['recordedAt', 'createdAt'] as const;
+export type HealthMetricSortField = (typeof HEALTH_METRIC_SORT_FIELDS)[number];
+
+export class QueryHealthMetricDto extends PageSortQueryDto {
   @ApiProperty({ enum: MetricType, required: false })
   @IsEnum(MetricType)
   @IsOptional()
@@ -32,25 +33,8 @@ export class QueryHealthMetricDto {
   @IsOptional()
   patientId?: string;
 
-  @ApiProperty({ example: 1, default: 1 })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  page: number = 1;
-
-  @ApiProperty({ example: 10, default: 10 })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  limit: number = 10;
-
-  @ApiProperty({ example: 'recordedAt', required: false })
+  @ApiProperty({ enum: HEALTH_METRIC_SORT_FIELDS, required: false })
   @IsOptional()
-  sortBy?: string = 'recordedAt';
-
-  @ApiProperty({ example: '-1', required: false })
-  @Type(() => Number)
-  @IsOptional()
-  sortOrder?: 1 | -1 = -1;
+  @IsIn(HEALTH_METRIC_SORT_FIELDS)
+  sortBy: HealthMetricSortField = 'recordedAt';
 }

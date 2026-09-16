@@ -1,7 +1,8 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { DocumentStatus } from '../entities/ai-document.entity';
 import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateAiDocumentDto {
   @ApiProperty({
@@ -42,15 +43,7 @@ export class UpdateAiDocumentDto {
   status?: DocumentStatus;
 }
 
-export class QueryAiDocumentDto {
-  @ApiProperty({ required: false, example: 1 })
-  @IsOptional()
-  page: number = 1;
-
-  @ApiProperty({ required: false, example: 10 })
-  @IsOptional()
-  limit: number = 10;
-
+export class QueryAiDocumentDto extends PageSortQueryDto {
   @ApiProperty({
     required: false,
     enum: Object.values(DocumentStatus),
@@ -65,11 +58,8 @@ export class QueryAiDocumentDto {
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()
-  sortBy?: string = 'createdAt';
-
-  @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
-  @IsOptional()
-  sortOrder?: number = -1;
+  @IsIn(['createdAt', 'updatedAt', 'title'])
+  sortBy?: 'createdAt' | 'updatedAt' | 'title' = 'createdAt';
 }
 
 export class TriggerRagIngestingDto {

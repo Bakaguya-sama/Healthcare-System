@@ -30,9 +30,9 @@ export class AiHealthInsightsService {
     let queryBuilder = this.insightModel.find(filter);
 
     if (query?.sortBy) {
-      queryBuilder = queryBuilder.sort({ [query.sortBy]: query?.sortOrder === 'asc' ? 1 : -1 } as any);
+      queryBuilder = queryBuilder.sort({ [query.sortBy]: query?.sortOrder === 'asc' ? 1 : -1, _id: query?.sortOrder === 'asc' ? 1 : -1 } as any);
     } else {
-      queryBuilder = queryBuilder.sort({ createdAt: -1 } as any);
+      queryBuilder = queryBuilder.sort({ createdAt: -1, _id: -1 } as any);
     }
 
     if (query?.page && query?.limit) {
@@ -52,9 +52,9 @@ export class AiHealthInsightsService {
     let queryBuilder = this.insightModel.find(filter);
 
     if (query?.sortBy) {
-      queryBuilder = queryBuilder.sort({ [query.sortBy]: query?.sortOrder === 'asc' ? 1 : -1 } as any);
+      queryBuilder = queryBuilder.sort({ [query.sortBy]: query?.sortOrder === 'asc' ? 1 : -1, _id: query?.sortOrder === 'asc' ? 1 : -1 } as any);
     } else {
-      queryBuilder = queryBuilder.sort({ createdAt: -1 } as any);
+      queryBuilder = queryBuilder.sort({ createdAt: -1, _id: -1 } as any);
     }
 
     if (query?.page && query?.limit) {

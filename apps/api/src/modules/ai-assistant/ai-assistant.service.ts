@@ -770,6 +770,7 @@ export class AiAssistantService {
     const sortOrder = Number.isNaN(parsedSortOrder) ? -1 : parsedSortOrder;
     const sort: any = {
       [sortField]: sortOrder,
+      _id: sortOrder,
     };
 
     const [conversations, total] = await Promise.all([
@@ -832,7 +833,7 @@ export class AiAssistantService {
     const [messages, total] = await Promise.all([
       this.messageModel
         .find(filter)
-        .sort({ sentAt: 'desc' as any })
+        .sort({ sentAt: 'desc' as any, _id: 'desc' })
         .skip(skip)
         .limit(query.limit),
       this.messageModel.countDocuments(filter),
@@ -1159,6 +1160,7 @@ export class AiAssistantService {
     const skip = (query.page - 1) * query.limit;
     const sort: any = {
       [query.sortBy || 'createdAt']: query.sortOrder || -1,
+      _id: query.sortOrder || -1,
     };
 
     const [conversations, total] = await Promise.all([

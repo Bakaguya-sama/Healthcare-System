@@ -101,7 +101,7 @@ export class AdminService {
       this.doctorModel
         .find(filter)
         .populate('userId', '-password -refreshToken')
-        .sort({ createdAt: sortOrder })
+        .sort({ createdAt: sortOrder, _id: sortOrder })
         .limit(limit)
         .skip(skip),
       this.doctorModel.countDocuments(filter),
@@ -376,6 +376,7 @@ export class AdminService {
     const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
     const sort: Record<string, 1 | -1> = {};
     sort[query.sortBy || 'createdAt'] = sortOrder;
+    sort._id = sortOrder;
 
     const [data, total] = await Promise.all([
       this.sessionModel

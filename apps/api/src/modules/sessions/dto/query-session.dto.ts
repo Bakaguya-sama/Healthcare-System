@@ -2,15 +2,21 @@ import {
   IsEnum,
   IsOptional,
   IsDateString,
-  IsNumber,
-  Min,
-  Max,
+  IsIn,
+  IsMongoId,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import { SessionStatus } from '../entities/session.entity';
+import { PageSortQueryDto } from '../../../common/pagination';
 
-export class QuerySessionDto {
+export const SESSION_SORT_FIELDS = [
+  'scheduledAt',
+  'createdAt',
+  'updatedAt',
+] as const;
+export type SessionSortField = (typeof SESSION_SORT_FIELDS)[number];
+
+export class QuerySessionDto extends PageSortQueryDto {
   @ApiProperty({ enum: SessionStatus, required: false })
   @IsEnum(SessionStatus)
   @IsOptional()
@@ -18,10 +24,12 @@ export class QuerySessionDto {
 
   @ApiProperty({ example: '65e456def789abc012345678', required: false })
   @IsOptional()
+  @IsMongoId()
   doctorId?: string;
 
   @ApiProperty({ example: '65e789ghi012jkl345678901', required: false })
   @IsOptional()
+  @IsMongoId()
   patientId?: string;
 
   @ApiProperty({ example: '2026-03-01T00:00:00Z', required: false })
@@ -34,25 +42,8 @@ export class QuerySessionDto {
   @IsOptional()
   endDate?: string;
 
-  @ApiProperty({ example: 1, default: 1 })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  page: number = 1;
-
-  @ApiProperty({ example: 10, default: 10 })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  limit: number = 10;
-
-  @ApiProperty({ example: 'scheduledAt', required: false })
+  @ApiProperty({ enum: SESSION_SORT_FIELDS, required: false })
   @IsOptional()
-  sortBy?: string = 'scheduledAt';
-
-  @ApiProperty({ example: '-1', required: false })
-  @Type(() => Number)
-  @IsOptional()
-  sortOrder?: 1 | -1 = -1;
+  @IsIn(SESSION_SORT_FIELDS)
+  sortBy: SessionSortField = 'scheduledAt';
 }

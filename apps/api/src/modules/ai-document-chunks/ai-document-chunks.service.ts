@@ -53,7 +53,7 @@ export class AiDocumentChunksService {
     const skip = (page - 1) * limit;
     const data = await this.chunkModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
       .skip(skip)
       .limit(limit)
       .exec();
@@ -75,7 +75,7 @@ export class AiDocumentChunksService {
     const skip = (page - 1) * limit;
     const data = await this.chunkModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
       .skip(skip)
       .limit(limit)
       .exec();

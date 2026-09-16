@@ -119,6 +119,7 @@ export class SessionsService {
     const skip = (query.page - 1) * query.limit;
     const sort = {
       [query.sortBy || 'scheduledAt']: query.sortOrder || -1,
+      _id: query.sortOrder || -1,
     };
 
     // Execute query
@@ -537,7 +538,7 @@ export class SessionsService {
       .find(filter)
       .populate('patientId', 'fullName email phoneNumber avatarUrl')
       .populate('doctorId', 'fullName email specialty avatarUrl')
-      .sort({ scheduledAt: 1 });
+      .sort({ scheduledAt: 1, _id: 1 });
 
     return {
       statusCode: 200,

@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ReportType, ViolationStatus } from '../entities/violation.entity';
+import { PageQueryDto } from '../../../common/pagination';
 
 export class CreateViolationDto {
   @ApiPropertyOptional({
@@ -64,7 +65,7 @@ export class UpdateViolationDto {
   status?: ViolationStatus;
 }
 
-export class QueryViolationDto {
+export class QueryViolationDto extends PageQueryDto {
   @ApiPropertyOptional({ description: 'Status filter', enum: ViolationStatus })
   @IsOptional()
   @IsEnum(ViolationStatus)
@@ -74,12 +75,4 @@ export class QueryViolationDto {
   @IsOptional()
   @IsEnum(ReportType)
   report_type?: ReportType;
-
-  @ApiPropertyOptional({ description: 'Page number', default: 1 })
-  @IsOptional()
-  page?: number;
-
-  @ApiPropertyOptional({ description: 'Page limit', default: 20 })
-  @IsOptional()
-  limit?: number;
 }

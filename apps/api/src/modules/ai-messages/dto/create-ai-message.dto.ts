@@ -3,18 +3,25 @@ import {
   IsNotEmpty,
   IsOptional,
   IsArray,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Types } from 'mongoose';
 import { IsCloudinaryUrl } from '../../../core/validators/is-cloudinary-url.validator';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateAiMessageDto {
-  @ApiProperty({ description: 'AI Session ID', example: '507f1f77bcf86cd799439011' })
+  @ApiProperty({
+    description: 'AI Session ID',
+    example: '507f1f77bcf86cd799439011',
+  })
   @IsNotEmpty()
   @IsString()
   aiSessionId: string;
 
-  @ApiProperty({ description: 'Sender type', enum: ['user', 'assistant', 'system'] })
+  @ApiProperty({
+    description: 'Sender type',
+    enum: ['user', 'assistant', 'system'],
+  })
   @IsNotEmpty()
   @IsString()
   senderType: 'user' | 'assistant' | 'system';
@@ -25,7 +32,8 @@ export class CreateAiMessageDto {
   content: string;
 
   @ApiProperty({
-    description: '🌥️ Array of Cloudinary URLs only. Upload via POST /upload/single first',
+    description:
+      '🌥️ Array of Cloudinary URLs only. Upload via POST /upload/single first',
     example: [
       'https://res.cloudinary.com/healthcare/raw/upload/healthcare/chat/attachments/document.pdf',
     ],
@@ -44,24 +52,13 @@ export class UpdateAiMessageDto {
   content?: string;
 }
 
-export class QueryAiMessageDto {
-  @ApiProperty({ required: false, example: 1 })
-  @IsOptional()
-  page: number = 1;
-
-  @ApiProperty({ required: false, example: 10 })
-  @IsOptional()
-  limit: number = 10;
-
+export class QueryAiMessageDto extends PageSortQueryDto {
   @ApiProperty({ required: false, description: 'Filter by session ID' })
   @IsOptional()
   aiSessionId?: string;
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()
-  sortBy?: string = 'sentAt';
-
-  @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
-  @IsOptional()
-  sortOrder?: number = -1;
+  @IsIn(['sentAt', 'createdAt'])
+  sortBy?: 'sentAt' | 'createdAt' = 'sentAt';
 }

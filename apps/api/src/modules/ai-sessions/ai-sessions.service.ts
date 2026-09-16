@@ -80,7 +80,7 @@ export class AiSessionsService {
     const skip = (page - 1) * limit;
     const data = await this.aiSessionModel
       .find(filter)
-      .sort({ [sortBy]: resolvedSortOrder })
+      .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
       .skip(skip)
       .limit(limit)
       .exec();
@@ -129,7 +129,7 @@ export class AiSessionsService {
     const skip = (page - 1) * limit;
     const data = await this.aiSessionModel
       .find(filter)
-      .sort({ [sortBy]: resolvedSortOrder })
+      .sort({ [sortBy]: resolvedSortOrder, _id: resolvedSortOrder })
       .skip(skip)
       .limit(limit)
       .exec();

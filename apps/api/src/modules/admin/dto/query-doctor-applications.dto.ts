@@ -1,8 +1,8 @@
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { DoctorVerificationStatus } from '../../users/entities/doctor.schema';
+import { PageQueryDto } from '../../../common/pagination';
 
-export class QueryDoctorApplicationsDto {
+export class QueryDoctorApplicationsDto extends PageQueryDto {
   @IsOptional()
   @IsIn([
     DoctorVerificationStatus.PENDING,
@@ -10,17 +10,6 @@ export class QueryDoctorApplicationsDto {
     DoctorVerificationStatus.REJECTED,
   ])
   status?: DoctorVerificationStatus;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
 
   @IsOptional()
   @IsString()

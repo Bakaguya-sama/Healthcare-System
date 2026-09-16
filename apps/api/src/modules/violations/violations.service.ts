@@ -66,7 +66,7 @@ export class ViolationsService {
     const [data, total] = await Promise.all([
       this.violationModel
         .find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)
         .populate('reporterId', 'email fullName')
@@ -129,7 +129,7 @@ export class ViolationsService {
     const [data, total] = await Promise.all([
       this.violationModel
         .find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)
         .populate('reporterId', 'email fullName')

@@ -9,7 +9,7 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 | BE-RF-003 | CI fail-fast và test commands                  | Huy   | BE-RF-002                   |     1-2d | Done 2026-09-15 |
 | BE-RF-004 | Characterization tests                         | Huy   | BE-RF-002                   |     3-5d | Done 2026-09-15 |
 | BE-RF-005 | Service responsibility/dependency map          | Huy   | BE-RF-001, 004              |     2-3d | Done 2026-09-16 |
-| BE-RF-006 | Pagination/query/response conventions          | Huy   | BE-RF-005                   |     2-3d | Planned         |
+| BE-RF-006 | Pagination/query/response conventions          | Huy   | BE-RF-005                   |     2-3d | Done 2026-09-16 |
 | BE-RF-007 | Query catalog + explain baseline               | Huy   | BE-RF-006                   |     4-6d | Planned         |
 | BE-RF-010 | Backend standalone boundary                    | Huy   | BE-RF-002                   |     1-2d | Planned         |
 | BE-RF-011 | OpenAPI/realtime generation                    | Huy   | BE-RF-010                   |     2-3d | Planned         |
@@ -38,4 +38,4 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 
 ## Next ready work
 
-RF-2A (`BE-RF-005`) đã hoàn tất. Task tiếp theo theo dependency graph là `BE-RF-006`: chuẩn hóa pagination/query/response contract, sau đó mới lập query catalog và explain baseline ở `BE-RF-007`. Không bắt đầu feature `BE-NF-*` khi các dependency refactor tương ứng chưa hoàn tất.
+RF-2B (`BE-RF-006`) đã hoàn tất. Task tiếp theo theo dependency graph là `BE-RF-007`: lập query catalog, chạy explain baseline trên representative data và chỉ sau đó mới chọn index/tối ưu query. Không bắt đầu feature `BE-NF-*` khi các dependency refactor tương ứng chưa hoàn tất.

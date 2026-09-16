@@ -192,6 +192,7 @@ export class ReviewsService {
     const skip = (query.page - 1) * query.limit;
     const sort = {
       [query.sortBy || 'createdAt']: query.sortOrder || -1,
+      _id: query.sortOrder || -1,
     };
 
     // Execute query
@@ -237,7 +238,7 @@ export class ReviewsService {
           doctorId: new Types.ObjectId(doctorId),
         })
         .populate('patientId', 'fullName avatarUrl')
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(limitNum),
       this.reviewModel.countDocuments({
@@ -551,7 +552,7 @@ export class ReviewsService {
         reviewCount: { $gt: 0 },
       })
       .populate('userId', 'fullName avatarUrl email')
-      .sort({ averageRating: -1, reviewCount: -1 })
+      .sort({ averageRating: -1, reviewCount: -1, _id: 1 })
       .limit(limit)
       .lean();
 

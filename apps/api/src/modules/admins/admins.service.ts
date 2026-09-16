@@ -141,6 +141,7 @@ export class AdminsService {
     const sort: AdminSort = {};
     const sortOrder: 1 | -1 = query.sortOrder === 1 ? 1 : -1;
     sort[query.sortBy || 'createdAt'] = sortOrder;
+    sort._id = sortOrder;
 
     const [data, total] = await Promise.all([
       this.adminModel

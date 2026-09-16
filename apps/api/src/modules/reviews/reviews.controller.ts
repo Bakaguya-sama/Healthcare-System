@@ -14,7 +14,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
-import { QueryReviewDto } from './dto/query-review.dto';
+import { QueryReviewDto, QueryTopDoctorsDto } from './dto/query-review.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 
@@ -74,8 +74,8 @@ export class ReviewsController {
   @Get('top/doctors')
   @HttpCode(200)
   @ApiOperation({ summary: 'Lấy top 10 doctors được đánh giá cao nhất' })
-  getTopDoctors(@Query('limit') limit?: number) {
-    return this.reviewsService.getTopDoctors(limit);
+  getTopDoctors(@Query() query: QueryTopDoctorsDto) {
+    return this.reviewsService.getTopDoctors(query.limit);
   }
 
   /**

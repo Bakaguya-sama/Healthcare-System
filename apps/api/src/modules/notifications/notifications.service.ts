@@ -88,6 +88,7 @@ export class NotificationsService {
     const skip = (query.page - 1) * query.limit;
     const sort: any = {};
     sort[query.sortBy || 'createdAt'] = query.sortOrder || -1;
+    sort._id = query.sortOrder || -1;
 
     const [data, total] = await Promise.all([
       this.notificationModel

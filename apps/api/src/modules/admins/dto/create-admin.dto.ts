@@ -5,10 +5,12 @@ import {
   IsEnum,
   IsEmail,
   MinLength,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AdminRole } from '../entities/admin.entity';
 import { AccountStatus } from '../../auth/entities/user.schema';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateAdminDto {
   @ApiProperty({ example: 'Alex Rivera' })
@@ -54,15 +56,7 @@ export class UpdateAdminDto {
   adminRole?: AdminRole;
 }
 
-export class QueryAdminDto {
-  @ApiProperty({ required: false, example: 1 })
-  @IsOptional()
-  page: number = 1;
-
-  @ApiProperty({ required: false, example: 10 })
-  @IsOptional()
-  limit: number = 10;
-
+export class QueryAdminDto extends PageSortQueryDto {
   @ApiProperty({
     enum: AdminRole,
     required: false,
@@ -73,9 +67,6 @@ export class QueryAdminDto {
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()
-  sortBy?: string;
-
-  @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
-  @IsOptional()
-  sortOrder?: number;
+  @IsIn(['createdAt', 'updatedAt', 'adminRole'])
+  sortBy?: 'createdAt' | 'updatedAt' | 'adminRole' = 'createdAt';
 }

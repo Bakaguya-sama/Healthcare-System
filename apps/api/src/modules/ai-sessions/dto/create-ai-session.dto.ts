@@ -1,6 +1,13 @@
-import { IsDateString, IsString, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsDateString,
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsIn,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { SessionStatus } from '../entities/ai-session.entity';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateAiSessionDto {
   @ApiProperty({
@@ -40,15 +47,7 @@ export class UpdateAiSessionDto {
   endedAt?: string;
 }
 
-export class QueryAiSessionDto {
-  @ApiProperty({ required: false, example: 1 })
-  @IsOptional()
-  page: number = 1;
-
-  @ApiProperty({ required: false, example: 10 })
-  @IsOptional()
-  limit: number = 10;
-
+export class QueryAiSessionDto extends PageSortQueryDto {
   @ApiProperty({
     required: false,
     enum: Object.values(SessionStatus),
@@ -59,11 +58,8 @@ export class QueryAiSessionDto {
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()
-  sortBy?: string = 'createdAt';
-
-  @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
-  @IsOptional()
-  sortOrder?: number = -1;
+  @IsIn(['createdAt', 'startedAt', 'endedAt'])
+  sortBy?: 'createdAt' | 'startedAt' | 'endedAt' = 'createdAt';
 
   @ApiProperty({
     required: false,

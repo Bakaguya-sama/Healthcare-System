@@ -1,5 +1,6 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateBlacklistKeywordDto {
   @ApiProperty({ description: 'Keyword/phrase to block' })
@@ -15,15 +16,7 @@ export class UpdateBlacklistKeywordDto {
   keyword?: string;
 }
 
-export class QueryBlacklistKeywordDto {
-  @ApiProperty({ required: false, example: 1 })
-  @IsOptional()
-  page?: number = 1;
-
-  @ApiProperty({ required: false, example: 10 })
-  @IsOptional()
-  limit?: number = 10;
-
+export class QueryBlacklistKeywordDto extends PageSortQueryDto {
   @ApiProperty({ required: false, description: 'Search by keyword' })
   @IsOptional()
   @IsString()
@@ -31,10 +24,6 @@ export class QueryBlacklistKeywordDto {
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()
-  @IsString()
-  sortBy?: string = 'createdAt';
-
-  @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
-  @IsOptional()
-  sortOrder?: number = -1;
+  @IsIn(['createdAt', 'keyword'])
+  sortBy?: 'createdAt' | 'keyword' = 'createdAt';
 }

@@ -1,28 +1,23 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsMongoId, IsOptional } from 'class-validator';
+import { PageQueryDto } from '../../../common/pagination';
+import { SessionStatus } from '../../sessions/entities/session.entity';
 
-export class QuerySessionAdminDto {
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number = 10;
-
+export class QuerySessionAdminDto extends PageQueryDto {
   @IsOptional()
+  @IsMongoId()
   doctorId?: string;
 
   @IsOptional()
+  @IsMongoId()
   patientId?: string;
 
   @IsOptional()
-  status?: string;
+  @IsIn(Object.values(SessionStatus))
+  status?: SessionStatus;
 
   @IsOptional()
-  sortBy?: string = 'createdAt';
+  @IsIn(['createdAt', 'scheduledAt', 'updatedAt'])
+  sortBy?: 'createdAt' | 'scheduledAt' | 'updatedAt' = 'createdAt';
 
   @IsOptional()
   sortOrder?: 'asc' | 'desc' = 'desc';

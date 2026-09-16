@@ -1,8 +1,18 @@
-import { IsOptional, IsNumber, Min, Max, IsMongoId } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  Min,
+  Max,
+  IsMongoId,
+  IsIn,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { LimitQueryDto, PageSortQueryDto } from '../../../common/pagination';
 
-export class QueryReviewDto {
+export const REVIEW_SORT_FIELDS = ['createdAt', 'rating'] as const;
+export type ReviewSortField = (typeof REVIEW_SORT_FIELDS)[number];
+
+export class QueryReviewDto extends PageSortQueryDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsMongoId()
@@ -25,28 +35,12 @@ export class QueryReviewDto {
   @Max(5)
   rating?: number;
 
-  @ApiProperty({ example: 1, required: false })
-  @Type(() => Number)
+  @ApiProperty({ enum: REVIEW_SORT_FIELDS, required: false })
   @IsOptional()
-  @IsNumber()
-  @Min(1)
-  page: number = 1;
+  @IsIn(REVIEW_SORT_FIELDS)
+  sortBy: ReviewSortField = 'createdAt';
+}
 
-  @ApiProperty({ example: 10, required: false })
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(100)
+export class QueryTopDoctorsDto extends LimitQueryDto {
   limit: number = 10;
-
-  @ApiProperty({ example: 'createdAt', required: false })
-  @IsOptional()
-  sortBy: string = 'createdAt';
-
-  @ApiProperty({ example: -1, required: false })
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  sortOrder: -1 | 1 = -1;
 }

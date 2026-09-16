@@ -477,6 +477,15 @@ Evidence:
 
 #### RF-2B Chuẩn pagination và query contract
 
+Trạng thái RF-2B: **DONE ngày 2026-09-16 (`BE-RF-006`)**.
+
+Evidence:
+
+- `apps/api/src/common/pagination` cung cấp shared DTO, request/result types, bounded normalization, opaque cursor codec, result builder và compatibility mapper.
+- Query DTO hiện hữu dùng numeric transform, hard max `100` và sort allowlist; các raw pagination params tại Chat/AI Assistant controller đã được thay bằng DTO.
+- Sort list được chuẩn hóa với `_id` tie-breaker; cursor strategy và cutover owner được ghi tại `docs/current-state/pagination-query-contract.md`.
+- Unit tests bao phủ max limit, allowlist, canonical page/cursor result và invalid cursor. Response legacy được giữ qua compatibility policy cho tới domain cutover.
+
 Tạo shared query primitives ở `common/pagination`:
 
 ```ts

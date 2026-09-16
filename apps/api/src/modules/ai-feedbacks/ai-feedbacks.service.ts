@@ -56,7 +56,7 @@ export class AiFeedbacksService {
     const skip = (page - 1) * limit;
     const data = await this.aiFeedbackModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
       .skip(skip)
       .limit(limit)
       .exec();
@@ -82,7 +82,7 @@ export class AiFeedbacksService {
     const skip = (page - 1) * limit;
     const data = await this.aiFeedbackModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
       .skip(skip)
       .limit(limit)
       .exec();
@@ -107,7 +107,7 @@ export class AiFeedbacksService {
     const skip = (page - 1) * limit;
     const data = await this.aiFeedbackModel
       .find(filter)
-      .sort({ [sortBy]: sortOrder as any })
+      .sort({ [sortBy]: sortOrder as any, _id: sortOrder })
       .skip(skip)
       .limit(limit)
       .exec();

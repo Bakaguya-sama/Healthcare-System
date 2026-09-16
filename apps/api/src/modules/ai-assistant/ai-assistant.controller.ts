@@ -31,6 +31,8 @@ import {
   ArchiveConversationDto,
   UpdateConversationDto,
   QueryConversationDto,
+  QueryConversationMessageDto,
+  SearchConversationDto,
   AiHealthProfileSummaryDto,
 } from './dto/conversation.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
@@ -130,17 +132,13 @@ export class AiAssistantController {
   async getConversation(
     @CurrentUser('sub') userId: string,
     @Param('conversationId') conversationId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @Query('sortBy') sortBy: string = 'sentAt',
-    @Query('sortOrder') sortOrder: 1 | -1 = -1,
+    @Query() query: QueryConversationMessageDto,
   ) {
-    return this.aiAssistantService.getConversation(userId, conversationId, {
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-    });
+    return this.aiAssistantService.getConversation(
+      userId,
+      conversationId,
+      query,
+    );
   }
 
   /**
@@ -269,18 +267,9 @@ export class AiAssistantController {
   })
   async searchConversations(
     @CurrentUser('sub') userId: string,
-    @Query('q') searchQuery: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-    @Query('sortBy') sortBy: string = 'createdAt',
-    @Query('sortOrder') sortOrder: number = -1,
+    @Query() query: SearchConversationDto,
   ) {
-    const query: QueryConversationDto = {
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-    };
+    const { q: searchQuery } = query;
     return this.aiAssistantService.searchConversations(
       userId,
       searchQuery,

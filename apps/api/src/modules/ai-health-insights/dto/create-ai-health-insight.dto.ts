@@ -1,6 +1,14 @@
-import { IsString, IsEnum, IsObject, IsArray, IsOptional, IsMongoId } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsObject,
+  IsOptional,
+  IsMongoId,
+  IsIn,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RiskLevel } from '../entities/ai-health-insight.entity';
+import { PageQueryDto } from '../../../common/pagination';
 
 export class CreateAiHealthInsightDto {
   @IsMongoId()
@@ -16,7 +24,10 @@ export class CreateAiHealthInsightDto {
 export class UpdateAiHealthInsightDto {
   @IsOptional()
   @IsEnum(RiskLevel)
-  @ApiPropertyOptional({ description: 'Risk level', enum: Object.values(RiskLevel) })
+  @ApiPropertyOptional({
+    description: 'Risk level',
+    enum: Object.values(RiskLevel),
+  })
   riskLevel?: RiskLevel;
 
   @IsOptional()
@@ -30,7 +41,7 @@ export class UpdateAiHealthInsightDto {
   analyzedMetrics?: Record<string, any>;
 }
 
-export class QueryAiHealthInsightDto {
+export class QueryAiHealthInsightDto extends PageQueryDto {
   @IsOptional()
   @IsMongoId()
   @ApiPropertyOptional({ description: 'Filter by patient ID' })
@@ -38,24 +49,19 @@ export class QueryAiHealthInsightDto {
 
   @IsOptional()
   @IsEnum(RiskLevel)
-  @ApiPropertyOptional({ description: 'Filter by risk level', enum: Object.values(RiskLevel) })
+  @ApiPropertyOptional({
+    description: 'Filter by risk level',
+    enum: Object.values(RiskLevel),
+  })
   riskLevel?: RiskLevel;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['createdAt', 'updatedAt', 'riskLevel'])
   @ApiPropertyOptional({ description: 'Field to sort by' })
-  sortBy?: string;
+  sortBy?: 'createdAt' | 'updatedAt' | 'riskLevel' = 'createdAt';
 
   @IsOptional()
   @IsString()
   @ApiPropertyOptional({ description: 'Sort direction (asc/desc)' })
   sortOrder?: 'asc' | 'desc';
-
-  @IsOptional()
-  @ApiPropertyOptional({ description: 'Page number' })
-  page?: number;
-
-  @IsOptional()
-  @ApiPropertyOptional({ description: 'Items per page' })
-  limit?: number;
 }

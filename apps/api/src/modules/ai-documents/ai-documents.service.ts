@@ -174,7 +174,7 @@ export class AiDocumentsService {
     }
 
     const normalizedSortOrder: 1 | -1 = sortOrder === 1 ? 1 : -1;
-    const sort = { [sortBy]: normalizedSortOrder };
+    const sort = { [sortBy]: normalizedSortOrder, _id: normalizedSortOrder };
 
     const skip = (page - 1) * limit;
     const data = await this.aiDocumentModel

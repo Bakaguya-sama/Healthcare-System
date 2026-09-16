@@ -1,12 +1,12 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-} from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateAiFeedbackDto {
-  @ApiProperty({ description: 'AI Session ID', example: '507f1f77bcf86cd799439011' })
+  @ApiProperty({
+    description: 'AI Session ID',
+    example: '507f1f77bcf86cd799439011',
+  })
   @IsNotEmpty()
   @IsString()
   aiSessionId: string;
@@ -24,24 +24,13 @@ export class UpdateAiFeedbackDto {
   content?: string;
 }
 
-export class QueryAiFeedbackDto {
-  @ApiProperty({ required: false, example: 1 })
-  @IsOptional()
-  page: number = 1;
-
-  @ApiProperty({ required: false, example: 10 })
-  @IsOptional()
-  limit: number = 10;
-
+export class QueryAiFeedbackDto extends PageSortQueryDto {
   @ApiProperty({ required: false, description: 'Filter by session ID' })
   @IsOptional()
   aiSessionId?: string;
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()
-  sortBy?: string = 'createdAt';
-
-  @ApiProperty({ required: false, description: 'Sort order: 1 or -1' })
-  @IsOptional()
-  sortOrder?: number = -1;
+  @IsIn(['createdAt', 'updatedAt'])
+  sortBy?: 'createdAt' | 'updatedAt' = 'createdAt';
 }

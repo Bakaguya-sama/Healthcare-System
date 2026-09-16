@@ -5,9 +5,11 @@ import {
   IsEnum,
   IsBoolean,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { NotificationType } from '../entities/notification.entity';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateNotificationDto {
   @ApiProperty({
@@ -56,7 +58,10 @@ export class UpdateNotificationDto {
   read?: boolean;
 }
 
-export class QueryNotificationDto {
+export const NOTIFICATION_SORT_FIELDS = ['createdAt', 'readAt'] as const;
+export type NotificationSortField = (typeof NOTIFICATION_SORT_FIELDS)[number];
+
+export class QueryNotificationDto extends PageSortQueryDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
@@ -67,20 +72,12 @@ export class QueryNotificationDto {
   @IsBoolean()
   unreadOnly?: boolean;
 
-  @ApiProperty({ required: false, default: 1 })
+  @ApiProperty({
+    required: false,
+    enum: NOTIFICATION_SORT_FIELDS,
+    default: 'createdAt',
+  })
   @IsOptional()
-  page: number = 1;
-
-  @ApiProperty({ required: false, default: 10 })
-  @IsOptional()
-  limit: number = 10;
-
-  @ApiProperty({ required: false, default: 'createdAt' })
-  @IsOptional()
-  @IsString()
-  sortBy?: string = 'createdAt';
-
-  @ApiProperty({ required: false, default: -1 })
-  @IsOptional()
-  sortOrder?: number = -1;
+  @IsIn(NOTIFICATION_SORT_FIELDS)
+  sortBy: NotificationSortField = 'createdAt';
 }

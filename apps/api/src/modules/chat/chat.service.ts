@@ -245,7 +245,7 @@ export class ChatService {
     const [messages, total] = await Promise.all([
       this.messageModel
         .find(filter)
-        .sort({ sentAt: 'desc' as any })
+        .sort({ sentAt: 'desc' as any, _id: 'desc' })
         .skip(skip)
         .limit(query.limit),
       this.messageModel.countDocuments(filter),
@@ -275,7 +275,7 @@ export class ChatService {
     const [messages, total] = await Promise.all([
       this.messageModel
         .find(filter)
-        .sort({ sentAt: 'desc' as any })
+        .sort({ sentAt: 'desc' as any, _id: 'desc' })
         .skip(skip)
         .limit(query.limit),
       this.messageModel.countDocuments(filter),

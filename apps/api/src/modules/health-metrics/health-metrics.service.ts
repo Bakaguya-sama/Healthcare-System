@@ -192,6 +192,7 @@ export class HealthMetricsService {
     const skip = (query.page - 1) * query.limit;
     const sort = {
       [query.sortBy || 'recordedAt']: query.sortOrder || -1,
+      _id: query.sortOrder || -1,
     };
 
     // Execute query

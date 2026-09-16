@@ -7,14 +7,12 @@ import {
   MinLength,
   IsEnum,
   IsMongoId,
-  Min,
-  IsNumber,
-  Max,
   IsObject,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ConversationType } from '../entities/ai-conversation.entity';
-import { Type } from 'class-transformer';
+import { PageSortQueryDto } from '../../../common/pagination';
 
 export class StartConversationDto {
   @ApiProperty({
@@ -107,15 +105,7 @@ export class UpdateConversationDto {
   status?: 'draft' | 'active' | 'completed' | 'archived';
 }
 
-export class QueryConversationDto {
-  @ApiProperty({ example: 1, required: false })
-  @IsOptional()
-  page: number = 1;
-
-  @ApiProperty({ example: 20, required: false })
-  @IsOptional()
-  limit: number = 20;
-
+export class QueryConversationDto extends PageSortQueryDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsEnum(ConversationType)
@@ -135,11 +125,8 @@ export class QueryConversationDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  sortBy: string = 'createdAt';
-
-  @ApiProperty({ example: -1, required: false })
-  @IsOptional()
-  sortOrder: number = -1;
+  @IsIn(['createdAt', 'updatedAt', 'lastMessageAt'])
+  sortBy: 'createdAt' | 'updatedAt' | 'lastMessageAt' = 'createdAt';
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -160,36 +147,23 @@ export class QueryConversationDto {
   tags?: string[];
 }
 
-export class QueryConversationMessageDto {
+export class QueryConversationMessageDto extends PageSortQueryDto {
   @ApiProperty({ example: '65e456def789abc012345678', required: false })
   @IsOptional()
   @IsMongoId()
   conversationId?: string;
 
-  @ApiProperty({ example: 1, required: false })
-  @Type(() => Number)
+  @ApiProperty({ enum: ['sentAt', 'createdAt'], required: false })
   @IsOptional()
-  @IsNumber()
-  @Min(1)
-  page: number = 1;
+  @IsIn(['sentAt', 'createdAt'])
+  sortBy: 'sentAt' | 'createdAt' = 'sentAt';
+}
 
-  @ApiProperty({ example: 20, required: false })
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  limit: number = 20;
-
-  @ApiProperty({ example: 'sentAt', required: false })
-  @IsOptional()
-  sortBy: string = 'sentAt';
-
-  @ApiProperty({ example: -1, required: false })
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  sortOrder: -1 | 1 = -1;
+export class SearchConversationDto extends QueryConversationDto {
+  @ApiProperty({ example: 'health' })
+  @IsString()
+  @MinLength(1)
+  q: string;
 }
 
 export class AiHealthProfileSummaryDto {
