@@ -19,6 +19,7 @@ Status: **DONE — 2026-09-15** (`BE-RF-001`).
 | `pagination-query-contract.md`     | RF-2B shared pagination/cursor contract, allowlist và compatibility policy       |
 | `read-query-contract.md`           | RF-2C projection, lean, aggregation và hydrated-command exception                |
 | `query-catalog.md`                 | RF-2D P0 query shapes, explain trước/sau, managed indexes và cache decisions     |
+| `cache-policy.md`                  | RF-2E cache registry, invalidation/failure policy và benchmark trước/sau         |
 
 Generator `scripts/rf0-openapi-baseline.cjs` có thể tái tạo OpenAPI/Postman source snapshot. Không dùng snapshot generator này thay cho runtime OpenAPI CI artifact mục tiêu ở `BE-RF-011`.
 
@@ -31,4 +32,4 @@ Generator `scripts/rf0-openapi-baseline.cjs` có thể tái tạo OpenAPI/Postma
 - [x] Backlog có owner/dependency/estimate.
 - [x] Baseline failure được ghi lại mà không sửa runtime source.
 
-RF-2D (`BE-RF-007`) đã hoàn tất ngày 2026-09-16. Next: **RF-2E** chỉ thử cache doctor directory khi có reuse metric; nếu chưa có số liệu cache, tiếp tục RF-3 theo dependency plan.
+RF-2E (`BE-RF-063`, phạm vi doctor directory) đã hoàn tất ngày 2026-09-17. Bước refactor tuần tự tiếp theo là **RF-3**; Redis lifecycle/health tổng quát vẫn thuộc `BE-RF-022` và không bị RF-2E thay thế.

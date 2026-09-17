@@ -5,6 +5,7 @@ import { ReviewsController } from './reviews.controller';
 import { Review, ReviewSchema } from './entities/review.entity';
 import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
 import { Session, SessionSchema } from '../sessions/entities/session.entity';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -13,8 +14,9 @@ import { Session, SessionSchema } from '../sessions/entities/session.entity';
       { name: Doctor.name, schema: DoctorSchema },
       { name: Session.name, schema: SessionSchema },
     ]),
+    UsersModule,
   ],
   controllers: [ReviewsController],
   providers: [ReviewsService],
 })
-export class ReviewsModule { }
+export class ReviewsModule {}

@@ -8,6 +8,7 @@ import { Session, SessionSchema } from '../sessions/entities/session.entity';
 import { Admin, AdminSchema } from '../admins/entities/admin.entity';
 import { NodemailerService } from '../nodemailer/nodemailer.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -18,9 +19,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
       { name: Admin.name, schema: AdminSchema },
     ]),
     NotificationsModule,
+    UsersModule,
   ],
   controllers: [AdminController],
   providers: [AdminService, NodemailerService],
   exports: [AdminService],
 })
-export class AdminModule { }
+export class AdminModule {}

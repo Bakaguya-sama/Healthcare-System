@@ -601,6 +601,8 @@ Gate cho critical/hot queries:
 
 #### RF-2E Cache có chọn lọc sau tối ưu query
 
+Trạng thái: **DONE — 2026-09-17** cho candidate đầu tiên `Q-PRC-001` doctor directory. Evidence và policy: `docs/current-state/cache-policy.md`. Các query còn lại giữ quyết định không cache; Redis lifecycle/health tổng quát vẫn thuộc `BE-RF-022`.
+
 1. Không tạo cache task trước khi query có pagination/projection/index và baseline ở RF-2D.
 2. Chọn tối đa 2-3 read query có reuse cao cho vòng đầu, ưu tiên doctor directory, plan catalog hoặc active moderation keywords.
 3. Tạo `CachePort` và Redis adapter; business/application layer không phụ thuộc trực tiếp Keyv/Redis client.

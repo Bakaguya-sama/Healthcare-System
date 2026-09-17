@@ -31,6 +31,7 @@ import {
 import { NodemailerService } from '../nodemailer/nodemailer.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { toLiteralCaseInsensitiveRegex } from '../../common/query/search-pattern';
+import { UsersCacheService } from '../users/users-cache.service';
 
 const DOCTOR_APPLICATION_READ_PROJECTION =
   '_id userId specialty workplace verificationDocuments experienceYears averageRating ratingSum reviewCount verifiedAt verificationStatus rejectReason createdAt updatedAt';
@@ -48,7 +49,8 @@ export class AdminService {
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     private nodemailerService: NodemailerService,
     private readonly notificationGateway: NotificationsGateway,
-  ) { }
+    private readonly usersCache: UsersCacheService,
+  ) {}
 
   // ============================================
   // DOCTOR VERIFICATION MANAGEMENT
@@ -192,6 +194,7 @@ export class AdminService {
     doctor.rejectReason = undefined;
 
     const updated = await doctor.save();
+    await this.usersCache.invalidatePractitionerDirectory();
 
     // Lấy thông tin user của bác sĩ để gửi email
     const doctorUserDetails = await this.userModel.findById(doctorUserId);
@@ -239,6 +242,7 @@ export class AdminService {
     doctor.rejectReason = dto.reason;
 
     const updated = await doctor.save();
+    await this.usersCache.invalidatePractitionerDirectory();
 
     const doctorUserDetails = await this.userModel.findById(doctorUserId);
     if (!doctorUserDetails) {
@@ -303,6 +307,9 @@ export class AdminService {
     user.banReason = dto.reason;
 
     const updated = await user.save();
+    if (user.role === UserRole.DOCTOR) {
+      await this.usersCache.invalidatePractitionerDirectory();
+    }
 
     this.notificationGateway.sendToUser(userId, 'account_banned', null);
 
@@ -354,6 +361,9 @@ export class AdminService {
     user.banReason = '';
 
     const updated = await user.save();
+    if (user.role === UserRole.DOCTOR) {
+      await this.usersCache.invalidatePractitionerDirectory();
+    }
 
     await this.nodemailerService.sendUnbanEmail(user.email);
     return updated.toObject({ versionKey: false });

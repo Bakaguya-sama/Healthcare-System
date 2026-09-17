@@ -24,6 +24,7 @@ import {
   ViolationStatus,
 } from '../violations/entities/violation.entity';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { UsersCacheService } from './users-cache.service';
 
 const USER_PUBLIC_READ_PROJECTION =
   '_id fullName email gender dateOfBirth role phoneNumber avatarUrl accountStatus isOnline address banReason createdAt updatedAt';
@@ -92,6 +93,7 @@ export class UsersService {
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Violation.name) private violationModel: Model<Violation>,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly usersCache: UsersCacheService,
   ) {}
 
   private formatAddress(address?: {
@@ -185,6 +187,12 @@ export class UsersService {
   }
 
   async findDoctors() {
+    return this.usersCache.getPractitionerDirectory(() =>
+      this.loadDoctorDirectory(),
+    );
+  }
+
+  private async loadDoctorDirectory() {
     const approvedDoctors = await this.doctorModel
       .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
       .select('userId specialty -_id')
@@ -476,7 +484,7 @@ export class UsersService {
     } = dto;
     void averageRating;
 
-    if (existingUser.role === UserRole.DOCTOR) {
+    if (String(existingUser.role) === UserRole.DOCTOR) {
       const doctorProfile = await this.doctorModel.findOne({
         userId: new Types.ObjectId(id),
       });
@@ -553,6 +561,7 @@ export class UsersService {
           doctorUpdatePayload,
           { new: true, upsert: true, setDefaultsOnInsert: true },
         );
+        await this.usersCache.invalidatePractitionerDirectory();
       }
     }
 
@@ -561,6 +570,10 @@ export class UsersService {
       .select('-password -refreshToken');
 
     if (!user) throw new NotFoundException('User not found');
+
+    if (existingUser.role === UserRole.DOCTOR) {
+      await this.usersCache.invalidatePractitionerDirectory();
+    }
 
     return user;
   }
@@ -574,6 +587,9 @@ export class UsersService {
       )
       .select('-password -refreshToken');
     if (!user) throw new NotFoundException('User not found');
+    if (String(user.role) === UserRole.DOCTOR) {
+      await this.usersCache.invalidatePractitionerDirectory();
+    }
     return user;
   }
 

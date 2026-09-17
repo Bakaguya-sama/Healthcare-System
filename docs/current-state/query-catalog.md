@@ -89,21 +89,22 @@ Contains regex không có anchored prefix vẫn có thể scan actor slice. Đâ
 
 ## Cache decision record
 
-| Query                        | RF-2E decision                                              | Lý do                                                                |
-| ---------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------- |
-| `Q-PRC-001` doctor directory | Candidate duy nhất cho vòng cache đầu, chưa bật trong RF-2D | Reuse cao; cần invalidation sau doctor approval/profile/rating write |
-| Consultation/message history | Không cache hiện tại                                        | Dữ liệu theo user, thay đổi liên tục, yêu cầu freshness cao          |
-| Health metric history        | Không cache hiện tại                                        | Dữ liệu nhạy cảm và append thường xuyên                              |
-| Notification timeline        | Không cache hiện tại                                        | Read/unread mutation làm invalidation dày đặc                        |
-| AI conversation list         | Không cache hiện tại                                        | User-specific, archive/message writes thay đổi thường xuyên          |
+| Query                        | RF-2E decision                                                                | Lý do                                                                       |
+| ---------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `Q-PRC-001` doctor directory | Đã bật cache-aside trong RF-2E, key `v1:practitioners:directory`, TTL 60 giây | Local hit ratio 96%; invalidation sau approval/profile/account/rating write |
+| Consultation/message history | Không cache hiện tại                                                          | Dữ liệu theo user, thay đổi liên tục, yêu cầu freshness cao                 |
+| Health metric history        | Không cache hiện tại                                                          | Dữ liệu nhạy cảm và append thường xuyên                                     |
+| Notification timeline        | Không cache hiện tại                                                          | Read/unread mutation làm invalidation dày đặc                               |
+| AI conversation list         | Không cache hiện tại                                                          | User-specific, archive/message writes thay đổi thường xuyên                 |
 
-RF-2E chỉ được bật cache doctor directory sau khi có metric hit ratio, key version, TTL, invalidation owner và Redis fallback test.
+RF-2E đã bật duy nhất doctor directory sau khi đáp ứng key version, TTL, owner, explicit invalidation, Redis fallback và benchmark. Policy cùng số liệu đầy đủ nằm tại `docs/current-state/cache-policy.md`.
 
 ## Regression và vận hành
 
 - `test/query-performance.integration-spec.ts` tạo database test ngẫu nhiên, apply migration hai lần để kiểm tra idempotency, rồi kiểm tra 8 P0 plans.
 - Test database chỉ chứa fixture của test và được xóa trong `afterAll`.
 - Script benchmark fail nếu planner sau tối ưu không tự chọn đúng managed index.
+- `perf:rf2e` fail nếu cache doctor directory không đạt hit ratio 90% hoặc không giảm 25 database loads xuống đúng 1 load trên fixture.
 - Alternative sorts `updatedAt`/`lastMessageAt`, multi-filter combinations và Atlas Search phải có query ID mới trước khi thêm index.
 - Mọi index mới sau RF-2D phải đi qua catalog → fixture → explain → migration → regression test.
 

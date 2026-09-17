@@ -16,6 +16,7 @@ import {
   DoctorVerificationStatus,
 } from '../users/entities/doctor.schema';
 import { Session, SessionDocument } from '../sessions/entities/session.entity';
+import { UsersCacheService } from '../users/users-cache.service';
 
 const REVIEW_READ_PROJECTION =
   '_id patientId doctorId doctorSessionId rating comment createdAt updatedAt';
@@ -26,7 +27,8 @@ export class ReviewsService {
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
-  ) { }
+    private readonly usersCache: UsersCacheService,
+  ) {}
 
   private async getDoctorProfileByUserId(doctorUserId: string) {
     if (!Types.ObjectId.isValid(doctorUserId)) {
@@ -89,6 +91,8 @@ export class ReviewsService {
     if (updateResult.matchedCount === 0) {
       throw new NotFoundException('Doctor profile not found');
     }
+
+    await this.usersCache.invalidatePractitionerDirectory();
 
     const updatedDoctor = await this.doctorModel.findById(doctorUserId);
 
