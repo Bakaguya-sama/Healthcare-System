@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { performance } from 'node:perf_hooks';
 import { CacheMetricsSnapshot, CachePort } from './cache.port';
@@ -7,10 +7,7 @@ const CACHE_OPERATION_TIMEOUT_MS = 100;
 const CACHE_WARNING_INTERVAL_MS = 30_000;
 
 @Injectable()
-export class CacheManagerAdapter
-  extends CachePort
-  implements OnApplicationShutdown
-{
+export class CacheManagerAdapter extends CachePort {
   private readonly logger = new Logger(CacheManagerAdapter.name);
   private readonly inFlight = new Map<string, Promise<unknown>>();
   private readonly generations = new Map<string, number>();
@@ -27,10 +24,6 @@ export class CacheManagerAdapter
 
   constructor(private readonly cache: Cache) {
     super();
-  }
-
-  async onApplicationShutdown(): Promise<void> {
-    await this.cache.disconnect();
   }
 
   async get<T>(key: string): Promise<T | undefined> {

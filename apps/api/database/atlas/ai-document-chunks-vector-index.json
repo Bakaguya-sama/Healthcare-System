@@ -1,0 +1,20 @@
+{
+  "collectionName": "aidocumentchunks",
+  "database": "${MONGODB_DATABASE}",
+  "name": "vector_index",
+  "type": "vectorSearch",
+  "definition": {
+    "fields": [
+      {
+        "type": "vector",
+        "path": "embedding",
+        "numDimensions": 3072,
+        "similarity": "cosine"
+      },
+      {
+        "type": "filter",
+        "path": "isActive"
+      }
+    ]
+  }
+}

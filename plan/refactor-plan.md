@@ -177,7 +177,7 @@ Không cài lại hoặc thay công nghệ chỉ vì plan nhắc đến nó. Aud
 | Nhóm             | Hiện trạng                                                                           | Quyết định                                                                  |
 | ---------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
 | OpenAPI/Swagger  | Đã có `@nestjs/swagger`; `main.ts` đã dựng Swagger UI                                | Giữ, chuẩn hóa contract và giới hạn cách public ở production                |
-| JWT/Passport     | Đã có `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` và `JwtStrategy` | Giữ; gom cấu hình/guard về Authentication, không cài auth framework khác   |
+| JWT/Passport     | Đã có `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` và `JwtStrategy` | Giữ; gom cấu hình/guard về Authentication, không cài auth framework khác    |
 | Input validation | Đã có global `ValidationPipe`, `class-validator`, `class-transformer`                | Giữ; bổ sung validation biến môi trường và DTO/query convention             |
 | Rate limiting    | Chưa có `@nestjs/throttler`                                                          | Thêm P0, policy khác nhau theo endpoint và event                            |
 | HTTP hardening   | Chưa có Helmet                                                                       | Thêm P0 và đăng ký trước route/Swagger                                      |
@@ -601,7 +601,7 @@ Gate cho critical/hot queries:
 
 #### RF-2E Cache có chọn lọc sau tối ưu query
 
-Trạng thái: **DONE — 2026-09-17** cho candidate đầu tiên `Q-PRC-001` doctor directory. Evidence và policy: `docs/current-state/cache-policy.md`. Các query còn lại giữ quyết định không cache; Redis lifecycle/health tổng quát vẫn thuộc `BE-RF-022`.
+Trạng thái: **DONE — 2026-09-17** cho candidate đầu tiên `Q-PRC-001` doctor directory. Evidence và policy: `docs/current-state/cache-policy.md`. Các query còn lại giữ quyết định không cache; Redis lifecycle/health tổng quát sau đó đã hoàn tất ở `BE-RF-022`.
 
 1. Không tạo cache task trước khi query có pagination/projection/index và baseline ở RF-2D.
 2. Chọn tối đa 2-3 read query có reuse cao cho vòng đầu, ưu tiên doctor directory, plan catalog hoặc active moderation keywords.
@@ -669,6 +669,8 @@ Exit gate:
 Ước lượng: **6-9 person-days**, gồm backend boundary, contract và platform hardening.
 
 ### RF-4 — Mongoose và database foundation
+
+Trạng thái: **DONE — 2026-09-17** (`BE-RF-020` đến `BE-RF-022`). Evidence: `docs/current-state/rf4-database-foundation.md`, ADR-0001, database/Redis integration tests và CI empty-database bootstrap gate.
 
 Mục tiêu: database mới được tạo lặp lại hoàn toàn từ source control.
 
@@ -1564,12 +1566,12 @@ install --frozen-lockfile
  -> typecheck
  -> unit tests
  -> start Mongo replica set + Redis
- -> db:migrate
- -> db:verify
+ -> database:migrate
+ -> database:verify
  -> integration/E2E/contract tests
  -> generate + lint + diff openapi.json
  -> dependency-boundary check nếu đã bật
- -> db:migrate lần hai, phải no-op
+ -> database:migrate lần hai, phải no-op
  -> build API + worker
  -> container scan/build
 ```
@@ -1627,7 +1629,7 @@ Thực hiện đúng thứ tự:
 6. [x] Hoàn thành pagination/query conventions và query catalog (`BE-RF-006`, `BE-RF-007`) ngày `2026-09-16`; đã đo baseline trước/sau index.
 7. [x] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`) — 2026-09-17.
 8. [x] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`) — 2026-09-17.
-9. [ ] Tạo DatabaseModule, migration runner, verifier, DB bootstrap và Redis/health lifecycle (`BE-RF-020` đến `BE-RF-022`).
+9. [x] Tạo DatabaseModule, migration runner, verifier, DB bootstrap và Redis/health lifecycle (`BE-RF-020` đến `BE-RF-022`) — 2026-09-17.
 10. [ ] Refactor Identity/Practitioner và query của chúng (`BE-RF-030` đến `BE-RF-032`).
 11. [ ] Chuyển old request flow, Message/Review/Realtime và tối ưu query (`BE-RF-040` đến `BE-RF-044`).
 12. [ ] Refactor Health/AI cùng query aggregation/search (`BE-RF-050` đến `BE-RF-052`).

@@ -67,12 +67,20 @@ Không dùng `docker compose down -v` trừ khi chủ động muốn xóa toàn 
 
 ## 5. Chạy backend
 
+Lần đầu tạo database hoặc sau khi pull migration mới:
+
+```powershell
+pnpm.cmd --filter api database:bootstrap
+```
+
 ```powershell
 pnpm.cmd --filter api start:dev
 ```
 
 - API: `http://localhost:3000/api/v1`
 - Swagger UI: `http://localhost:3000/api/docs` khi `SWAGGER_ENABLED=true`
+- Liveness: `http://localhost:3000/api/v1/health/live`
+- Readiness: `http://localhost:3000/api/v1/health/ready`
 
 ## 6. Quality commands
 
@@ -88,7 +96,7 @@ pnpm.cmd --filter api test:integration
 pnpm.cmd --filter api test:e2e
 ```
 
-Infrastructure integration test của RF-1 chỉ xác minh MongoDB replica set và Redis có thể kết nối. `db:migrate`, `db:verify` và repository/transaction integration harness đầy đủ thuộc RF-4; không tạo command no-op để làm CI xanh giả trong RF-1.
+Integration test xác minh MongoDB replica set, Redis, migration/no-op, database verifier, idempotent seed, transaction rollback, readiness và graceful Redis shutdown.
 
 ## 7. Troubleshooting
 

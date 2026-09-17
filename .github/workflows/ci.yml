@@ -79,6 +79,17 @@ jobs:
       - name: Start MongoDB replica set and Redis
         run: docker compose up -d --wait --wait-timeout 180 mongo redis
 
+      - name: Bootstrap and verify an empty database
+        run: |
+          pnpm --filter api database:migrate
+          pnpm --filter api database:verify
+          pnpm --filter api database:migrate -- --expect-noop
+          pnpm --filter api database:seed:reference
+          pnpm --filter api database:seed:reference
+        env:
+          MONGODB_URI: mongodb://localhost:27017/healthcare_migration_ci?replicaSet=rs0&directConnection=true
+          MIN_SCHEMA_VERSION: "202609162200"
+
       - name: Run infrastructure integration tests
         run: pnpm --filter api test:integration
 

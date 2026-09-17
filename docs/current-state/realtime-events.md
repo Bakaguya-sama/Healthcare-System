@@ -58,13 +58,13 @@ Không có acknowledgement callback contract; success/error được phát bằn
 - Socket CORS đã dùng shared allowlist; socket token parsing còn hai code path và sẽ hợp nhất ở `BE-RF-043`.
 - REST chat emit `new_message` nhưng không phát `chat_notification`; socket chat có phát cả hai, nên hành vi phụ thuộc transport.
 - Event payload lấy trực tiếp Mongoose document, không có stable public schema hoặc version.
-- Chat join/send/history đã có process-local throttling; distributed throttle chờ `BE-RF-022`.
+- Chat join/send/history đã dùng distributed Redis throttling từ `BE-RF-022`.
 - Typing event chỉ là code comment, không phải capability đang hoạt động.
 
 ## 6. Disposition
 
 - Giữ tạm event names làm compatibility baseline trong refactor.
-- Refactor auth/origin/throttle/presence ở `BE-RF-043`.
+- Refactor auth/presence và multi-instance Socket adapter ở `BE-RF-043`; origin và distributed throttle đã có foundation dùng chung.
 - Refactor notification delivery qua outbox/worker ở `BE-RF-061`; Socket chỉ là một delivery adapter.
 - Queue/check-in/WebRTC signaling là feature mới, không được thêm vào legacy event set trong RF phases.
 - `BE-RF-011` phải xuất JSON Schema hoặc AsyncAPI-like contract và kiểm tra compatibility trong CI.

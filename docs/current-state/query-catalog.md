@@ -72,7 +72,7 @@ Migration `202609162200-rf2d-query-indexes` tạo 14 managed indexes:
 - notification base và unread variant: 2;
 - AI conversation base, type, status và archive variants: 4.
 
-Chạy bằng `pnpm --filter api migration:up` với `MONGODB_URI` rõ ràng. Runner ghi `_migrations.id` unique và idempotent. Mongoose schemas dùng cùng index name cho database mới.
+Chạy bằng `pnpm --filter api database:migrate` với `MONGODB_URI` rõ ràng. Runner RF-4 ghi version/name/checksum/status trong `_schema_migrations`, dùng `_migration_lock` và idempotent. Mongoose schemas dùng cùng index name cho database mới.
 
 Các index legacy đã tồn tại trên database cũ không bị drop trong RF-2D. Chỉ xóa sau khi quan sát `indexStats` trên staging/production đủ một release window và xác nhận không còn caller ngoài catalog; đây là cleanup có chủ đích, không phải thiếu sót migration.
 

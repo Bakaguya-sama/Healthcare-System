@@ -45,6 +45,20 @@ describe('validateEnvironment', () => {
     ).toBe(false);
   });
 
+  it('disables automatic Mongo schema changes outside development and test', () => {
+    expect(validateEnvironment(validConfig)).toMatchObject({
+      DB_AUTO_INDEX: false,
+      DB_AUTO_CREATE: false,
+    });
+    expect(
+      validateEnvironment({
+        ...validConfig,
+        NODE_ENV: 'development',
+        SWAGGER_ENABLED: 'true',
+      }),
+    ).toMatchObject({ DB_AUTO_INDEX: true, DB_AUTO_CREATE: true });
+  });
+
   it('rejects a missing production CORS allowlist', () => {
     expect(() =>
       validateEnvironment({ ...validConfig, CORS_ORIGINS: undefined }),

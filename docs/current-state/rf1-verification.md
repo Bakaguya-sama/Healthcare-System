@@ -46,7 +46,7 @@ Compose publishes Redis at host port `16379` because port `6379` on the verifica
 
 ## Deferred by design
 
-- Versioned database migrations and `db:migrate`/`db:verify`: RF-4 (`BE-RF-020/021`).
+- Versioned database migrations and `database:migrate`/`database:verify`: completed in RF-4 (`BE-RF-020/021`).
 - Runtime OpenAPI generation/diff: RF-3 (`BE-RF-011`).
 - Resolving the remaining lint warning debt: RF-2 and each domain refactor.
 - Fixing known security/business defects captured by characterization tests: their assigned backlog tasks.

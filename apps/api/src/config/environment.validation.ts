@@ -1,3 +1,5 @@
+import { LATEST_SCHEMA_VERSION } from '../database/migrations/migration-registry';
+
 export type NodeEnvironment = 'development' | 'test' | 'staging' | 'production';
 
 const NODE_ENVIRONMENTS = new Set<NodeEnvironment>([
@@ -120,6 +122,18 @@ export function validateEnvironment(
     'THROTTLE_ENABLED',
     nodeEnv === 'staging' || nodeEnv === 'production',
   );
+  const automaticSchemaChanges =
+    nodeEnv === 'development' || nodeEnv === 'test';
+  const redisNamespace = stringValue(
+    config,
+    'REDIS_NAMESPACE',
+    'healthcare',
+  ).trim();
+  if (!/^[a-z0-9][a-z0-9_-]*$/i.test(redisNamespace)) {
+    throw new Error(
+      'REDIS_NAMESPACE must contain only letters, numbers, _ or -',
+    );
+  }
 
   const bodyLimit = stringValue(config, 'BODY_LIMIT', '1mb')
     .trim()
@@ -188,5 +202,36 @@ export function validateEnvironment(
       'REDIS_URL',
       'redis://127.0.0.1:16379',
     ).trim(),
+    REDIS_NAMESPACE: redisNamespace,
+    REDIS_CONNECT_TIMEOUT_MS: integer(
+      config,
+      'REDIS_CONNECT_TIMEOUT_MS',
+      5_000,
+      100,
+      60_000,
+    ),
+    REDIS_COMMAND_TIMEOUT_MS: integer(
+      config,
+      'REDIS_COMMAND_TIMEOUT_MS',
+      1_500,
+      100,
+      60_000,
+    ),
+    MONGO_SERVER_SELECTION_TIMEOUT_MS: integer(
+      config,
+      'MONGO_SERVER_SELECTION_TIMEOUT_MS',
+      5_000,
+      100,
+      60_000,
+    ),
+    DB_AUTO_INDEX: boolean(config, 'DB_AUTO_INDEX', automaticSchemaChanges),
+    DB_AUTO_CREATE: boolean(config, 'DB_AUTO_CREATE', automaticSchemaChanges),
+    MIN_SCHEMA_VERSION: integer(
+      config,
+      'MIN_SCHEMA_VERSION',
+      automaticSchemaChanges ? 0 : LATEST_SCHEMA_VERSION,
+      0,
+      Number.MAX_SAFE_INTEGER,
+    ),
   };
 }

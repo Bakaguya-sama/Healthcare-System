@@ -192,8 +192,8 @@ Lựa chọn package manager — Chọn một:
 - [x] `test:unit`.
 - [x] `test:integration`.
 - [x] `test:e2e`.
-- [ ] `db:migrate`.
-- [ ] `db:verify`.
+- [x] `database:migrate`.
+- [x] `database:verify`.
 - [ ] `openapi:generate`.
 
 Chính sách CI — Chọn một:

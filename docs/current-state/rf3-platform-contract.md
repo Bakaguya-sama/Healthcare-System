@@ -57,7 +57,7 @@ OpenAPI có operation ID ổn định, bearer scheme và `ErrorResponse` dùng c
 - `THROTTLE_ENABLED` mặc định `false` ở development/test và `true` ở staging/production; giá trị khai báo tường minh luôn được ưu tiên.
 - Khi bật, HTTP dùng global `ProxyThrottlerGuard`; auth routes có limit chặt hơn từ 3–10 request/phút tùy thao tác.
 - Khi bật, Chat Socket dùng `WsThrottleGuard` và phát Socket.IO `exception` khi vượt limit.
-- Storage throttle hiện in-memory theo process. Redis distributed storage/lifecycle là đường nâng cấp bắt buộc ở `BE-RF-022`, trước khi chạy nhiều API replica.
+- RF-3 ban đầu dùng storage theo process; RF-4/`BE-RF-022` đã thay bằng Redis storage dùng chung cho HTTP và Socket để hỗ trợ nhiều API replica.
 - `JsonLogger` xuất JSON, gắn correlation ID và redact authorization/cookie/password/token/OTP/API secret ở cả object lồng nhau và chuỗi.
 - `HttpExceptionFilter` trả error envelope ổn định: `statusCode`, `timestamp`, `path`, `method`, `correlationId`, `error`, `message`.
 
@@ -68,4 +68,4 @@ OpenAPI có operation ID ổn định, bearer scheme và `ErrorResponse` dùng c
 - Integration: 3 suite/5 test đạt với MongoDB replica set và Redis.
 - E2E: 1 suite/4 test đạt, gồm legacy login contract, validation error envelope, Helmet header, Swagger exposure và HTTP 429.
 - `boundary:check`, `openapi:check` và `realtime:check` đều đạt và được thêm vào CI gate.
-- Redis lifecycle/health, distributed throttle và multi-instance Socket presence không bị đánh dấu hoàn tất; chúng vẫn thuộc RF-4/`BE-RF-022` và `BE-RF-043`.
+- Redis lifecycle/health và distributed throttle đã hoàn tất ở RF-4/`BE-RF-022`; multi-instance Socket presence vẫn thuộc `BE-RF-043`.

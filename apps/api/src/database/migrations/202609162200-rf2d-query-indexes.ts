@@ -1,6 +1,9 @@
 import type { Db } from 'mongodb';
+import { migrationChecksum } from './migration.types';
 
 export const RF2D_QUERY_INDEX_MIGRATION_ID = '202609162200-rf2d-query-indexes';
+export const RF2D_QUERY_INDEX_MIGRATION_VERSION = 202609162200;
+export const RF2D_QUERY_INDEX_MIGRATION_NAME = 'rf2d-query-indexes';
 
 export type ManagedQueryIndex = {
   collection: string;
@@ -80,6 +83,12 @@ export const RF2D_QUERY_INDEXES: readonly ManagedQueryIndex[] = [
     key: { userId: 1, isArchived: 1, createdAt: -1, _id: -1 },
   },
 ] as const;
+
+export const RF2D_QUERY_INDEX_MIGRATION_CHECKSUM = migrationChecksum({
+  version: RF2D_QUERY_INDEX_MIGRATION_VERSION,
+  name: RF2D_QUERY_INDEX_MIGRATION_NAME,
+  indexes: RF2D_QUERY_INDEXES,
+});
 
 export async function applyRf2dQueryIndexes(db: Db): Promise<void> {
   for (const index of RF2D_QUERY_INDEXES) {

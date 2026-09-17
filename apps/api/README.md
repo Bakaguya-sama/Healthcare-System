@@ -62,12 +62,25 @@ pnpm.cmd --filter api realtime:generate
 
 Không sửa trực tiếp `openapi/openapi.json` hoặc `contracts/realtime-events.json`.
 
+## Database lifecycle
+
+Khởi tạo database local/CI rỗng từ source control:
+
+```powershell
+pnpm.cmd --filter api database:bootstrap
+```
+
+Các command riêng gồm `database:migrate`, `database:verify`, `database:seed:reference` và `database:seed:demo`. Demo seed không thuộc production deployment. Staging/production mặc định tắt Mongoose `autoIndex/autoCreate` và kiểm tra `MIN_SCHEMA_VERSION` khi bootstrap.
+
+- Liveness: `GET /api/v1/health/live`
+- Readiness MongoDB + Redis: `GET /api/v1/health/ready`
+
 ## Runtime policy
 
 - HTTP và Socket dùng cùng `CORS_ORIGINS`.
 - REST dùng bearer JWT; OAuth/cookie chưa phải runtime contract hiện tại.
 - Mọi response lỗi có `x-correlation-id` và error envelope ổn định.
-- `THROTTLE_ENABLED` mặc định tắt ở development/test và bật ở staging/production; khi bật, HTTP có global throttling, auth route có limit chặt hơn và Chat Socket có event throttling.
+- `THROTTLE_ENABLED` mặc định tắt ở development/test và bật ở staging/production; khi bật, HTTP và Chat Socket dùng distributed counters trên shared Redis.
 - Swagger chỉ phục vụ local/staging đã cho phép; production bị cấu hình chặn.
 
 Chi tiết RF-3 nằm trong `docs/current-state/rf3-platform-contract.md`.

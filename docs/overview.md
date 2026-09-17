@@ -347,7 +347,7 @@ Nếu muốn giữ full refund trong release, payment cơ bản phải ổn trư
 - Backend, Web Client và Web Admin build/typecheck/test xanh.
 - Critical E2E cho auth, booking, queue, chat, payment và feature P1 được bật.
 - Race/idempotency tests pass cho slot, call-next, IPN và refund.
-- Database rỗng được tạo lại từ migration files và `db:verify` pass.
+- Database rỗng được tạo lại từ migration files và `database:verify` pass.
 - Không log dữ liệu nhạy cảm; room/file/API đều authorize phía server.
 - Demo không cần sửa tay database.
 - README, OpenAPI, realtime events và `fe-integration.md` khớp release thực tế.
