@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   UploadedFiles,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
@@ -24,13 +25,19 @@ import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Public } from '../../core/decorators/public.decorator'; // Import Public decorator
 import { UserRole } from '../../core/domain/user.enums';
 import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
+import { QueryDoctorsDto } from './dto/query-doctors.dto';
+import { DoctorDirectoryService } from './doctor-directory.service';
+import { QueryUsersDto } from './dto/query-users.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly doctorDirectory: DoctorDirectoryService,
+  ) {}
 
   @Get()
   @UseGuards(RolesGuard)
@@ -40,10 +47,24 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('search')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Admin: tìm kiếm users có phân trang' })
+  findAllPaged(@Query() query: QueryUsersDto) {
+    return this.usersService.findAllPaged(query);
+  }
+
   @Get('doctors')
   @ApiOperation({ summary: 'Lấy danh sách bác sĩ' })
   findDoctors() {
     return this.usersService.findDoctors();
+  }
+
+  @Get('doctors/search')
+  @ApiOperation({ summary: 'Tìm kiếm bác sĩ đã được duyệt (phân trang)' })
+  searchDoctors(@Query() query: QueryDoctorsDto) {
+    return this.doctorDirectory.searchDoctors(query);
   }
 
   @Get('doctor/:email')

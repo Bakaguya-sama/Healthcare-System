@@ -62,6 +62,49 @@ export const MANAGED_DATABASE_INDEXES = [
     expireAfterSeconds: 0,
   },
   ...RF2D_QUERY_INDEXES,
+  {
+    collection: 'users',
+    name: 'email_1',
+    key: { email: 1 },
+    unique: true,
+  },
+  {
+    collection: 'users',
+    name: 'role_1_accountStatus_1__id_1',
+    key: { role: 1, accountStatus: 1, _id: 1 },
+  },
+  {
+    collection: 'users',
+    name: 'role_1_doctorProfile.verificationStatus_1__id_1',
+    key: { role: 1, 'doctorProfile.verificationStatus': 1, _id: 1 },
+  },
+  {
+    collection: 'users',
+    name: 'doctorProfile.specialty_1_role_1_accountStatus_1__id_1',
+    key: { 'doctorProfile.specialty': 1, role: 1, accountStatus: 1, _id: 1 },
+  },
+  {
+    collection: 'auth_sessions',
+    name: 'refreshTokenHash_1',
+    key: { refreshTokenHash: 1 },
+    unique: true,
+  },
+  {
+    collection: 'auth_sessions',
+    name: 'userId_1_revokedAt_1_expiresAt_1',
+    key: { userId: 1, revokedAt: 1, expiresAt: 1 },
+  },
+  {
+    collection: 'auth_sessions',
+    name: 'expiresAt_1',
+    key: { expiresAt: 1 },
+    expireAfterSeconds: 0,
+  },
+  {
+    collection: 'auth_events',
+    name: 'userId_1_createdAt_-1__id_-1',
+    key: { userId: 1, createdAt: -1, _id: -1 },
+  },
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

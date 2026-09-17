@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AdminRole } from '../entities/admin.entity';
-import { AccountStatus } from '../../auth/entities/user.schema';
+import { AccountStatus } from '../../../core/domain/user.enums';
 import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateAdminDto {

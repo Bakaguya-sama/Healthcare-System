@@ -12,10 +12,10 @@ Business service chỉ phụ thuộc `CachePort`. `CacheManagerAdapter` sở h�
 
 | Thuộc tính       | `Q-PRC-001`                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Key              | `v1:practitioners:directory`                                                                                       |
+| Key              | `v1:doctors:directory`                                                                                             |
 | Redis namespace  | `healthcare-api`                                                                                                   |
 | TTL              | 60.000 ms                                                                                                          |
-| Owner            | `UsersCacheService` với các method riêng cho practitioner directory                                                |
+| Owner            | `UsersCacheService` với các method `getDoctorDirectory`/`invalidateDoctorDirectory`                              |
 | Dữ liệu được lưu | Kết quả đã giới hạn tối đa 100 bác sĩ được duyệt, đang active; không có password, token hay verification documents |
 | Invalidation     | Sau commit cập nhật hồ sơ bác sĩ/user; approve/reject; ban/unban; cập nhật rating                                  |
 | Consistency      | Cache-aside, explicit invalidation, TTL là safety net                                                              |

@@ -65,7 +65,7 @@ Planner tự chọn managed index trong benchmark sau tối ưu; không dùng `h
 
 Migration `202609162200-rf2d-query-indexes` tạo 14 managed indexes:
 
-- practitioner approval: 1;
+- doctor approval: 1;
 - session patient/doctor base và status variants: 4;
 - message timeline: 1;
 - health metric patient base và type variant: 2;
@@ -91,7 +91,7 @@ Contains regex không có anchored prefix vẫn có thể scan actor slice. Đâ
 
 | Query                        | RF-2E decision                                                                | Lý do                                                                       |
 | ---------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `Q-PRC-001` doctor directory | Đã bật cache-aside trong RF-2E, key `v1:practitioners:directory`, TTL 60 giây | Local hit ratio 96%; invalidation sau approval/profile/account/rating write |
+| `Q-PRC-001` doctor directory | Đã bật cache-aside trong RF-2E, key `v1:doctors:directory`, TTL 60 giây | Local hit ratio 96%; invalidation sau approval/profile/account/rating write |
 | Consultation/message history | Không cache hiện tại                                                          | Dữ liệu theo user, thay đổi liên tục, yêu cầu freshness cao                 |
 | Health metric history        | Không cache hiện tại                                                          | Dữ liệu nhạy cảm và append thường xuyên                                     |
 | Notification timeline        | Không cache hiện tại                                                          | Read/unread mutation làm invalidation dày đặc                               |

@@ -13,11 +13,8 @@ import {
   UpdateAdminDto,
   QueryAdminDto,
 } from './dto/create-admin.dto';
-import {
-  User,
-  UserDocument,
-  AccountStatus,
-} from '../auth/entities/user.schema';
+import { User, UserDocument } from '../users/entities/user.schema';
+import { AccountStatus } from '../../core/domain/user.enums';
 import { UserRole } from '../users/enums/user-role.enum';
 import * as bcrypt from 'bcrypt';
 
@@ -67,7 +64,7 @@ export class AdminsService {
 
     const newUser = await this.userModel.create({
       email: dto.email.toLowerCase(),
-      password: hashedPassword,
+      passwordHash: hashedPassword,
       fullName: dto.fullName,
       role: UserRole.ADMIN,
       accountStatus,

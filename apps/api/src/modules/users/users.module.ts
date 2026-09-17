@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
-import { User, UserSchema } from '../auth/entities/user.schema';
+import { User, UserSchema } from './entities/user.schema';
 import { Patient, PatientSchema } from '../patients/entities/patient.entity';
 import { Doctor, DoctorSchema } from './entities/doctor.schema';
 import { Admin, AdminSchema } from '../admins/entities/admin.entity';
@@ -13,6 +13,7 @@ import {
 } from '../violations/entities/violation.entity';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UsersCacheService } from './users-cache.service';
+import { DoctorDirectoryService } from './doctor-directory.service';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { UsersCacheService } from './users-cache.service';
     ]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, CloudinaryService, UsersCacheService],
-  exports: [UsersService, UsersCacheService],
+  providers: [UsersService, DoctorDirectoryService, CloudinaryService, UsersCacheService],
+  exports: [UsersService, DoctorDirectoryService, UsersCacheService],
 })
 export class UsersModule {}

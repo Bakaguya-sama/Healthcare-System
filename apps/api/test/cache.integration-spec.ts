@@ -25,18 +25,18 @@ describe('RF-2E Redis cache adapter', () => {
     };
 
     const first = await adapter.getOrSet(
-      'v1:practitioners:directory',
+      'v1:doctors:directory',
       60_000,
       loader,
     );
     const second = await adapter.getOrSet(
-      'v1:practitioners:directory',
+      'v1:doctors:directory',
       60_000,
       loader,
     );
-    await adapter.delete('v1:practitioners:directory');
+    await adapter.delete('v1:doctors:directory');
     const third = await adapter.getOrSet(
-      'v1:practitioners:directory',
+      'v1:doctors:directory',
       60_000,
       loader,
     );

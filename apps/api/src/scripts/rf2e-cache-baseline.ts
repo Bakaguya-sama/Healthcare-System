@@ -3,7 +3,7 @@ import { createCache } from 'cache-manager';
 import { Db, MongoClient, ObjectId } from 'mongodb';
 import { performance } from 'node:perf_hooks';
 import { CacheManagerAdapter } from '../common/cache/cache-manager.adapter';
-import { PRACTITIONER_DIRECTORY_CACHE_POLICY } from '../modules/users/users-cache.service';
+import { DOCTOR_DIRECTORY_CACHE_POLICY } from '../modules/users/users-cache.service';
 
 const DEFAULT_MONGODB_URI =
   'mongodb://localhost:27017/healthcare_rf2e_perf?replicaSet=rs0&directConnection=true';
@@ -123,8 +123,8 @@ async function main(): Promise<void> {
     const adapter = new CacheManagerAdapter(cache);
     const cachedSamples = await measure(() =>
       adapter.getOrSet(
-        PRACTITIONER_DIRECTORY_CACHE_POLICY.key,
-        PRACTITIONER_DIRECTORY_CACHE_POLICY.ttlMs,
+        DOCTOR_DIRECTORY_CACHE_POLICY.key,
+        DOCTOR_DIRECTORY_CACHE_POLICY.ttlMs,
         cachedLoader,
       ),
     );

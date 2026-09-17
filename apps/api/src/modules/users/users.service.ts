@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserDocument } from '../auth/entities/user.schema';
+import { User, UserDocument } from './entities/user.schema';
 import { Doctor, DoctorDocument } from './entities/doctor.schema';
 import { Patient, PatientDocument } from '../patients/entities/patient.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -25,11 +25,10 @@ import {
 } from '../violations/entities/violation.entity';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UsersCacheService } from './users-cache.service';
+import { QueryUsersDto } from './dto/query-users.dto';
 
 const USER_PUBLIC_READ_PROJECTION =
   '_id fullName email gender dateOfBirth role phoneNumber avatarUrl accountStatus isOnline address banReason createdAt updatedAt';
-const DOCTOR_PROFILE_READ_PROJECTION =
-  '_id userId specialty workplace experienceYears averageRating ratingSum reviewCount verifiedAt verificationStatus rejectReason createdAt updatedAt';
 // Legacy array endpoints remain bounded until their canonical paginated adapters are introduced.
 const DIRECTORY_RESULT_HARD_CAP = 100;
 
@@ -118,125 +117,71 @@ export class UsersService {
     return parts.length > 0 ? parts.join(', ') : '-';
   }
 
-  private normalizeDoctorUserIds(
-    doctors: Array<{ userId?: Types.ObjectId | string | null }>,
-  ): Types.ObjectId[] {
-    const uniqueIds = new Set<string>();
-
-    for (const doctor of doctors) {
-      if (!doctor?.userId) {
-        continue;
-      }
-
-      const idAsString = doctor.userId.toString();
-      if (!Types.ObjectId.isValid(idAsString)) {
-        continue;
-      }
-
-      uniqueIds.add(idAsString);
-    }
-
-    return Array.from(uniqueIds, (id) => new Types.ObjectId(id));
-  }
-
   async findAll() {
-    const approvedDoctors = await this.doctorModel
-      .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
-      .select('userId specialty -_id')
-      .sort({ userId: 1 })
-      .limit(DIRECTORY_RESULT_HARD_CAP)
-      .lean<
-        {
-          userId?: Types.ObjectId | string | null;
-          specialty?: string;
-        }[]
-      >();
-
-    const approvedDoctorUserIds = this.normalizeDoctorUserIds(approvedDoctors);
-    const specialtyByDoctorUserId = new Map<string, string | undefined>(
-      approvedDoctors
-        .filter((doctor) => doctor.userId)
-        .map((doctor) => [doctor.userId!.toString(), doctor.specialty]),
-    );
-
     const users = await this.userModel
       .find({
         $or: [
           { role: { $ne: UserRole.DOCTOR } },
           {
             role: UserRole.DOCTOR,
-            _id: { $in: approvedDoctorUserIds },
+            accountStatus: AccountStatus.ACTIVE,
+            'doctorProfile.verificationStatus': DoctorVerificationStatus.APPROVED,
           },
         ],
       })
-      .select(USER_PUBLIC_READ_PROJECTION)
+      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile.specialty`)
       .sort({ _id: 1 })
       .limit(DIRECTORY_RESULT_HARD_CAP)
       .lean();
+    return users.map((user) =>
+      user.role === UserRole.DOCTOR
+        ? { ...user, specialty: user.doctorProfile?.specialty }
+        : user,
+    );
+  }
 
-    return users.map((user) => {
-      if (user.role !== UserRole.DOCTOR) {
-        return user;
-      }
-
-      return {
-        ...user,
-        specialty: specialtyByDoctorUserId.get(user._id.toString()),
-      };
-    });
+  async findAllPaged(query: QueryUsersDto) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const filter: Record<string, unknown> = {};
+    if (query.role) filter.role = query.role;
+    if (query.accountStatus) filter.accountStatus = query.accountStatus;
+    if (query.search?.trim()) {
+      const escaped = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(escaped, 'i');
+      filter.$or = [{ fullName: pattern }, { email: pattern }, { phoneNumber: pattern }];
+    }
+    const sort = query.sortOrder === 1 ? { _id: 1 as const } : { _id: -1 as const };
+    const [items, total] = await Promise.all([
+      this.userModel.find(filter).select(USER_PUBLIC_READ_PROJECTION).sort(sort).skip((page - 1) * limit).limit(limit).lean().exec(),
+      this.userModel.countDocuments(filter),
+    ]);
+    return { items, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
   async findDoctors() {
-    return this.usersCache.getPractitionerDirectory(() =>
+    return this.usersCache.getDoctorDirectory(() =>
       this.loadDoctorDirectory(),
     );
   }
 
   private async loadDoctorDirectory() {
-    const approvedDoctors = await this.doctorModel
-      .find({ verificationStatus: DoctorVerificationStatus.APPROVED })
-      .select('userId specialty -_id')
-      .sort({ userId: 1 })
-      .limit(DIRECTORY_RESULT_HARD_CAP)
-      .lean<
-        {
-          userId?: Types.ObjectId | string | null;
-          specialty?: string;
-        }[]
-      >();
-
-    const approvedDoctorUserIds = this.normalizeDoctorUserIds(approvedDoctors);
-    const specialtyByDoctorUserId = new Map<string, string | undefined>(
-      approvedDoctors
-        .filter((doctor) => doctor.userId)
-        .map((doctor) => [doctor.userId!.toString(), doctor.specialty]),
-    );
-
-    if (approvedDoctorUserIds.length === 0) {
-      return [];
-    }
-
-    const doctorUsers = await this.userModel
+    return this.userModel
       .find({
         role: UserRole.DOCTOR,
         accountStatus: AccountStatus.ACTIVE,
-        _id: { $in: approvedDoctorUserIds },
+        'doctorProfile.verificationStatus': DoctorVerificationStatus.APPROVED,
       })
-      .select(USER_PUBLIC_READ_PROJECTION)
+      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile`)
       .sort({ _id: 1 })
       .limit(DIRECTORY_RESULT_HARD_CAP)
       .lean();
-
-    return doctorUsers.map((doctorUser) => ({
-      ...doctorUser,
-      specialty: specialtyByDoctorUserId.get(doctorUser._id.toString()),
-    }));
   }
 
   async findDoctorByEmail(email: string): Promise<DoctorPrefillData> {
     const user = await this.userModel
       .findOne({ email: email })
-      .select('_id fullName email phoneNumber role')
+      .select('_id fullName email phoneNumber role doctorProfile')
       .lean();
 
     if (!user) {
@@ -247,11 +192,9 @@ export class UsersService {
       throw new NotFoundException('User is not a doctor.');
     }
 
-    const doctorProfile = await this.doctorModel
+    const doctorProfile = user.doctorProfile ?? await this.doctorModel
       .findOne({ userId: user._id })
-      .select(
-        'specialty workplace experienceYears verificationDocuments verificationStatus rejectReason',
-      )
+      .select('specialty workplace experienceYears verificationDocuments verificationStatus rejectReason')
       .lean();
 
     if (!doctorProfile) {
@@ -274,7 +217,7 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.userModel
       .findById(id)
-      .select(USER_PUBLIC_READ_PROJECTION)
+      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile`)
       .lean();
 
     if (!user) {
@@ -282,6 +225,7 @@ export class UsersService {
     }
 
     if (user.role === UserRole.DOCTOR) {
+      if (user.doctorProfile) return user;
       const doctorProfile = await this.doctorModel
         .findOne({ userId: new Types.ObjectId(id) })
         .select('-_id -userId -__v')
@@ -308,7 +252,7 @@ export class UsersService {
   async findProfileById(id: string): Promise<UserProfileResponse> {
     const user = await this.userModel
       .findById(id)
-      .select(USER_PUBLIC_READ_PROJECTION)
+      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile`)
       .lean();
 
     if (!user) {
@@ -360,10 +304,7 @@ export class UsersService {
 
     if (user.role === UserRole.DOCTOR) {
       const [doctor, doctorReviews, ratingGroups] = await Promise.all([
-        this.doctorModel
-          .findOne({ userId: userObjectId })
-          .select(DOCTOR_PROFILE_READ_PROJECTION)
-          .lean<DoctorDocument>(),
+        Promise.resolve(user.doctorProfile ?? null),
         this.reviewModel
           .find({ doctorId: userObjectId })
           .select('_id patientId rating comment createdAt')
@@ -482,24 +423,18 @@ export class UsersService {
       averageRating,
       ...userUpdatePayload
     } = dto;
+    const canonicalUserUpdate: Record<string, unknown> = { ...userUpdatePayload };
     void averageRating;
 
     if (String(existingUser.role) === UserRole.DOCTOR) {
-      const doctorProfile = await this.doctorModel.findOne({
-        userId: new Types.ObjectId(id),
-      });
+      const doctorProfile = existingUser.doctorProfile;
       if (!doctorProfile) {
         throw new ConflictException(
           'Doctor profile not found for existing user.',
         );
       }
 
-      const doctorUpdatePayload: {
-        specialty?: string;
-        workplace?: string;
-        verificationDocuments?: string[];
-        experienceYears?: number;
-      } = {};
+      const doctorUpdatePayload = { ...doctorProfile };
 
       if (specialty !== undefined) {
         doctorUpdatePayload.specialty = specialty;
@@ -555,24 +490,18 @@ export class UsersService {
 
       doctorUpdatePayload.verificationDocuments = finalDocumentUrls;
 
-      if (Object.keys(doctorUpdatePayload).length > 0) {
-        await this.doctorModel.findOneAndUpdate(
-          { userId: new Types.ObjectId(id) },
-          doctorUpdatePayload,
-          { new: true, upsert: true, setDefaultsOnInsert: true },
-        );
-        await this.usersCache.invalidatePractitionerDirectory();
-      }
+      canonicalUserUpdate.doctorProfile = doctorUpdatePayload;
+      await this.usersCache.invalidateDoctorDirectory();
     }
 
     const user = await this.userModel
-      .findByIdAndUpdate(id, userUpdatePayload, { new: true })
-      .select('-password -refreshToken');
+      .findByIdAndUpdate(id, canonicalUserUpdate, { new: true })
+      .select('-passwordHash');
 
     if (!user) throw new NotFoundException('User not found');
 
     if (existingUser.role === UserRole.DOCTOR) {
-      await this.usersCache.invalidatePractitionerDirectory();
+      await this.usersCache.invalidateDoctorDirectory();
     }
 
     return user;
@@ -585,10 +514,10 @@ export class UsersService {
         { accountStatus: AccountStatus.BANNED },
         { new: true },
       )
-      .select('-password -refreshToken');
+      .select('-passwordHash');
     if (!user) throw new NotFoundException('User not found');
     if (String(user.role) === UserRole.DOCTOR) {
-      await this.usersCache.invalidatePractitionerDirectory();
+      await this.usersCache.invalidateDoctorDirectory();
     }
     return user;
   }

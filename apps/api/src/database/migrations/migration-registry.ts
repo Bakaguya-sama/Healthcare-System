@@ -5,6 +5,12 @@ import {
   RF2D_QUERY_INDEX_MIGRATION_VERSION,
 } from './202609162200-rf2d-query-indexes';
 import type { DatabaseMigration } from './migration.types';
+import {
+  applyRf5CanonicalIdentity,
+  RF5_CANONICAL_IDENTITY_CHECKSUM,
+  RF5_CANONICAL_IDENTITY_NAME,
+  RF5_CANONICAL_IDENTITY_VERSION,
+} from './202609172100-rf5-canonical-identity';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -12,6 +18,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: RF2D_QUERY_INDEX_MIGRATION_NAME,
     checksum: RF2D_QUERY_INDEX_MIGRATION_CHECKSUM,
     up: applyRf2dQueryIndexes,
+  },
+  {
+    version: RF5_CANONICAL_IDENTITY_VERSION,
+    name: RF5_CANONICAL_IDENTITY_NAME,
+    checksum: RF5_CANONICAL_IDENTITY_CHECKSUM,
+    up: applyRf5CanonicalIdentity,
   },
 ];
 

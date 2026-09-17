@@ -92,7 +92,7 @@ export class ReviewsService {
       throw new NotFoundException('Doctor profile not found');
     }
 
-    await this.usersCache.invalidatePractitionerDirectory();
+    await this.usersCache.invalidateDoctorDirectory();
 
     const updatedDoctor = await this.doctorModel.findById(doctorUserId);
 

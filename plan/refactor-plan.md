@@ -712,6 +712,8 @@ Exit gate:
 
 ### RF-5 — Refactor Identity và Practitioner hiện có
 
+Trạng thái: **DONE — 2026-09-17** (`BE-RF-030` đến `BE-RF-032`). Evidence: `docs/current-state/rf5-identity-doctor.md`. Trong code dùng tên `DoctorDirectoryService`, `QueryDoctorsDto` và `searchDoctors()` thay cho thuật ngữ tổng quát Practitioner.
+
 Mục tiêu: chỉ còn một nguồn dữ liệu User và giữ nguyên local authentication.
 
 Các bước Identity:
@@ -727,14 +729,14 @@ Các bước Identity:
 9. Thêm audit AuthEvents cho hành động bảo mật quan trọng.
 10. Xóa User schema trùng chỉ sau khi mọi consumer đã chuyển.
 
-Các bước Practitioner:
+Các bước Doctor:
 
 1. Giữ Doctor là User role với `doctorProfile` embedded theo DB v7.
-2. Chuyển doctor search/profile query qua Practitioner service/facade.
+2. Chuyển doctor search/profile query qua `DoctorDirectoryService` facade.
 3. Chuẩn hóa workflow duyệt hồ sơ bác sĩ đang có.
 4. Ghi reviewer, reason, `verifiedAt` và audit event.
 5. Xóa `patients`, `admins` hoặc Doctor model trùng khi không còn consumer.
-6. Thay `UsersService.findAll/findDoctors` không giới hạn bằng paginated Practitioner/User queries có projection và stable sort.
+6. Thay `UsersService.findAll/findDoctors` không giới hạn bằng paginated Doctor/User queries có projection và stable sort.
 7. Không tải toàn bộ Doctor rồi join User bằng `Map`; dùng canonical embedded profile hoặc aggregation/query phù hợp.
 8. Tách reviews/violations khỏi profile detail thành paginated sub-resources; rating distribution dùng aggregation/read model.
 9. Doctor application search không tạo `$in` từ danh sách User không giới hạn; dùng aggregate lookup/search strategy đã benchmark.

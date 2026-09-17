@@ -66,7 +66,7 @@ describe('legacy critical-flow characterization', () => {
         sendApproveEmail: jest.fn().mockResolvedValue(undefined),
       };
       const usersCache = {
-        invalidatePractitionerDirectory: jest.fn().mockResolvedValue(undefined),
+         invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
       };
       const service = new AdminService(
         userModel as never,
@@ -89,7 +89,7 @@ describe('legacy critical-flow characterization', () => {
       expect(mailer.sendApproveEmail).toHaveBeenCalledWith(
         'doctor@example.com',
       );
-      expect(usersCache.invalidatePractitionerDirectory).toHaveBeenCalledTimes(
+       expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(
         1,
       );
       expect(result).toBe(populatedDoctor);
@@ -201,7 +201,7 @@ describe('legacy critical-flow characterization', () => {
         findById: jest.fn().mockResolvedValue({ _id: sessionId }),
       };
       const usersCache = {
-        invalidatePractitionerDirectory: jest.fn().mockResolvedValue(undefined),
+         invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
       };
       const service = new ReviewsService(
         ReviewModel as never,
@@ -219,7 +219,7 @@ describe('legacy critical-flow characterization', () => {
 
       expect(result.statusCode).toBe(201);
       expect(doctorModel.updateOne).toHaveBeenCalled();
-      expect(usersCache.invalidatePractitionerDirectory).toHaveBeenCalledTimes(
+       expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(
         1,
       );
     });

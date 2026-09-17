@@ -6,11 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import {
-  User,
-  UserDocument,
-  AccountStatus,
-} from '../auth/entities/user.schema';
+import { User, UserDocument } from '../users/entities/user.schema';
+import { AccountStatus } from '../../core/domain/user.enums';
 import {
   Doctor,
   DoctorDocument,
@@ -194,12 +191,18 @@ export class AdminService {
     doctor.rejectReason = undefined;
 
     const updated = await doctor.save();
-    await this.usersCache.invalidatePractitionerDirectory();
+    await this.usersCache.invalidateDoctorDirectory();
 
     // Lấy thông tin user của bác sĩ để gửi email
     const doctorUserDetails = await this.userModel.findById(doctorUserId);
     if (!doctorUserDetails) {
       throw new NotFoundException('User account for this doctor not found.');
+    }
+    if (doctorUserDetails.doctorProfile) {
+      doctorUserDetails.doctorProfile.verificationStatus = DoctorVerificationStatus.APPROVED;
+      doctorUserDetails.doctorProfile.verifiedAt = doctor.verifiedAt ?? new Date();
+      doctorUserDetails.doctorProfile.rejectReason = '';
+      await doctorUserDetails.save();
     }
 
     await this.nodemailerService.sendApproveEmail(doctorUserDetails.email);
@@ -242,11 +245,17 @@ export class AdminService {
     doctor.rejectReason = dto.reason;
 
     const updated = await doctor.save();
-    await this.usersCache.invalidatePractitionerDirectory();
+    await this.usersCache.invalidateDoctorDirectory();
 
     const doctorUserDetails = await this.userModel.findById(doctorUserId);
     if (!doctorUserDetails) {
       throw new NotFoundException('User account for this doctor not found.');
+    }
+    if (doctorUserDetails.doctorProfile) {
+      doctorUserDetails.doctorProfile.verificationStatus = DoctorVerificationStatus.REJECTED;
+      doctorUserDetails.doctorProfile.verifiedAt = doctor.verifiedAt ?? new Date();
+      doctorUserDetails.doctorProfile.rejectReason = dto.reason;
+      await doctorUserDetails.save();
     }
 
     await this.nodemailerService.sendRejectEmail(
@@ -308,7 +317,7 @@ export class AdminService {
 
     const updated = await user.save();
     if (user.role === UserRole.DOCTOR) {
-      await this.usersCache.invalidatePractitionerDirectory();
+      await this.usersCache.invalidateDoctorDirectory();
     }
 
     this.notificationGateway.sendToUser(userId, 'account_banned', null);
@@ -362,7 +371,7 @@ export class AdminService {
 
     const updated = await user.save();
     if (user.role === UserRole.DOCTOR) {
-      await this.usersCache.invalidatePractitionerDirectory();
+      await this.usersCache.invalidateDoctorDirectory();
     }
 
     await this.nodemailerService.sendUnbanEmail(user.email);
