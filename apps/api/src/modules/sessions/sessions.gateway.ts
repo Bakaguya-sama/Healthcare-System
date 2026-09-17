@@ -19,7 +19,6 @@ interface AuthSocket extends Socket {
 }
 
 @WebSocketGateway({
-  cors: { origin: '*' },
   namespace: '/session',
 })
 export class SessionsGateway

@@ -1,0 +1,3 @@
+export const AI_IMAGE_UPLOAD_LIMIT = 5;
+export const CHAT_ATTACHMENT_UPLOAD_LIMIT = 5;
+export const CHAT_ATTACHMENT_MAX_BYTES = 15_728_640;

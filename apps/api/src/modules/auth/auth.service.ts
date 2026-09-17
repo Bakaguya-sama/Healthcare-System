@@ -10,7 +10,6 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './entities/user.schema';
 import {
@@ -38,7 +37,6 @@ export class AuthService {
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     private jwtService: JwtService,
-    private configService: ConfigService,
     private nodemailerService: NodemailerService,
     private cloudinaryService: CloudinaryService,
   ) { }

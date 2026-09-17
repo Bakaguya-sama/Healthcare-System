@@ -37,7 +37,6 @@ describe('AuthService legacy characterization', () => {
       doctorModel as never,
       adminModel as never,
       jwtService as never,
-      { get: jest.fn() } as never,
       { sendOtpEmail: jest.fn() } as never,
       { uploadMultiple: jest.fn(), deleteFile: jest.fn() } as never,
     );

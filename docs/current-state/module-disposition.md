@@ -4,7 +4,7 @@ Mỗi module legacy đã được gán đúng một hướng chính. `keep` khô
 
 | Module/capability    | Disposition                        | Lý do và đích                                                                              |
 | -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| `auth`               | **replace/refactor**               | Gom Identity-Access, canonical User/AuthSession, Redis OTP; giữ compatibility endpoints    |
+| `auth`               | **replace/refactor**               | Gom Authentication, canonical User/AuthSession, Redis OTP; giữ compatibility endpoints    |
 | `users`              | **refactor**                       | Tách command/query/profile, pagination/projection; loại cross-model god service            |
 | `patients`           | **consolidate**                    | Chốt Patient profile ownership với canonical User, tránh hai API profile                   |
 | `admins`             | **consolidate**                    | Account/admin profile ownership về Identity/Admin; không duy trì hai admin modules độc lập |

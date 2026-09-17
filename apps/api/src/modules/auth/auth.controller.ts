@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -32,6 +33,7 @@ export class AuthController {
    * Đăng ký tài khoản mới
    */
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
   @UseInterceptors(
@@ -49,6 +51,7 @@ export class AuthController {
    * Đăng nhập với email & password
    */
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đăng nhập' })
   async login(@Body() dto: LoginDto) {
@@ -60,6 +63,7 @@ export class AuthController {
    * Làm mới access token bằng refresh token
    */
   @Post('refresh')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Làm mới access token' })
   async refresh(@Body() dto: RefreshTokenDto) {
@@ -96,6 +100,7 @@ export class AuthController {
    * Đặt lại mật khẩu bằng email + OTP
    */
   @Post('change-password')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đặt lại mật khẩu bằng email + OTP' })
   async changePassword(@Body() dto: ChangePasswordDto) {
@@ -107,6 +112,7 @@ export class AuthController {
    * Quên mật khẩu - kiểm tra email tồn tại
    */
   @Post('forgot-password')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Kiểm tra email trước khi gửi OTP' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -118,6 +124,7 @@ export class AuthController {
    * Gửi OTP qua email
    */
   @Post('send-otp')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gửi OTP qua email' })
   async sendOtp(@Body() dto: SendOtpDto) {
@@ -129,6 +136,7 @@ export class AuthController {
    * Xác nhận OTP
    */
   @Post('confirm-otp')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xác nhận OTP' })
   async confirmOtp(@Body() dto: ConfirmOtpDto) {

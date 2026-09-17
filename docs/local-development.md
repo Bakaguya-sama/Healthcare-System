@@ -34,6 +34,8 @@ Local Mongo URI dùng `directConnection=true` để host process kết nối ổ
 ```env
 MONGODB_URI=mongodb://localhost:27017/healthcare_v2_local?replicaSet=rs0&directConnection=true
 REDIS_URL=redis://localhost:16379
+JWT_SECRET=replace-with-at-least-32-characters
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174
 ```
 
 Không commit `.env` hoặc credential thật.
@@ -70,7 +72,7 @@ pnpm.cmd --filter api start:dev
 ```
 
 - API: `http://localhost:3000/api/v1`
-- Swagger legacy: `http://localhost:3000/api/docs`
+- Swagger UI: `http://localhost:3000/api/docs` khi `SWAGGER_ENABLED=true`
 
 ## 6. Quality commands
 
@@ -78,6 +80,9 @@ pnpm.cmd --filter api start:dev
 pnpm.cmd --filter api lint
 pnpm.cmd --filter api typecheck
 pnpm.cmd --filter api build
+pnpm.cmd --filter api boundary:check
+pnpm.cmd --filter api openapi:check
+pnpm.cmd --filter api realtime:check
 pnpm.cmd --filter api test:unit
 pnpm.cmd --filter api test:integration
 pnpm.cmd --filter api test:e2e

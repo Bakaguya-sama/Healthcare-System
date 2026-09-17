@@ -248,7 +248,7 @@ Backend sử dụng Modular Monolith, chia theo capability:
 
 | Module | Dữ liệu sở hữu |
 |---|---|
-| identity-access | Users, OAuthAccounts, AuthSessions, AuthEvents, UserDevices |
+| authentication | Users, OAuthAccounts, AuthSessions, AuthEvents, UserDevices |
 | practitioner-management | DoctorProfile embedded trong Users và verification policy |
 | consultations | AvailabilitySlots, Consultations, ConsultationMessages, Reviews |
 | health-tracking | HealthMetrics |

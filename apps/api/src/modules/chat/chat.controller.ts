@@ -29,6 +29,10 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { ChatGateway } from './chat.gateway';
 import { QueryMessageDto } from './dto/query-message.dto';
+import {
+  CHAT_ATTACHMENT_MAX_BYTES,
+  CHAT_ATTACHMENT_UPLOAD_LIMIT,
+} from '../../common/upload/upload-limits';
 
 @ApiTags('chat')
 @ApiBearerAuth()
@@ -48,13 +52,10 @@ export class ChatController {
   @UseInterceptors(
     FilesInterceptor(
       'attachments',
-      parseInt(process.env.MAX_CHAT_ATTACHMENTS || '5', 10),
+      CHAT_ATTACHMENT_UPLOAD_LIMIT,
       {
         limits: {
-          fileSize: parseInt(
-            process.env.MAX_CHAT_ATTACHMENT_SIZE_BYTES || '15728640',
-            10,
-          ),
+          fileSize: CHAT_ATTACHMENT_MAX_BYTES,
         },
       },
     ),

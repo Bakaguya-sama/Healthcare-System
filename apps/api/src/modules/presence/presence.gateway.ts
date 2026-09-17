@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { AuthSocket } from '../../core/types/auth-socket.type';
 import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
 
-@WebSocketGateway({ origin: '*' })
+@WebSocketGateway()
 export class PresenceGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PatientsModule } from './modules/patients/patients.module';
@@ -22,21 +24,38 @@ import { ViolationsModule } from './modules/violations/violations.module';
 import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { CacheModule } from './common/cache/cache.module';
+import { validateEnvironment } from './config/environment.validation';
+import { HttpExceptionFilter } from './core/filters/http-exception.filter';
+import { AuthCoreModule } from './core/auth-core/auth-core.module';
+import { ProxyThrottlerGuard } from './core/throttling/proxy-throttler.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      cache: true,
+      validate: validateEnvironment,
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('MONGODB_URI'),
+        uri: config.getOrThrow<string>('MONGODB_URI'),
       }),
       inject: [ConfigService],
     }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.getOrThrow<number>('HTTP_THROTTLE_TTL_MS'),
+          limit: config.getOrThrow<number>('HTTP_THROTTLE_LIMIT'),
+        },
+      ],
+    }),
     CacheModule,
+    AuthCoreModule,
     AuthModule,
     UsersModule,
     PatientsModule,
@@ -59,6 +78,9 @@ import { CacheModule } from './common/cache/cache.module';
     PresenceModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    { provide: APP_GUARD, useClass: ProxyThrottlerGuard },
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+  ],
 })
 export class AppModule {}

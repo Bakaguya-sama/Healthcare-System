@@ -9,18 +9,21 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthSocket } from '../../core/types/auth-socket.type';
 import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { WsThrottleGuard } from '../../core/throttling/ws-throttle.guard';
+import { WsThrottle } from '../../core/throttling/ws-throttle.decorator';
 
 @WebSocketGateway({
-  cors: { origin: '*' },
   namespace: '/chat',
 })
+@UseGuards(WsThrottleGuard)
+@WsThrottle()
 export class ChatGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {

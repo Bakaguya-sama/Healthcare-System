@@ -6,23 +6,12 @@ import { ChatGateway } from './chat.gateway';
 import { Message, MessageSchema } from './entities/message.entity';
 import { Session, SessionSchema } from '../sessions/entities/session.entity';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import { JwtModule } from '@nestjs/jwt';
-import { JwtModuleOptions } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { PresenceModule } from '../presence/presence.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { WsThrottleGuard } from '../../core/throttling/ws-throttle.guard';
 
 @Module({
   imports: [
-    JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService): JwtModuleOptions => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: '30m',
-        },
-      }),
-    }),
     MongooseModule.forFeature([
       { name: Message.name, schema: MessageSchema },
       { name: Session.name, schema: SessionSchema },
@@ -31,6 +20,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
     NotificationsModule,
   ],
   controllers: [ChatController],
-  providers: [ChatService, ChatGateway, CloudinaryService],
+  providers: [ChatService, ChatGateway, CloudinaryService, WsThrottleGuard],
 })
 export class ChatModule {}

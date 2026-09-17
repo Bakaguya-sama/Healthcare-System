@@ -4,13 +4,13 @@ Ngày chụp baseline: **2026-09-15**
 
 Source: `apps/api/src/**/*.controller.ts` tại branch `huy/refactor`
 
-Prefix runtime: `/api/v1`; Swagger UI legacy: `/api/docs`
+Prefix runtime: `/api/v1`; Swagger UI mặc định ngoài production: `/api/docs`
 
 ## 1. Phạm vi và độ tin cậy
 
 Source hiện có **173 operations trên 121 path**, thuộc 21 controller tags. Danh sách machine-readable đầy đủ, gồm method, path, guard, role, DTO và vị trí source nằm ở `openapi-baseline.json`; `postman-baseline.collection.json` chứa cùng 173 requests để kiểm tra thủ công sau RF-1.
 
-Đây là source-derived baseline. Không thể chụp Swagger bằng runtime vì backend không compile tại RF-0. Vì vậy response schema/status trong snapshot chưa được coi là contract đã xác minh; RF-1 phải sửa build và RF-3/`BE-RF-011` phải thay snapshot này bằng artifact tạo từ ứng dụng chạy thật.
+Đây là source-derived baseline của RF-0. Contract runtime hiện tại đã được RF-3 thay bằng `apps/api/openapi/openapi.json`; snapshot này chỉ còn dùng để đối chiếu legacy route và consumer.
 
 ## 2. Bootstrap và convention hiện tại
 
@@ -20,10 +20,10 @@ Source hiện có **173 operations trên 121 path**, thuộc 21 controller tags.
 | Validation     | Global `ValidationPipe`: `whitelist`, `forbidNonWhitelisted`, `transform`                           |
 | Authentication | Passport JWT qua `JwtAuthGuard`; một số controller/method không guard                               |
 | Authorization  | `RolesGuard` + `@Roles`; khi không có metadata role thì guard cho qua                               |
-| CORS           | `CORS_ORIGIN` hoặc localhost 5173/5174; Socket gateways vẫn `origin: '*'`                           |
+| CORS           | HTTP và Socket dùng chung allowlist `CORS_ORIGINS`; không còn wildcard trong gateway                |
 | Response       | Phần lớn service tự trả `{statusCode,message,data}`; pagination/envelope không thống nhất           |
-| Error          | Nest exception mặc định; `HttpExceptionFilter` có tồn tại nhưng chưa đăng ký global trong `main.ts` |
-| Swagger        | Luôn bật ở `/api/docs`, kể cả production nếu chạy cùng bootstrap                                    |
+| Error          | Global error envelope có correlation ID; `HttpExceptionFilter` được đăng ký qua `APP_FILTER`        |
+| Swagger        | Mặc định bật ngoài production; production bắt buộc tắt bằng validation môi trường                  |
 
 ## 3. Inventory theo controller
 
@@ -105,5 +105,5 @@ API source có nhiều operation không thấy call site trực tiếp trong hai
 ## 8. Baseline follow-up
 
 - RF-1 giữ nguyên route/hành vi đủ để viết characterization tests, chỉ sửa blocker khiến build/test không chạy.
-- `BE-RF-011` thay source snapshot bằng OpenAPI runtime có request/response/error schemas và contract diff trong CI.
+- `BE-RF-011` đã thay source snapshot bằng OpenAPI runtime có request/response/error schemas và contract diff trong CI.
 - Route chỉ được xóa sau khi có disposition, consumer/access-log evidence và adapter/cutover tương ứng.

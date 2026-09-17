@@ -59,15 +59,13 @@ export class CloudinaryService {
 
   constructor(private configService: ConfigService) {
     // ✅ BƯỚC 1: Cấu hình Cloudinary
-    const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
-    const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
-    const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
-
-    if (!cloudName || !apiKey || !apiSecret) {
-      this.logger.warn(
-        '⚠️ Cloudinary credentials missing! File upload disabled. Set CLOUDINARY_* in .env',
-      );
-    }
+    const cloudName = this.configService.getOrThrow<string>(
+      'CLOUDINARY_CLOUD_NAME',
+    );
+    const apiKey = this.configService.getOrThrow<string>('CLOUDINARY_API_KEY');
+    const apiSecret = this.configService.getOrThrow<string>(
+      'CLOUDINARY_API_SECRET',
+    );
 
     cloudinary.config({
       cloud_name: cloudName,
@@ -101,7 +99,7 @@ export class CloudinaryService {
     }
 
     // ✅ BƯỚC 2: Validate file size
-    const maxSize = this.configService.get<number>('MAX_FILE_SIZE', 52428800); // 50MB default
+    const maxSize = this.configService.getOrThrow<number>('MAX_FILE_SIZE');
     if (file.size > maxSize) {
       throw new BadRequestException(
         `File size (${file.size} bytes) exceeds maximum (${maxSize} bytes)`,

@@ -1,8 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { DoctorVerificationStatus } from '@repo/shared-types';
+import { DoctorVerificationStatus } from '../../../core/domain/user.enums';
 import { HydratedDocument, Types } from 'mongoose';
 
-export { DoctorVerificationStatus } from '@repo/shared-types';
+export { DoctorVerificationStatus } from '../../../core/domain/user.enums';
 
 export type DoctorDocument = HydratedDocument<Doctor>;
 

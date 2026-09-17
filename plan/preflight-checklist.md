@@ -254,7 +254,7 @@ Swagger UI theo môi trường — Chọn một:
 ### 9.1 Auth framework — Đã chốt
 
 - [x] Giữ Passport + JWT cho HTTP authentication.
-- [x] Gom `JwtModule`, `JwtStrategy`, verifier và guard về Identity-Access.
+- [x] Gom `JwtModule`, `JwtStrategy`, verifier và guard về `AuthCoreModule`.
 - [x] Socket dùng token verifier/policy chung, không tái sử dụng máy móc HTTP guard.
 - [x] Refresh token chỉ lưu dạng hash trong AuthSessions.
 - [x] OTP lưu hash + attempts + TTL trong Redis.

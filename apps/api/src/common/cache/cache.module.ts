@@ -16,10 +16,9 @@ import { CachePort } from './cache.port';
         new CacheManagerAdapter(
           createCache({
             stores: [
-              createKeyvNonBlocking(
-                config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:16379',
-                { namespace: 'healthcare-api' },
-              ),
+              createKeyvNonBlocking(config.getOrThrow<string>('REDIS_URL'), {
+                namespace: 'healthcare-api',
+              }),
             ],
           }),
         ),

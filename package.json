@@ -15,7 +15,6 @@
     "test:e2e": "pnpm --filter api test:e2e"
   },
   "devDependencies": {
-    "@types/multer": "^2.1.0",
     "prettier": "^3.7.4",
     "turbo": "^2.8.16",
     "typescript": "5.9.2"
@@ -23,9 +22,5 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": "24.9.0"
-  },
-  "dependencies": {
-    "cloudinary": "^2.9.0",
-    "multer": "^2.1.1"
   }
 }

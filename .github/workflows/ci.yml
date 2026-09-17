@@ -40,11 +40,17 @@ jobs:
       - name: Typecheck API
         run: pnpm --filter api typecheck
 
+      - name: Check backend repository boundary
+        run: pnpm --filter api boundary:check
+
       - name: Build API
         run: pnpm --filter api build
 
       - name: Run unit and characterization tests
         run: pnpm --filter api test:unit
+
+      - name: Check generated realtime contract
+        run: pnpm --filter api realtime:check
 
   integration:
     name: Integration and HTTP contract tests
@@ -78,6 +84,25 @@ jobs:
 
       - name: Run HTTP contract tests
         run: pnpm --filter api test:e2e
+
+      - name: Check generated OpenAPI contract
+        run: pnpm --filter api openapi:check
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/healthcare_openapi_ci?replicaSet=rs0&directConnection=true
+          REDIS_URL: redis://localhost:16379
+          JWT_SECRET: ci-only-jwt-secret-at-least-32-characters
+          CORS_ORIGINS: http://localhost:5173
+          SWAGGER_ENABLED: "true"
+          CLOUDINARY_CLOUD_NAME: ci-placeholder
+          CLOUDINARY_API_KEY: ci-placeholder
+          CLOUDINARY_API_SECRET: ci-placeholder
+          SMTP_HOST: localhost
+          SMTP_PORT: "1025"
+          SMTP_SECURE: "false"
+          SMTP_USER: ci-placeholder
+          SMTP_PASS: ci-placeholder
+          SMTP_FROM: ci@example.com
 
       - name: Print service logs on failure
         if: failure()

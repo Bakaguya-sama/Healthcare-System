@@ -125,7 +125,7 @@ apps/api/src/
 │   ├── cloudinary/
 │   └── observability/
 └── modules/
-    ├── identity-access/
+    ├── authentication/
     ├── practitioners/
     ├── consultations/
     ├── health-tracking/
@@ -177,7 +177,7 @@ Không cài lại hoặc thay công nghệ chỉ vì plan nhắc đến nó. Aud
 | Nhóm             | Hiện trạng                                                                           | Quyết định                                                                  |
 | ---------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
 | OpenAPI/Swagger  | Đã có `@nestjs/swagger`; `main.ts` đã dựng Swagger UI                                | Giữ, chuẩn hóa contract và giới hạn cách public ở production                |
-| JWT/Passport     | Đã có `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` và `JwtStrategy` | Giữ; gom cấu hình/guard về Identity-Access, không cài auth framework khác   |
+| JWT/Passport     | Đã có `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` và `JwtStrategy` | Giữ; gom cấu hình/guard về Authentication, không cài auth framework khác   |
 | Input validation | Đã có global `ValidationPipe`, `class-validator`, `class-transformer`                | Giữ; bổ sung validation biến môi trường và DTO/query convention             |
 | Rate limiting    | Chưa có `@nestjs/throttler`                                                          | Thêm P0, policy khác nhau theo endpoint và event                            |
 | HTTP hardening   | Chưa có Helmet                                                                       | Thêm P0 và đăng ký trước route/Swagger                                      |
@@ -630,6 +630,8 @@ Exit gate:
 
 ### RF-3 — Chuẩn hóa backend repository và API contract
 
+Trạng thái: **DONE — 2026-09-17** (`BE-RF-010` đến `BE-RF-014`). Evidence: `docs/current-state/rf3-platform-contract.md`, generated OpenAPI và realtime artifacts. Distributed Redis throttle/lifecycle không bị nhập nhầm vào RF-3 và vẫn thuộc `BE-RF-022` ở RF-4.
+
 Mục tiêu: backend hoạt động độc lập với repository frontend.
 
 Các bước backend:
@@ -644,7 +646,7 @@ Các bước backend:
 8. Kiểm tra breaking contract bằng OpenAPI diff.
 9. Tạo `docs/realtime-events.md` hoặc JSON Schema cho Socket events.
 10. Chuẩn hóa biến môi trường `CORS_ORIGINS`, API prefix và Socket path.
-11. Gom Passport/JWT registration, strategy, verifier, guard/decorator về Identity-Access; xóa `JwtModule` cấu hình lặp ở feature modules.
+11. Gom Passport/JWT registration, strategy, verifier, guard/decorator về `AuthCoreModule`; xóa `JwtModule` cấu hình lặp ở feature modules.
 12. Thêm global/route throttling cho HTTP; định nghĩa policy và guard riêng cho Socket events.
 13. Thêm JSON logging, correlation ID, error envelope và redaction test.
 14. Cập nhật `docs/fe-integration.md` khi REST/event contract thay đổi.
@@ -1623,8 +1625,8 @@ Thực hiện đúng thứ tự:
 4. [x] Hoàn thành `BE-RF-004`, viết characterization tests cho old flows ngày `2026-09-15`.
 5. [x] Hoàn thành service responsibility map (`BE-RF-005`) ngày `2026-09-16`; chưa di chuyển file hàng loạt.
 6. [x] Hoàn thành pagination/query conventions và query catalog (`BE-RF-006`, `BE-RF-007`) ngày `2026-09-16`; đã đo baseline trước/sau index.
-7. [ ] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`).
-8. [ ] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`).
+7. [x] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`) — 2026-09-17.
+8. [x] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`) — 2026-09-17.
 9. [ ] Tạo DatabaseModule, migration runner, verifier, DB bootstrap và Redis/health lifecycle (`BE-RF-020` đến `BE-RF-022`).
 10. [ ] Refactor Identity/Practitioner và query của chúng (`BE-RF-030` đến `BE-RF-032`).
 11. [ ] Chuyển old request flow, Message/Review/Realtime và tối ưu query (`BE-RF-040` đến `BE-RF-044`).

@@ -26,7 +26,7 @@ Nguyên tắc tích hợp:
 
 1. Frontend không đọc MongoDB, Mongoose Document hoặc collection trực tiếp.
 2. REST client và DTO được sinh từ OpenAPI trong `packages/api-client`.
-3. Socket payload được định nghĩa trong `packages/realtime-contracts` bằng schema versioned.
+3. Socket payload hiện tại được xuất tại `apps/api/contracts/realtime-events.json`; frontend repo có thể copy/generate type từ artifact thay vì import backend source.
 4. Server state dùng TanStack Query; Zustand chỉ giữ auth state và UI state ngắn hạn.
 5. ID gửi qua JSON là `string`; thời gian là ISO-8601 UTC; timezone hiển thị là IANA name.
 6. Tiền VND là integer JSON `number`, không có phần thập phân và phải nằm trong `Number.MAX_SAFE_INTEGER`.
@@ -63,6 +63,8 @@ Idempotency-Key: <uuid>             # booking, message, order, cancel, refund
 X-Correlation-Id: <uuid>            # client có thể gửi; server luôn trả
 Accept-Language: vi-VN | en-US      # optional
 ```
+
+Socket.IO dùng `{API_ORIGIN}` với transport path mặc định `/socket.io` và namespace riêng (`/chat`, `/session`, `/notifications`, `/`). Client gửi JWT qua `handshake.auth.token`, chỉ kết nối từ origin có trong `CORS_ORIGINS`, và lưu `x-correlation-id` từ HTTP error khi báo lỗi hỗ trợ.
 
 Multipart chỉ dùng cho upload avatar, verification document, attachment và AI image.
 

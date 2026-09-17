@@ -14,17 +14,13 @@ export class NodemailerService implements OnModuleInit {
   private readonly fromEmail: string;
 
   constructor(private readonly configService: ConfigService) {
-    const smtpHost = this.configService.get<string>(
-      'SMTP_HOST',
-      'smtp.gmail.com',
-    );
-    const smtpPort = Number(this.configService.get<string>('SMTP_PORT', '587'));
-    const smtpSecure =
-      this.configService.get<string>('SMTP_SECURE', 'false') === 'true';
-    const smtpUser = this.configService.get<string>('SMTP_USER', '');
-    const smtpPass = this.configService.get<string>('SMTP_PASS', '');
+    const smtpHost = this.configService.getOrThrow<string>('SMTP_HOST');
+    const smtpPort = this.configService.getOrThrow<number>('SMTP_PORT');
+    const smtpSecure = this.configService.getOrThrow<boolean>('SMTP_SECURE');
+    const smtpUser = this.configService.getOrThrow<string>('SMTP_USER');
+    const smtpPass = this.configService.getOrThrow<string>('SMTP_PASS');
 
-    this.fromEmail = this.configService.get<string>('SMTP_FROM', smtpUser);
+    this.fromEmail = this.configService.getOrThrow<string>('SMTP_FROM');
 
     this.transporter = nodemailer.createTransport({
       host: smtpHost,

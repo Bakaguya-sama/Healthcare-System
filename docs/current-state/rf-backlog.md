@@ -11,11 +11,11 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 | BE-RF-005 | Service responsibility/dependency map          | Huy   | BE-RF-001, 004           |     2-3d | Done 2026-09-16 |
 | BE-RF-006 | Pagination/query/response conventions          | Huy   | BE-RF-005                |     2-3d | Done 2026-09-16 |
 | BE-RF-007 | Query catalog + explain baseline               | Huy   | BE-RF-006                |     4-6d | Done 2026-09-16 |
-| BE-RF-010 | Backend standalone boundary                    | Huy   | BE-RF-002                |     1-2d | Planned         |
-| BE-RF-011 | OpenAPI/realtime generation                    | Huy   | BE-RF-010                |     2-3d | Planned         |
-| BE-RF-012 | Config/bootstrap hardening                     | Huy   | BE-RF-010                |     2-3d | Planned         |
-| BE-RF-013 | Passport/JWT + Swagger exposure                | Huy   | BE-RF-011, 012           |     2-3d | Planned         |
-| BE-RF-014 | HTTP/Socket throttling + correlation logging   | Huy   | BE-RF-012, 013           |     3-4d | Planned         |
+| BE-RF-010 | Backend standalone boundary                    | Huy   | BE-RF-002                |     1-2d | Done 2026-09-17 |
+| BE-RF-011 | OpenAPI/realtime generation                    | Huy   | BE-RF-010                |     2-3d | Done 2026-09-17 |
+| BE-RF-012 | Config/bootstrap hardening                     | Huy   | BE-RF-010                |     2-3d | Done 2026-09-17 |
+| BE-RF-013 | Passport/JWT + Swagger exposure                | Huy   | BE-RF-011, 012           |     2-3d | Done 2026-09-17 |
+| BE-RF-014 | HTTP/Socket throttling + correlation logging   | Huy   | BE-RF-012, 013           |     3-4d | Done 2026-09-17 |
 | BE-RF-020 | DatabaseModule + migration runner              | Huy   | BE-RF-003                |     3-4d | Planned         |
 | BE-RF-021 | Verifier/index/validator/seed                  | Huy   | BE-RF-020                |     2-3d | Planned         |
 | BE-RF-022 | RedisModule + Terminus lifecycle               | Huy   | BE-RF-012, 020           |     2-3d | Planned         |
@@ -38,4 +38,4 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 
 ## Next ready work
 
-RF-2E (`BE-RF-063`) đã hoàn tất phạm vi đầu tiên cho doctor directory với cache-aside, invalidation, Redis fallback và benchmark local 96% hit ratio/96% DB-load reduction. Task refactor tuần tự tiếp theo là RF-3. `BE-RF-022` vẫn chịu trách nhiệm Redis lifecycle, health check và topology dùng chung ở phase database/infrastructure.
+RF-3 (`BE-RF-010`–`014`) đã hoàn tất backend boundary, generated contracts, config/bootstrap hardening, centralized JWT/Passport, throttling và correlation JSON logging. Task tuần tự tiếp theo là RF-4. `BE-RF-022` vẫn chịu trách nhiệm Redis lifecycle/health và chuyển HTTP/Socket throttle từ process-local sang distributed storage.

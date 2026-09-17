@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { DoctorVerificationStatus } from '@repo/shared-types';
+import { DoctorVerificationStatus } from '../../../core/domain/user.enums';
 
 export class DoctorPrefillData {
   @ApiProperty({ example: 'doctor@example.com' })

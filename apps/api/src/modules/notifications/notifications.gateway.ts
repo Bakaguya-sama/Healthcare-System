@@ -18,7 +18,6 @@ type NotificationGatewayActions =
   | 'deleted';
 
 @WebSocketGateway({
-  cors: { origin: '*' },
   namespace: '/notifications',
   transports: ['websocket', 'polling'],
 })

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as iconv from 'iconv-lite';
 import * as jschardet from 'jschardet';
 import { LlamaCloud, toFile } from '@llamaindex/llama-cloud';
@@ -12,8 +13,8 @@ import {
 export class TextExtractionService implements ITextExtractionService {
   private readonly logger = new Logger(TextExtractionService.name);
   private readonly llamaParseTimeoutMs = 120000;
-  private readonly llamaParseApiKey =
-    process.env.LLAMA_CLOUD_API_KEY ?? process.env.LLAMAPARSE_API_KEY;
+
+  constructor(private readonly config: ConfigService) {}
 
   async extractText(file: ExtractableFile): Promise<string> {
     if (!file?.buffer || file.buffer.length === 0) {
@@ -71,6 +72,13 @@ export class TextExtractionService implements ITextExtractionService {
           `Unsupported file type: ${extension || 'unknown'}. Supported: txt, doc, docx, pdf`,
         );
     }
+  }
+
+  private get llamaParseApiKey(): string | undefined {
+    return (
+      this.config.get<string>('LLAMA_CLOUD_API_KEY') ??
+      this.config.get<string>('LLAMAPARSE_API_KEY')
+    );
   }
 
   private resolveExtension(fileName: string, mimeType?: string): string {

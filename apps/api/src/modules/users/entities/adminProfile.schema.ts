@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { AdminRole } from '@repo/shared-types';
+import { AdminRole } from '../../../core/domain/user.enums';
 
 @Schema({ _id: false })
 export class AdminProfile {

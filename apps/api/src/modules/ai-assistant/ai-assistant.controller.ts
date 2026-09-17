@@ -38,6 +38,7 @@ import {
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { generateHealthMetricValue } from 'src/seeds/seed.config';
+import { AI_IMAGE_UPLOAD_LIMIT } from '../../common/upload/upload-limits';
 
 @ApiTags('ai-assistant')
 @ApiBearerAuth()
@@ -65,7 +66,7 @@ export class AiAssistantController {
   @Post('conversations/:conversationId/message')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(
-    FilesInterceptor('images', parseInt(process.env.MAX_IMAGES || '5')),
+    FilesInterceptor('images', AI_IMAGE_UPLOAD_LIMIT),
   )
   @ApiOperation({ summary: 'Gửi tin nhắn cho AI trong cuộc trò chuyện' })
   @ApiParam({ name: 'conversationId', description: 'ID của cuộc trò chuyện' })

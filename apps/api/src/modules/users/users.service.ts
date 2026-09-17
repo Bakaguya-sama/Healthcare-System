@@ -15,7 +15,7 @@ import {
   UserRole,
   DoctorVerificationStatus,
   AccountStatus,
-} from '@repo/shared-types';
+} from '../../core/domain/user.enums';
 import { Admin, AdminDocument } from '../admins/entities/admin.entity';
 import { Review, ReviewDocument } from '../reviews/entities/review.entity';
 import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO

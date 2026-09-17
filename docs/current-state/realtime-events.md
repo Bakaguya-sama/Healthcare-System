@@ -1,17 +1,17 @@
 # RF-0 — Realtime event inventory
 
-Ngày chụp baseline: **2026-09-15**. Tất cả gateway dùng Socket.IO và xác thực JWT từ `handshake.auth.token` hoặc bearer header, ngoại trừ HTTP presence lookup.
+Ngày chụp baseline: **2026-09-15**; platform policy cập nhật RF-3 ngày **2026-09-17**. Tất cả gateway dùng Socket.IO và xác thực JWT từ `handshake.auth.token` hoặc bearer header, ngoại trừ HTTP presence lookup. Contract sinh tự động nằm tại `apps/api/contracts/realtime-events.json`.
 
 ## 1. Namespace và authentication
 
-| Namespace        | Gateway                | Room/connection state                                                                               | CORS hiện tại                      |
-| ---------------- | ---------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `/chat`          | `ChatGateway`          | Map in-memory `userId -> socketIds`; client tự join room bằng raw `sessionId` sau participant check | `origin: '*'`                      |
-| `/session`       | `SessionsGateway`      | Tự join `user_{userId}_session`                                                                     | `origin: '*'`                      |
-| `/notifications` | `NotificationsGateway` | Tự join `user_{userId}_notifications`; map in-memory sockets                                        | `origin: '*'`; websocket + polling |
-| `/`              | `PresenceGateway`      | `PresenceService` giữ active sockets trong memory                                                   | `origin: '*'`                      |
+| Namespace        | Gateway                | Room/connection state                                                                               | CORS RF-3                      |
+| ---------------- | ---------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `/chat`          | `ChatGateway`          | Map in-memory `userId -> socketIds`; client tự join room bằng raw `sessionId` sau participant check | shared `CORS_ORIGINS`          |
+| `/session`       | `SessionsGateway`      | Tự join `user_{userId}_session`                                                                     | shared `CORS_ORIGINS`          |
+| `/notifications` | `NotificationsGateway` | Tự join `user_{userId}_notifications`; map in-memory sockets                                        | shared allowlist; WS + polling |
+| `/`              | `PresenceGateway`      | `PresenceService` giữ active sockets trong memory                                                   | shared `CORS_ORIGINS`          |
 
-JWT verifier bị lặp: chat/notification/presence dùng `getUserIdFromSocket`, session tự parse/verify token. Connection không có rate limit và origin allowlist.
+JWT module/secret đã được gom về `AuthCoreModule`; session vẫn còn logic parse payload riêng cần hợp nhất ở `BE-RF-043`. RF-3 đã thêm origin allowlist toàn cục và throttle có thể bật/tắt theo môi trường cho inbound chat events; connection flood/distributed presence vẫn thuộc `BE-RF-043`.
 
 ## 2. Client -> server events
 
@@ -55,10 +55,10 @@ Không có acknowledgement callback contract; success/error được phát bằn
 
 - Presence và connection maps là in-memory; nhiều API instances cho kết quả sai nếu không có Redis adapter/shared state.
 - Notification/event được emit trực tiếp sau database call, chưa có outbox; crash giữa commit và emit gây mất event, retry thủ công có thể trùng.
-- Socket CORS mở toàn bộ origin và token validation không dùng một policy chung.
+- Socket CORS đã dùng shared allowlist; socket token parsing còn hai code path và sẽ hợp nhất ở `BE-RF-043`.
 - REST chat emit `new_message` nhưng không phát `chat_notification`; socket chat có phát cả hai, nên hành vi phụ thuộc transport.
 - Event payload lấy trực tiếp Mongoose document, không có stable public schema hoặc version.
-- Không có throttling cho join/send/history events.
+- Chat join/send/history đã có process-local throttling; distributed throttle chờ `BE-RF-022`.
 - Typing event chỉ là code comment, không phải capability đang hoạt động.
 
 ## 6. Disposition

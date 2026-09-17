@@ -22,7 +22,7 @@ import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Public } from '../../core/decorators/public.decorator'; // Import Public decorator
-import { UserRole } from '@repo/shared-types';
+import { UserRole } from '../../core/domain/user.enums';
 import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
 
 @ApiTags('users')

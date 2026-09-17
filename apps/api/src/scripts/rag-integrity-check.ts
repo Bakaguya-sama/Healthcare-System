@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
+import { ConfigService } from '@nestjs/config';
 import { ChunkingService } from '../modules/rag/services/chunking.service';
 import { TextExtractionService } from '../modules/rag/services/text-extraction.service';
 
@@ -156,7 +157,9 @@ async function main(): Promise<void> {
     usage();
   }
 
-  const extractionService = new TextExtractionService();
+  const extractionService = new TextExtractionService(
+    new ConfigService(process.env),
+  );
   const chunkingService = new ChunkingService(extractionService);
 
   let extractedText = '';
