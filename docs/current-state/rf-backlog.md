@@ -23,10 +23,10 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 | BE-RF-031 | Canonical Doctor                               | Huy   | BE-RF-030                |     3-4d | Done 2026-09-17 |
 | BE-RF-032 | User/Doctor/Admin query optimization           | Huy   | BE-RF-006, 007, 031      |     2-3d | Done 2026-09-17 |
 | BE-RF-040 | Consultation core + Session adapter            | Huy   | BE-RF-020, 004           |     4-6d | Done 2026-09-18 |
-| BE-RF-041 | Message migration                              | Huy   | BE-RF-040                |     3-4d | Planned         |
-| BE-RF-042 | Review/rating refactor                         | Huy   | BE-RF-040                |     2-3d | Planned         |
-| BE-RF-043 | Socket auth/CORS/presence                      | Huy   | BE-RF-014, 030, 040      |     3-4d | Planned         |
-| BE-RF-044 | Consultation/Message/Review query optimization | Huy   | BE-RF-006, 007, 040-042  |     3-5d | Planned         |
+| BE-RF-041 | Message migration                              | Huy   | BE-RF-040                |     3-4d | Done 2026-09-18 |
+| BE-RF-042 | Review/rating refactor                         | Huy   | BE-RF-040                |     2-3d | Done 2026-09-18 |
+| BE-RF-043 | Socket auth/CORS/presence                      | Huy   | BE-RF-014, 030, 040      |     3-4d | Done 2026-09-18 |
+| BE-RF-044 | Consultation/Message/Review query optimization | Huy   | BE-RF-006, 007, 040-042  |     3-5d | Done 2026-09-18 |
 | BE-RF-050 | Health Tracking refactor                       | Huy   | BE-RF-020, 004           |     3-4d | Planned         |
 | BE-RF-051 | AI/RAG consolidation                           | Huy   | BE-RF-020, 004           |     5-7d | Planned         |
 | BE-RF-052 | Health/AI query optimization                   | Huy   | BE-RF-006, 007, 050, 051 |     3-4d | Planned         |
@@ -38,4 +38,4 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 
 ## Next ready work
 
-RF-6 (`BE-RF-040`) đã hoàn tất Consultation core, state mapping, migration và `/sessions` compatibility adapter. Task refactor tuần tự tiếp theo là RF-7 (`BE-RF-041`–`044`).
+RF-7 (`BE-RF-041`–`044`) đã hoàn tất. Task refactor tuần tự tiếp theo là RF-8 (`BE-RF-050`–`052`).

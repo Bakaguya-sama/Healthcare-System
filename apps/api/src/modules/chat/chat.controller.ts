@@ -12,6 +12,7 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFiles,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -65,8 +66,9 @@ export class ChatController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['doctorSessionId', 'senderType', 'content'],
+      required: ['consultationId', 'senderType', 'content'],
       properties: {
+        consultationId: { type: 'string' },
         doctorSessionId: { type: 'string' },
         senderType: { type: 'string', enum: ['patient', 'doctor'] },
         content: { type: 'string' },
@@ -86,7 +88,7 @@ export class ChatController {
 
     const message = result.data || result;
     this.chatGateway.server
-      .to(dto.doctorSessionId)
+      .to(dto.consultationId ?? dto.doctorSessionId!)
       .emit('new_message', message);
 
     return result;
@@ -100,10 +102,28 @@ export class ChatController {
   @ApiOperation({ summary: 'Lấy tin nhắn trong phiên tư vấn' })
   @ApiParam({ name: 'sessionId', description: 'ID của phiên tư vấn' })
   async getSessionMessages(
+    @CurrentUser('sub') userId: string,
     @Param('sessionId') sessionId: string,
     @Query() query: QueryMessageDto,
   ) {
+    const consultation = await this.chatService.getConsultationDetails(sessionId, userId);
+    if (!consultation) {
+      throw new ForbiddenException('Not a participant of this consultation');
+    }
     return this.chatService.getSessionMessages(sessionId, query);
+  }
+
+  @Get('consultation/:consultationId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get consultation message history (cursor)' })
+  async getConsultationMessages(
+    @CurrentUser('sub') userId: string,
+    @Param('consultationId') consultationId: string,
+    @Query() query: QueryMessageDto,
+  ) {
+    const consultation = await this.chatService.getConsultationDetails(consultationId, userId);
+    if (!consultation) throw new ForbiddenException('Not a participant of this consultation');
+    return this.chatService.getSessionMessages(consultationId, query);
   }
 
   /**

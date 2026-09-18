@@ -17,6 +17,12 @@ import {
   RF6_CONSULTATIONS_NAME,
   RF6_CONSULTATIONS_VERSION,
 } from './202609182100-rf6-consultations';
+import {
+  applyRf7ChatReviews,
+  RF7_CHAT_REVIEWS_CHECKSUM,
+  RF7_CHAT_REVIEWS_NAME,
+  RF7_CHAT_REVIEWS_VERSION,
+} from './202609182200-rf7-chat-reviews';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -36,6 +42,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: RF6_CONSULTATIONS_NAME,
     checksum: RF6_CONSULTATIONS_CHECKSUM,
     up: applyRf6Consultations,
+  },
+  {
+    version: RF7_CHAT_REVIEWS_VERSION,
+    name: RF7_CHAT_REVIEWS_NAME,
+    checksum: RF7_CHAT_REVIEWS_CHECKSUM,
+    up: applyRf7ChatReviews,
   },
 ];
 

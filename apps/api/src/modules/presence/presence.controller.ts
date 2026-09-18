@@ -6,8 +6,8 @@ export class PresenceController {
   constructor(private readonly presenceService: PresenceService) {}
 
   @Post('status')
-  checkUsersStatus(@Body() body: { userIds: string[] }) {
-    const onlineUsers = this.presenceService.getActiveUsers(body.userIds);
+  async checkUsersStatus(@Body() body: { userIds: string[] }) {
+    const onlineUsers = await this.presenceService.getActiveUsers(body.userIds);
     return {
       statusCode: 200,
       data: {

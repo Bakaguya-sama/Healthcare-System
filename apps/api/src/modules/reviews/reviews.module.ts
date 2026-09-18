@@ -4,7 +4,7 @@ import { ReviewsService } from './reviews.service';
 import { ReviewsController } from './reviews.controller';
 import { Review, ReviewSchema } from './entities/review.entity';
 import { Doctor, DoctorSchema } from '../users/entities/doctor.schema';
-import { Session, SessionSchema } from '../sessions/entities/session.entity';
+import { Consultation, ConsultationSchema } from '../sessions/entities/consultation.entity';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -12,7 +12,7 @@ import { UsersModule } from '../users/users.module';
     MongooseModule.forFeature([
       { name: Review.name, schema: ReviewSchema },
       { name: Doctor.name, schema: DoctorSchema },
-      { name: Session.name, schema: SessionSchema },
+      { name: Consultation.name, schema: ConsultationSchema },
     ]),
     UsersModule,
   ],

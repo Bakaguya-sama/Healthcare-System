@@ -1,10 +1,9 @@
 export const realtimeContract = {
   asyncapi: '3.0.0',
   info: {
-    title: 'Healthcare legacy realtime contract',
-    version: '1.0.0',
-    description:
-      'RF-3 compatibility contract. REST remains the source of truth after reconnect.',
+    title: 'Healthcare realtime contract',
+    version: '1.1.0',
+    description: 'RF-7 consultation chat contract. Legacy session event aliases remain supported.',
   },
   servers: {
     runtime: {
@@ -22,6 +21,10 @@ export const realtimeContract = {
     chat: {
       address: '/chat',
       messages: {
+        join_consultation: { $ref: '#/components/messages/joinConsultation' },
+        leave_consultation: { $ref: '#/components/messages/leaveConsultation' },
+        get_consultation_messages: { $ref: '#/components/messages/getConsultationMessages' },
+        consultation_message_v1: { $ref: '#/components/messages/messageDocument' },
         join_session: { $ref: '#/components/messages/joinSession' },
         leave_session: { $ref: '#/components/messages/leaveSession' },
         send_message: { $ref: '#/components/messages/sendMessage' },
@@ -64,10 +67,13 @@ export const realtimeContract = {
     messages: {
       joinSession: { payload: { type: 'string', description: 'sessionId' } },
       leaveSession: { payload: { type: 'string', description: 'sessionId' } },
+      joinConsultation: { payload: { type: 'string', description: 'consultationId' } },
+      leaveConsultation: { payload: { type: 'string', description: 'consultationId' } },
       sendMessage: {
         payload: {
           type: 'object',
-          required: ['doctorSessionId', 'senderType', 'content'],
+          required: ['consultationId', 'senderType', 'content'],
+          properties: { consultationId: { type: 'string' }, clientMessageId: { type: 'string' } },
         },
       },
       getSessionMessages: {
@@ -75,6 +81,13 @@ export const realtimeContract = {
           type: 'object',
           required: ['doctorSessionId'],
           properties: { doctorSessionId: { type: 'string' } },
+        },
+      },
+      getConsultationMessages: {
+        payload: {
+          type: 'object',
+          required: ['consultationId'],
+          properties: { consultationId: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer' } },
         },
       },
       messageDocument: { payload: { type: 'object' } },

@@ -710,6 +710,8 @@ Exit gate:
 
 Ước lượng: **7-10 person-days**.
 
+Trạng thái triển khai: **Done 2026-09-18**. BE-RF-041–044 đã được thực hiện; migration RF-7 phải chạy trước khi bật canonical-only reads. Socket.IO Redis Adapter và E2E/load proof vẫn là follow-up trước RF-10, không phải blocker của RF-7.
+
 ### RF-5 — Refactor Identity và Practitioner hiện có
 
 Trạng thái: **DONE — 2026-09-17** (`BE-RF-030` đến `BE-RF-032`). Evidence: `docs/current-state/rf5-identity-doctor.md`. Trong code dùng tên `DoctorDirectoryService`, `QueryDoctorsDto` và `searchDoctors()` thay cho thuật ngữ tổng quát Practitioner.

@@ -14,6 +14,7 @@ import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
 export class PresenceGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
+  private readonly heartbeatTimers = new Map<string, ReturnType<typeof setInterval>>();
   @WebSocketServer()
   server: Server;
 
@@ -30,20 +31,26 @@ export class PresenceGateway
 
     socket.userId = userId;
 
-    const isFirstConnection = this.presenceService.addActiveUser(
+    const isFirstConnection = await this.presenceService.addActiveUser(
       userId,
       socket.id,
     );
     if (isFirstConnection) {
       this.server.emit('userStatusChanged', { userId, status: 'online' });
     }
+    this.heartbeatTimers.set(socket.id, setInterval(() => {
+      void this.presenceService.refreshActiveUser(userId, socket.id);
+    }, 60_000));
   }
 
-  handleDisconnect(socket: AuthSocket) {
+  async handleDisconnect(socket: AuthSocket) {
+    const timer = this.heartbeatTimers.get(socket.id);
+    if (timer) clearInterval(timer);
+    this.heartbeatTimers.delete(socket.id);
     const userId = socket.userId;
 
     if (userId) {
-      const isLastDisconnect = this.presenceService.removeActiveUser(
+      const isLastDisconnect = await this.presenceService.removeActiveUser(
         userId,
         socket.id,
       );

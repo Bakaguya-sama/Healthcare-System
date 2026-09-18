@@ -57,10 +57,27 @@ export class MessageAttachmentDto {
 }
 
 export class SendMessageDto {
-  @ApiProperty({ example: '65e456def789abc012345678' })
+  @ApiProperty({ example: '65e456def789abc012345678', required: false })
+  @IsOptional()
   @IsNotEmpty()
   @IsMongoId()
-  doctorSessionId!: string;
+  doctorSessionId?: string;
+
+  @ApiProperty({ example: '65e456def789abc012345678', required: false })
+  @IsOptional()
+  @IsNotEmpty()
+  @IsMongoId()
+  consultationId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Stable client-generated id used for retry-safe sends',
+    example: 'msg_01JY8YJ8M5R4K9A3',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  clientMessageId?: string;
 
   @ApiProperty({
     enum: SenderType,

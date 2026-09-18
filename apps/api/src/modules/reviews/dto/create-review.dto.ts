@@ -17,10 +17,15 @@ export class CreateReviewDto {
   @IsMongoId()
   doctorId: string;
 
-  @ApiProperty({ example: '65f789ghi012jkl345678901', required: false })
+  @ApiProperty({ example: '65f789ghi012jkl345678901', required: false, description: 'Legacy alias for consultationId' })
   @IsOptional()
   @IsMongoId()
   doctorSessionId?: string;
+
+  @ApiProperty({ example: '65f789ghi012jkl345678901', required: false })
+  @IsOptional()
+  @IsMongoId()
+  consultationId?: string;
 
   @ApiProperty({ example: 5, minimum: 1, maximum: 5 })
   @IsNumber()

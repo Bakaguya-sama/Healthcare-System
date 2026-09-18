@@ -6,10 +6,20 @@ export const MESSAGE_SORT_FIELDS = ['sentAt', 'createdAt'] as const;
 export type MessageSortField = (typeof MESSAGE_SORT_FIELDS)[number];
 
 export class QueryMessageDto extends PageSortQueryDto {
+  /** Cursor is preferred; page remains for old clients during migration. */
+  @ApiProperty({ required: false, description: 'Opaque message history cursor' })
+  @IsOptional()
+  cursor?: string;
+
   @ApiProperty({ example: '65e456def789abc012345678', required: false })
   @IsOptional()
   @IsMongoId()
   doctorSessionId?: string;
+
+  @ApiProperty({ example: '65e456def789abc012345678', required: false })
+  @IsOptional()
+  @IsMongoId()
+  consultationId?: string;
 
   @ApiProperty({ enum: MESSAGE_SORT_FIELDS, required: false })
   @IsOptional()
