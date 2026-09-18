@@ -22,7 +22,7 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 | BE-RF-030 | Canonical User/AuthSessions/Redis OTP          | Huy   | BE-RF-022, 013, 004      |     4-6d | Done 2026-09-17 |
 | BE-RF-031 | Canonical Doctor                               | Huy   | BE-RF-030                |     3-4d | Done 2026-09-17 |
 | BE-RF-032 | User/Doctor/Admin query optimization           | Huy   | BE-RF-006, 007, 031      |     2-3d | Done 2026-09-17 |
-| BE-RF-040 | Consultation core + Session adapter            | Huy   | BE-RF-020, 004           |     4-6d | Planned         |
+| BE-RF-040 | Consultation core + Session adapter            | Huy   | BE-RF-020, 004           |     4-6d | Done 2026-09-18 |
 | BE-RF-041 | Message migration                              | Huy   | BE-RF-040                |     3-4d | Planned         |
 | BE-RF-042 | Review/rating refactor                         | Huy   | BE-RF-040                |     2-3d | Planned         |
 | BE-RF-043 | Socket auth/CORS/presence                      | Huy   | BE-RF-014, 030, 040      |     3-4d | Planned         |
@@ -38,4 +38,4 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 
 ## Next ready work
 
-RF-5 (`BE-RF-030`–`032`) đã hoàn tất canonical identity/session/OTP foundation, migration backfill và doctor directory facade. Task refactor tuần tự tiếp theo là RF-6 (`BE-RF-040`).
+RF-6 (`BE-RF-040`) đã hoàn tất Consultation core, state mapping, migration và `/sessions` compatibility adapter. Task refactor tuần tự tiếp theo là RF-7 (`BE-RF-041`–`044`).

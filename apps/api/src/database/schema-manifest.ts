@@ -105,6 +105,33 @@ export const MANAGED_DATABASE_INDEXES = [
     name: 'userId_1_createdAt_-1__id_-1',
     key: { userId: 1, createdAt: -1, _id: -1 },
   },
+  {
+    collection: 'consultations',
+    name: 'doctorId_1_requestStatus_1_requestedAt_-1__id_-1',
+    key: { doctorId: 1, requestStatus: 1, requestedAt: -1, _id: -1 },
+  },
+  {
+    collection: 'consultations',
+    name: 'patientId_1_requestStatus_1_requestedAt_-1__id_-1',
+    key: { patientId: 1, requestStatus: 1, requestedAt: -1, _id: -1 },
+  },
+  {
+    collection: 'consultations',
+    name: 'doctorId_1_sessionStatus_1_scheduledStartAt_1__id_1',
+    key: { doctorId: 1, sessionStatus: 1, scheduledStartAt: 1, _id: 1 },
+  },
+  {
+    collection: 'consultations',
+    name: 'patientId_1_doctorId_1_requestStatus_1',
+    key: { patientId: 1, doctorId: 1, requestStatus: 1 },
+    unique: true,
+  },
+  {
+    collection: 'consultations',
+    name: 'roomId_1',
+    key: { roomId: 1 },
+    unique: true,
+  },
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

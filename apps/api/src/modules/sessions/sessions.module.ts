@@ -6,14 +6,20 @@ import { Session, SessionSchema } from './entities/session.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { SessionsGateway } from './sessions.gateway';
+import { Consultation, ConsultationSchema } from './entities/consultation.entity';
+import { ConsultationsService } from './consultations.service';
+import { ConsultationsController } from './consultations.controller';
 
 @Module({
   imports: [
     UsersModule,
     NotificationsModule,
-    MongooseModule.forFeature([{ name: Session.name, schema: SessionSchema }]),
+    MongooseModule.forFeature([
+      { name: Session.name, schema: SessionSchema },
+      { name: Consultation.name, schema: ConsultationSchema },
+    ]),
   ],
-  controllers: [SessionsController],
-  providers: [SessionsService, SessionsGateway],
+  controllers: [SessionsController, ConsultationsController],
+  providers: [ConsultationsService, SessionsService, SessionsGateway],
 })
 export class SessionsModule {}

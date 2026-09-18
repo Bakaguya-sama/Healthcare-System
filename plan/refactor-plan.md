@@ -760,6 +760,8 @@ Exit gate:
 
 ### RF-6 — Chuyển Session cũ sang Consultation core
 
+Trạng thái: **DONE — 2026-09-18** (`BE-RF-040`). Evidence: `docs/current-state/rf6-consultation-core.md` và `consultations.service.spec.ts`.
+
 Mục tiêu: giữ nguyên luồng cũ nhưng chuyển sang tên và trạng thái domain đúng.
 
 Luồng cũ bắt buộc được giữ:

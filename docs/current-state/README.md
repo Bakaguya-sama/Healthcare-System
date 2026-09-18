@@ -23,6 +23,7 @@ Status: **DONE — 2026-09-15** (`BE-RF-001`).
 | `rf3-platform-contract.md`         | RF-3 boundary, config/bootstrap, auth, generated contract và throttling policy   |
 | `rf4-database-foundation.md`       | RF-4 Mongo/Redis lifecycle, migration, verifier, seed và transaction evidence    |
 | `rf5-identity-doctor.md`           | RF-5 canonical User, AuthSession, Redis OTP và doctor directory                    |
+| `rf6-consultation-core.md`         | RF-6 Consultation state machine, migration và `/sessions` compatibility adapter    |
 
 Generator `scripts/rf0-openapi-baseline.cjs` có thể tái tạo OpenAPI/Postman source snapshot. Không dùng snapshot generator này thay cho runtime OpenAPI CI artifact mục tiêu ở `BE-RF-011`.
 
@@ -35,4 +36,4 @@ Generator `scripts/rf0-openapi-baseline.cjs` có thể tái tạo OpenAPI/Postma
 - [x] Backlog có owner/dependency/estimate.
 - [x] Baseline failure được ghi lại mà không sửa runtime source.
 
-RF-5 (`BE-RF-030` đến `BE-RF-032`) đã hoàn tất phần identity foundation và doctor read facade ngày 2026-09-17. Bước tiếp theo là **RF-6**.
+RF-6 (`BE-RF-040`) đã hoàn tất Consultation core và Session compatibility ngày 2026-09-18. Bước tiếp theo là **RF-7**.

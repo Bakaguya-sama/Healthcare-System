@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -17,6 +18,7 @@ import { QuerySessionDto } from './dto/query-session.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UsersService } from '../users/users.service';
+import { ConsultationsService } from './consultations.service';
 
 const SESSION_READ_PROJECTION =
   '_id patientId doctorId scheduledAt startedAt endedAt status patientNotes doctorNotes lastMessageAt lastMessageId createdAt updatedAt';
@@ -27,6 +29,7 @@ export class SessionsService {
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     private notificationsService: NotificationsService,
     private userService: UsersService,
+    @Optional() private readonly consultationsService?: ConsultationsService,
   ) {}
 
   /**
@@ -44,6 +47,7 @@ export class SessionsService {
    * 📝 TẠO SESSION MỚI
    */
   async create(patientId: string, dto: CreateSessionDto) {
+    if (this.consultationsService) return this.consultationsService.create(patientId, dto);
     if (!Types.ObjectId.isValid(patientId)) {
       throw new BadRequestException('Invalid patient ID');
     }
@@ -85,6 +89,7 @@ export class SessionsService {
    * 📊 LẤY TẤT CẢ SESSIONS (CÓ FILTER & PAGINATION)
    */
   async findAll(userId: string, userRole: string, query: QuerySessionDto) {
+    if (this.consultationsService) return this.consultationsService.findAll(userId, userRole, query);
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
     }
@@ -157,6 +162,7 @@ export class SessionsService {
    * 🔍 LẤY 1 SESSION
    */
   async findOne(userId: string, id: string) {
+    if (this.consultationsService) return this.consultationsService.findOne(userId, id);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -192,6 +198,7 @@ export class SessionsService {
    * ✏️ CẬP NHẬT SESSION
    */
   async update(userId: string, id: string, dto: UpdateSessionDto) {
+    if (this.consultationsService) return this.consultationsService.update(userId, id, dto);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -234,6 +241,7 @@ export class SessionsService {
    * ✅ CONFIRM SESSION (Doctor confirms)
    */
   async confirm(userId: string, id: string) {
+    if (this.consultationsService) return this.consultationsService.accept(userId, id);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -276,6 +284,7 @@ export class SessionsService {
   }
 
   async reject(userId: string, id: string) {
+    if (this.consultationsService) return this.consultationsService.decline(userId, id);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -321,6 +330,7 @@ export class SessionsService {
    * 🏁 START SESSION (Mark as in progress)
    */
   async start(userId: string, id: string) {
+    if (this.consultationsService) return this.consultationsService.start(userId, id);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -359,6 +369,7 @@ export class SessionsService {
    * ✔️ COMPLETE SESSION
    */
   async complete(userId: string, id: string, dto: UpdateSessionDto) {
+    if (this.consultationsService) return this.consultationsService.complete(userId, id, dto);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -394,6 +405,7 @@ export class SessionsService {
    * ❌ CANCEL SESSION
    */
   async cancel(userId: string, id: string, dto: UpdateSessionDto) {
+    if (this.consultationsService) return this.consultationsService.cancel(userId, id, dto);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -444,6 +456,7 @@ export class SessionsService {
    * 🔄 RESCHEDULE SESSION
    */
   async reschedule(userId: string, id: string, dto: UpdateSessionDto) {
+    if (this.consultationsService) return this.consultationsService.reschedule(userId, id, dto);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -493,6 +506,7 @@ export class SessionsService {
    * 🗑️ XÓA SESSION
    */
   async remove(userId: string, id: string) {
+    if (this.consultationsService) return this.consultationsService.remove(userId, id);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid session ID');
     }
@@ -524,6 +538,7 @@ export class SessionsService {
    * 📈 GET UPCOMING SESSIONS
    */
   async getUpcoming(userId: string, userRole: string, days: number = 7) {
+    if (this.consultationsService) return this.consultationsService.getUpcoming(userId, userRole, days);
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
     }

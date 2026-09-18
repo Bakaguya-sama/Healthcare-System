@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -18,6 +19,7 @@ import {
   SessionStatus,
 } from '../sessions/entities/session.entity';
 import { CloudinaryService } from 'src/modules/cloudinary/cloudinary.service';
+import { Consultation, ConsultationDocument } from '../sessions/entities/consultation.entity';
 
 type MessageDbAttachment = {
   fileUrl: string;
@@ -41,6 +43,7 @@ export class ChatService {
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     private readonly cloudinaryService: CloudinaryService,
+    @Optional() @InjectModel(Consultation.name) private readonly consultationModel?: Model<ConsultationDocument>,
   ) {
     this.allowedMimeTypes = new Set(
       this.cloudinaryService.getAllowedMimeTypes(),
@@ -139,8 +142,11 @@ export class ChatService {
       _id: sessionObjectId,
       $or: [{ patientId: userObjectId }, { doctorId: userObjectId }],
     });
-
-    return session;
+    if (session) return session;
+    return this.consultationModel?.findOne({
+      _id: sessionObjectId,
+      $or: [{ patientId: userObjectId }, { doctorId: userObjectId }],
+    });
   }
 
   /**
@@ -161,9 +167,10 @@ export class ChatService {
     const senderObjectId = new Types.ObjectId(senderId);
     const sessionObjectId = new Types.ObjectId(dto.doctorSessionId);
 
-    const session = await this.sessionModel.findById(sessionObjectId);
+    const legacySession = await this.sessionModel.findById(sessionObjectId);
+    const session = legacySession ?? await this.consultationModel?.findById(sessionObjectId);
     if (!session) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException('Consultation not found');
     }
 
     const isPatient = session.patientId.equals(senderObjectId);
@@ -197,12 +204,11 @@ export class ChatService {
       }));
     }
 
-    if (session.status === SessionStatus.COMPLETED) {
-      throw new BadRequestException('Cannot send message in completed session');
-    }
-    if (session.status === SessionStatus.REJECTED) {
-      throw new BadRequestException('Cannot send message in rejected session');
-    }
+    const lifecycle = session as unknown as { status?: string; sessionStatus?: string };
+    const isCompleted = lifecycle.status === SessionStatus.COMPLETED || lifecycle.sessionStatus === 'completed';
+    const isClosed = lifecycle.status === SessionStatus.REJECTED || lifecycle.sessionStatus === 'cancelled';
+    if (isCompleted) throw new BadRequestException('Cannot send message in completed session');
+    if (isClosed) throw new BadRequestException('Cannot send message in cancelled session');
 
     if (isPatient && dto.senderType !== 'patient') {
       throw new BadRequestException('senderType does not match sender role');

@@ -11,6 +11,12 @@ import {
   RF5_CANONICAL_IDENTITY_NAME,
   RF5_CANONICAL_IDENTITY_VERSION,
 } from './202609172100-rf5-canonical-identity';
+import {
+  applyRf6Consultations,
+  RF6_CONSULTATIONS_CHECKSUM,
+  RF6_CONSULTATIONS_NAME,
+  RF6_CONSULTATIONS_VERSION,
+} from './202609182100-rf6-consultations';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -24,6 +30,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: RF5_CANONICAL_IDENTITY_NAME,
     checksum: RF5_CANONICAL_IDENTITY_CHECKSUM,
     up: applyRf5CanonicalIdentity,
+  },
+  {
+    version: RF6_CONSULTATIONS_VERSION,
+    name: RF6_CONSULTATIONS_NAME,
+    checksum: RF6_CONSULTATIONS_CHECKSUM,
+    up: applyRf6Consultations,
   },
 ];
 

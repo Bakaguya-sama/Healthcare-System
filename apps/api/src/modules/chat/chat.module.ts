@@ -9,12 +9,14 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { PresenceModule } from '../presence/presence.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WsThrottleGuard } from '../../core/throttling/ws-throttle.guard';
+import { Consultation, ConsultationSchema } from '../sessions/entities/consultation.entity';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Message.name, schema: MessageSchema },
       { name: Session.name, schema: SessionSchema },
+      { name: Consultation.name, schema: ConsultationSchema },
     ]),
     PresenceModule,
     NotificationsModule,
