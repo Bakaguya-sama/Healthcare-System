@@ -5,11 +5,14 @@ import {
   OnGatewayDisconnect,
   OnGatewayInit,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthSocket } from '../../core/types/auth-socket.type';
 import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
+import { RedisService } from '../../infrastructure/redis/redis.service';
+import { NOTIFICATION_REALTIME_CHANNEL } from '../outbox/outbox-worker.service';
+import type { RedisClientType } from 'redis';
 
 type NotificationGatewayActions =
   | 'send'
@@ -22,7 +25,12 @@ type NotificationGatewayActions =
   transports: ['websocket', 'polling'],
 })
 export class NotificationsGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnApplicationShutdown
 {
   @WebSocketServer()
   server: Server;
@@ -30,7 +38,27 @@ export class NotificationsGateway
   private readonly logger = new Logger(NotificationsGateway.name);
   private connectedUsers = new Map<string, Set<string>>();
 
-  constructor(private jwtService: JwtService) {}
+  private subscriber?: RedisClientType;
+  constructor(
+    private jwtService: JwtService,
+    private readonly redis: RedisService,
+  ) {}
+
+  async onModuleInit() {
+    this.subscriber = this.redis.client.duplicate();
+    await this.subscriber.connect();
+    await this.subscriber.subscribe(NOTIFICATION_REALTIME_CHANNEL, (raw) => {
+      try {
+        this.handleNotifications(JSON.parse(raw));
+      } catch (error) {
+        this.logger.error(`Invalid notification event: ${String(error)}`);
+      }
+    });
+  }
+
+  async onApplicationShutdown() {
+    if (this.subscriber?.isOpen) await this.subscriber.quit();
+  }
 
   afterInit() {
     this.logger.log('Notifications gateway initialized');

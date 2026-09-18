@@ -19,6 +19,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { ViolationsModule } from './modules/violations/violations.module';
 import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { PresenceModule } from './modules/presence/presence.module';
+import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { CacheModule } from './common/cache/cache.module';
 import { validateEnvironment } from './config/environment.validation';
 import { HttpExceptionFilter } from './core/filters/http-exception.filter';
@@ -72,6 +73,7 @@ import { RedisThrottlerStorage } from './infrastructure/redis/redis-throttler.st
     ViolationsModule,
     AiAssistantModule,
     PresenceModule,
+    CloudinaryModule,
   ],
   controllers: [],
   providers: [

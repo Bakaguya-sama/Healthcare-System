@@ -57,6 +57,8 @@ export class Notification {
 
   @Prop({ type: Date })
   expiresAt?: Date; // Notification tự xóa sau khoảng thời gian
+  @Prop({ type: String, maxlength: 120, sparse: true })
+  idempotencyKey?: string;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
@@ -69,4 +71,8 @@ NotificationSchema.index(
 NotificationSchema.index(
   { userId: 1, isRead: 1, createdAt: -1, _id: -1 },
   { name: 'userId_1_isRead_1_createdAt_-1__id_-1' },
+);
+NotificationSchema.index(
+  { idempotencyKey: 1 },
+  { name: 'idempotencyKey_unique', unique: true, sparse: true },
 );

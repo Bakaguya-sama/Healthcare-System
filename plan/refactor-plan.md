@@ -943,6 +943,12 @@ Exit gate:
 
 Ước lượng: **7-10 person-days**.
 
+Trạng thái RF-9: **CORE IMPLEMENTATION DONE, còn release-evidence gate (audit 2026-09-18)**.
+
+- Đạt: Notification đã tách Upload/Cloudinary; write Notification + Outbox dùng Mongo transaction khi connection hỗ trợ replica set; notification/outbox đều có idempotency key, bounded claim/lease, per-event BullMQ job với `jobId = idempotencyKey`, retry exponential và dead state; Socket create/read/delete events đều đi qua outbox → Redis pub/sub → API gateway; notification history chỉ allow sort `createdAt` đã có index.
+- Còn release evidence: endpoint/dashboard metrics/readiness và dead-event requeue runbook; crash-after-commit, duplicate enqueue, retry delivery integration test với worker thật; representative explain/load baseline. Local development không có replica set phải không được dùng để chứng minh transaction rollback.
+- Kết luận: phần code RF-9 đã đủ để các feature sau dùng outbox; checklist vẫn chưa Done cho đến khi các test/operational evidence trên được chạy và lưu lại.
+
 ### RF-10 — Cutover và xóa code cũ
 
 Mục tiêu: kết thúc refactor thay vì duy trì hai implementation lâu dài.

@@ -35,6 +35,8 @@ import {
   RF8_AI_MESSAGE_CUTOVER_NAME,
   RF8_AI_MESSAGE_CUTOVER_VERSION,
 } from './202609182400-rf8-ai-message-cutover';
+import { applyRf9Outbox, RF9_OUTBOX_CHECKSUM, RF9_OUTBOX_NAME, RF9_OUTBOX_VERSION } from './202609182500-rf9-outbox';
+import { applyRf9AtomicNotifications, RF9_ATOMIC_NOTIFICATIONS_CHECKSUM, RF9_ATOMIC_NOTIFICATIONS_NAME, RF9_ATOMIC_NOTIFICATIONS_VERSION } from './202609182510-rf9-atomic-notifications';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -73,6 +75,8 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     checksum: RF8_AI_MESSAGE_CUTOVER_CHECKSUM,
     up: applyRf8AiMessageCutover,
   },
+  { version: RF9_OUTBOX_VERSION, name: RF9_OUTBOX_NAME, checksum: RF9_OUTBOX_CHECKSUM, up: applyRf9Outbox },
+  { version: RF9_ATOMIC_NOTIFICATIONS_VERSION, name: RF9_ATOMIC_NOTIFICATIONS_NAME, checksum: RF9_ATOMIC_NOTIFICATIONS_CHECKSUM, up: applyRf9AtomicNotifications },
 ];
 
 export const LATEST_SCHEMA_VERSION = Math.max(

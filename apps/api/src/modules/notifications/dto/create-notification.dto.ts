@@ -46,6 +46,16 @@ export class CreateNotificationDto {
   @IsString()
   @MaxLength(1000)
   message: string;
+
+  @ApiProperty({
+    required: false,
+    maxLength: 120,
+    description: 'Stable client or command idempotency key',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  idempotencyKey?: string;
 }
 
 export class UpdateNotificationDto {
@@ -58,10 +68,17 @@ export class UpdateNotificationDto {
   read?: boolean;
 }
 
-export const NOTIFICATION_SORT_FIELDS = ['createdAt', 'readAt'] as const;
+export const NOTIFICATION_SORT_FIELDS = ['createdAt'] as const;
 export type NotificationSortField = (typeof NOTIFICATION_SORT_FIELDS)[number];
 
 export class QueryNotificationDto extends PageSortQueryDto {
+  @ApiProperty({
+    required: false,
+    description: 'Opaque cursor for notification history',
+  })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

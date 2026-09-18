@@ -178,6 +178,29 @@ export const MANAGED_DATABASE_INDEXES = [
     unique: true,
     sparse: true,
   },
+  {
+    collection: 'outboxevents',
+    name: 'idempotencyKey_unique',
+    key: { idempotencyKey: 1 },
+    unique: true,
+  },
+  {
+    collection: 'outboxevents',
+    name: 'status_1_nextAttemptAt_1_lockedAt_1__id_1',
+    key: { status: 1, nextAttemptAt: 1, lockedAt: 1, _id: 1 },
+  },
+  {
+    collection: 'outboxevents',
+    name: 'status_1_lockExpiresAt_1__id_1',
+    key: { status: 1, lockExpiresAt: 1, _id: 1 },
+  },
+  {
+    collection: 'notifications',
+    name: 'idempotencyKey_unique',
+    key: { idempotencyKey: 1 },
+    unique: true,
+    sparse: true,
+  },
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

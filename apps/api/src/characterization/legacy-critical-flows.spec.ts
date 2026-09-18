@@ -448,19 +448,21 @@ describe('legacy critical-flow characterization', () => {
   });
 
   describe('notification create/read', () => {
-    it('persists and emits a new notification', async () => {
+    it('persists a notification and records an idempotent delivery event', async () => {
       const notification = {
-        id: new Types.ObjectId().toString(),
+        _id: new Types.ObjectId(),
+        id: '',
         title: 'Consultation',
         message: 'Request received',
         isRead: false,
         type: NotificationType.INFO,
         createdAt: new Date(),
       };
-      const gateway = { handleNotifications: jest.fn() };
+      notification.id = notification._id.toString();
+      const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
       const service = new NotificationsService(
         { create: jest.fn().mockResolvedValue(notification) } as never,
-        gateway as never,
+        outbox as never,
       );
 
       const result = await service.create(patientId.toString(), {
@@ -471,10 +473,10 @@ describe('legacy critical-flow characterization', () => {
       });
 
       expect(result.statusCode).toBe(201);
-      expect(gateway.handleNotifications).toHaveBeenCalledWith(
+      expect(outbox.enqueue).toHaveBeenCalledWith(
         expect.objectContaining({
-          userId: patientId.toString(),
-          action: 'send',
+          eventType: 'notification.created',
+          idempotencyKey: `notification.created.${notification.id}`,
         }),
       );
     });
@@ -490,18 +492,18 @@ describe('legacy critical-flow characterization', () => {
         createdAt: new Date(),
         save: jest.fn().mockResolvedValue(undefined),
       };
-      const gateway = { handleNotifications: jest.fn() };
+      const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
       const service = new NotificationsService(
         { findOne: jest.fn().mockResolvedValue(notification) } as never,
-        gateway as never,
+        outbox as never,
       );
 
       await service.findOne(patientId.toString(), notificationId.toString());
 
       expect(notification.isRead).toBe(true);
       expect(notification.save).toHaveBeenCalled();
-      expect(gateway.handleNotifications).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'mark_read' }),
+      expect(outbox.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'notification.realtime' }),
       );
     });
   });
