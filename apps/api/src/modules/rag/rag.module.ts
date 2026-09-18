@@ -7,6 +7,7 @@ import { EmbeddingService } from './services/google-embedding.service';
 import { AtlasVectorStoreService } from './services/atlas-vector-store.service';
 import { RagRetrievalService } from './services/rag-retrieval.service';
 import { ContextBuilderService } from './services/context-builder.service';
+import { VECTOR_SEARCH_PORT } from './interfaces/vector-store.interface';
 import {
   AiDocumentChunk,
   AiDocumentChunkSchema,
@@ -26,6 +27,7 @@ import {
     ContextBuilderService,
     EmbeddingService,
     AtlasVectorStoreService,
+    { provide: VECTOR_SEARCH_PORT, useExisting: AtlasVectorStoreService },
   ],
   exports: [
     ChunkingService,
@@ -35,6 +37,7 @@ import {
     ContextBuilderService,
     EmbeddingService,
     AtlasVectorStoreService,
+    VECTOR_SEARCH_PORT,
   ],
 })
 export class RagModule {}

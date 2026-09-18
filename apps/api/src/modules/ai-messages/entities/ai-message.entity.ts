@@ -6,7 +6,8 @@ export enum SenderType {
   AI = 'ai',
 }
 
-@Schema({ timestamps: true })
+/** @deprecated Legacy adapter model. Canonical AI messages are embedded in AiConversation. */
+@Schema({ timestamps: true, collection: 'aimessages' })
 export class AiMessage extends Document {
   @Prop({ required: true, type: Types.ObjectId })
   aiSessionId: Types.ObjectId;

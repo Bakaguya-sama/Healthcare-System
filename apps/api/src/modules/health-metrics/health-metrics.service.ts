@@ -21,7 +21,15 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UsersService } from '../users/users.service';
-import { AiAssistantService } from '../ai-assistant/ai-assistant.service';
+import {
+  decodeCursor,
+  encodeCursor,
+  InvalidCursorError,
+} from '../../common/pagination';
+import type {
+  HealthProfileMetric,
+  HealthProfileReader,
+} from './ports/health-profile-reader';
 
 type MetricEntry = {
   value: number;
@@ -54,7 +62,7 @@ type HealthMetricStatisticsAggregation = {
 const BMI_UNIT = 'kg/m2';
 const WATER_INTAKE_CUTOFF_HOUR = 21;
 const HEALTH_METRIC_READ_PROJECTION =
-  '_id patientId type values unit recordedAt createdAt updatedAt';
+  '_id patientId type values unit recordedAt createdAt updatedAt source timezone';
 const LOW_STATUS_KEYWORDS = ['low', 'hypo', 'under', 'below'];
 const METRIC_LABEL_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'Blood Pressure',
@@ -113,14 +121,29 @@ const DEFAULT_UNIT_BY_TYPE: Record<MetricType, string> = {
 };
 
 @Injectable()
-export class HealthMetricsService {
+export class HealthMetricsService implements HealthProfileReader {
   constructor(
     @InjectModel(HealthMetric.name)
     private healthMetricModel: Model<HealthMetricDocument>,
     private notificationsService: NotificationsService,
     private usersService: UsersService,
-    private aiAssistantService: AiAssistantService,
   ) {}
+
+  async readRecentMetrics(
+    patientId: string,
+    limit = 20,
+  ): Promise<HealthProfileMetric[]> {
+    if (!Types.ObjectId.isValid(patientId))
+      throw new BadRequestException('Invalid patient ID');
+    const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+    return this.healthMetricModel
+      .find({ patientId: new Types.ObjectId(patientId) })
+      .select('_id type values unit source timezone recordedAt')
+      .sort({ recordedAt: -1, _id: -1 })
+      .limit(boundedLimit)
+      .lean<HealthProfileMetric[]>()
+      .exec();
+  }
 
   /**
    * 📝 TẠO HEALTH METRIC MỚI
@@ -140,6 +163,8 @@ export class HealthMetricsService {
       type: dto.type,
       values: dto.values,
       unit: resolvedUnit,
+      source: dto.source?.trim().toLowerCase() || 'manual',
+      timezone: dto.timezone?.trim() || 'UTC',
       recordedAt: dto.recordedAt || new Date(),
     });
 
@@ -210,29 +235,65 @@ export class HealthMetricsService {
     }
 
     // Calculate pagination
-    const skip = (query.page - 1) * query.limit;
+    const cursorFilter: Record<string, unknown> = { ...filter };
+    const sortField = query.sortBy || 'recordedAt';
+    const sortOrder = query.sortOrder || -1;
+    if (query.cursor) {
+      try {
+        const cursor = decodeCursor(query.cursor);
+        const cursorDate = new Date(cursor.sortValue);
+        if (Number.isNaN(cursorDate.getTime())) throw new InvalidCursorError();
+        const comparator = sortOrder === 1 ? '$gt' : '$lt';
+        cursorFilter.$or = [
+          { [sortField]: { [comparator]: cursorDate } },
+          {
+            [sortField]: cursorDate,
+            _id: { [comparator]: new Types.ObjectId(cursor.id) },
+          },
+        ];
+      } catch (error) {
+        if (error instanceof InvalidCursorError)
+          throw new BadRequestException('Invalid metric cursor');
+        throw error;
+      }
+    }
+    const skip = query.cursor ? 0 : (query.page - 1) * query.limit;
     const sort = {
-      [query.sortBy || 'recordedAt']: query.sortOrder || -1,
-      _id: query.sortOrder || -1,
+      [sortField]: sortOrder,
+      _id: sortOrder,
     };
 
     // Execute query
     const [data, total] = await Promise.all([
       this.healthMetricModel
-        .find(filter)
+        .find(cursorFilter)
         .select(HEALTH_METRIC_READ_PROJECTION)
         .sort(sort)
         .skip(skip)
-        .limit(query.limit)
+        .limit(query.limit + 1)
         .lean()
         .exec(),
       this.healthMetricModel.countDocuments(filter),
     ]);
+    const hasNextPage = data.length > query.limit;
+    const items = hasNextPage ? data.slice(0, query.limit) : data;
+    const last = items.at(-1) as
+      | { recordedAt?: Date; createdAt?: Date; _id?: Types.ObjectId }
+      | undefined;
+    const lastSortValue = last?.[sortField];
 
     return {
       statusCode: 200,
       message: 'Health metrics retrieved successfully',
-      data,
+      data: items,
+      nextCursor:
+        hasNextPage && lastSortValue && last?._id
+          ? encodeCursor({
+              sortValue: lastSortValue.toISOString(),
+              id: String(last._id),
+            })
+          : null,
+      hasNextPage,
       pagination: {
         page: query.page,
         limit: query.limit,
@@ -303,6 +364,8 @@ export class HealthMetricsService {
     Object.assign(metric, {
       ...dto,
       unit: resolvedUnit,
+      source: dto.source?.trim().toLowerCase() || metric.source || 'manual',
+      timezone: dto.timezone?.trim() || metric.timezone || 'UTC',
     });
     await metric.save();
 
@@ -418,17 +481,9 @@ export class HealthMetricsService {
     const metricLabel = METRIC_LABEL_BY_TYPE[metricType] || metricType;
     const statusLabel = evaluation?.status ?? 'Outside safe threshold';
 
-    let advice = `${statusLabel}: ${metricLabel} is outside safe threshold.`;
-
     const metricValue = this.extractMetricNumericValue(metricType, values);
     const metricUnit = this.resolveUnitForType(metricType);
-
-    advice = await this.aiAssistantService.getAiNotificationAlert({
-      modelName: 'gemini-2.5-flash',
-      metricType: metricLabel,
-      metricValue,
-      metricUnit,
-    });
+    const advice = `${statusLabel}: ${metricLabel} (${metricValue} ${metricUnit}) is outside the configured safe threshold. This is an advisory notification, not a diagnosis. Please contact a healthcare professional if you have concerning symptoms.`;
 
     const notification = await this.notificationsService.create(userId, {
       userId: userId,
@@ -640,7 +695,11 @@ export class HealthMetricsService {
   /**
    * 📈 LẤY STATISTICS
    */
-  async getStatistics(userId: string, type: string) {
+  async getStatistics(
+    userId: string,
+    type: string,
+    query?: QueryHealthMetricDto,
+  ) {
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
     }
@@ -651,14 +710,32 @@ export class HealthMetricsService {
 
     const metricType = type as MetricType;
     const primaryValueKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
+    const statisticsMatch: Record<string, unknown> = {
+      patientId: new Types.ObjectId(userId),
+      type: metricType,
+    };
+    const endDate = query?.endDate ? new Date(query.endDate) : new Date();
+    const startDate = query?.startDate
+      ? new Date(query.startDate)
+      : new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime()) ||
+      startDate > endDate
+    ) {
+      throw new BadRequestException('Invalid statistics date range');
+    }
+    if (endDate.getTime() - startDate.getTime() > 366 * 24 * 60 * 60 * 1000) {
+      throw new BadRequestException(
+        'Statistics date range must not exceed 366 days',
+      );
+    }
+    statisticsMatch.recordedAt = { $gte: startDate, $lte: endDate };
     const [result] =
       await this.healthMetricModel.aggregate<HealthMetricStatisticsAggregation>(
         [
           {
-            $match: {
-              patientId: new Types.ObjectId(userId),
-              type: metricType,
-            },
+            $match: statisticsMatch,
           },
           { $sort: { recordedAt: -1, _id: -1 } },
           {

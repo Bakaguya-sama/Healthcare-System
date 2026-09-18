@@ -106,6 +106,10 @@ export class UpdateConversationDto {
 }
 
 export class QueryConversationDto extends PageSortQueryDto {
+  @ApiProperty({ required: false, description: 'Opaque cursor for conversation history' })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
   @ApiProperty({ required: false })
   @IsOptional()
   @IsEnum(ConversationType)
@@ -150,15 +154,19 @@ export class QueryConversationDto extends PageSortQueryDto {
 }
 
 export class QueryConversationMessageDto extends PageSortQueryDto {
+  @ApiProperty({ required: false, description: 'Opaque cursor for embedded message history' })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
   @ApiProperty({ example: '65e456def789abc012345678', required: false })
   @IsOptional()
   @IsMongoId()
   conversationId?: string;
 
-  @ApiProperty({ enum: ['sentAt', 'createdAt'], required: false })
+  @ApiProperty({ enum: ['timestamp'], required: false })
   @IsOptional()
-  @IsIn(['sentAt', 'createdAt'])
-  sortBy: 'sentAt' | 'createdAt' = 'sentAt';
+  @IsIn(['timestamp'])
+  sortBy = 'timestamp' as const;
 }
 
 export class SearchConversationDto extends QueryConversationDto {
@@ -177,8 +185,4 @@ export class AiHealthProfileSummaryDto {
   @IsObject()
   patientProfile?: any;
 
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsArray()
-  recentMetrics?: any;
 }

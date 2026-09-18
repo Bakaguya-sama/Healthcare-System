@@ -5,6 +5,8 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
+  Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -15,7 +17,12 @@ import {
   AiConversationDocument,
   ConversationType,
   MessageRole,
+  ConversationMessage,
 } from './entities/ai-conversation.entity';
+import {
+  AiConversationMessage,
+  AiConversationMessageDocument,
+} from './entities/ai-conversation-message.entity';
 import {
   StartConversationDto,
   AiSendMessageDto,
@@ -26,7 +33,6 @@ import {
   QueryConversationMessageDto,
   AiHealthProfileSummaryDto,
 } from './dto/conversation.dto';
-import { Message, MessageDocument } from '../chat/entities/message.entity';
 import { RagRetrievalService } from '../rag/services/rag-retrieval.service';
 import { ContextBuilderService } from '../rag/services/context-builder.service';
 import { Citation } from '../rag/interfaces/context-builder.interface';
@@ -34,11 +40,17 @@ import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import {
-  GenerateHealthMetricNotiInput,
-  GenerateHealthProfileSummary,
-} from './services/llm-gateway.service';
+import { GenerateHealthProfileSummary } from './services/llm-gateway.service';
 import { toLiteralCaseInsensitiveRegex } from '../../common/query/search-pattern';
+import {
+  decodeCursor,
+  encodeCursor,
+  InvalidCursorError,
+} from '../../common/pagination';
+import { AiResponseOrchestrator } from './services/ai-response-orchestrator.service';
+import { AiSafetyService } from './services/ai-safety.service';
+import { HEALTH_PROFILE_READER } from '../health-metrics/ports/health-profile-reader';
+import type { HealthProfileReader } from '../health-metrics/ports/health-profile-reader';
 
 type UploadedMedicalImage = {
   mimetype?: string;
@@ -59,9 +71,9 @@ type UploadedImageMetadata = {
 
 const AI_CONVERSATION_LIST_PROJECTION =
   '_id userId type topic summary followUpAction totalTokens totalMessages lastMessageAt isArchived archivedAt isFavorite rating status completedAt tags createdAt updatedAt';
-const AI_CONVERSATION_DETAIL_PROJECTION = `${AI_CONVERSATION_LIST_PROJECTION} messages ratingComment`;
-const AI_CONVERSATION_MESSAGE_READ_PROJECTION =
-  '_id doctorSessionId senderId senderType content attachments sentAt createdAt updatedAt';
+const AI_CONVERSATION_DETAIL_PROJECTION = `${AI_CONVERSATION_LIST_PROJECTION} ratingComment`;
+const AI_MESSAGE_READ_PROJECTION =
+  '_id conversationId role content timestamp attachments sentiment tokens createdAt updatedAt';
 
 @Injectable()
 export class AiAssistantService {
@@ -70,6 +82,8 @@ export class AiAssistantService {
   constructor(
     @InjectModel(AiConversation.name)
     private aiConversationModel: Model<AiConversationDocument>,
+    @InjectModel(AiConversationMessage.name)
+    private aiConversationMessageModel: Model<AiConversationMessageDocument>,
     private configService: ConfigService,
     private readonly ragRetrievalService: RagRetrievalService,
     private readonly contextBuilderService: ContextBuilderService,
@@ -77,7 +91,11 @@ export class AiAssistantService {
     private readonly promptBuilderService: PromptBuilderService,
     private readonly llmGatewayService: LlmGatewayService,
     private readonly cloudinaryService: CloudinaryService,
-    @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
+    @Optional() private readonly responseOrchestrator?: AiResponseOrchestrator,
+    @Optional() private readonly aiSafetyService?: AiSafetyService,
+    @Optional()
+    @Inject(HEALTH_PROFILE_READER)
+    private readonly healthProfileReader?: HealthProfileReader,
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     this.logger.log(
@@ -90,6 +108,10 @@ export class AiAssistantService {
         '[AI Assistant] WARNING: GEMINI_API_KEY is not properly configured',
       );
     }
+  }
+
+  private get responseGateway(): AiResponseOrchestrator | LlmGatewayService {
+    return this.responseOrchestrator ?? this.llmGatewayService;
   }
 
   private async buildRagContext(query: string): Promise<{
@@ -347,21 +369,21 @@ export class AiAssistantService {
       throw new BadRequestException('Invalid user ID');
     }
 
+    const timestamp = new Date();
     const conversation = await this.aiConversationModel.create({
       userId: new Types.ObjectId(userId),
       type: dto.type || ConversationType.GENERAL_CONSULTATION,
       topic: dto.initialQuestion,
-      messages: [
-        {
-          role: MessageRole.USER,
-          content: dto.initialQuestion,
-          timestamp: new Date(),
-        },
-      ],
       messageCount: 1,
-      lastMessageAt: new Date(),
+      lastMessageAt: timestamp,
       tags: dto.tags || [],
       status: 'active',
+    });
+    await this.aiConversationMessageModel.create({
+      conversationId: conversation._id,
+      role: MessageRole.USER,
+      content: dto.initialQuestion,
+      timestamp,
     });
 
     return {
@@ -387,9 +409,14 @@ export class AiAssistantService {
       throw new BadRequestException('Invalid conversation ID');
     }
 
-    const conversation = await this.aiConversationModel.findById(
-      new Types.ObjectId(conversationId),
-    );
+    const conversation = await this.aiConversationModel
+      .findOne({
+        _id: new Types.ObjectId(conversationId),
+        userId: new Types.ObjectId(userId),
+      })
+      .select('_id type rating createdAt updatedAt totalTokensUsed')
+      .lean()
+      .exec();
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -401,7 +428,18 @@ export class AiAssistantService {
       );
     }
 
-    const normalizedMessage = dto.message?.trim() ?? '';
+    const recentMessages = await this.aiConversationMessageModel
+      .find({ conversationId: conversation._id })
+      .select(AI_MESSAGE_READ_PROJECTION)
+      .sort({ timestamp: -1, _id: -1 })
+      .limit(30)
+      .lean<ConversationMessage[]>()
+      .exec();
+    const conversationHistory = recentMessages.reverse();
+
+    const normalizedMessage = this.aiSafetyService
+      ? this.aiSafetyService.normalizeUserMessage(dto.message)
+      : (dto.message?.trim() ?? '');
     const normalizedImages = (images ?? []).filter(Boolean);
 
     if (!normalizedMessage && normalizedImages.length === 0) {
@@ -428,15 +466,14 @@ export class AiAssistantService {
         this.promptBuilderService.getImageDescriptionPrompt();
 
       try {
-        imageDescription =
-          await this.llmGatewayService.generateImageDescription({
-            modelName: 'gemini-2.5-flash-lite',
-            systemInstruction: descriptionPrompt,
-            userImages: uploadedImages.map((img) => ({
-              mimeType: img.mimeType,
-              base64Data: img.base64Data,
-            })),
-          });
+        imageDescription = await this.responseGateway.generateImageDescription({
+          modelName: 'gemini-2.5-flash-lite',
+          systemInstruction: descriptionPrompt,
+          userImages: uploadedImages.map((img) => ({
+            mimeType: img.mimeType,
+            base64Data: img.base64Data,
+          })),
+        });
 
         const parts = imageDescription
           .split(/\n\s*(?=Image\s+\d+\s*:)/i)
@@ -467,8 +504,7 @@ export class AiAssistantService {
       }
     }
 
-    // Add user message to history
-    conversation.messages.push({
+    const userMessage: ConversationMessage = {
       role: MessageRole.USER,
       content: messageContent,
       timestamp: new Date(),
@@ -484,7 +520,7 @@ export class AiAssistantService {
               description: imageDescriptions[index] || imageDescription,
             }))
           : undefined,
-    });
+    };
 
     // BƯỚC 2: Dùng truy vấn đã được làm giàu để tìm kiếm tài liệu RAG
     const ragContext = ragQuery
@@ -496,9 +532,10 @@ export class AiAssistantService {
           confidence: 0,
         };
 
-    const chatHistory = this.promptBuilderService.buildChatHistory(
-      conversation.messages,
-    );
+    const chatHistory = this.promptBuilderService.buildChatHistory([
+      ...conversationHistory,
+      userMessage,
+    ]);
 
     try {
       let userPromptForModel = '';
@@ -537,7 +574,7 @@ export class AiAssistantService {
 
       // BƯỚC 4: Gọi LLM để tạo câu trả lời cuối cùng.
       // Không cần gửi lại ảnh vì thông tin đã được chuyển thành văn bản trong prompt.
-      const aiResponse = await this.llmGatewayService.generateMedicalAnswer({
+      const aiResponse = await this.responseGateway.generateMedicalAnswer({
         modelName: 'gemini-2.5-flash-lite',
         systemInstruction,
         history: chatHistory.slice(0, -1),
@@ -562,21 +599,18 @@ export class AiAssistantService {
         cleanAiResponse ||
         'Xin lỗi, hệ thống đang bận xử lý logic. Vui lòng thử lại.';
 
-      // Add AI response to history
-      conversation.messages.push({
+      const assistantMessage: ConversationMessage = {
         role: MessageRole.ASSISTANT,
         content: finalAiResponse,
         timestamp: new Date(),
-      });
+      };
 
       if (
         conversation.messageCount <= 1 ||
         this.isGenericGreeting(conversation.topic)
       ) {
-        const lastAssistantMessage =
-          conversation.messages[conversation.messages.length - 1];
-        const lastUserMessage = conversation.messages
-          .slice(0, -1)
+        const lastAssistantMessage = assistantMessage;
+        const lastUserMessage = [...conversationHistory, userMessage]
           .reverse()
           .find(
             (message) =>
@@ -594,12 +628,10 @@ export class AiAssistantService {
 
           if (topicCandidate.length > maxTopicLength) {
             try {
-              const summary = await this.llmGatewayService.generateTopicSummary(
-                {
-                  modelName: 'gemini-2.5-flash-lite',
-                  text: topicCandidate,
-                },
-              );
+              const summary = await this.responseGateway.generateTopicSummary({
+                modelName: 'gemini-2.5-flash-lite',
+                text: topicCandidate,
+              });
               finalTopic = this.sanitizeTopicSummary(summary, maxTopicLength);
             } catch (error) {
               this.logger.warn(
@@ -616,12 +648,30 @@ export class AiAssistantService {
         }
       }
 
-      conversation.messageCount = conversation.messages.length;
-      conversation.lastMessageAt = new Date();
-      conversation.totalTokensUsed +=
-        Math.ceil(messageContent.length / 4) + Math.ceil(aiResponse.length / 4);
-
-      await conversation.save();
+      const responseTimestamp = new Date();
+      assistantMessage.timestamp = responseTimestamp;
+      await this.aiConversationMessageModel.insertMany([
+        { ...userMessage, conversationId: conversation._id },
+        { ...assistantMessage, conversationId: conversation._id },
+      ]);
+      const updatedConversation = await this.aiConversationModel
+        .findByIdAndUpdate(
+          conversation._id,
+          {
+            $set: {
+              topic: conversation.topic,
+              lastMessageAt: responseTimestamp,
+            },
+            $inc: {
+              messageCount: 2,
+              totalTokensUsed:
+                Math.ceil(messageContent.length / 4) +
+                Math.ceil(aiResponse.length / 4),
+            },
+          },
+          { new: true },
+        )
+        .exec();
 
       return {
         statusCode: 200,
@@ -635,7 +685,8 @@ export class AiAssistantService {
             secureUrl: uploadedImage.secureUrl,
           })),
           finalAiResponse,
-          messageCount: conversation.messageCount,
+          messageCount:
+            updatedConversation?.messageCount ?? conversation.messageCount + 2,
           groundedByRag: ragContext.hasRelevantSource,
           citations: ragContext.citations,
           confidence: ragContext.confidence,
@@ -689,23 +740,24 @@ export class AiAssistantService {
     }
   }
 
-  async getAiNotificationAlert(input: GenerateHealthMetricNotiInput) {
-    this.logger.log('[AI Assistant] Generating health metric notifications...');
-    const aiResponse = await this.llmGatewayService.generateAINotificationAlert(
-      {
-        ...input,
-      },
-    );
-    return aiResponse;
-  }
-
-  async getHealthProfileSummary(input: AiHealthProfileSummaryDto) {
+  async getHealthProfileSummary(
+    userId: string,
+    input: AiHealthProfileSummaryDto,
+  ) {
+    if (!Types.ObjectId.isValid(userId))
+      throw new BadRequestException('Invalid user ID');
+    if (!this.healthProfileReader) {
+      throw new BadRequestException('Health profile reader is unavailable');
+    }
     this.logger.log('[AI Assistant] Generating health profile summary...');
-    const aiResponse =
-      await this.llmGatewayService.generateHealthProfileSummary({
-        patientProfile: input.patientProfile,
-        recentMetrics: input.recentMetrics,
-      });
+    const recentMetrics = await this.healthProfileReader.readRecentMetrics(
+      userId,
+      30,
+    );
+    const aiResponse = await this.responseGateway.generateHealthProfileSummary({
+      patientProfile: input.patientProfile,
+      recentMetrics,
+    });
     return aiResponse;
   }
 
@@ -737,10 +789,6 @@ export class AiAssistantService {
       filter.isArchived = query.isArchived;
     }
 
-    if (query.isArchived !== undefined) {
-      filter.isArchived = query.isArchived;
-    }
-
     if (query.startDate || query.endDate) {
       filter.createdAt = {};
       if (query.startDate) {
@@ -757,25 +805,32 @@ export class AiAssistantService {
 
     if (query.searchQuery) {
       const searchPattern = toLiteralCaseInsensitiveRegex(query.searchQuery);
-      filter.$or = [
-        { topic: searchPattern },
-        { summary: searchPattern },
-      ];
+      filter.$or = [{ topic: searchPattern }, { summary: searchPattern }];
     }
 
-    const skip = (query.page - 1) * query.limit;
-    const sortField =
-      typeof query.sortBy === 'string' && query.sortBy.trim().length > 0
-        ? query.sortBy
-        : 'createdAt';
-    const rawSortOrder = query.sortOrder;
-    const parsedSortOrder =
-      typeof rawSortOrder === 'number'
-        ? rawSortOrder
-        : typeof rawSortOrder === 'string'
-          ? Number.parseInt(rawSortOrder, 10)
-          : -1;
-    const sortOrder = Number.isNaN(parsedSortOrder) ? -1 : parsedSortOrder;
+    const cursorFilter: Record<string, unknown> = { ...filter };
+    const sortField = query.sortBy || 'createdAt';
+    const sortOrder = query.sortOrder || -1;
+    if (query.cursor) {
+      try {
+        const cursor = decodeCursor(query.cursor);
+        const cursorDate = new Date(cursor.sortValue);
+        if (Number.isNaN(cursorDate.getTime())) throw new InvalidCursorError();
+        const comparator = sortOrder === 1 ? '$gt' : '$lt';
+        cursorFilter.$or = [
+          { [sortField]: { [comparator]: cursorDate } },
+          {
+            [sortField]: cursorDate,
+            _id: { [comparator]: new Types.ObjectId(cursor.id) },
+          },
+        ];
+      } catch (error) {
+        if (error instanceof InvalidCursorError)
+          throw new BadRequestException('Invalid conversation cursor');
+        throw error;
+      }
+    }
+    const skip = query.cursor ? 0 : (query.page - 1) * query.limit;
     const sort: any = {
       [sortField]: sortOrder,
       _id: sortOrder,
@@ -783,20 +838,34 @@ export class AiAssistantService {
 
     const [conversations, total] = await Promise.all([
       this.aiConversationModel
-        .find(filter)
+        .find(cursorFilter)
         .select(AI_CONVERSATION_LIST_PROJECTION)
         .sort(sort)
         .skip(skip)
-        .limit(query.limit)
+        .limit(query.limit + 1)
         .lean()
         .exec(),
       this.aiConversationModel.countDocuments(filter),
     ]);
 
+    const hasNextPage = conversations.length > query.limit;
+    const data = hasNextPage
+      ? conversations.slice(0, query.limit)
+      : conversations;
+    const last = data.at(-1) as Record<string, unknown> | undefined;
+    const sortValue = last?.[query.sortBy || 'createdAt'];
     return {
       statusCode: 200,
       message: 'Conversations retrieved successfully',
-      data: conversations,
+      data,
+      nextCursor:
+        hasNextPage && sortValue && last?._id
+          ? encodeCursor({
+              sortValue: new Date(sortValue as string | Date).toISOString(),
+              id: (last._id as { toString(): string }).toString(),
+            })
+          : null,
+      hasNextPage,
       pagination: {
         page: query.page,
         limit: query.limit,
@@ -821,8 +890,12 @@ export class AiAssistantService {
       throw new BadRequestException('Invalid conversation ID');
     }
 
+    const conversationObjectId = new Types.ObjectId(conversationId);
     const conversation = await this.aiConversationModel
-      .findById(new Types.ObjectId(conversationId))
+      .findOne({
+        _id: conversationObjectId,
+        userId: new Types.ObjectId(userId),
+      })
       .select(AI_CONVERSATION_DETAIL_PROJECTION)
       .lean()
       .exec();
@@ -831,35 +904,62 @@ export class AiAssistantService {
       throw new NotFoundException('Conversation not found');
     }
 
-    if (conversation.userId.toString() !== userId) {
-      throw new ForbiddenException(
-        'You are not authorized to access this conversation',
-      );
-    }
-
-    const filter = {
-      conversationId: new Types.ObjectId(conversationId),
+    const sortOrder = query.sortOrder || -1;
+    const comparator = sortOrder === 1 ? '$gt' : '$lt';
+    const messageFilter: Record<string, unknown> = {
+      conversationId: conversationObjectId,
     };
-
-    const skip = (query.page - 1) * query.limit;
-
-    const [messages, total] = await Promise.all([
-      this.messageModel
-        .find(filter)
-        .select(AI_CONVERSATION_MESSAGE_READ_PROJECTION)
-        .sort({ sentAt: 'desc' as any, _id: 'desc' })
+    if (query.cursor) {
+      try {
+        const cursor = decodeCursor(query.cursor);
+        const cursorDate = new Date(cursor.sortValue);
+        if (Number.isNaN(cursorDate.getTime())) throw new InvalidCursorError();
+        messageFilter.$or = [
+          { timestamp: { [comparator]: cursorDate } },
+          {
+            timestamp: cursorDate,
+            _id: { [comparator]: new Types.ObjectId(cursor.id) },
+          },
+        ];
+      } catch (error) {
+        if (error instanceof InvalidCursorError)
+          throw new BadRequestException('Invalid conversation message cursor');
+        throw error;
+      }
+    }
+    const skip = query.cursor ? 0 : (query.page - 1) * query.limit;
+    const [rows, total] = await Promise.all([
+      this.aiConversationMessageModel
+        .find(messageFilter)
+        .select(AI_MESSAGE_READ_PROJECTION)
+        .sort({ timestamp: sortOrder, _id: sortOrder })
         .skip(skip)
-        .limit(query.limit)
+        .limit(query.limit + 1)
         .lean()
         .exec(),
-      this.messageModel.countDocuments(filter),
+      this.aiConversationMessageModel.countDocuments({
+        conversationId: conversationObjectId,
+      }),
     ]);
+    const hasNextPage = rows.length > query.limit;
+    const messages = hasNextPage ? rows.slice(0, query.limit) : rows;
+    const lastMessage = messages.at(-1) as
+      | { timestamp?: Date; _id?: Types.ObjectId }
+      | undefined;
 
     return {
       statusCode: 200,
       message: 'Conversation retrieved successfully',
       data: conversation,
       messages,
+      nextCursor:
+        hasNextPage && lastMessage && lastMessage.timestamp && lastMessage._id
+          ? encodeCursor({
+              sortValue: new Date(lastMessage.timestamp).toISOString(),
+              id: String(lastMessage._id),
+            })
+          : null,
+      hasNextPage,
       pagination: {
         page: query.page,
         limit: query.limit,
@@ -1075,30 +1175,38 @@ export class AiAssistantService {
       throw new NotFoundException('Conversation not found');
     }
 
-    if (conversation.userId.toString() !== userId) {
-      throw new ForbiddenException(
-        'You are not authorized to access this conversation',
-      );
-    }
-
-    const userMessages = conversation.messages.filter(
-      (m) => m.role === MessageRole.USER,
-    );
-    const assistantMessages = conversation.messages.filter(
-      (m) => m.role === MessageRole.ASSISTANT,
-    );
+    const [stats] = await this.aiConversationMessageModel.aggregate([
+      { $match: { conversationId: new Types.ObjectId(conversationId) } },
+      {
+        $project: {
+          role: 1,
+          contentLength: { $strLenCP: { $ifNull: ['$content', ''] } },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalMessages: { $sum: 1 },
+          userMessages: {
+            $sum: { $cond: [{ $eq: ['$role', MessageRole.USER] }, 1, 0] },
+          },
+          assistantMessages: {
+            $sum: { $cond: [{ $eq: ['$role', MessageRole.ASSISTANT] }, 1, 0] },
+          },
+          averageMessageLength: { $avg: '$contentLength' },
+        },
+      },
+    ]);
 
     return {
       statusCode: 200,
       message: 'Conversation statistics retrieved successfully',
       data: {
-        totalMessages: conversation.messages.length,
-        userMessages: userMessages.length,
-        assistantMessages: assistantMessages.length,
-        totalTokensUsed: conversation.totalTokensUsed,
-        averageMessageLength:
-          conversation.messages.reduce((sum, m) => sum + m.content.length, 0) /
-          (conversation.messages.length || 1),
+        totalMessages: stats?.totalMessages ?? 0,
+        userMessages: stats?.userMessages ?? 0,
+        assistantMessages: stats?.assistantMessages ?? 0,
+        totalTokensUsed: conversation.totalTokensUsed ?? 0,
+        averageMessageLength: stats?.averageMessageLength ?? 0,
         conversationType: conversation.type,
         rating: conversation.rating,
         createdAt: conversation.createdAt,

@@ -710,8 +710,6 @@ Exit gate:
 
 Ước lượng: **7-10 person-days**.
 
-Trạng thái triển khai: **Done 2026-09-18**. BE-RF-041–044 đã được thực hiện; migration RF-7 phải chạy trước khi bật canonical-only reads. Socket.IO Redis Adapter và E2E/load proof vẫn là follow-up trước RF-10, không phải blocker của RF-7.
-
 ### RF-5 — Refactor Identity và Practitioner hiện có
 
 Trạng thái: **DONE — 2026-09-17** (`BE-RF-030` đến `BE-RF-032`). Evidence: `docs/current-state/rf5-identity-doctor.md`. Trong code dùng tên `DoctorDirectoryService`, `QueryDoctorsDto` và `searchDoctors()` thay cho thuật ngữ tổng quát Practitioner.
@@ -849,6 +847,14 @@ Exit gate:
 
 Ước lượng: **7-10 person-days**.
 
+Trạng thái RF-7: **CORE IMPLEMENTATION DONE ngày 2026-09-18** (`BE-RF-041`–`BE-RF-044`, commit `e9f8733`). Migration RF-7 phải chạy trước khi bật canonical-only reads.
+
+Audit exit gate ngày 2026-09-18:
+
+- Đạt: consultation ownership, participant room authorization, shared JWT helper, CORS allowlist, message idempotency, cursor message/review history, Redis presence TTL/heartbeat, review uniqueness/completed rule, helpful/flag mutation, typecheck/build/lint và 13 test suites/60 tests.
+- Còn follow-up trước khi coi RF-7 **release-ready hoàn toàn**: socket authorization/retry E2E chuyên biệt, Mongo transaction/replica proof cho review-rating projection, staging explain/load baseline, và Socket.IO Redis Adapter sau multi-instance proof.
+- RF-7 được ghi nhận hoàn tất phần lõi; các follow-up trên phải đóng trong RF-10/integration gate, không mở rộng thêm nghiệp vụ RF-7.
+
 ### RF-8 — Refactor Health Tracking và AI/RAG hiện có
 
 Mục tiêu: chia nhỏ service và làm rõ ownership nhưng giữ output nghiệp vụ hiện tại.
@@ -892,6 +898,13 @@ Exit gate:
 - Health/AI queries không còn unbounded statistics/history và có explain baseline cho hot paths.
 
 Ước lượng: **7-11 person-days**.
+
+Trạng thái RF-8: **IMPLEMENTATION DONE ngày 2026-09-18**. HealthMetric có metadata (`source`, `timezone`), cursor history stable, bounded projection và statistics range mặc định/tối đa. `HealthProfileReader` được AI dùng trực tiếp; Health alert không còn phụ thuộc AI. `AiConversation` là metadata canonical và `AiConversationMessage` là history canonical có DB-native cursor. Migration `202609182400` idempotent extract embedded history, migrate `AiSession`/`AiMessage`, rồi legacy runtime modules/`AiHealthInsights` được gỡ khỏi AppModule. RAG retrieval đi qua `VectorSearchPort`; blacklist cache-aside được dùng ở prompt path và invalidates khi thay đổi.
+
+Audit exit gate:
+
+- Đạt: typecheck/build/lint, 13 test suites/60 tests; migration local apply/no-op pass; health statistics không hydrate toàn bộ history; Health/AI dependency direction rõ; RAG provider đi qua `VectorSearchPort`; blacklist lookup có TTL cache/invalidation; message history DB-native cursor; local structural explain chọn IXSCAN cho ba hot query.
+- Follow-up vận hành trước release: chạy query catalog/load test với fixture đại diện trên staging để ghi p95/keys/docs examined, rồi chỉ drop legacy collections sau retention window/backup/consumer audit. Đây không mở lại scope code RF-8.
 
 ### RF-9 — Refactor Notification và background processing hiện có
 
@@ -1637,8 +1650,8 @@ Thực hiện đúng thứ tự:
 8. [x] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`) — 2026-09-17.
 9. [x] Tạo DatabaseModule, migration runner, verifier, DB bootstrap và Redis/health lifecycle (`BE-RF-020` đến `BE-RF-022`) — 2026-09-17.
 10. [ ] Refactor Identity/Practitioner và query của chúng (`BE-RF-030` đến `BE-RF-032`).
-11. [ ] Chuyển old request flow, Message/Review/Realtime và tối ưu query (`BE-RF-040` đến `BE-RF-044`).
-12. [ ] Refactor Health/AI cùng query aggregation/search (`BE-RF-050` đến `BE-RF-052`).
+11. [x] Chuyển old request flow, Message/Review/Realtime và tối ưu query (`BE-RF-040` đến `BE-RF-044`) — core done 2026-09-18; follow-up exit gates được ghi ở RF-7.
+12. [x] Refactor Health/AI cùng query aggregation/search (`BE-RF-050` đến `BE-RF-052`) — implementation/migration/cutover complete 2026-09-18; staging performance evidence là release gate vận hành.
 13. [ ] Refactor Notification/Outbox cùng cursor/bounded claims (`BE-RF-060` đến `BE-RF-062`).
 14. [ ] Chỉ nhận cache task `BE-RF-063` nếu query baseline chứng minh cần; không coi đây là P0.
 15. [ ] Chỉ sau các gate tương ứng mới nhận `BE-NF-010` trở đi.

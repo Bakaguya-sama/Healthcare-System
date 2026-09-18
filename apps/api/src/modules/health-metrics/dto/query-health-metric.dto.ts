@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsMongoId,
   IsIn,
+  IsString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { MetricType } from '../entities/health-metric.entity';
@@ -13,6 +14,10 @@ export const HEALTH_METRIC_SORT_FIELDS = ['recordedAt', 'createdAt'] as const;
 export type HealthMetricSortField = (typeof HEALTH_METRIC_SORT_FIELDS)[number];
 
 export class QueryHealthMetricDto extends PageSortQueryDto {
+  @ApiProperty({ required: false, description: 'Opaque cursor for metric history' })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
   @ApiProperty({ enum: MetricType, required: false })
   @IsEnum(MetricType)
   @IsOptional()

@@ -6,22 +6,29 @@ import {
   AiConversation,
   AiConversationSchema,
 } from './entities/ai-conversation.entity';
+import {
+  AiConversationMessage,
+  AiConversationMessageSchema,
+} from './entities/ai-conversation-message.entity';
 import { RagModule } from '../rag/rag.module';
-import { Message, MessageSchema } from '../chat/entities/message.entity';
+import { HealthMetricsModule } from '../health-metrics/health-metrics.module';
 
 import { MedicalAnsweringService } from './services/medical-answering.service';
 import { PromptBuilderService } from './services/prompt-builder.service';
 import { LlmGatewayService } from './services/llm-gateway.service';
 import { BlacklistKeywordsModule } from '../blacklist-keywords/blacklist-keywords.module';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { AiResponseOrchestrator } from './services/ai-response-orchestrator.service';
+import { AiSafetyService } from './services/ai-safety.service';
 
 @Module({
   imports: [
     RagModule,
+    HealthMetricsModule,
     BlacklistKeywordsModule,
     MongooseModule.forFeature([
       { name: AiConversation.name, schema: AiConversationSchema },
-      { name: Message.name, schema: MessageSchema },
+      { name: AiConversationMessage.name, schema: AiConversationMessageSchema },
     ]),
   ],
   controllers: [AiAssistantController],
@@ -31,6 +38,8 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
     PromptBuilderService,
     LlmGatewayService,
     CloudinaryService,
+    AiResponseOrchestrator,
+    AiSafetyService,
   ],
   exports: [AiAssistantService],
 })

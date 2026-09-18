@@ -49,19 +49,10 @@ export class PromptBuilderService implements IPromptBuilder {
   constructor(private blacklistKeywordsService: BlacklistKeywordsService) {}
 
   private async getBlacklistWord(): Promise<string> {
-    const list = await this.blacklistKeywordsService.findAll({
-      page: 1,
-      limit: 100,
-      search: '',
-      sortBy: 'createdAt',
-      sortOrder: -1,
-    });
+    const keywords = await this.blacklistKeywordsService.getActiveKeywords();
+    if (keywords.length === 0) return '';
 
-    if (list.data.length === 0) return '';
-
-    return list.data
-      .map((item) => item.keyword?.trim())
-      .filter((keyword): keyword is string => Boolean(keyword))
+    return keywords
       .map((keyword) => `- ${keyword}`)
       .join('\n');
   }

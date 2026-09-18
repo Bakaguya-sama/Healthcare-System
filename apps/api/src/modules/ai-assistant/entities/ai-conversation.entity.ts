@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Types } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export enum ConversationType {
   HEALTH_INQUIRY = 'health_inquiry',
@@ -47,7 +47,7 @@ export interface FollowUpAction {
   priority: 'low' | 'medium' | 'high';
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, collection: 'aiconversations' })
 export class AiConversation {
   @Prop({ type: Types.ObjectId, required: true })
   userId: Types.ObjectId;
@@ -58,9 +58,6 @@ export class AiConversation {
     default: ConversationType.GENERAL_CONSULTATION,
   })
   type: ConversationType;
-
-  @Prop({ type: [Object], default: [] })
-  messages: ConversationMessage[];
 
   @Prop({ type: String, required: true, minlength: 5, maxlength: 500 })
   topic: string;
@@ -79,6 +76,10 @@ export class AiConversation {
 
   @Prop({ type: Date })
   lastMessageAt: Date;
+
+  /** Idempotency key used only while migrating the retired AiSession collection. */
+  @Prop({ type: Types.ObjectId, sparse: true })
+  legacyAiSessionId?: Types.ObjectId;
 
   @Prop({ type: Boolean, default: false })
   isArchived: boolean;
@@ -124,6 +125,18 @@ export const AiConversationSchema =
 AiConversationSchema.index(
   { userId: 1, createdAt: -1, _id: -1 },
   { name: 'userId_1_createdAt_-1__id_-1' },
+);
+AiConversationSchema.index(
+  { userId: 1, lastMessageAt: -1, _id: -1 },
+  { name: 'userId_1_lastMessageAt_-1__id_-1' },
+);
+AiConversationSchema.index(
+  { userId: 1, status: 1, lastMessageAt: -1, _id: -1 },
+  { name: 'userId_1_status_1_lastMessageAt_-1__id_-1' },
+);
+AiConversationSchema.index(
+  { legacyAiSessionId: 1 },
+  { name: 'legacyAiSessionId_unique', unique: true, sparse: true },
 );
 AiConversationSchema.index(
   { userId: 1, type: 1, createdAt: -1, _id: -1 },

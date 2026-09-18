@@ -37,6 +37,12 @@ export class HealthMetric {
   @Prop({ required: true })
   unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%', 'L'
 
+  @Prop({ type: String, required: true, default: 'manual', maxlength: 40 })
+  source: string;
+
+  @Prop({ type: String, required: true, default: 'UTC', maxlength: 64 })
+  timezone: string;
+
   @Prop({ type: Date, default: () => new Date() })
   recordedAt: Date;
 }

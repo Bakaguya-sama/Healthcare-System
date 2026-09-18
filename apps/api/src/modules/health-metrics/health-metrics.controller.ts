@@ -65,8 +65,9 @@ export class HealthMetricsController {
   async getStatistics(
     @CurrentUser('sub') userId: string,
     @Param('type') type: string,
+    @Query() query: QueryHealthMetricDto,
   ) {
-    return this.healthMetricsService.getStatistics(userId, type);
+    return this.healthMetricsService.getStatistics(userId, type, query);
   }
 
   /**

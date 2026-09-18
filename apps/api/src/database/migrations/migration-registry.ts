@@ -23,6 +23,18 @@ import {
   RF7_CHAT_REVIEWS_NAME,
   RF7_CHAT_REVIEWS_VERSION,
 } from './202609182200-rf7-chat-reviews';
+import {
+  applyRf8HealthAi,
+  RF8_HEALTH_AI_CHECKSUM,
+  RF8_HEALTH_AI_NAME,
+  RF8_HEALTH_AI_VERSION,
+} from './202609182300-rf8-health-ai';
+import {
+  applyRf8AiMessageCutover,
+  RF8_AI_MESSAGE_CUTOVER_CHECKSUM,
+  RF8_AI_MESSAGE_CUTOVER_NAME,
+  RF8_AI_MESSAGE_CUTOVER_VERSION,
+} from './202609182400-rf8-ai-message-cutover';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -48,6 +60,18 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: RF7_CHAT_REVIEWS_NAME,
     checksum: RF7_CHAT_REVIEWS_CHECKSUM,
     up: applyRf7ChatReviews,
+  },
+  {
+    version: RF8_HEALTH_AI_VERSION,
+    name: RF8_HEALTH_AI_NAME,
+    checksum: RF8_HEALTH_AI_CHECKSUM,
+    up: applyRf8HealthAi,
+  },
+  {
+    version: RF8_AI_MESSAGE_CUTOVER_VERSION,
+    name: RF8_AI_MESSAGE_CUTOVER_NAME,
+    checksum: RF8_AI_MESSAGE_CUTOVER_CHECKSUM,
+    up: applyRf8AiMessageCutover,
   },
 ];
 

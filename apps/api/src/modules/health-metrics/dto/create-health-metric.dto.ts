@@ -2,6 +2,7 @@ import {
   IsEnum,
   IsString,
   IsOptional,
+  MaxLength,
   IsDate,
   IsObject,
   ValidatorConstraint,
@@ -110,6 +111,18 @@ export class CreateHealthMetricDto {
   @IsString()
   @IsOptional()
   unit?: string;
+
+  @ApiProperty({ example: 'manual', required: false, description: 'Origin of the reading (manual, device, import)' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(40)
+  source?: string;
+
+  @ApiProperty({ example: 'Asia/Ho_Chi_Minh', required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(64)
+  timezone?: string;
 
   @ApiProperty({ example: '2026-03-16T20:30:00Z', required: false })
   @IsDate()

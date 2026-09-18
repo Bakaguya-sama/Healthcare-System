@@ -238,7 +238,6 @@ describe('legacy critical-flow characterization', () => {
         metricModel as never,
         notifications as never,
         { findById: jest.fn().mockResolvedValue({ gender: 'male' }) } as never,
-        { getAiNotificationAlert: jest.fn() } as never,
       );
 
       const result = await service.create(patientId.toString(), {
@@ -270,7 +269,6 @@ describe('legacy critical-flow characterization', () => {
       };
       const service = new HealthMetricsService(
         metricModel as never,
-        {} as never,
         {} as never,
         {} as never,
       );
@@ -313,7 +311,6 @@ describe('legacy critical-flow characterization', () => {
       ]);
       const service = new HealthMetricsService(
         { aggregate } as never,
-        {} as never,
         {} as never,
         {} as never,
       );
@@ -361,8 +358,12 @@ describe('legacy critical-flow characterization', () => {
       const conversationModel = {
         create: jest.fn().mockResolvedValue(conversation),
       };
+      const conversationMessageModel = {
+        create: jest.fn().mockResolvedValue({ _id: new Types.ObjectId() }),
+      };
       const service = new AiAssistantService(
         conversationModel as never,
+        conversationMessageModel as never,
         { get: jest.fn().mockReturnValue('test-key') } as never,
         {} as never,
         {} as never,
@@ -383,8 +384,11 @@ describe('legacy critical-flow characterization', () => {
       expect(conversationModel.create).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: new Types.ObjectId(patientId.toString()),
-          messages: [expect.objectContaining({ role: MessageRole.USER })],
+          messageCount: 1,
         }),
+      );
+      expect(conversationMessageModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ role: MessageRole.USER, conversationId: conversation._id }),
       );
     });
 

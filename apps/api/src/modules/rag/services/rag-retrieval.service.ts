@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   IRagRetrievalService,
   RetrievalOutput,
   RetrievalQueryInput,
 } from '../interfaces/retrieval.interface';
-import { AtlasVectorStoreService } from './atlas-vector-store.service';
+import { VECTOR_SEARCH_PORT } from '../interfaces/vector-store.interface';
+import type { IVectorStoreService } from '../interfaces/vector-store.interface';
 
 @Injectable()
 export class RagRetrievalService implements IRagRetrievalService {
@@ -13,7 +14,10 @@ export class RagRetrievalService implements IRagRetrievalService {
   private readonly maxLimit = 10;
   private readonly defaultThreshold = 0.85;
 
-  constructor(private readonly vectorStoreService: AtlasVectorStoreService) {}
+  constructor(
+    @Inject(VECTOR_SEARCH_PORT)
+    private readonly vectorStoreService: IVectorStoreService,
+  ) {}
 
   async retrieve(input: RetrievalQueryInput): Promise<RetrievalOutput> {
     const query = input.query?.trim() ?? '';

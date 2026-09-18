@@ -8,7 +8,8 @@ export enum SessionStatus {
 
 export type AiSessionDocument = AiSession & Document;
 
-@Schema({ timestamps: true })
+/** @deprecated Legacy adapter model. Use AiConversation for new AI flows. */
+@Schema({ timestamps: true, collection: 'aisessions' })
 export class AiSession extends Document {
   @Prop({ required: true, type: Types.ObjectId })
   patientId: Types.ObjectId;

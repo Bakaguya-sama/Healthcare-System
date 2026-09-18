@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PageSortQueryDto } from '../../../common/pagination';
 
@@ -20,6 +20,7 @@ export class QueryBlacklistKeywordDto extends PageSortQueryDto {
   @ApiProperty({ required: false, description: 'Search by keyword' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @ApiProperty({ required: false, description: 'Sort field' })

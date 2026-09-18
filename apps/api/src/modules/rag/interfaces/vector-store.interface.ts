@@ -25,3 +25,6 @@ export interface IVectorStoreService {
     limit?: number,
   ): Promise<VectorSearchResult[]>;
 }
+
+/** Application-owned port; the Atlas implementation is an infrastructure adapter. */
+export const VECTOR_SEARCH_PORT = Symbol('VECTOR_SEARCH_PORT');

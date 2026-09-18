@@ -132,6 +132,52 @@ export const MANAGED_DATABASE_INDEXES = [
     key: { roomId: 1 },
     unique: true,
   },
+  {
+    collection: 'messages',
+    name: 'consultationId_1_sentAt_-1__id_-1',
+    key: { consultationId: 1, sentAt: -1, _id: -1 },
+  },
+  {
+    collection: 'reviews',
+    name: 'consultationId_unique',
+    key: { consultationId: 1 },
+    unique: true,
+    sparse: true,
+  },
+  {
+    collection: 'healthmetrics',
+    name: 'patientId_1_type_1_recordedAt_-1__id_-1',
+    key: { patientId: 1, type: 1, recordedAt: -1, _id: -1 },
+  },
+  {
+    collection: 'aiconversations',
+    name: 'userId_1_lastMessageAt_-1__id_-1',
+    key: { userId: 1, lastMessageAt: -1, _id: -1 },
+  },
+  {
+    collection: 'aiconversations',
+    name: 'userId_1_status_1_lastMessageAt_-1__id_-1',
+    key: { userId: 1, status: 1, lastMessageAt: -1, _id: -1 },
+  },
+  {
+    collection: 'aiconversations',
+    name: 'legacyAiSessionId_unique',
+    key: { legacyAiSessionId: 1 },
+    unique: true,
+    sparse: true,
+  },
+  {
+    collection: 'aiconversationmessages',
+    name: 'conversationId_1_timestamp_-1__id_-1',
+    key: { conversationId: 1, timestamp: -1, _id: -1 },
+  },
+  {
+    collection: 'aiconversationmessages',
+    name: 'legacySourceKey_unique',
+    key: { legacySourceKey: 1 },
+    unique: true,
+    sparse: true,
+  },
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

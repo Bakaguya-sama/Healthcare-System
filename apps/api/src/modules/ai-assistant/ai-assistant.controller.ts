@@ -284,8 +284,11 @@ export class AiAssistantController {
     summary: 'Lấy tóm tắt hồ sơ bệnh án của bệnh nhân.',
   })
   @ApiBody({ type: AiHealthProfileSummaryDto })
-  async getHealthProfileSummary(@Body() dto: AiHealthProfileSummaryDto) {
-    const res = await this.aiAssistantService.getHealthProfileSummary(dto);
+  async getHealthProfileSummary(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: AiHealthProfileSummaryDto,
+  ) {
+    const res = await this.aiAssistantService.getHealthProfileSummary(userId, dto);
     return res;
   }
 }

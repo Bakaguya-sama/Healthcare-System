@@ -14,14 +14,20 @@ import {
   UpdateBlacklistKeywordDto,
   QueryBlacklistKeywordDto,
 } from './dto/create-blacklist-keyword.dto';
+import { CachePort } from '../../common/cache/cache.port';
+import { toLiteralCaseInsensitiveRegex } from '../../common/query/search-pattern';
 
 const BLACKLIST_KEYWORD_READ_PROJECTION = '_id keyword createdAt updatedAt';
 
 @Injectable()
 export class BlacklistKeywordsService {
+  private static readonly ACTIVE_CACHE_KEY = 'ai:blacklist:active:v1';
+  private static readonly ACTIVE_CACHE_TTL_MS = 60_000;
+
   constructor(
     @InjectModel(BlacklistKeyword.name)
     private keywordModel: Model<BlacklistKeywordDocument>,
+    private readonly cache: CachePort,
   ) {}
 
   async create(
@@ -37,7 +43,9 @@ export class BlacklistKeywordsService {
       const blacklist = new this.keywordModel({
         keyword: normalizedKeyword,
       });
-      return await blacklist.save();
+      const saved = await blacklist.save();
+      await this.cache.delete(BlacklistKeywordsService.ACTIVE_CACHE_KEY);
+      return saved;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new BadRequestException(`Failed to create blacklist: ${message}`);
@@ -58,7 +66,7 @@ export class BlacklistKeywordsService {
     const filter: Record<string, unknown> = {};
 
     if (search) {
-      filter.keyword = { $regex: search, $options: 'i' };
+      filter.keyword = toLiteralCaseInsensitiveRegex(search.trim());
     }
 
     const normalizedSortOrder: 1 | -1 = sortOrder === 1 ? 1 : -1;
@@ -106,26 +114,38 @@ export class BlacklistKeywordsService {
       blacklist.keyword = normalizedKeyword;
     }
 
-    return await blacklist.save();
+    const saved = await blacklist.save();
+    await this.cache.delete(BlacklistKeywordsService.ACTIVE_CACHE_KEY);
+    return saved;
+  }
+
+  async getActiveKeywords(): Promise<string[]> {
+    const blacklists = await this.cache.getOrSet(
+      BlacklistKeywordsService.ACTIVE_CACHE_KEY,
+      BlacklistKeywordsService.ACTIVE_CACHE_TTL_MS,
+      () => this.keywordModel
+        .find()
+        .select('keyword')
+        .limit(1000)
+        .lean<Array<{ keyword: string }>>()
+        .exec(),
+    );
+    return blacklists
+      .map((blacklist) => blacklist.keyword?.trim().toLowerCase())
+      .filter((keyword): keyword is string => Boolean(keyword));
   }
 
   async checkContent(
     content: string,
   ): Promise<{ flagged: boolean; flaggedWords: string[] }> {
-    // Configuration lookup is intentionally capped until the matcher moves to Redis.
-    const blacklists = await this.keywordModel
-      .find()
-      .select('keyword')
-      .limit(1000)
-      .lean<Array<{ keyword: string }>>()
-      .exec();
+    const blacklists = await this.getActiveKeywords();
 
     const flaggedWords: Set<string> = new Set();
     const lowerContent = content.toLowerCase();
 
-    for (const blacklist of blacklists) {
-      if (lowerContent.includes(blacklist.keyword)) {
-        flaggedWords.add(blacklist.keyword);
+    for (const keyword of blacklists) {
+      if (lowerContent.includes(keyword)) {
+        flaggedWords.add(keyword);
       }
     }
 
@@ -143,6 +163,7 @@ export class BlacklistKeywordsService {
     if (!blacklist) {
       throw new NotFoundException(`Blacklist with ID ${id} not found`);
     }
+    await this.cache.delete(BlacklistKeywordsService.ACTIVE_CACHE_KEY);
     return blacklist;
   }
 }
