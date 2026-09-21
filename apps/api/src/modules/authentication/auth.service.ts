@@ -35,7 +35,7 @@ import { ConfirmOtpDto } from './dto/confirm-otp.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { NodemailerService } from '../../infrastructure/email/nodemailer.service';
 import { CloudinaryService } from '../../infrastructure/files/cloudinary.service';
-import { UserRole } from '../users/enums/user-role.enum';
+import { UserRole } from '../../core/domain/user.enums';
 
 @Injectable()
 export class AuthService {

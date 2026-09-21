@@ -28,7 +28,7 @@ import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../core/guards/roles.guard';
 import { CurrentUser } from '../../../core/decorators/current-user.decorator';
 import { Roles } from '../../../core/decorators/roles.decorator';
-import { UserRole } from '../../users/enums/user-role.enum';
+import { UserRole } from '../../../core/domain/user.enums';
 
 @ApiTags('Violations')
 @Controller('violations')

@@ -4,10 +4,12 @@ import {
   DoctorVerificationStatus,
 } from '../../core/domain/user.enums';
 import { NodemailerService } from '../../infrastructure/email/nodemailer.service';
-import { ConsultationsService } from '../consultations/consultations.service';
-import { QueryConsultationDto } from '../consultations/dto/query-consultation.dto';
-import { NotificationsGateway } from '../notifications/notifications.gateway';
-import { UserAdministrationService } from '../users/user-administration.service';
+import {
+  ConsultationsService,
+  type QueryConsultationDto,
+} from '../consultations/public-api';
+import { NotificationsGateway } from '../notifications/public-api';
+import { UserAdministrationService } from '../users/public-api';
 import { LockAccountDto } from './dto/lock-account.dto';
 import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';

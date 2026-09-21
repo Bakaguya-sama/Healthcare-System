@@ -16,9 +16,11 @@ import {
 import { CreateConsultationDto } from './dto/create-consultation.dto';
 import { UpdateConsultationDto } from './dto/update-consultation.dto';
 import { QueryConsultationDto } from './dto/query-consultation.dto';
-import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '../notifications/entities/notification.entity';
-import { UsersService } from '../users/users.service';
+import {
+  NotificationsService,
+  NotificationType,
+} from '../notifications/public-api';
+import { UsersService } from '../users/public-api';
 
 const CONSULTATION_PROJECTION =
   '_id patientId doctorId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt patientNotes doctorNotes sessionStartedAt completedAt cancelledAt cancellationReason lastMessageAt lastMessageId createdAt updatedAt';

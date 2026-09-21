@@ -12,7 +12,7 @@ import { UpdateReviewDto } from './dto/update-review.dto';
 import { QueryReviewDto } from './dto/query-review.dto';
 import { ConsultationSessionStatus } from '../entities/consultation.entity';
 import { ConsultationsService } from '../consultations.service';
-import { UsersService } from '../../users/users.service';
+import { UsersService } from '../../users/public-api';
 import {
   decodeCursor,
   encodeCursor,

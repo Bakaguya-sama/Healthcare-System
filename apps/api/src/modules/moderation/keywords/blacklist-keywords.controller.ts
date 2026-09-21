@@ -19,7 +19,7 @@ import {
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
 import { Roles } from '../../../core/decorators/roles.decorator';
 import { RolesGuard } from '../../../core/guards/roles.guard';
-import { UserRole } from '../../users/enums/user-role.enum';
+import { UserRole } from '../../../core/domain/user.enums';
 
 @ApiTags('Blacklist Keywords')
 @ApiBearerAuth()

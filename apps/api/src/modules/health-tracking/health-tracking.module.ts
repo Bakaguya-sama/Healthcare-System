@@ -9,6 +9,8 @@ import {
 } from './entities/health-metric.entity';
 import { UsersModule } from '../users/users.module';
 import { HEALTH_PROFILE_READER } from './ports/health-profile-reader';
+import { HealthMetricQueryService } from './health-metric-query.service';
+import { HealthMetricAlertService } from './health-metric-alert.service';
 
 @Module({
   imports: [
@@ -21,7 +23,9 @@ import { HEALTH_PROFILE_READER } from './ports/health-profile-reader';
   controllers: [HealthMetricsController],
   providers: [
     HealthMetricsService,
-    { provide: HEALTH_PROFILE_READER, useExisting: HealthMetricsService },
+    HealthMetricQueryService,
+    HealthMetricAlertService,
+    { provide: HEALTH_PROFILE_READER, useExisting: HealthMetricQueryService },
   ],
   exports: [HealthMetricsService, HEALTH_PROFILE_READER],
 })

@@ -13,7 +13,7 @@ import {
   UserRole,
 } from '../../core/domain/user.enums';
 import { toLiteralCaseInsensitiveRegex } from '../../common/query/search-pattern';
-import { QueryDoctorApplicationsDto } from '../administration/dto/query-doctor-applications.dto';
+import type { DoctorApplicationQuery } from './application/doctor-application.query';
 import { User, UserDocument } from './entities/user.schema';
 import { UsersCacheService } from './users-cache.service';
 
@@ -38,7 +38,7 @@ export class UserAdministrationService {
     return admin;
   }
 
-  async listDoctorApplications(query: QueryDoctorApplicationsDto) {
+  async listDoctorApplications(query: DoctorApplicationQuery) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
     const sortOrder = query.sortOrder === 'asc' ? 1 : -1;

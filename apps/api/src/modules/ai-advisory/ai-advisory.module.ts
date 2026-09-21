@@ -5,6 +5,9 @@ import { HealthTrackingModule } from '../health-tracking/health-tracking.module'
 import { ModerationModule } from '../moderation/moderation.module';
 import { AiAssistantController } from './conversations/ai-assistant.controller';
 import { AiAssistantService } from './conversations/ai-assistant.service';
+import { AiConversationQueryService } from './conversations/ai-conversation-query.service';
+import { AiConversationManagementService } from './conversations/ai-conversation-management.service';
+import { AiMessageOrchestrationService } from './conversations/ai-message-orchestration.service';
 import {
   AiConversationMessage,
   AiConversationMessageSchema,
@@ -69,6 +72,9 @@ import { TextExtractionService } from './retrieval/services/text-extraction.serv
   ],
   providers: [
     AiAssistantService,
+    AiConversationQueryService,
+    AiConversationManagementService,
+    AiMessageOrchestrationService,
     AiFeedbacksService,
     AiDocumentsService,
     AiDocumentChunksService,

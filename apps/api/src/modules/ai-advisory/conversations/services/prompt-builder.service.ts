@@ -3,7 +3,7 @@ import {
   ConversationMessage,
   MessageRole,
 } from '../entities/ai-conversation.entity';
-import { BlacklistKeywordsService } from '../../../moderation/keywords/blacklist-keywords.service';
+import { BlacklistKeywordsService } from '../../../moderation/public-api';
 import { IPromptBuilder } from '../interfaces/prompt-buidler.interface';
 
 const SYSTEM_PROMPT = `Bạn là Trợ lý Y tế Thông minh của ứng dụng HealthcareApp.

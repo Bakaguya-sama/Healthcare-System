@@ -1240,6 +1240,31 @@ Tool phát hiện unused import/file/dependency chỉ là tín hiệu hỗ trợ
 
 Trạng thái RF-11: **DONE — 2026-09-21** (`BE-RF-080` đến `BE-RF-086`). Đã hợp nhất các module theo bounded context, chuyển adapter dùng chung sang `infrastructure`, loại runtime schema/module trùng lặp, bỏ cross-context model registration, xóa orphan/empty module và bổ sung boundary enforcement. OpenAPI không có semantic diff; HTTP/Socket contract, API/worker bootstrap, build, lint, typecheck, unit, integration và E2E đều pass. Evidence chi tiết nằm tại `docs/current-state/rf11-module-consolidation.md`.
 
+### RF-12 — Hardening bounded-context boundary và tách god service
+
+Mục tiêu: hoàn thiện các điểm follow-up phát hiện sau audit RF-11 mà không thay đổi HTTP/Socket/OpenAPI contract. RF-12 là refactor backend độc lập; **không bao gồm staging/release evidence của RF-9/RF-10**.
+
+Các bước:
+
+1. Loại dependency ngược `Users → Administration`: application query của doctor application thuộc Users; HTTP DTO của Administration chỉ implement/map sang contract này.
+2. Tạo `public-api.ts` cho các context có consumer bên ngoài. Cross-context code chỉ được import public API/application port; module composition root được phép import public `*.module.ts` của context khác.
+3. Mở rộng `boundary:check` để resolve relative import và fail khi context A deep-import implementation của context B. Authentication và Users được khai báo cùng Identity context; các context khác không có implicit exception.
+4. Bỏ `doctors`/`doctors.module.ts` khỏi allowlist vì canonical doctor profile thuộc User; việc tách Doctor thành context riêng trong tương lai cần ADR/migration mới.
+5. Tách `AiAssistantService` thành facade, message/RAG orchestration, conversation query và conversation management service.
+6. Tách Health Tracking thành facade/write orchestration, DB-native query/statistics service và alert evaluation/delivery service; `HEALTH_PROFILE_READER` trỏ trực tiếp vào query service.
+7. Giữ controller/API response hiện tại; chạy typecheck, build, lint, unit, integration, E2E, boundary, OpenAPI và realtime contract checks.
+
+Exit gate:
+
+- Không còn dependency `Users → Administration`.
+- Không còn cross-context deep import ngoài Identity group hoặc module composition root; CI boundary check cưỡng chế quy tắc này.
+- Boundary allowlist không cho tạo lại `DoctorsModule`.
+- `AiAssistantService` chỉ còn facade/compatibility orchestration, query và mutation đã có owner riêng.
+- Health read/statistics và alert workflow có service riêng; controller contract không đổi.
+- Tất cả quality gate và contract check pass.
+
+Trạng thái RF-12: **DONE — 2026-09-21** (`BE-RF-090` đến `BE-RF-093`). Cycle Users–Administration đã được loại bỏ; cross-context imports đi qua public API và được boundary check cưỡng chế; `doctors` đã bị loại khỏi allowlist. AI/Health god service đã tách theo orchestration/query/management/alert responsibility. Build, lint, typecheck, unit, integration, E2E, boundary, OpenAPI và realtime checks đều pass. Evidence nằm tại `docs/current-state/rf12-boundary-hardening.md`; staging evidence RF-9/RF-10 tiếp tục là release task riêng và không thuộc RF-12.
+
 ## 6. Definition of Done cho refactor
 
 Một task `BE-RF-*` chỉ Done khi:
@@ -1696,6 +1721,7 @@ RF-0 đến RF-10 đã được triển khai sớm hơn lịch dự kiến ban �
 | ----------- | ----------------------------- | ------------------------------------------------------------------------------ |
 | 15/09-21/09 | RF-0 đến RF-10                | Đã hoàn tất source refactor, canonical cutover và local release rehearsal      |
 | 21/09       | RF-11                         | Đã hợp nhất bounded-context modules, xóa orphan code và bật boundary enforcement |
+| 21/09-22/09 | RF-12                         | Harden public boundary, loại dependency cycle và tách AI/Health god service       |
 | 06/10-26/10 | NF-2                          | AvailabilitySlot và scheduled booking hoàn chỉnh                               |
 | 27/10-16/11 | NF-3, NF-4, NF-5              | Queue/check-in/no-show, reminder và AI quota                                   |
 | 17/11-30/11 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line |
@@ -1939,6 +1965,7 @@ Thực hiện đúng thứ tự:
 15. [ ] Chỉ sau các gate tương ứng mới nhận `BE-NF-010` trở đi.
 16. [ ] Không tạo task Web/Admin/Mobile trong repository hoặc board backend.
 17. [x] Hoàn thành RF-11 (`BE-RF-080` đến `BE-RF-086`) ngày `2026-09-21`; bounded-context topology, ownership, cleanup, boundary và contract exit gate đều pass.
+18. [x] Hoàn thành RF-12 (`BE-RF-090` đến `BE-RF-093`) ngày `2026-09-21`: public API, cross-context enforcement và AI/Health service decomposition; staging evidence RF-9/RF-10 vẫn là release gate riêng.
 
 ## 23. Tóm tắt quyết định
 

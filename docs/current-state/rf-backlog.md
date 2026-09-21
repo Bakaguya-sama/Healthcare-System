@@ -42,7 +42,11 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 | BE-RF-084 | Moderation và platform adapters               | Huy   | BE-RF-080, 061           |     1-2d | Done 2026-09-21 |
 | BE-RF-085 | Xóa orphan module/provider/schema             | Huy   | BE-RF-081-084            |       1d | Done 2026-09-21 |
 | BE-RF-086 | Boundary/contract verification                | Huy   | BE-RF-081-085            |       1d | Done 2026-09-21 |
+| BE-RF-090 | Remove Users-Administration cycle             | Huy   | BE-RF-086                |     0.5d | Done 2026-09-21 |
+| BE-RF-091 | Public APIs + cross-context enforcement       | Huy   | BE-RF-090                |       1d | Done 2026-09-21 |
+| BE-RF-092 | AI conversation service decomposition         | Huy   | BE-RF-091                |     1-2d | Done 2026-09-21 |
+| BE-RF-093 | Health query/alert service decomposition      | Huy   | BE-RF-091                |     1-2d | Done 2026-09-21 |
 
 ## Next ready work
 
-RF-11 (`BE-RF-080`–`086`) đã hoàn tất. Công việc tiếp theo là feature backend theo dependency/cut-line trong `plan/refactor-plan.md`; không tạo lại collection-level module.
+RF-12 (`BE-RF-090`–`093`) đã hoàn tất source implementation và full local verification. Công việc tiếp theo là feature backend theo dependency/cut-line trong `plan/refactor-plan.md`; staging evidence RF-9/RF-10 vẫn là release gate riêng.

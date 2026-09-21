@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 
 const apiRoot = resolve(process.cwd());
 const packageJson = JSON.parse(
@@ -25,6 +25,7 @@ const forbiddenImports: string[] = [];
 const legacyConsultationReferences: string[] = [];
 const staleContractArtifacts: string[] = [];
 const invalidModuleTopology: string[] = [];
+const invalidCrossContextImports: string[] = [];
 function inspectDirectory(directory: string): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -62,7 +63,6 @@ const allowedBoundedContexts = new Set([
   'authentication',
   'billing',
   'consultations',
-  'doctors',
   'health-tracking',
   'moderation',
   'notifications',
@@ -74,7 +74,6 @@ const allowedContextModuleFiles = new Set([
   'authentication/authentication.module.ts',
   'billing/billing.module.ts',
   'consultations/consultations.module.ts',
-  'doctors/doctors.module.ts',
   'health-tracking/health-tracking.module.ts',
   'moderation/moderation.module.ts',
   'notifications/notifications.module.ts',
@@ -103,9 +102,65 @@ function inspectContextModuleFiles(directory: string): void {
 }
 inspectContextModuleFiles(modulesRoot);
 
+const contextGroups = new Map([
+  ['authentication', 'identity'],
+  ['users', 'identity'],
+]);
+
+function inspectCrossContextImports(directory: string): void {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      inspectCrossContextImports(path);
+      continue;
+    }
+    if (!entry.name.endsWith('.ts')) continue;
+
+    const sourceRelative = relative(modulesRoot, path).replaceAll('\\', '/');
+    const sourceContext = sourceRelative.split('/')[0];
+    const content = readFileSync(path, 'utf8');
+    const importPattern = /from\s+['"]([^'"]+)['"]/g;
+    for (const match of content.matchAll(importPattern)) {
+      const importPath = match[1];
+      if (!importPath.startsWith('.')) continue;
+      const target = resolve(dirname(path), importPath);
+      const targetRelative = relative(modulesRoot, target).replaceAll(
+        '\\',
+        '/',
+      );
+      if (targetRelative.startsWith('../')) continue;
+      const [targetContext, targetEntry] = targetRelative.split('/');
+      if (!targetContext || targetContext === sourceContext) continue;
+      if (
+        contextGroups.get(sourceContext) &&
+        contextGroups.get(sourceContext) === contextGroups.get(targetContext)
+      ) {
+        continue;
+      }
+
+      const usesPublicApi = targetEntry === 'public-api';
+      const composesModule =
+        entry.name.endsWith('.module.ts') &&
+        targetRelative === `${targetContext}/${targetContext}.module`;
+      if (!usesPublicApi && !composesModule) {
+        invalidCrossContextImports.push(
+          `${sourceRelative} -> ${targetRelative}`,
+        );
+      }
+    }
+  }
+}
+inspectCrossContextImports(modulesRoot);
+
 if (invalidModuleTopology.length > 0) {
   throw new Error(
     `Backend module topology contains collection-level/legacy modules: ${invalidModuleTopology.join(', ')}`,
+  );
+}
+
+if (invalidCrossContextImports.length > 0) {
+  throw new Error(
+    `Backend contains cross-context deep imports; use the target public-api or a public application port: ${invalidCrossContextImports.join(', ')}`,
   );
 }
 

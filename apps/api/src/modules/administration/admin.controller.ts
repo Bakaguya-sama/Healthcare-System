@@ -16,11 +16,11 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { UserRole } from '../users/enums/user-role.enum';
+import { UserRole } from '../../core/domain/user.enums';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
-import { QueryConsultationDto } from '../consultations/dto/query-consultation.dto';
+import { QueryConsultationDto } from '../consultations/public-api';
 import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
 
 @ApiTags('admin')

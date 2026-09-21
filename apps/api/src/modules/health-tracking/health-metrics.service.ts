@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -14,69 +15,21 @@ import {
 import { CreateHealthMetricDto } from './dto/create-health-metric.dto';
 import { UpdateHealthMetricDto } from './dto/update-health-metric.dto';
 import { QueryHealthMetricDto } from './dto/query-health-metric.dto';
-import {
-  evaluateMetricThreshold,
-  Gender,
-} from './health-metrics-alert.evaluator';
-import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '../notifications/entities/notification.entity';
-import { UsersService } from '../users/users.service';
-import {
-  decodeCursor,
-  encodeCursor,
-  InvalidCursorError,
-} from '../../common/pagination';
+import { NotificationsService } from '../notifications/public-api';
+import { UsersService } from '../users/public-api';
 import type {
   HealthProfileMetric,
   HealthProfileReader,
 } from './ports/health-profile-reader';
+import { HealthMetricQueryService } from './health-metric-query.service';
+import { HealthMetricAlertService } from './health-metric-alert.service';
 
 type MetricEntry = {
   value: number;
   recordedAt: Date | string;
 };
 
-type DailyTotalAlertMetricType =
-  | MetricType.WATER_INTAKE
-  | MetricType.KCAL_INTAKE;
-
-type HealthMetricStatisticsAggregation = {
-  stats: Array<{ count: number }>;
-  numericStats: Array<{
-    average: number;
-    minimum: number;
-    maximum: number;
-  }>;
-  latest: Array<{
-    _id: Types.ObjectId;
-    patientId: Types.ObjectId;
-    type: MetricType;
-    values: Record<string, MetricEntry>;
-    unit: string;
-    recordedAt: Date;
-    createdAt?: Date;
-    updatedAt?: Date;
-  }>;
-};
-
 const BMI_UNIT = 'kg/m2';
-const WATER_INTAKE_CUTOFF_HOUR = 21;
-const HEALTH_METRIC_READ_PROJECTION =
-  '_id patientId type values unit recordedAt createdAt updatedAt source timezone';
-const LOW_STATUS_KEYWORDS = ['low', 'hypo', 'under', 'below'];
-const METRIC_LABEL_BY_TYPE: Record<MetricType, string> = {
-  [MetricType.BLOOD_PRESSURE]: 'Blood Pressure',
-  [MetricType.HEART_RATE]: 'Heart Rate',
-  [MetricType.BLOOD_GLUCOSE]: 'Blood Glucose',
-  [MetricType.OXYGEN_SATURATION]: 'O2 Saturation',
-  [MetricType.BODY_TEMPERATURE]: 'Body Temperature',
-  [MetricType.RESPIRATORY_RATE]: 'Respiratory Rate',
-  [MetricType.BMI]: 'BMI',
-  [MetricType.WEIGHT]: 'Weight',
-  [MetricType.HEIGHT]: 'Height',
-  [MetricType.WATER_INTAKE]: 'Water Intake',
-  [MetricType.KCAL_INTAKE]: 'Calories',
-};
 
 const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'systolic',
@@ -122,27 +75,33 @@ const DEFAULT_UNIT_BY_TYPE: Record<MetricType, string> = {
 
 @Injectable()
 export class HealthMetricsService implements HealthProfileReader {
+  private readonly healthMetricQueries: HealthMetricQueryService;
+  private readonly healthMetricAlerts: HealthMetricAlertService;
+
   constructor(
     @InjectModel(HealthMetric.name)
     private healthMetricModel: Model<HealthMetricDocument>,
     private notificationsService: NotificationsService,
     private usersService: UsersService,
-  ) {}
+    @Optional() healthMetricQueries?: HealthMetricQueryService,
+    @Optional() healthMetricAlerts?: HealthMetricAlertService,
+  ) {
+    this.healthMetricQueries =
+      healthMetricQueries ?? new HealthMetricQueryService(healthMetricModel);
+    this.healthMetricAlerts =
+      healthMetricAlerts ??
+      new HealthMetricAlertService(
+        healthMetricModel,
+        notificationsService,
+        usersService,
+      );
+  }
 
   async readRecentMetrics(
     patientId: string,
     limit = 20,
   ): Promise<HealthProfileMetric[]> {
-    if (!Types.ObjectId.isValid(patientId))
-      throw new BadRequestException('Invalid patient ID');
-    const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-    return this.healthMetricModel
-      .find({ patientId: new Types.ObjectId(patientId) })
-      .select('_id type values unit source timezone recordedAt')
-      .sort({ recordedAt: -1, _id: -1 })
-      .limit(boundedLimit)
-      .lean<HealthProfileMetric[]>()
-      .exec();
+    return this.healthMetricQueries.readRecentMetrics(patientId, limit);
   }
 
   /**
@@ -175,7 +134,11 @@ export class HealthMetricsService implements HealthProfileReader {
       );
     }
 
-    await this.maybeCreateAlertNotification(userId, dto.type, dto.values);
+    await this.healthMetricAlerts.evaluateAndNotify(
+      userId,
+      dto.type,
+      dto.values,
+    );
 
     return {
       statusCode: 201,
@@ -192,143 +155,14 @@ export class HealthMetricsService implements HealthProfileReader {
     userRole: string | undefined,
     query: QueryHealthMetricDto,
   ) {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new BadRequestException('Invalid user ID');
-    }
-
-    let patientId = userId;
-    if (query.patientId) {
-      if (!Types.ObjectId.isValid(query.patientId)) {
-        throw new BadRequestException('Invalid patient ID');
-      }
-
-      if (userRole !== 'doctor' && userRole !== 'admin') {
-        throw new BadRequestException('Not allowed to view patient metrics');
-      }
-
-      patientId = query.patientId;
-    }
-
-    const filter: {
-      patientId: Types.ObjectId;
-      type?: MetricType;
-      recordedAt?: {
-        $gte?: Date;
-        $lte?: Date;
-      };
-    } = {
-      patientId: new Types.ObjectId(patientId),
-    };
-
-    // Apply filters
-    if (query.type) {
-      filter.type = query.type;
-    }
-    if (query.startDate || query.endDate) {
-      filter.recordedAt = {};
-      if (query.startDate) {
-        filter.recordedAt.$gte = new Date(query.startDate);
-      }
-      if (query.endDate) {
-        filter.recordedAt.$lte = new Date(query.endDate);
-      }
-    }
-
-    // Calculate pagination
-    const cursorFilter: Record<string, unknown> = { ...filter };
-    const sortField = query.sortBy || 'recordedAt';
-    const sortOrder = query.sortOrder || -1;
-    if (query.cursor) {
-      try {
-        const cursor = decodeCursor(query.cursor);
-        const cursorDate = new Date(cursor.sortValue);
-        if (Number.isNaN(cursorDate.getTime())) throw new InvalidCursorError();
-        const comparator = sortOrder === 1 ? '$gt' : '$lt';
-        cursorFilter.$or = [
-          { [sortField]: { [comparator]: cursorDate } },
-          {
-            [sortField]: cursorDate,
-            _id: { [comparator]: new Types.ObjectId(cursor.id) },
-          },
-        ];
-      } catch (error) {
-        if (error instanceof InvalidCursorError)
-          throw new BadRequestException('Invalid metric cursor');
-        throw error;
-      }
-    }
-    const skip = query.cursor ? 0 : (query.page - 1) * query.limit;
-    const sort = {
-      [sortField]: sortOrder,
-      _id: sortOrder,
-    };
-
-    // Execute query
-    const [data, total] = await Promise.all([
-      this.healthMetricModel
-        .find(cursorFilter)
-        .select(HEALTH_METRIC_READ_PROJECTION)
-        .sort(sort)
-        .skip(skip)
-        .limit(query.limit + 1)
-        .lean()
-        .exec(),
-      this.healthMetricModel.countDocuments(filter),
-    ]);
-    const hasNextPage = data.length > query.limit;
-    const items = hasNextPage ? data.slice(0, query.limit) : data;
-    const last = items.at(-1) as
-      | { recordedAt?: Date; createdAt?: Date; _id?: Types.ObjectId }
-      | undefined;
-    const lastSortValue = last?.[sortField];
-
-    return {
-      statusCode: 200,
-      message: 'Health metrics retrieved successfully',
-      data: items,
-      nextCursor:
-        hasNextPage && lastSortValue && last?._id
-          ? encodeCursor({
-              sortValue: lastSortValue.toISOString(),
-              id: String(last._id),
-            })
-          : null,
-      hasNextPage,
-      pagination: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        pages: Math.ceil(total / query.limit),
-      },
-    };
+    return this.healthMetricQueries.findAll(userId, userRole, query);
   }
 
   /**
    * 🔍 LẤY 1 METRIC
    */
   async findOne(userId: string, id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid metric ID');
-    }
-
-    const metric = await this.healthMetricModel
-      .findOne({
-        _id: new Types.ObjectId(id),
-        patientId: new Types.ObjectId(userId),
-      })
-      .select(HEALTH_METRIC_READ_PROJECTION)
-      .lean()
-      .exec();
-
-    if (!metric) {
-      throw new NotFoundException('Health metric not found');
-    }
-
-    return {
-      statusCode: 200,
-      message: 'Health metric retrieved successfully',
-      data: metric,
-    };
+    return this.healthMetricQueries.findOne(userId, id);
   }
 
   /**
@@ -379,293 +213,18 @@ export class HealthMetricsService implements HealthProfileReader {
       );
     }
 
-    const alert = dto.values
-      ? await this.maybeCreateAlertNotification(
-          userId,
-          effectiveType,
-          dto.values as Record<string, MetricEntry>,
-        )
-      : null;
+    if (dto.values) {
+      await this.healthMetricAlerts.evaluateAndNotify(
+        userId,
+        effectiveType,
+        dto.values as Record<string, MetricEntry>,
+      );
+    }
 
     return {
       statusCode: 200,
       message: 'Health metric updated successfully',
       data: metric,
-    };
-  }
-
-  private toEvaluationInput(values: Record<string, MetricEntry>): {
-    value?: number;
-    systolic?: number;
-    diastolic?: number;
-  } {
-    return {
-      value: values?.value?.value ?? values?.amount?.value,
-      systolic: values?.systolic?.value,
-      diastolic: values?.diastolic?.value,
-    };
-  }
-
-  private toSupportedEvaluatorType(
-    type: MetricType,
-  ):
-    | 'blood_pressure'
-    | 'heart_rate'
-    | 'blood_glucose'
-    | 'oxygen_saturation'
-    | 'body_temperature'
-    | 'respiratory_rate'
-    | 'bmi'
-    | 'water_intake'
-    | 'kcal_intake'
-    | null {
-    switch (type) {
-      case MetricType.BLOOD_PRESSURE:
-      case MetricType.HEART_RATE:
-      case MetricType.BLOOD_GLUCOSE:
-      case MetricType.OXYGEN_SATURATION:
-      case MetricType.BODY_TEMPERATURE:
-      case MetricType.RESPIRATORY_RATE:
-      case MetricType.BMI:
-      case MetricType.WATER_INTAKE:
-      case MetricType.KCAL_INTAKE:
-        return type;
-      default:
-        return null;
-    }
-  }
-
-  private async maybeCreateAlertNotification(
-    userId: string,
-    metricType: MetricType,
-    values: Record<string, MetricEntry>,
-  ) {
-    const evaluatorType = this.toSupportedEvaluatorType(metricType);
-    if (!evaluatorType) {
-      return null;
-    }
-
-    const { evaluationInput, referenceRecordedAt } =
-      await this.resolveAlertEvaluationInput(userId, metricType, values);
-
-    const userInfo = await this.usersService.findById(userId);
-    const dailyTotalValue = evaluationInput.value ?? 0;
-    const waterIntakeMax = this.resolveWaterIntakeMax(userInfo.gender);
-    const isWaterIntakeOverMax =
-      metricType === MetricType.WATER_INTAKE &&
-      dailyTotalValue > waterIntakeMax;
-
-    const evaluation = evaluateMetricThreshold(evaluatorType, evaluationInput, {
-      gender: userInfo.gender
-        ? (userInfo.gender as Gender)
-        : ('male' as Gender),
-    });
-
-    if (
-      metricType === MetricType.WATER_INTAKE &&
-      evaluation &&
-      this.isLowStatus(evaluation.status) &&
-      !this.hasReachedWaterCutoff(referenceRecordedAt) &&
-      !isWaterIntakeOverMax
-    ) {
-      return null;
-    }
-
-    if (
-      !evaluation ||
-      (!evaluation.shouldTriggerAlert && !isWaterIntakeOverMax)
-    ) {
-      return null;
-    }
-
-    const metricLabel = METRIC_LABEL_BY_TYPE[metricType] || metricType;
-    const statusLabel = evaluation?.status ?? 'Outside safe threshold';
-
-    const metricValue = this.extractMetricNumericValue(metricType, values);
-    const metricUnit = this.resolveUnitForType(metricType);
-    const advice = `${statusLabel}: ${metricLabel} (${metricValue} ${metricUnit}) is outside the configured safe threshold. This is an advisory notification, not a diagnosis. Please contact a healthcare professional if you have concerning symptoms.`;
-
-    const notification = await this.notificationsService.create(userId, {
-      userId: userId,
-      type: NotificationType.CRITICAL,
-      title: `Critical ${metricLabel} alert`,
-      message: advice,
-    });
-
-    return notification.data;
-  }
-
-  private resolveWaterIntakeMax(gender?: string): number {
-    const normalizedGender = (gender || '').toLowerCase();
-
-    if (normalizedGender === 'female') {
-      return 4.5;
-    }
-
-    return 5.5;
-  }
-
-  private isDailyTotalAlertMetricType(
-    metricType: MetricType,
-  ): metricType is DailyTotalAlertMetricType {
-    return (
-      metricType === MetricType.WATER_INTAKE ||
-      metricType === MetricType.KCAL_INTAKE
-    );
-  }
-
-  private isLowStatus(status: string): boolean {
-    const normalizedStatus = status.toLowerCase();
-    return LOW_STATUS_KEYWORDS.some((keyword) =>
-      normalizedStatus.includes(keyword),
-    );
-  }
-
-  private hasReachedWaterCutoff(referenceRecordedAt: Date): boolean {
-    const now = new Date();
-
-    const referenceDayStart = new Date(referenceRecordedAt);
-    referenceDayStart.setHours(0, 0, 0, 0);
-
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-
-    if (referenceDayStart.getTime() < todayStart.getTime()) {
-      return true;
-    }
-
-    if (referenceDayStart.getTime() > todayStart.getTime()) {
-      return false;
-    }
-
-    return now.getHours() >= WATER_INTAKE_CUTOFF_HOUR;
-  }
-
-  private resolveReferenceRecordedAt(
-    values: Record<string, MetricEntry>,
-    metricType: MetricType,
-  ): Date {
-    const primaryKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
-    const primaryRecordedAt = values?.[primaryKey]?.recordedAt;
-
-    if (primaryRecordedAt) {
-      const parsed = new Date(primaryRecordedAt);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-
-    for (const detail of Object.values(values ?? {})) {
-      if (!detail || typeof detail !== 'object') {
-        continue;
-      }
-
-      const parsed = new Date(detail.recordedAt);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-
-    return new Date();
-  }
-
-  private getUtcDayRange(date: Date): { start: Date; end: Date } {
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
-
-    const start = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-
-    return { start, end };
-  }
-
-  private normalizeDailyAlertValue(
-    metricType: DailyTotalAlertMetricType,
-    total: number,
-    unit?: string,
-  ): number {
-    if (metricType === MetricType.WATER_INTAKE) {
-      const normalizedUnit = (unit || '').toLowerCase().trim();
-      if (normalizedUnit === 'ml') {
-        return total / 1000;
-      }
-      return total;
-    }
-
-    return total;
-  }
-
-  private async resolveAlertEvaluationInput(
-    userId: string,
-    metricType: MetricType,
-    values: Record<string, MetricEntry>,
-  ): Promise<{
-    evaluationInput: ReturnType<typeof this.toEvaluationInput>;
-    referenceRecordedAt: Date;
-  }> {
-    const referenceRecordedAt = this.resolveReferenceRecordedAt(
-      values,
-      metricType,
-    );
-
-    if (!this.isDailyTotalAlertMetricType(metricType)) {
-      return {
-        evaluationInput: this.toEvaluationInput(values),
-        referenceRecordedAt,
-      };
-    }
-
-    const patientId = new Types.ObjectId(userId);
-    const primaryKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
-    const { start, end } = this.getUtcDayRange(referenceRecordedAt);
-
-    const [result] = await this.healthMetricModel.aggregate<{ total: number }>([
-      {
-        $match: {
-          patientId,
-          type: metricType,
-          recordedAt: {
-            $gte: start,
-            $lte: end,
-          },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: {
-            $sum: `$values.${primaryKey}.value`,
-          },
-        },
-      },
-    ]);
-
-    const rawDailyTotal = result?.total ?? 0;
-    const latestMetric = await this.healthMetricModel
-      .findOne({
-        patientId,
-        type: metricType,
-        recordedAt: {
-          $gte: start,
-          $lte: end,
-        },
-      })
-      .sort({ recordedAt: -1 })
-      .select('unit')
-      .lean<{ unit?: string }>();
-
-    const normalizedDailyTotal = this.normalizeDailyAlertValue(
-      metricType,
-      rawDailyTotal,
-      latestMetric?.unit,
-    );
-
-    return {
-      evaluationInput: {
-        value: normalizedDailyTotal,
-      },
-      referenceRecordedAt,
     };
   }
 
@@ -700,109 +259,7 @@ export class HealthMetricsService implements HealthProfileReader {
     type: string,
     query?: QueryHealthMetricDto,
   ) {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new BadRequestException('Invalid user ID');
-    }
-
-    if (!Object.values(MetricType).includes(type as MetricType)) {
-      throw new BadRequestException('Invalid metric type');
-    }
-
-    const metricType = type as MetricType;
-    const primaryValueKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
-    const statisticsMatch: Record<string, unknown> = {
-      patientId: new Types.ObjectId(userId),
-      type: metricType,
-    };
-    const endDate = query?.endDate ? new Date(query.endDate) : new Date();
-    const startDate = query?.startDate
-      ? new Date(query.startDate)
-      : new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
-    if (
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime()) ||
-      startDate > endDate
-    ) {
-      throw new BadRequestException('Invalid statistics date range');
-    }
-    if (endDate.getTime() - startDate.getTime() > 366 * 24 * 60 * 60 * 1000) {
-      throw new BadRequestException(
-        'Statistics date range must not exceed 366 days',
-      );
-    }
-    statisticsMatch.recordedAt = { $gte: startDate, $lte: endDate };
-    const [result] =
-      await this.healthMetricModel.aggregate<HealthMetricStatisticsAggregation>(
-        [
-          {
-            $match: statisticsMatch,
-          },
-          { $sort: { recordedAt: -1, _id: -1 } },
-          {
-            $facet: {
-              stats: [{ $count: 'count' }],
-              numericStats: [
-                {
-                  $project: {
-                    numericValue: `$values.${primaryValueKey}.value`,
-                  },
-                },
-                {
-                  $match: {
-                    numericValue: { $type: 'number', $gt: 0 },
-                  },
-                },
-                {
-                  $group: {
-                    _id: null,
-                    average: { $avg: '$numericValue' },
-                    minimum: { $min: '$numericValue' },
-                    maximum: { $max: '$numericValue' },
-                  },
-                },
-                { $project: { _id: 0 } },
-              ],
-              latest: [
-                { $limit: 1 },
-                {
-                  $project: {
-                    _id: 1,
-                    patientId: 1,
-                    type: 1,
-                    values: 1,
-                    unit: 1,
-                    recordedAt: 1,
-                    createdAt: 1,
-                    updatedAt: 1,
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      );
-
-    if (!result?.latest.length) {
-      throw new NotFoundException('No metrics found for this type');
-    }
-
-    const stats = result.numericStats[0];
-    if (!stats) {
-      throw new BadRequestException('No numeric values found in metrics');
-    }
-
-    return {
-      statusCode: 200,
-      message: 'Statistics retrieved successfully',
-      data: {
-        type: metricType,
-        count: result.stats[0].count,
-        average: Math.round(stats.average * 100) / 100,
-        minimum: stats.minimum,
-        maximum: stats.maximum,
-        latest: result.latest[0],
-      },
-    };
+    return this.healthMetricQueries.getStatistics(userId, type, query);
   }
 
   private assertValidValuesForType(
@@ -1002,53 +459,13 @@ export class HealthMetricsService implements HealthProfileReader {
    * 🔴 LẤY ALERT METRICS
    */
   async getAlerts(userId: string) {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new BadRequestException('Invalid user ID');
-    }
-
-    const alerts = await this.healthMetricModel
-      .find({
-        patientId: new Types.ObjectId(userId),
-      })
-      .select(HEALTH_METRIC_READ_PROJECTION)
-      .sort({ recordedAt: -1, _id: -1 })
-      .limit(20)
-      .lean()
-      .exec();
-
-    return {
-      statusCode: 200,
-      message: 'Alerts retrieved successfully',
-      data: alerts,
-      count: alerts.length,
-    };
+    return this.healthMetricAlerts.getAlerts(userId);
   }
 
   /**
    * ✅ MARK AS REVIEWED
    */
   async markAsReviewed(userId: string, id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid metric ID');
-    }
-
-    const metric = await this.healthMetricModel.findOneAndUpdate(
-      {
-        _id: new Types.ObjectId(id),
-        patientId: new Types.ObjectId(userId),
-      },
-      {},
-      { new: true },
-    );
-
-    if (!metric) {
-      throw new NotFoundException('Health metric not found');
-    }
-
-    return {
-      statusCode: 200,
-      message: 'Metric marked as reviewed',
-      data: metric,
-    };
+    return this.healthMetricAlerts.markAsReviewed(userId, id);
   }
 }

@@ -30,8 +30,8 @@ import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
 import { Roles } from '../../../../core/decorators/roles.decorator';
 import { RolesGuard } from '../../../../core/guards/roles.guard';
-import type { UserPayload } from '../../../authentication/auth.payload';
-import { UserRole } from '../../../users/enums/user-role.enum';
+import type { UserPayload } from '../../../authentication/public-api';
+import { UserRole } from '../../../../core/domain/user.enums';
 import type { UploadableFile } from '../../../../infrastructure/files/cloudinary.service';
 
 @ApiTags('AI Documents')
