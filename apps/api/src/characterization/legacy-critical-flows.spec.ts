@@ -1,21 +1,20 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { AdminService } from '../modules/admin/admin.service';
-import { AiAssistantService } from '../modules/ai-assistant/ai-assistant.service';
+import { AdminService } from '../modules/administration/admin.service';
+import { AiAssistantService } from '../modules/ai-advisory/conversations/ai-assistant.service';
 import {
   ConversationType,
   MessageRole,
-} from '../modules/ai-assistant/entities/ai-conversation.entity';
-import { ChatService } from '../modules/chat/chat.service';
-import { SenderType } from '../modules/chat/entities/message.entity';
-import { HealthMetricsService } from '../modules/health-metrics/health-metrics.service';
-import { MetricType } from '../modules/health-metrics/entities/health-metric.entity';
+} from '../modules/ai-advisory/conversations/entities/ai-conversation.entity';
+import { ChatService } from '../modules/consultations/messaging/chat.service';
+import { SenderType } from '../modules/consultations/messaging/entities/message.entity';
+import { HealthMetricsService } from '../modules/health-tracking/health-metrics.service';
+import { MetricType } from '../modules/health-tracking/entities/health-metric.entity';
 import { NotificationsService } from '../modules/notifications/notifications.service';
 import { NotificationType } from '../modules/notifications/entities/notification.entity';
-import { RagRetrievalService } from '../modules/rag/services/rag-retrieval.service';
-import { ReviewsService } from '../modules/reviews/reviews.service';
-import { UserRole } from '../modules/users/enums/user-role.enum';
-import { DoctorVerificationStatus } from '../modules/users/entities/doctor.schema';
+import { RagRetrievalService } from '../modules/ai-advisory/retrieval/services/rag-retrieval.service';
+import { ReviewsService } from '../modules/consultations/reviews/reviews.service';
+import { DoctorVerificationStatus } from '../core/domain/user.enums';
 
 describe('legacy critical-flow characterization', () => {
   const patientId = new Types.ObjectId();
@@ -29,49 +28,20 @@ describe('legacy critical-flow characterization', () => {
         id: doctorId.toString(),
         verificationStatus: 'approved',
       };
-      const doctor: {
-        _id: Types.ObjectId;
-        userId: Types.ObjectId;
-        verificationStatus: DoctorVerificationStatus;
-        verifiedAt?: Date;
-        save: jest.Mock;
-      } = {
-        _id: new Types.ObjectId(),
-        userId: doctorId,
-        verificationStatus: DoctorVerificationStatus.PENDING,
-        save: jest.fn(),
-      };
-      const updatedDoctor = {
-        ...doctor,
-        populate: jest.fn().mockResolvedValue({
-          toObject: jest.fn().mockReturnValue(populatedDoctor),
+      const userAccounts = {
+        setDoctorVerification: jest.fn().mockResolvedValue({
+          ...populatedDoctor,
+          userId: { email: 'doctor@example.com' },
         }),
       };
-      doctor.save.mockResolvedValue(updatedDoctor);
-      const userModel = {
-        findById: jest
-          .fn()
-          .mockResolvedValueOnce({ _id: adminId, role: UserRole.ADMIN })
-          .mockResolvedValueOnce({
-            _id: doctorId,
-            email: 'doctor@example.com',
-          }),
-      };
-      const doctorModel = { findOne: jest.fn().mockResolvedValue(doctor) };
       const mailer = {
         sendApproveEmail: jest.fn().mockResolvedValue(undefined),
       };
-      const usersCache = {
-        invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
-      };
       const service = new AdminService(
-        userModel as never,
-        doctorModel as never,
-        {} as never,
+        userAccounts as never,
         {} as never,
         mailer as never,
         {} as never,
-        usersCache as never,
       );
 
       const result = await service.verifyDoctor(
@@ -80,13 +50,15 @@ describe('legacy critical-flow characterization', () => {
         {} as never,
       );
 
-      expect(doctor.verificationStatus).toBe(DoctorVerificationStatus.APPROVED);
-      expect(doctor.verifiedAt).toBeInstanceOf(Date);
+      expect(userAccounts.setDoctorVerification).toHaveBeenCalledWith(
+        doctorId.toString(),
+        adminId.toString(),
+        DoctorVerificationStatus.APPROVED,
+      );
       expect(mailer.sendApproveEmail).toHaveBeenCalledWith(
         'doctor@example.com',
       );
-      expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(1);
-      expect(result).toBe(populatedDoctor);
+      expect(result).toMatchObject(populatedDoctor);
     });
   });
 
@@ -128,22 +100,23 @@ describe('legacy critical-flow characterization', () => {
       Object.assign(ReviewModel, {
         findByIdAndDelete: jest.fn(),
       });
-      const doctorModel = {
-        findOne: jest.fn().mockResolvedValue({ userId: doctorId }),
-        updateOne: jest.fn().mockResolvedValue({ matchedCount: 1 }),
-        findById: jest.fn().mockResolvedValue({ userId: doctorId }),
-      };
       const consultations = {
         findForReview: jest.fn().mockResolvedValue({ _id: consultationId }),
       };
-      const usersCache = {
-        invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
+      const users = {
+        requireDoctorProfile: jest.fn().mockResolvedValue({
+          _id: doctorId,
+          doctorProfile: {},
+        }),
+        applyDoctorRatingDelta: jest.fn().mockResolvedValue({
+          _id: doctorId,
+          doctorProfile: { averageRating: 5, reviewCount: 1 },
+        }),
       };
       const service = new ReviewsService(
         ReviewModel as never,
-        doctorModel as never,
         consultations as never,
-        usersCache as never,
+        users as never,
       );
 
       const result = await service.create(patientId.toString(), {
@@ -154,8 +127,11 @@ describe('legacy critical-flow characterization', () => {
       });
 
       expect(result.statusCode).toBe(201);
-      expect(doctorModel.updateOne).toHaveBeenCalled();
-      expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(1);
+      expect(users.applyDoctorRatingDelta).toHaveBeenCalledWith(
+        doctorId.toString(),
+        5,
+        1,
+      );
     });
   });
 

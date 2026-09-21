@@ -2,6 +2,8 @@
 
 Mỗi module legacy đã được gán đúng một hướng chính. `keep` không có nghĩa giữ nguyên implementation; `replace` không cho phép xóa trước khi migration/adapter/cutover hoàn tất.
 
+> RF-11 update (21/09/2026): toàn bộ disposition `consolidate/internalize/refactor adapter` dưới đây đã được thực thi. Runtime topology và ownership hiện hành nằm ở `rf11-module-consolidation.md`; bảng này được giữ làm decision history từ RF-0.
+
 | Module/capability    | Disposition                        | Lý do và đích                                                                              |
 | -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
 | `auth`               | **replace/refactor**               | Gom Authentication, canonical User/AuthSession, Redis OTP; giữ compatibility endpoints    |

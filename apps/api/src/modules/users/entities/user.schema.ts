@@ -13,7 +13,7 @@ export class User {
   @Prop({ required: true, trim: true })
   fullName: string;
 
-  @Prop({ required: true, unique: true, lowercase: true, trim: true })
+  @Prop({ required: true, lowercase: true, trim: true })
   email: string;
 
   // select: false -> mặc định KHÔNG trả về passwordHash khi query, phải .select('+passwordHash') khi cần (vd lúc login)

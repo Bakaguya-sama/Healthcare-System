@@ -122,17 +122,21 @@ apps/api/src/
 │   ├── redis/
 │   ├── queue/
 │   ├── outbox/
-│   ├── cloudinary/
+│   ├── files/
+│   ├── email/
+│   ├── realtime/
 │   └── observability/
 └── modules/
     ├── authentication/
-    ├── practitioners/
+    ├── users/
+    ├── doctors/
     ├── consultations/
     ├── health-tracking/
     ├── ai-advisory/
     ├── billing/
     ├── notifications/
-    └── moderation/
+    ├── moderation/
+    └── administration/
 
 database/
 ├── migrations/
@@ -1080,6 +1084,162 @@ Kết quả RF-10C hoàn tất 21/09/2026:
 
 RF-10 được đánh dấu **DONE** cho codebase/local release evidence. Việc chạy migration trên staging/production vẫn là deployment operation có backup và URI đích rõ ràng, không phải thay đổi source còn thiếu.
 
+### RF-11 — Hợp nhất module theo bounded context và xóa module thừa
+
+Mục tiêu: hoàn thiện topology nội bộ sau RF-10. Những module nhỏ đang đại diện cho một collection, một controller hoặc một kỹ thuật triển khai phải được đưa về đúng bounded context; `AppModule` chỉ composition các module nghiệp vụ/platform cấp cao. Đây là **refactor backend**, không thêm endpoint, state transition hoặc feature mới.
+
+Audit source ngày 21/09/2026 cho thấy `AppModule` vẫn import trực tiếp nhiều module nhỏ như `patients`, `admins`, `ai-feedbacks`, `ai-documents`, `ai-document-chunks`, `chat`, `reviews`, `presence` và `cloudinary`. Các thư mục `ai-sessions`, `ai-messages`, `ai-health-insights` đã rỗng sau RF-10 nhưng vẫn còn trên cây source. RF-11 phải xử lý dứt điểm cả dependency topology lẫn physical cleanup, không chỉ đổi tên hoặc di chuyển file.
+
+Nguyên tắc thiết kế:
+
+- Hợp nhất theo **nghiệp vụ và ownership**, không hợp nhất chỉ vì tên giống nhau hoặc để giảm số thư mục.
+- Một bounded context có một public Nest module/facade; capability bên trong vẫn tách theo thư mục/use case, không dồn thành một god service.
+- Chỉ tạo internal Nest module khi capability có lifecycle, configuration hoặc dependency graph riêng. Nếu không, dùng provider/use case/repository thông thường trong module owner.
+- Cross-context chỉ gọi public facade/application port hoặc domain event; không inject model/repository/provider nội bộ của context khác.
+- DDD-lite áp dụng cho context có state machine, invariants hoặc nhiều adapter. CRUD đơn giản không cần tạo đủ lớp hình thức.
+- Giữ nguyên canonical HTTP/Socket/OpenAPI contract trong RF-11. Mọi contract diff ngoài thay đổi đã duyệt là regression.
+- Không sửa hoặc xóa migration lịch sử. Nếu đổi collection/index/schema runtime thì tạo migration mới và reconciliation tương ứng.
+
+#### RF-11A — Lập module graph và chốt disposition
+
+1. Lập inventory cho từng module/thư mục/provider/schema/controller/gateway/job:
+   - ai gọi nó và qua token/import nào;
+   - nó sở hữu business rule, collection, route, event hoặc worker nào;
+   - public API thực sự cần export;
+   - disposition cuối: `KEEP`, `MERGE`, `MOVE_TO_INFRASTRUCTURE`, `DELETE` hoặc `DEFER`.
+2. Dựng dependency graph từ `AppModule`, Nest `imports/exports/providers`, TypeScript imports, `InjectModel`, BullMQ worker, Socket gateway, migration/seed và test.
+3. Ghi baseline OpenAPI, realtime schema, DI bootstrap, unit/integration/E2E và query performance trước khi di chuyển.
+4. Chốt owner cho collection. Một collection chỉ có một module owner đăng ký model; context khác dùng port/facade.
+
+Không bắt đầu move file hàng loạt khi chưa có disposition và target owner. Empty directory có thể xóa ngay sau khi xác nhận không chứa generated/runtime artifact cần giữ.
+
+#### RF-11B — Topology đích và mapping nguồn → đích
+
+Mapping dưới đây là mặc định từ audit hiện tại; RF-11A được phép điều chỉnh khi dependency graph chứng minh một owner khác hợp lý hơn.
+
+| Nguồn hiện tại                                                              | Đích/owner đề xuất                                                        | Cách phân bổ                                                                                                                                                                                                                          |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`, phần xác thực trong `core/auth-core`                                | `modules/authentication`                                                  | Tách `sessions`, `credentials`, `otp`, `guards/strategies`; chỉ export auth facade/guards cần thiết. `auth-core` không tồn tại như module nghiệp vụ thứ hai sau cutover.                                                              |
+| `users`, `patients`, `admins`                                               | `modules/users`                                                           | Một canonical User owner; chia `accounts`, `patient-profile`, `admin-profile`, `queries`. Admin workflow không được nhét vào User domain.                                                                                             |
+| Doctor profile/directory/approval đang nằm trong `users`/`admin`            | `modules/users` + `modules/administration`                                | Audit xác nhận doctor profile là embedded phần canonical của User nên Users giữ profile/directory/update port; Administration chỉ orchestration approval. Không tạo Doctor model/module thứ hai hoặc alias `practitioner`.                                                                        |
+| `ai-assistant`, `rag`, `ai-feedbacks`, `ai-documents`, `ai-document-chunks` | `modules/ai-advisory`                                                     | Một public AI module; chia `conversations`, `feedback`, `knowledge-base/ingestion`, `retrieval`, `providers` và persistence adapter. Document/chunk là persistence detail, không còn là top-level feature module.                     |
+| `ai-sessions`, `ai-messages`, `ai-health-insights` rỗng                     | Xóa                                                                       | Đã cutover ở RF-10; boundary check ngăn tái xuất hiện tên/model cũ.                                                                                                                                                                   |
+| `consultations`, `chat`, `reviews`                                          | `modules/consultations`                                                   | Chia `core`, `messaging`, `reviews`, `realtime`; Consultation sở hữu authorization và liên kết Message/Review. Doctor rating cần cho directory được cung cấp qua query port/projection, không cho Doctors đọc model Review trực tiếp. |
+| `presence`                                                                  | `infrastructure/realtime/presence` hoặc internal adapter của Consultation | Chọn theo consumer graph: nếu chỉ phục vụ consultation thì đặt trong context; nếu dùng đa context thì là platform adapter với interface hẹp.                                                                                          |
+| `health-metrics`                                                            | `modules/health-tracking`                                                 | Chia metrics/history/statistics; AI chỉ đọc qua health query port đã kiểm soát quyền và projection.                                                                                                                                   |
+| `notifications`                                                             | `modules/notifications`                                                   | Sở hữu notification preference/history/delivery orchestration; không sở hữu generic outbox persistence.                                                                                                                               |
+| `outbox`                                                                    | `infrastructure/outbox`                                                   | Platform concern dùng chung cho Notification, Billing và các context phát event; giữ API publish/claim hẹp và worker entrypoint riêng.                                                                                                |
+| `blacklist-keywords`, `violations`                                          | `modules/moderation`                                                      | Chia policy/keyword management/violation workflow. AI advisory gọi moderation port, không import schema blacklist.                                                                                                                    |
+| `admin`                                                                     | `modules/administration`                                                  | Chỉ chứa admin-facing application orchestration/read model; command thay đổi User/Doctor/Consultation gọi facade của owner, không đăng ký lại model.                                                                                  |
+| `cloudinary`                                                                | `infrastructure/files`                                                    | Adapter triển khai file-storage port; business module không import Cloudinary SDK trực tiếp.                                                                                                                                          |
+| `nodemailer`                                                                | `infrastructure/email`                                                    | Adapter gửi email; Notifications/Authentication phụ thuộc email port, không phụ thuộc Nodemailer trực tiếp.                                                                                                                           |
+
+Topology cấp cao sau RF-11:
+
+```text
+apps/api/src/
+├── common/                         # cross-cutting thuần, không chứa business rule
+├── infrastructure/
+│   ├── database/
+│   ├── redis/
+│   ├── cache/
+│   ├── outbox/
+│   ├── realtime/
+│   ├── files/
+│   └── email/
+└── modules/
+    ├── authentication/
+    ├── users/
+    ├── consultations/
+    ├── health-tracking/
+    ├── ai-advisory/
+    ├── notifications/
+    ├── moderation/
+    ├── administration/
+    └── billing/                    # tạo khi triển khai feature payment
+```
+
+Ví dụ phân tách bên trong context AI sau hợp nhất:
+
+```text
+ai-advisory/
+├── ai-advisory.module.ts           # composition root, public exports tối thiểu
+├── domain/
+│   ├── conversations/
+│   ├── feedback/
+│   └── knowledge-base/
+├── application/
+│   ├── conversations/
+│   ├── feedback/
+│   ├── ingestion/
+│   ├── retrieval/
+│   └── ports/
+├── infrastructure/
+│   ├── mongoose/
+│   ├── providers/
+│   └── jobs/
+└── presentation/
+    └── http/
+```
+
+`AiAdvisoryModule` không đồng nghĩa có một `AiAdvisoryService` làm mọi việc. Mỗi use case vẫn có handler/service riêng; module gốc chỉ wire dependency và định nghĩa public boundary.
+
+#### RF-11C — Trình tự hợp nhất an toàn
+
+Thực hiện theo từng vertical slice, không move toàn bộ repository trong một PR:
+
+1. Tạo target context, public facade/ports và architecture tests trước.
+2. Chuyển domain policy/use case thuần, sau đó chuyển repository/schema/provider adapter.
+3. Chuyển từng controller/gateway/worker sang target context và so sánh contract/baseline.
+4. Chuyển consumer sang public facade; loại cross-context `InjectModel` và deep import.
+5. Khi source module không còn consumer, bỏ khỏi `AppModule`, chạy DI bootstrap/test rồi mới xóa module file/thư mục.
+6. Chạy migration mới chỉ khi physical schema/index/collection thực sự đổi; move TypeScript file đơn thuần không tạo migration.
+7. Cập nhật responsibility map, OpenAPI/realtime docs, test paths và runbook ngay trong cùng slice.
+
+Thứ tự ưu tiên:
+
+```text
+empty AI directories cleanup
+ -> AI Advisory consolidation
+ -> Users/Authentication/Doctors ownership cleanup
+ -> Consultation/Chat/Review/Presence consolidation
+ -> Moderation consolidation
+ -> Files/Email/Outbox platform relocation
+ -> Administration orchestration cleanup
+ -> final dependency/package cleanup
+```
+
+Ưu tiên AI trước vì hiện có nhiều top-level module cùng một bounded context và các legacy directory rỗng. Users/Auth/Doctors thực hiện tiếp theo nhưng phải giữ separation giữa authentication, canonical user và doctor lifecycle; không gom cả ba thành một god module.
+
+#### RF-11D — Điều kiện được xóa module/code
+
+Một module/provider/schema/thư mục chỉ được xóa khi đồng thời đạt:
+
+- Không còn import trong `AppModule`, worker composition root hoặc module khác.
+- Không còn DI token, `InjectModel`, controller, gateway, scheduled job, queue processor hoặc event subscriber tham chiếu.
+- Không còn canonical endpoint/event/worker chỉ được triển khai tại đó, hoặc implementation đã được chuyển và contract test pass.
+- Collection/data lịch sử đã có owner mới hoặc retention/migration decision rõ; xóa module **không tự động cho phép drop collection**.
+- Migration, seed, verifier, scripts và tests không còn phụ thuộc runtime path cũ. Migration lịch sử vẫn được giữ nguyên.
+- `rg`/dependency graph không còn deep import; TypeScript, Nest bootstrap, unit, integration, E2E, OpenAPI và realtime diff đều pass.
+- Package dependency chỉ được gỡ sau khi xác nhận không còn runtime/build/test consumer.
+
+Tool phát hiện unused import/file/dependency chỉ là tín hiệu hỗ trợ. Không xóa tự động dựa riêng vào `knip`, ESLint hoặc coverage vì Nest DI, decorators, dynamic modules và worker entrypoints có thể không xuất hiện trong static graph đầy đủ.
+
+#### RF-11E — Enforcement và exit gate
+
+- `AppModule` chỉ import public bounded-context modules và platform modules cần bootstrap; không import module theo collection như AI document/chunk.
+- Mỗi top-level business module có owner, public exports và allowed dependencies được ghi trong responsibility map.
+- Không còn empty legacy directory; không còn `AiSessionsModule`, `AiMessagesModule`, `AiHealthInsightsModule`, `PatientsModule`, `AdminsModule`, module AI document/chunk/feedback độc lập hoặc compatibility alias tương đương.
+- Không context nào inject Mongoose model do context khác sở hữu.
+- Dependency-cycle và boundary checks pass; deep import vào `domain/internal/infrastructure` của context khác bị CI chặn.
+- HTTP/Socket/OpenAPI contract không regression; critical query plan, pagination và indexes không xấu đi sau khi đổi repository ownership.
+- Không xuất hiện god module/god service mới: capability có use case/repository riêng, public facade chỉ orchestration và không chứa toàn bộ business logic.
+- Build API + worker, lint, typecheck, unit, integration, E2E và clean-checkout bootstrap đều pass.
+
+Ước lượng RF-11: **8-14 person-days**. Đây là estimate cho consolidation có test/boundary cleanup; không bao gồm feature mới hoặc đổi business contract. Nếu deadline căng, ưu tiên theo thứ tự AI → User/Auth/Doctor → Consultation; platform relocation có thể chia nhỏ nhưng empty/unused module cleanup và boundary enforcement không được bỏ qua.
+
+Trạng thái RF-11: **DONE — 2026-09-21** (`BE-RF-080` đến `BE-RF-086`). Đã hợp nhất các module theo bounded context, chuyển adapter dùng chung sang `infrastructure`, loại runtime schema/module trùng lặp, bỏ cross-context model registration, xóa orphan/empty module và bổ sung boundary enforcement. OpenAPI không có semantic diff; HTTP/Socket contract, API/worker bootstrap, build, lint, typecheck, unit, integration và E2E đều pass. Evidence chi tiết nằm tại `docs/current-state/rf11-module-consolidation.md`.
+
 ## 6. Definition of Done cho refactor
 
 Một task `BE-RF-*` chỉ Done khi:
@@ -1134,6 +1294,13 @@ Một task `BE-RF-*` chỉ Done khi:
 | BE-RF-062 | Tối ưu Notification/Outbox queries           | BE-RF-006, BE-RF-007, BE-RF-060, BE-RF-061            | Cursor và bounded claim explain tests pass                                               |
 | BE-RF-063 | Cache-aside cho read query đã chứng minh     | BE-RF-007, BE-RF-022 và query owner tương ứng         | TTL/invalidation/fallback tests pass; có metric lợi ích trước/sau                        |
 | BE-RF-070 | Legacy cutover/cleanup                       | Tất cả RF trên                                        | Không còn legacy consumer/code                                                           |
+| BE-RF-080 | Module/dependency graph + disposition        | BE-RF-070                                             | Mọi module/provider/schema có owner và KEEP/MERGE/MOVE/DELETE/DEFER decision             |
+| BE-RF-081 | Hợp nhất AI Advisory                         | BE-RF-080, BE-RF-051                                  | Một public AI module; conversation/feedback/knowledge/retrieval còn tách capability      |
+| BE-RF-082 | Hợp nhất User/Auth/Doctor ownership          | BE-RF-080, BE-RF-030, BE-RF-031                       | Không còn Patients/Admins/AuthCore nghiệp vụ trùng; model ownership và public facade rõ  |
+| BE-RF-083 | Hợp nhất Consultation collaboration          | BE-RF-080, BE-RF-040 đến BE-RF-044                    | Chat/Review/Presence nằm đúng owner; không cross-context model injection                 |
+| BE-RF-084 | Hợp nhất Moderation và platform adapters     | BE-RF-080, BE-RF-061                                  | Moderation owner rõ; files/email/outbox/presence đặt đúng infrastructure/context         |
+| BE-RF-085 | Xóa orphan module/provider/dependency        | BE-RF-081 đến BE-RF-084                               | Không empty/unused module; DI bootstrap và full regression pass                          |
+| BE-RF-086 | Enforce context boundaries và contract diff  | BE-RF-081 đến BE-RF-085                               | CI chặn cycle/deep import/foreign model; OpenAPI/realtime diff đã duyệt                  |
 
 ---
 
@@ -1143,18 +1310,18 @@ Một task `BE-RF-*` chỉ Done khi:
 
 Không cần đợi toàn bộ refactor hoàn tất, nhưng mọi feature đều phụ thuộc `BE-RF-006` (query/pagination convention) và `BE-RF-007` (query catalog/performance baseline), sau đó mới xét dependency domain trực tiếp dưới đây.
 
-| Feature                | Refactor bắt buộc hoàn thành trước                |
-| ---------------------- | ------------------------------------------------- |
-| OAuth                  | BE-RF-030, BE-RF-011                              |
-| AvailabilitySlot       | BE-RF-020, BE-RF-031                              |
-| Scheduled booking      | BE-RF-040 và AvailabilitySlot                     |
-| Queue/check-in/no-show | BE-RF-040, BE-RF-043 và scheduled/on-demand rules |
-| Reminder/FCM           | BE-RF-061                                         |
-| AI quota               | BE-RF-051, BE-RF-022                              |
-| Payment                | BE-RF-030, BE-RF-061                              |
-| Refund                 | Payment basic đã pass sandbox/IPN gate            |
-| Moderation             | BE-RF-030, BE-RF-040, BE-RF-042                   |
-| WebRTC/TURN mở rộng    | BE-RF-043 và Consultation authorization           |
+| Feature                | Refactor bắt buộc hoàn thành trước                 |
+| ---------------------- | -------------------------------------------------- |
+| OAuth                  | BE-RF-030, BE-RF-011, BE-RF-082                    |
+| AvailabilitySlot       | BE-RF-020, BE-RF-031, BE-RF-082                    |
+| Scheduled booking      | BE-RF-040, BE-RF-083 và AvailabilitySlot           |
+| Queue/check-in/no-show | BE-RF-040, BE-RF-043, BE-RF-083 và business rules  |
+| Reminder/FCM           | BE-RF-061, BE-RF-084                               |
+| AI quota               | BE-RF-051, BE-RF-022, BE-RF-081                    |
+| Payment                | BE-RF-030, BE-RF-061, BE-RF-082, BE-RF-084         |
+| Refund                 | Payment basic đã pass sandbox/IPN gate             |
+| Moderation             | BE-RF-030, BE-RF-040, BE-RF-042, BE-RF-084         |
+| WebRTC/TURN mở rộng    | BE-RF-043, BE-RF-083 và Consultation authorization |
 
 Mỗi feature được triển khai theo cùng trình tự:
 
@@ -1523,20 +1690,18 @@ Frontend repository chịu trách nhiệm:
 
 ## 13. Lịch thực hiện backend đến 31/12
 
-Lịch ưu tiên hoàn thành nền refactor trước, sau đó tập trung feature. Một vài contract/design feature có thể chuẩn bị sớm nhưng không code vào module legacy.
+RF-0 đến RF-10 đã được triển khai sớm hơn lịch dự kiến ban đầu. Từ 22/09, ưu tiên đóng RF-11 trước khi đặt feature mới vào các bounded context tương ứng; contract/design feature có thể chuẩn bị song song nhưng không code vào module đang chờ hợp nhất.
 
-| Thời gian   | Nhóm việc                     | Kết quả bắt buộc                                                                         |
-| ----------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
-| 15/09-20/09 | RF-0, RF-1                    | Audit, backend build xanh, CI fail-fast, characterization tests                          |
-| 21/09-04/10 | RF-2, RF-3, RF-4              | Service/query standards, backend độc lập, OpenAPI, migration runner và DB rỗng bootstrap |
-| 05/10-18/10 | RF-5, RF-6                    | Canonical Identity/Practitioner và old on-demand flow trên Consultation                  |
-| 19/10-01/11 | RF-7, RF-8, RF-9              | Chat/review/realtime, Health/AI, notification/outbox và module query optimization        |
-| 02/11-15/11 | NF-2                          | AvailabilitySlot và scheduled booking hoàn chỉnh                                         |
-| 16/11-29/11 | NF-3, NF-4, NF-5              | Queue/check-in/no-show, reminder và AI quota                                             |
-| 30/11-08/12 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line           |
-| 09/12-13/12 | RF-10 + integration           | Legacy cutover, reconciliation, contract freeze                                          |
-| 14/12-23/12 | Release Candidate             | Full regression, load/security, backup/restore, demo rehearsal                           |
-| 24/12-31/12 | Buffer                        | Chỉ blocker, security và lỗi demo; không thêm feature                                    |
+| Thời gian   | Nhóm việc                     | Kết quả bắt buộc                                                               |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| 15/09-21/09 | RF-0 đến RF-10                | Đã hoàn tất source refactor, canonical cutover và local release rehearsal      |
+| 21/09       | RF-11                         | Đã hợp nhất bounded-context modules, xóa orphan code và bật boundary enforcement |
+| 06/10-26/10 | NF-2                          | AvailabilitySlot và scheduled booking hoàn chỉnh                               |
+| 27/10-16/11 | NF-3, NF-4, NF-5              | Queue/check-in/no-show, reminder và AI quota                                   |
+| 17/11-30/11 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line |
+| 01/12-13/12 | Integration                   | Reconciliation, contract freeze, performance/concurrency/security regression   |
+| 14/12-23/12 | Release Candidate             | Full regression, load/security, backup/restore, demo rehearsal                 |
+| 24/12-31/12 | Buffer                        | Chỉ blocker, security và lỗi demo; không thêm feature                          |
 
 Quy tắc cut-line:
 
@@ -1563,9 +1728,10 @@ Quy tắc cut-line:
 | Health + AI/RAG                                                         |        7-11 |
 | Notification + Outbox/BullMQ                                            |        7-10 |
 | Cutover/cleanup                                                         |         4-6 |
-| **Tổng RF thô nếu làm cả cache P1**                                     |  **70-104** |
+| Bounded-context module consolidation và orphan cleanup                  |        8-14 |
+| **Tổng RF thô nếu làm cả cache P1**                                     |  **78-118** |
 
-Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nếu bỏ cache khỏi deadline, tổng RF thô là **68-100 person-days**; vẫn giữ Redis vì OTP, throttling phân tán, presence, quota và BullMQ cần Redis.
+Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nếu bỏ cache khỏi deadline, tổng RF thô là **76-114 person-days**; vẫn giữ Redis vì OTP, throttling phân tán, presence, quota và BullMQ cần Redis.
 
 ### 14.2 Feature mới
 
@@ -1717,6 +1883,8 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
 | ------------------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------- |
 | Bắt đầu feature khi build chưa xanh                    | Cao        | RF-1 hard gate                                                                               |
 | God service chỉ bị chia file nhưng vẫn coupling        | Cao        | Responsibility map, port ownership và dependency tests/review gate                           |
+| Hợp nhất module tạo god bounded context mới            | Cao        | Một public module nhưng tách capability/use case; facade không chứa toàn bộ business logic   |
+| Xóa nhầm module dùng qua Nest dynamic DI/worker        | Cao        | Runtime consumer graph, bootstrap API/worker và deletion gate RF-11D                         |
 | List endpoint/query không bounded làm tăng RAM/latency | Cao        | Shared pagination, hard max, cursor cho timeline và load test                                |
 | Index không khớp filter + sort thực tế                 | Cao        | Query catalog, explain baseline và versioned index migration                                 |
 | Regex search/populate gây query chậm                   | Trung bình | Escape/allowlist, Atlas/text search, projection/lean và query-count budget                   |
@@ -1763,13 +1931,14 @@ Thực hiện đúng thứ tự:
 7. [x] Chốt backend-only repository boundary và OpenAPI ownership (`BE-RF-010`, `BE-RF-011`) — 2026-09-17.
 8. [x] Hardening config/bootstrap, Passport/Swagger, throttling và logging (`BE-RF-012` đến `BE-RF-014`) — 2026-09-17.
 9. [x] Tạo DatabaseModule, migration runner, verifier, DB bootstrap và Redis/health lifecycle (`BE-RF-020` đến `BE-RF-022`) — 2026-09-17.
-10. [ ] Refactor Identity/Practitioner và query của chúng (`BE-RF-030` đến `BE-RF-032`).
+10. [x] Refactor Identity/Doctor và query của chúng (`BE-RF-030` đến `BE-RF-032`) — 2026-09-17.
 11. [x] Chuyển old request flow, Message/Review/Realtime và tối ưu query (`BE-RF-040` đến `BE-RF-044`) — core done 2026-09-18; follow-up exit gates được ghi ở RF-7.
 12. [x] Refactor Health/AI cùng query aggregation/search (`BE-RF-050` đến `BE-RF-052`) — implementation/migration/cutover complete 2026-09-18; staging performance evidence là release gate vận hành.
-13. [ ] Refactor Notification/Outbox cùng cursor/bounded claims (`BE-RF-060` đến `BE-RF-062`).
-14. [ ] Chỉ nhận cache task `BE-RF-063` nếu query baseline chứng minh cần; không coi đây là P0.
+13. [x] Refactor Notification/Outbox cùng cursor/bounded claims (`BE-RF-060` đến `BE-RF-062`) — 2026-09-19.
+14. [x] Triển khai cache-aside có chọn lọc (`BE-RF-063`) sau query baseline — 2026-09-17; không cache state nhạy cảm.
 15. [ ] Chỉ sau các gate tương ứng mới nhận `BE-NF-010` trở đi.
 16. [ ] Không tạo task Web/Admin/Mobile trong repository hoặc board backend.
+17. [x] Hoàn thành RF-11 (`BE-RF-080` đến `BE-RF-086`) ngày `2026-09-21`; bounded-context topology, ownership, cleanup, boundary và contract exit gate đều pass.
 
 ## 23. Tóm tắt quyết định
 
@@ -1791,3 +1960,5 @@ Thực hiện đúng thứ tự:
 16. Thêm P0: Helmet, Throttler, Redis/ioredis, BullMQ và Terminus; dùng structured JSON logging/correlation ID không cần package mới ở vòng đầu.
 17. Cache manager là P1, chỉ dùng cache-aside có chọn lọc sau tối ưu query; không cache state nhạy cảm của auth, booking/queue, health, payment/refund hoặc AI quota.
 18. Dev tools/APM/OAuth strategy chỉ thêm khi có use case và owner rõ; Kafka, CQRS package, Elasticsearch, Prisma và GraphQL không thuộc scope deadline này.
+19. Module được hợp nhất theo bounded context và ownership, không theo collection; một public module vẫn phải chia capability/use case và không được trở thành god service.
+20. Module/provider/schema chỉ bị xóa sau khi qua consumer, DI, data-retention, contract và regression gates; migration lịch sử không bị sửa hoặc xóa theo source module.

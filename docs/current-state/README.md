@@ -27,6 +27,7 @@ Status: **DONE — 2026-09-15** (`BE-RF-001`).
 | `migration-manifest.md`            | Registry migration hiện hành và retention rule                                      |
 | `rf10-cutover.md`                  | Canonical-only contract, release checklist và rollback runbook                      |
 | `rf10c-evidence.md`                | Reconciliation, migration rehearsal và full regression evidence                     |
+| `rf11-module-consolidation.md`     | Bounded-context topology, ownership, deleted modules và verification evidence         |
 
 Generator `scripts/rf0-openapi-baseline.cjs` có thể tái tạo OpenAPI/Postman source snapshot. Không dùng snapshot generator này thay cho runtime OpenAPI CI artifact mục tiêu ở `BE-RF-011`.
 

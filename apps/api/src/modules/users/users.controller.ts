@@ -80,12 +80,6 @@ export class UsersController {
     return this.usersService.findById(userId);
   }
 
-  @Get(':id/profile')
-  @ApiOperation({ summary: 'Lấy profile user theo ID (role-aware)' })
-  findProfile(@Param('id') id: string) {
-    return this.usersService.findProfileById(id);
-  }
-
   @Get(':id')
   @ApiOperation({ summary: 'Lấy thông tin user theo ID' })
   findOne(@Param('id') id: string) {

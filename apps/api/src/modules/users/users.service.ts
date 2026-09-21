@@ -7,8 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './entities/user.schema';
-import { Doctor, DoctorDocument } from './entities/doctor.schema';
-import { Patient, PatientDocument } from '../patients/entities/patient.entity';
+import { Patient, PatientDocument } from './patients/entities/patient.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
 import {
@@ -16,14 +15,8 @@ import {
   DoctorVerificationStatus,
   AccountStatus,
 } from '../../core/domain/user.enums';
-import { Admin, AdminDocument } from '../admins/entities/admin.entity';
-import { Review, ReviewDocument } from '../reviews/entities/review.entity';
 import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
-import {
-  Violation,
-  ViolationStatus,
-} from '../violations/entities/violation.entity';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CloudinaryService } from '../../infrastructure/files/cloudinary.service';
 import { UsersCacheService } from './users-cache.service';
 import { QueryUsersDto } from './dto/query-users.dto';
 
@@ -32,14 +25,14 @@ const USER_PUBLIC_READ_PROJECTION =
 // Legacy array endpoints remain bounded until their canonical paginated adapters are introduced.
 const DIRECTORY_RESULT_HARD_CAP = 100;
 
-type ProfileReport = {
+export type ProfileReport = {
   id: string;
   reason: string;
   date: string;
   resolved: boolean;
 };
 
-type DoctorReview = {
+export type DoctorReview = {
   id: string;
   reviewer_name: string;
   reviewer_avatar_initials?: string;
@@ -48,13 +41,13 @@ type DoctorReview = {
   created_at: string;
 };
 
-type DoctorReviewMetrics = {
+export type DoctorReviewMetrics = {
   average_rating: number;
   total_reviews: number;
   rating_distribution: Record<number, number>;
 };
 
-type UserProfileResponse = {
+export type UserProfileResponse = {
   id: string;
   full_name: string;
   email: string;
@@ -76,7 +69,7 @@ type UserProfileResponse = {
     verified_at?: string;
     verification_status?: 'pending' | 'approved' | 'rejected';
     reject_reason?: string;
-    admin_role?: 'super_admin' | 'user_admin' | 'ai_admin';
+    admin_role?: 'super_admin' | 'user_manager' | 'ai_manager';
   };
 };
 
@@ -86,11 +79,7 @@ export class UsersService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
     @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
-    @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
-    @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
-    @InjectModel(Violation.name) private violationModel: Model<Violation>,
     private readonly cloudinaryService: CloudinaryService,
     private readonly usersCache: UsersCacheService,
   ) {}
@@ -125,7 +114,8 @@ export class UsersService {
           {
             role: UserRole.DOCTOR,
             accountStatus: AccountStatus.ACTIVE,
-            'doctorProfile.verificationStatus': DoctorVerificationStatus.APPROVED,
+            'doctorProfile.verificationStatus':
+              DoctorVerificationStatus.APPROVED,
           },
         ],
       })
@@ -147,22 +137,34 @@ export class UsersService {
     if (query.role) filter.role = query.role;
     if (query.accountStatus) filter.accountStatus = query.accountStatus;
     if (query.search?.trim()) {
-      const escaped = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escaped = query.search
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pattern = new RegExp(escaped, 'i');
-      filter.$or = [{ fullName: pattern }, { email: pattern }, { phoneNumber: pattern }];
+      filter.$or = [
+        { fullName: pattern },
+        { email: pattern },
+        { phoneNumber: pattern },
+      ];
     }
-    const sort = query.sortOrder === 1 ? { _id: 1 as const } : { _id: -1 as const };
+    const sort =
+      query.sortOrder === 1 ? { _id: 1 as const } : { _id: -1 as const };
     const [items, total] = await Promise.all([
-      this.userModel.find(filter).select(USER_PUBLIC_READ_PROJECTION).sort(sort).skip((page - 1) * limit).limit(limit).lean().exec(),
+      this.userModel
+        .find(filter)
+        .select(USER_PUBLIC_READ_PROJECTION)
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean()
+        .exec(),
       this.userModel.countDocuments(filter),
     ]);
     return { items, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
   async findDoctors() {
-    return this.usersCache.getDoctorDirectory(() =>
-      this.loadDoctorDirectory(),
-    );
+    return this.usersCache.getDoctorDirectory(() => this.loadDoctorDirectory());
   }
 
   private async loadDoctorDirectory() {
@@ -192,10 +194,7 @@ export class UsersService {
       throw new NotFoundException('User is not a doctor.');
     }
 
-    const doctorProfile = user.doctorProfile ?? await this.doctorModel
-      .findOne({ userId: user._id })
-      .select('specialty workplace experienceYears verificationDocuments verificationStatus rejectReason')
-      .lean();
+    const doctorProfile = user.doctorProfile;
 
     if (!doctorProfile) {
       throw new NotFoundException('Doctor profile not found for this user.');
@@ -217,42 +216,20 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.userModel
       .findById(id)
-      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile`)
+      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile adminProfile`)
       .lean();
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if (user.role === UserRole.DOCTOR) {
-      if (user.doctorProfile) return user;
-      const doctorProfile = await this.doctorModel
-        .findOne({ userId: new Types.ObjectId(id) })
-        .select('-_id -userId -__v')
-        .lean<DoctorDocument>();
-
-      if (doctorProfile) {
-        return { ...user, ...doctorProfile };
-      }
-    }
-
-    if (user.role === UserRole.ADMIN) {
-      const adminProfile = await this.adminModel
-        .findOne({ userId: new Types.ObjectId(id) })
-        .select('-_id -userId -__v')
-        .lean<AdminDocument>();
-
-      if (adminProfile) {
-        return { ...user, ...adminProfile };
-      }
-    }
     return user;
   }
 
-  async findProfileById(id: string): Promise<UserProfileResponse> {
+  async findProfileBaseById(id: string): Promise<UserProfileResponse> {
     const user = await this.userModel
       .findById(id)
-      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile`)
+      .select(`${USER_PUBLIC_READ_PROJECTION} doctorProfile adminProfile`)
       .lean();
 
     if (!user) {
@@ -278,53 +255,8 @@ export class UsersService {
       avatar_url: user.avatarUrl,
     };
 
-    const userObjectId = new Types.ObjectId(user._id.toString());
-
-    const reportedViolations = await this.violationModel
-      .find({ reportedUserId: userObjectId })
-      .select('_id reportType status createdAt')
-      .sort({ createdAt: -1, _id: -1 })
-      .lean<
-        {
-          _id: Types.ObjectId;
-          reportType: string;
-          status: ViolationStatus;
-          createdAt?: Date;
-        }[]
-      >();
-
-    profile.reports = reportedViolations.map((violation) => ({
-      id: violation._id.toString(),
-      reason: violation.reportType,
-      date: violation.createdAt
-        ? new Date(violation.createdAt).toISOString()
-        : new Date().toISOString(),
-      resolved: violation.status === ViolationStatus.RESOLVED,
-    }));
-
     if (user.role === UserRole.DOCTOR) {
-      const [doctor, doctorReviews, ratingGroups] = await Promise.all([
-        Promise.resolve(user.doctorProfile ?? null),
-        this.reviewModel
-          .find({ doctorId: userObjectId })
-          .select('_id patientId rating comment createdAt')
-          .sort({ createdAt: -1, _id: -1 })
-          .lean<
-            {
-              _id: Types.ObjectId;
-              patientId: Types.ObjectId;
-              rating: number;
-              comment: string;
-              createdAt?: Date;
-            }[]
-          >(),
-        this.reviewModel.aggregate<{ _id: number; count: number }>([
-          { $match: { doctorId: userObjectId } },
-          { $group: { _id: '$rating', count: { $sum: 1 } } },
-          { $project: { _id: 1, count: 1 } },
-        ]),
-      ]);
-
+      const doctor = user.doctorProfile;
       if (doctor) {
         profile.role_specific = {
           specialty: doctor.specialty,
@@ -338,63 +270,15 @@ export class UsersService {
         };
       }
 
-      const reviewerIds = Array.from(
-        new Set(doctorReviews.map((review) => review.patientId.toString())),
-      ).map((reviewerId) => new Types.ObjectId(reviewerId));
-
-      const reviewers = reviewerIds.length
-        ? await this.userModel
-            .find({ _id: { $in: reviewerIds } })
-            .select('fullName avatarUrl')
-            .lean<
-              { _id: Types.ObjectId; fullName: string; avatarUrl?: string }[]
-            >()
-        : [];
-
-      const reviewerNameMap = new Map(
-        reviewers.map((reviewer) => [
-          reviewer._id.toString(),
-          reviewer.fullName,
-        ]),
-      );
-
-      profile.doctor_reviews = doctorReviews.map((review) => ({
-        id: review._id.toString(),
-        reviewer_name:
-          reviewerNameMap.get(review.patientId.toString()) ?? 'Unknown user',
-        rating: review.rating,
-        comment: review.comment,
-        created_at: review.createdAt
-          ? new Date(review.createdAt).toISOString()
-          : new Date().toISOString(),
-      }));
-
-      const ratingDistribution: Record<number, number> = {
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
-        5: 0,
-      };
-
-      for (const group of ratingGroups) {
-        if (ratingDistribution[group._id] != null) {
-          ratingDistribution[group._id] = group.count;
-        }
-      }
-
       profile.doctor_review_metrics = {
         average_rating: doctor?.averageRating ?? 0,
         total_reviews: doctor?.reviewCount ?? 0,
-        rating_distribution: ratingDistribution,
+        rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       };
     }
 
     if (user.role === UserRole.ADMIN) {
-      const admin = await this.adminModel
-        .findOne({ userId: userObjectId })
-        .select('_id userId adminRole createdAt updatedAt')
-        .lean<AdminDocument>();
+      const admin = user.adminProfile;
 
       if (admin) {
         profile.role_specific = {
@@ -405,6 +289,115 @@ export class UsersService {
     }
 
     return profile;
+  }
+
+  async findDisplayUsersByIds(ids: string[]) {
+    const objectIds = ids
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+    if (objectIds.length === 0) return [];
+    return this.userModel
+      .find({ _id: { $in: objectIds } })
+      .select('_id fullName avatarUrl')
+      .lean<{ _id: Types.ObjectId; fullName: string; avatarUrl?: string }[]>();
+  }
+
+  async requireDoctorProfile(doctorUserId: string) {
+    if (!Types.ObjectId.isValid(doctorUserId)) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+    const doctor = await this.userModel
+      .findOne({
+        _id: new Types.ObjectId(doctorUserId),
+        role: UserRole.DOCTOR,
+        doctorProfile: { $exists: true },
+      })
+      .select('_id fullName email avatarUrl doctorProfile')
+      .lean();
+    if (!doctor?.doctorProfile) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+    return doctor;
+  }
+
+  async applyDoctorRatingDelta(
+    doctorUserId: string,
+    ratingDelta: number,
+    reviewCountDelta: number,
+  ) {
+    if (!Types.ObjectId.isValid(doctorUserId)) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+    const result = await this.userModel.updateOne(
+      {
+        _id: new Types.ObjectId(doctorUserId),
+        role: UserRole.DOCTOR,
+        doctorProfile: { $exists: true },
+      },
+      [
+        {
+          $set: {
+            'doctorProfile.ratingSum': {
+              $add: [{ $ifNull: ['$doctorProfile.ratingSum', 0] }, ratingDelta],
+            },
+            'doctorProfile.reviewCount': {
+              $add: [
+                { $ifNull: ['$doctorProfile.reviewCount', 0] },
+                reviewCountDelta,
+              ],
+            },
+            'doctorProfile.averageRating': {
+              $let: {
+                vars: {
+                  nextSum: {
+                    $add: [
+                      { $ifNull: ['$doctorProfile.ratingSum', 0] },
+                      ratingDelta,
+                    ],
+                  },
+                  nextCount: {
+                    $add: [
+                      { $ifNull: ['$doctorProfile.reviewCount', 0] },
+                      reviewCountDelta,
+                    ],
+                  },
+                },
+                in: {
+                  $cond: [
+                    { $gt: ['$$nextCount', 0] },
+                    { $divide: ['$$nextSum', '$$nextCount'] },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ],
+      { updatePipeline: true },
+    );
+    if (result.matchedCount === 0) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+    await this.usersCache.invalidateDoctorDirectory();
+    return this.requireDoctorProfile(doctorUserId);
+  }
+
+  async findTopDoctors(limit: number) {
+    return this.userModel
+      .find({
+        role: UserRole.DOCTOR,
+        'doctorProfile.verificationStatus': DoctorVerificationStatus.APPROVED,
+        'doctorProfile.reviewCount': { $gt: 0 },
+      })
+      .select('_id fullName avatarUrl doctorProfile')
+      .sort({
+        'doctorProfile.averageRating': -1,
+        'doctorProfile.reviewCount': -1,
+        _id: 1,
+      })
+      .limit(limit)
+      .lean();
   }
 
   async update(
@@ -423,7 +416,9 @@ export class UsersService {
       averageRating,
       ...userUpdatePayload
     } = dto;
-    const canonicalUserUpdate: Record<string, unknown> = { ...userUpdatePayload };
+    const canonicalUserUpdate: Record<string, unknown> = {
+      ...userUpdatePayload,
+    };
     void averageRating;
 
     if (String(existingUser.role) === UserRole.DOCTOR) {

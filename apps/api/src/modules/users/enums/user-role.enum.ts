@@ -1,5 +1,1 @@
-export enum UserRole {
-  PATIENT = 'patient',
-  DOCTOR = 'doctor',
-  ADMIN = 'admin',
-}
+export { UserRole } from '../../../core/domain/user.enums';

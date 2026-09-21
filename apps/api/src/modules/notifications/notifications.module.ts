@@ -7,8 +7,8 @@ import {
   Notification,
   NotificationSchema,
 } from './entities/notification.entity';
-import { PresenceModule } from '../presence/presence.module';
-import { OutboxModule } from '../outbox/outbox.module';
+import { PresenceModule } from '../../infrastructure/realtime/presence/presence.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 
 @Module({
   imports: [

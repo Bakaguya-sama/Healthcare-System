@@ -27,15 +27,22 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 | BE-RF-042 | Review/rating refactor                         | Huy   | BE-RF-040                |     2-3d | Done 2026-09-18 |
 | BE-RF-043 | Socket auth/CORS/presence                      | Huy   | BE-RF-014, 030, 040      |     3-4d | Done 2026-09-18 |
 | BE-RF-044 | Consultation/Message/Review query optimization | Huy   | BE-RF-006, 007, 040-042  |     3-5d | Done 2026-09-18 |
-| BE-RF-050 | Health Tracking refactor                       | Huy   | BE-RF-020, 004           |     3-4d | Planned         |
-| BE-RF-051 | AI/RAG consolidation                           | Huy   | BE-RF-020, 004           |     5-7d | Planned         |
-| BE-RF-052 | Health/AI query optimization                   | Huy   | BE-RF-006, 007, 050, 051 |     3-4d | Planned         |
-| BE-RF-060 | Notification ownership                         | Huy   | BE-RF-020, 004           |     2-3d | Planned         |
-| BE-RF-061 | Outbox/BullMQ cho effect cũ                    | Huy   | BE-RF-022, 060, 021      |     4-6d | Planned         |
-| BE-RF-062 | Notification/Outbox query optimization         | Huy   | BE-RF-006, 007, 060, 061 |     2-3d | Planned         |
+| BE-RF-050 | Health Tracking refactor                       | Huy   | BE-RF-020, 004           |     3-4d | Done 2026-09-18 |
+| BE-RF-051 | AI/RAG consolidation                           | Huy   | BE-RF-020, 004           |     5-7d | Done 2026-09-18 |
+| BE-RF-052 | Health/AI query optimization                   | Huy   | BE-RF-006, 007, 050, 051 |     3-4d | Done 2026-09-18 |
+| BE-RF-060 | Notification ownership                         | Huy   | BE-RF-020, 004           |     2-3d | Done 2026-09-19 |
+| BE-RF-061 | Outbox/BullMQ cho effect cũ                    | Huy   | BE-RF-022, 060, 021      |     4-6d | Done 2026-09-19 |
+| BE-RF-062 | Notification/Outbox query optimization         | Huy   | BE-RF-006, 007, 060, 061 |     2-3d | Done 2026-09-19 |
 | BE-RF-063 | Cache-aside khi baseline chứng minh cần        | Huy   | BE-RF-007, query owner   |     2-4d | Done 2026-09-17 |
-| BE-RF-070 | Legacy cutover/cleanup                         | Huy   | Tất cả RF bắt buộc       |     2-3d | Planned         |
+| BE-RF-070 | Legacy cutover/cleanup                         | Huy   | Tất cả RF bắt buộc       |     2-3d | Done 2026-09-20 |
+| BE-RF-080 | Module graph + disposition                    | Huy   | BE-RF-070                |       1d | Done 2026-09-21 |
+| BE-RF-081 | Hợp nhất AI Advisory                          | Huy   | BE-RF-080, 051           |     2-3d | Done 2026-09-21 |
+| BE-RF-082 | Hợp nhất User/Auth/Doctor ownership           | Huy   | BE-RF-080, 030-032       |     2-3d | Done 2026-09-21 |
+| BE-RF-083 | Hợp nhất Consultation collaboration           | Huy   | BE-RF-080, 040-044       |     1-2d | Done 2026-09-21 |
+| BE-RF-084 | Moderation và platform adapters               | Huy   | BE-RF-080, 061           |     1-2d | Done 2026-09-21 |
+| BE-RF-085 | Xóa orphan module/provider/schema             | Huy   | BE-RF-081-084            |       1d | Done 2026-09-21 |
+| BE-RF-086 | Boundary/contract verification                | Huy   | BE-RF-081-085            |       1d | Done 2026-09-21 |
 
 ## Next ready work
 
-RF-7 (`BE-RF-041`–`044`) đã hoàn tất. Task refactor tuần tự tiếp theo là RF-8 (`BE-RF-050`–`052`).
+RF-11 (`BE-RF-080`–`086`) đã hoàn tất. Công việc tiếp theo là feature backend theo dependency/cut-line trong `plan/refactor-plan.md`; không tạo lại collection-level module.

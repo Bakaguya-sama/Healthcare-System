@@ -15,7 +15,7 @@ import {
   UpdateNotificationDto,
   QueryNotificationDto,
 } from './dto/create-notification.dto';
-import { OutboxService } from '../outbox/outbox.service';
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import {
   decodeCursor,
   encodeCursor,

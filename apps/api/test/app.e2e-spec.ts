@@ -14,8 +14,8 @@ import { App } from 'supertest/types';
 import { configureApplication } from '../src/bootstrap/configure-application';
 import { HttpExceptionFilter } from '../src/core/filters/http-exception.filter';
 import { ProxyThrottlerGuard } from '../src/core/throttling/proxy-throttler.guard';
-import { AuthController } from '../src/modules/auth/auth.controller';
-import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthController } from '../src/modules/authentication/auth.controller';
+import { AuthService } from '../src/modules/authentication/auth.service';
 
 @Controller('platform')
 class PlatformTestController {

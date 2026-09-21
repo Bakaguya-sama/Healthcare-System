@@ -11,7 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { AuthSocket } from '../../core/types/auth-socket.type';
 import { getUserIdFromSocket } from '../../core/utils/socket-auth.utils';
 import { RedisService } from '../../infrastructure/redis/redis.service';
-import { NOTIFICATION_REALTIME_CHANNEL } from '../outbox/outbox-worker.service';
+import { NOTIFICATION_REALTIME_CHANNEL } from '../../infrastructure/outbox/outbox-worker.service';
 import type { RedisClientType } from 'redis';
 
 type NotificationGatewayActions =

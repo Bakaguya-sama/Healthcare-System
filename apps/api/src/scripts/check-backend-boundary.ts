@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 const apiRoot = resolve(process.cwd());
 const packageJson = JSON.parse(
@@ -24,6 +24,7 @@ if (workspaceDependencies.length > 0) {
 const forbiddenImports: string[] = [];
 const legacyConsultationReferences: string[] = [];
 const staleContractArtifacts: string[] = [];
+const invalidModuleTopology: string[] = [];
 function inspectDirectory(directory: string): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -53,6 +54,61 @@ function inspectDirectory(directory: string): void {
 }
 
 inspectDirectory(join(apiRoot, 'src'));
+
+const modulesRoot = join(apiRoot, 'src', 'modules');
+const allowedBoundedContexts = new Set([
+  'administration',
+  'ai-advisory',
+  'authentication',
+  'billing',
+  'consultations',
+  'doctors',
+  'health-tracking',
+  'moderation',
+  'notifications',
+  'users',
+]);
+const allowedContextModuleFiles = new Set([
+  'administration/administration.module.ts',
+  'ai-advisory/ai-advisory.module.ts',
+  'authentication/authentication.module.ts',
+  'billing/billing.module.ts',
+  'consultations/consultations.module.ts',
+  'doctors/doctors.module.ts',
+  'health-tracking/health-tracking.module.ts',
+  'moderation/moderation.module.ts',
+  'notifications/notifications.module.ts',
+  'users/users.module.ts',
+]);
+
+for (const entry of readdirSync(modulesRoot, { withFileTypes: true })) {
+  if (entry.isDirectory() && !allowedBoundedContexts.has(entry.name)) {
+    invalidModuleTopology.push(join(modulesRoot, entry.name));
+  }
+}
+
+function inspectContextModuleFiles(directory: string): void {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      inspectContextModuleFiles(path);
+      continue;
+    }
+    if (!entry.name.endsWith('.module.ts')) continue;
+    const modulePath = relative(modulesRoot, path).replaceAll('\\', '/');
+    if (!allowedContextModuleFiles.has(modulePath)) {
+      invalidModuleTopology.push(path);
+    }
+  }
+}
+inspectContextModuleFiles(modulesRoot);
+
+if (invalidModuleTopology.length > 0) {
+  throw new Error(
+    `Backend module topology contains collection-level/legacy modules: ${invalidModuleTopology.join(', ')}`,
+  );
+}
+
 if (forbiddenImports.length > 0) {
   throw new Error(
     `Backend source crosses the repository boundary: ${forbiddenImports.join(', ')}`,
