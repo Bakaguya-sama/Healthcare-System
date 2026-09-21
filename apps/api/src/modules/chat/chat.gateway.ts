@@ -92,7 +92,7 @@ export class ChatGateway
     return this.joinConsultation(client, consultationId, false);
   }
 
-  @SubscribeMessage('send_message')
+  @SubscribeMessage('send_consultation_message')
   async handleMessage(
     @ConnectedSocket() client: AuthSocket,
     @MessageBody() dto: SendMessageDto,
@@ -102,18 +102,16 @@ export class ChatGateway
       const result = await this.chatService.sendMessage(client.userId, dto);
       const message = result.data || result;
       const consultationId = String(
-        message.consultationId || dto.consultationId || dto.doctorSessionId,
+        message.consultationId || dto.consultationId,
       );
       const notification = {
         consultationId,
-        sessionId: consultationId,
         lastMessageAt: new Date(message.sentAt).toISOString(),
         lastMessageId: String(message.id || message._id || ''),
         senderId: String(message.senderId),
         senderType: message.senderType,
       };
-      this.server.to(consultationId).emit('consultation.message.v1', message);
-      this.server.to(consultationId).emit('new_message', message);
+      this.server.to(consultationId).emit('consultation_message', message);
       const consultation = await this.chatService.getConsultationDetails(
         consultationId,
         client.userId,
@@ -121,18 +119,18 @@ export class ChatGateway
       if (consultation) {
         this.notificationsGateway.sendToUser(
           String(consultation.doctorId),
-          'chat_notification',
+          'consultation_message_notification',
           notification,
         );
         this.notificationsGateway.sendToUser(
           String(consultation.patientId),
-          'chat_notification',
+          'consultation_message_notification',
           notification,
         );
       }
-      client.emit('message_sent', message);
+      client.emit('consultation_message_sent', message);
     } catch (error) {
-      client.emit('send_message_error', {
+      client.emit('send_consultation_message_error', {
         message: this.errorMessage(error) || 'Could not send message',
       });
     }
@@ -147,7 +145,7 @@ export class ChatGateway
       return client.emit('get_consultation_messages_error', {
         message: 'Unauthorized',
       });
-    const consultationId = data.consultationId || data.doctorSessionId;
+    const consultationId = data.consultationId;
     try {
       const consultation = await this.chatService.getConsultationDetails(
         consultationId,
@@ -157,40 +155,21 @@ export class ChatGateway
         return client.emit('get_consultation_messages_error', {
           message: 'Not a participant of this consultation',
         });
-      const result = await this.chatService.getSessionMessages(consultationId, {
-        page: 1,
-        limit: Math.min(Number(data.limit) || 50, 100),
-        sortBy: 'sentAt',
-        sortOrder: -1,
-        cursor: data.cursor,
-      });
+      const result = await this.chatService.getConsultationMessages(
+        consultationId,
+        {
+          page: 1,
+          limit: Math.min(Number(data.limit) || 50, 100),
+          sortBy: 'sentAt',
+          sortOrder: -1,
+          cursor: data.cursor,
+        },
+      );
       client.emit('consultation_messages', result);
     } catch (error) {
       client.emit('get_consultation_messages_error', {
         message: this.errorMessage(error),
       });
     }
-  }
-
-  @SubscribeMessage('join_session')
-  handleLegacyJoin(
-    @ConnectedSocket() client: AuthSocket,
-    @MessageBody() id: string,
-  ) {
-    return this.joinConsultation(client, id, true);
-  }
-  @SubscribeMessage('leave_session')
-  handleLegacyLeave(
-    @ConnectedSocket() client: AuthSocket,
-    @MessageBody() id: string,
-  ) {
-    return this.joinConsultation(client, id, false);
-  }
-  @SubscribeMessage('get_session_messages')
-  handleLegacyHistory(
-    @ConnectedSocket() client: AuthSocket,
-    @MessageBody() data: any,
-  ) {
-    return this.handleGetConsultationMessages(client, data);
   }
 }

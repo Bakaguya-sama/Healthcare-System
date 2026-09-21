@@ -32,13 +32,28 @@ export class Consultation {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   doctorId!: Types.ObjectId;
 
-  @Prop({ type: String, enum: ConsultationMode, required: true, default: ConsultationMode.ON_DEMAND })
+  @Prop({
+    type: String,
+    enum: ConsultationMode,
+    required: true,
+    default: ConsultationMode.ON_DEMAND,
+  })
   mode!: ConsultationMode;
 
-  @Prop({ type: String, enum: ConsultationRequestStatus, required: true, default: ConsultationRequestStatus.PENDING })
+  @Prop({
+    type: String,
+    enum: ConsultationRequestStatus,
+    required: true,
+    default: ConsultationRequestStatus.PENDING,
+  })
   requestStatus!: ConsultationRequestStatus;
 
-  @Prop({ type: String, enum: ConsultationSessionStatus, required: true, default: ConsultationSessionStatus.NOT_STARTED })
+  @Prop({
+    type: String,
+    enum: ConsultationSessionStatus,
+    required: true,
+    default: ConsultationSessionStatus.NOT_STARTED,
+  })
   sessionStatus!: ConsultationSessionStatus;
 
   @Prop({ required: true, default: Date.now })
@@ -63,8 +78,32 @@ export class Consultation {
 }
 
 export const ConsultationSchema = SchemaFactory.createForClass(Consultation);
-ConsultationSchema.index({ doctorId: 1, requestStatus: 1, requestedAt: -1, _id: -1 });
-ConsultationSchema.index({ patientId: 1, requestStatus: 1, requestedAt: -1, _id: -1 });
-ConsultationSchema.index({ doctorId: 1, sessionStatus: 1, scheduledStartAt: 1, _id: 1 });
-ConsultationSchema.index({ patientId: 1, doctorId: 1, requestStatus: 1 }, { partialFilterExpression: { mode: ConsultationMode.ON_DEMAND, requestStatus: ConsultationRequestStatus.PENDING }, unique: true });
+ConsultationSchema.index({
+  doctorId: 1,
+  requestStatus: 1,
+  requestedAt: -1,
+  _id: -1,
+});
+ConsultationSchema.index({
+  patientId: 1,
+  requestStatus: 1,
+  requestedAt: -1,
+  _id: -1,
+});
+ConsultationSchema.index({
+  doctorId: 1,
+  sessionStatus: 1,
+  scheduledStartAt: 1,
+  _id: 1,
+});
+ConsultationSchema.index(
+  { patientId: 1, doctorId: 1, requestStatus: 1 },
+  {
+    partialFilterExpression: {
+      mode: ConsultationMode.ON_DEMAND,
+      requestStatus: ConsultationRequestStatus.PENDING,
+    },
+    unique: true,
+  },
+);
 ConsultationSchema.index({ roomId: 1 }, { unique: true, sparse: true });

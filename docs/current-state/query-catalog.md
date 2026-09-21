@@ -2,6 +2,8 @@
 
 Status: **DONE — 2026-09-16** (`BE-RF-007`).
 
+> RF-10B update (2026-09-20): runtime query shapes are canonical-only. The measurements below remain the RF-2D historical baseline; the deleted one-off `perf:rf2d` script is replaced by `test/query-performance.integration-spec.ts` as the executable regression.
+
 ## Phạm vi và nguyên tắc
 
 Catalog này ghi nhận các read query P0 của Users/Practitioners, Consultations, Messages, HealthMetrics, Notifications và AI conversations. Kết quả chỉ chứng minh query shape và index trên fixture cục bộ; không được diễn giải thành production SLA.
@@ -14,7 +16,7 @@ Catalog này ghi nhận các read query P0 của Users/Practitioners, Consultati
 
 ## Representative dataset
 
-Script: `pnpm --filter api perf:rf2d`.
+Executable regression: `pnpm --filter api test:integration -- query-performance.integration-spec.ts` with MongoDB test infrastructure running.
 
 Mỗi lần chạy tạo database tạm có tên ngẫu nhiên `healthcare_rf2d_perf_<ObjectId>`, seed dữ liệu xác định, đo trước/sau rồi chỉ xóa database do chính lần chạy đó tạo.
 
@@ -34,15 +36,15 @@ Mỗi p95 bên dưới gồm 25 lần chạy warm local cho cùng query, không 
 | Query ID    | Caller/API                           | Collection        | Filter chính                                  | Sort mặc định                | Projection chính                                       | Pagination    | Expected cardinality | Index                                                      | Budget            |
 | ----------- | ------------------------------------ | ----------------- | --------------------------------------------- | ---------------------------- | ------------------------------------------------------ | ------------- | -------------------- | ---------------------------------------------------------- | ----------------- |
 | `Q-PRC-001` | `GET /users/doctors`                 | `doctors`         | `verificationStatus = approved`               | `userId ASC`                 | `userId`, `specialty`                                  | hard cap 100  | 1.500/2.000          | `verificationStatus_1_userId_1`                            | local p95 ≤ 10 ms |
-| `Q-CON-001` | `GET /sessions` — patient            | `sessions`        | `patientId`, optional `status`/date           | `scheduledAt DESC, _id DESC` | session list fields + selected actor fields            | page, max 100 | ~300/actor           | `patientId_1_status_1_scheduledAt_-1__id_-1` or base index | local p95 ≤ 10 ms |
-| `Q-CON-002` | `GET /sessions` — doctor             | `sessions`        | `doctorId`, optional `status`/date            | `scheduledAt DESC, _id DESC` | session list fields + selected actor fields            | page, max 100 | ~300/actor           | `doctorId_1_scheduledAt_-1__id_-1`                         | local p95 ≤ 10 ms |
-| `Q-MSG-001` | `GET /chat/sessions/:id/messages`    | `messages`        | `doctorSessionId`                             | `sentAt DESC, _id DESC`      | sender, content, attachments, timestamps               | page, max 100 | ~200/session         | `doctorSessionId_1_sentAt_-1__id_-1`                       | local p95 ≤ 10 ms |
+| `Q-CON-001` | `GET /consultations` — patient       | `consultations`   | `patientId`, optional `requestStatus`/date    | `requestedAt DESC, _id DESC` | consultation list fields + selected actor fields       | page, max 100 | ~300/actor           | `patientId_1_requestStatus_1_requestedAt_-1__id_-1`        | local p95 ≤ 10 ms |
+| `Q-CON-002` | `GET /consultations` — doctor        | `consultations`   | `doctorId`, optional `requestStatus`/date     | `requestedAt DESC, _id DESC` | consultation list fields + selected actor fields       | page, max 100 | ~300/actor           | `doctorId_1_requestStatus_1_requestedAt_-1__id_-1`         | local p95 ≤ 10 ms |
+| `Q-MSG-001` | `GET /chat/consultation/:id`         | `messages`        | `consultationId`                              | `sentAt DESC, _id DESC`      | sender, content, attachments, timestamps               | page, max 100 | ~200/consultation    | `consultationId_1_sentAt_-1__id_-1`                        | local p95 ≤ 10 ms |
 | `Q-HLT-001` | `GET /health-metrics`                | `healthmetrics`   | `patientId`, optional `type`/recordedAt range | `recordedAt DESC, _id DESC`  | type, values, unit, recordedAt                         | page, max 100 | ~300/patient         | `patientId_1_type_1_recordedAt_-1__id_-1` or base index    | local p95 ≤ 10 ms |
 | `Q-NOT-001` | `GET /notifications?unreadOnly=true` | `notifications`   | `userId`, `isRead = false`                    | `createdAt DESC, _id DESC`   | type, title, message, read state, metadata, timestamps | page, max 100 | ~200 unread/user     | `userId_1_isRead_1_createdAt_-1__id_-1`                    | local p95 ≤ 10 ms |
 | `Q-AIC-001` | `GET /ai-assistant/conversations`    | `aiconversations` | `userId`                                      | `createdAt DESC, _id DESC`   | conversation list projection, không messages/internal  | page, max 100 | ~200/user            | `userId_1_createdAt_-1__id_-1`                             | local p95 ≤ 10 ms |
 | `Q-AIC-002` | Conversation list với `isArchived`   | `aiconversations` | `userId`, `isArchived`                        | `createdAt DESC, _id DESC`   | conversation list projection                           | page, max 100 | ~200/user            | `userId_1_isArchived_1_createdAt_-1__id_-1`                | local p95 ≤ 10 ms |
 
-`Q-CON-001` và `Q-HLT-001` dùng base actor index khi không có status/type; compound equality index được dùng khi filter tương ứng tồn tại. Date range đứng sau equality prefix và trước tie-breaker theo query shape.
+`Q-CON-001/002` dùng compound actor + request-status + time index cho canonical list filter. `Q-HLT-001` dùng base actor index khi không có type; compound equality index được dùng khi filter type tồn tại. Date range đứng sau equality prefix và trước tie-breaker theo query shape.
 
 ## Explain baseline trước/sau
 
@@ -59,7 +61,7 @@ Kết quả ngày 2026-09-16, MongoDB cục bộ, page 20:
 | `Q-AIC-001` | legacy user/time + blocking `SORT`    |         200/200 |  4,084 ms | `userId_1_createdAt_-1__id_-1`               |         20/20 | 4,458 ms |
 | `Q-AIC-002` | legacy user/time + filter + `SORT`    |         200/200 |  4,226 ms | `userId_1_isArchived_1_createdAt_-1__id_-1`  |         20/20 | 4,053 ms |
 
-Planner tự chọn managed index trong benchmark sau tối ưu; không dùng `hint`. Integration regression test dùng `hint` để chứng minh từng index support đầy đủ filter/sort shape và fail nếu xuất hiện `COLLSCAN`, `SORT`, hoặc examine quá page limit.
+Các số trong bảng trên là baseline lịch sử RF-2D. RF-10B regression hiện chạy cùng nguyên tắc bằng canonical `consultations.requestStatus/requestedAt` và `messages.consultationId`; test dùng `hint` để chứng minh từng index support đầy đủ filter/sort shape và fail nếu xuất hiện `COLLSCAN`, `SORT`, hoặc examine quá page limit.
 
 ## Versioned index migration
 

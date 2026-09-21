@@ -77,10 +77,6 @@ export class AiConversation {
   @Prop({ type: Date })
   lastMessageAt: Date;
 
-  /** Idempotency key used only while migrating the retired AiSession collection. */
-  @Prop({ type: Types.ObjectId, sparse: true })
-  legacyAiSessionId?: Types.ObjectId;
-
   @Prop({ type: Boolean, default: false })
   isArchived: boolean;
 
@@ -133,10 +129,6 @@ AiConversationSchema.index(
 AiConversationSchema.index(
   { userId: 1, status: 1, lastMessageAt: -1, _id: -1 },
   { name: 'userId_1_status_1_lastMessageAt_-1__id_-1' },
-);
-AiConversationSchema.index(
-  { legacyAiSessionId: 1 },
-  { name: 'legacyAiSessionId_unique', unique: true, sparse: true },
 );
 AiConversationSchema.index(
   { userId: 1, type: 1, createdAt: -1, _id: -1 },

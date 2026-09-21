@@ -3,12 +3,14 @@ import {
   applyRf2dQueryIndexes,
   RF2D_QUERY_INDEXES,
 } from '../src/database/migrations/202609162200-rf2d-query-indexes';
+import { applyRf6Consultations } from '../src/database/migrations/202609182100-rf6-consultations';
+import { applyRf7ChatReviews } from '../src/database/migrations/202609182200-rf7-chat-reviews';
 
 jest.setTimeout(30_000);
 
 const mongoUri =
   process.env.TEST_MONGODB_URI ??
-  'mongodb://localhost:27017/healthcare_rf1_test?replicaSet=rs0&directConnection=true';
+  'mongodb://localhost:27018/healthcare_rf1_test?replicaSet=rs0&directConnection=true';
 
 type PerformanceQuery = {
   collection: string;
@@ -43,10 +45,12 @@ describe('RF-2D managed query indexes', () => {
     await client.connect();
     db = client.db(`healthcare_rf2d_test_${new ObjectId().toHexString()}`);
     await applyRf2dQueryIndexes(db);
+    await applyRf6Consultations(db);
+    await applyRf7ChatReviews(db);
 
     const patientId = new ObjectId();
     const doctorId = new ObjectId();
-    const sessionId = new ObjectId();
+    const consultationId = new ObjectId();
     const baseTime = Date.UTC(2026, 0, 1);
 
     await Promise.all([
@@ -56,17 +60,22 @@ describe('RF-2D managed query indexes', () => {
           verificationStatus: index % 2 === 0 ? 'approved' : 'pending',
         })),
       ),
-      db.collection('sessions').insertMany(
+      db.collection('consultations').insertMany(
         Array.from({ length: 1_000 }, (_, index) => ({
           patientId: index % 5 === 0 ? patientId : new ObjectId(),
           doctorId: index % 5 === 0 ? doctorId : new ObjectId(),
-          status: index % 2 === 0 ? 'pending' : 'completed',
-          scheduledAt: new Date(baseTime + index * 60_000),
+          // Scheduled consultations are not subject to the single-pending
+          // on-demand request invariant, so this fixture can model a large
+          // patient/doctor history without violating the partial unique index.
+          mode: 'scheduled',
+          requestStatus: index % 2 === 0 ? 'pending' : 'accepted',
+          sessionStatus: index % 2 === 0 ? 'not_started' : 'completed',
+          requestedAt: new Date(baseTime + index * 60_000),
         })),
       ),
       db.collection('messages').insertMany(
         Array.from({ length: 1_000 }, (_, index) => ({
-          doctorSessionId: index % 5 === 0 ? sessionId : new ObjectId(),
+          consultationId: index % 5 === 0 ? consultationId : new ObjectId(),
           senderId: patientId,
           senderType: 'patient',
           content: `message-${index}`,
@@ -112,22 +121,22 @@ describe('RF-2D managed query indexes', () => {
         index: 'verificationStatus_1_userId_1',
       },
       {
-        collection: 'sessions',
-        filter: { patientId, status: 'pending' },
-        sort: { scheduledAt: -1, _id: -1 },
-        index: 'patientId_1_status_1_scheduledAt_-1__id_-1',
+        collection: 'consultations',
+        filter: { patientId, requestStatus: 'pending' },
+        sort: { requestedAt: -1, _id: -1 },
+        index: 'patientId_1_requestStatus_1_requestedAt_-1__id_-1',
       },
       {
-        collection: 'sessions',
-        filter: { doctorId },
-        sort: { scheduledAt: -1, _id: -1 },
-        index: 'doctorId_1_scheduledAt_-1__id_-1',
+        collection: 'consultations',
+        filter: { doctorId, requestStatus: 'pending' },
+        sort: { requestedAt: -1, _id: -1 },
+        index: 'doctorId_1_requestStatus_1_requestedAt_-1__id_-1',
       },
       {
         collection: 'messages',
-        filter: { doctorSessionId: sessionId },
+        filter: { consultationId },
         sort: { sentAt: -1, _id: -1 },
-        index: 'doctorSessionId_1_sentAt_-1__id_-1',
+        index: 'consultationId_1_sentAt_-1__id_-1',
       },
       {
         collection: 'healthmetrics',

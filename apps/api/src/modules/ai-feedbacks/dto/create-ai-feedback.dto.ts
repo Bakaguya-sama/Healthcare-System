@@ -1,15 +1,21 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
+import {
+  IsIn,
+  IsMongoId,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PageSortQueryDto } from '../../../common/pagination';
 
 export class CreateAiFeedbackDto {
   @ApiProperty({
-    description: 'AI Session ID',
+    description: 'AI conversation ID',
     example: '507f1f77bcf86cd799439011',
   })
   @IsNotEmpty()
-  @IsString()
-  aiSessionId: string;
+  @IsMongoId()
+  aiConversationId!: string;
 
   @ApiProperty({ description: 'Feedback content' })
   @IsNotEmpty()
@@ -25,9 +31,10 @@ export class UpdateAiFeedbackDto {
 }
 
 export class QueryAiFeedbackDto extends PageSortQueryDto {
-  @ApiProperty({ required: false, description: 'Filter by session ID' })
+  @ApiProperty({ required: false, description: 'Filter by AI conversation ID' })
   @IsOptional()
-  aiSessionId?: string;
+  @IsMongoId()
+  aiConversationId?: string;
 
   @ApiProperty({ required: false, description: 'Sort field' })
   @IsOptional()

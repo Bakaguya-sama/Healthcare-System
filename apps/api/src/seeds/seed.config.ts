@@ -26,21 +26,6 @@ export const SEED_CONFIG = {
     REJECTED: 'rejected',
   },
 
-  // Session statuses
-  SESSION_STATUS: {
-    ACTIVE: 'active',
-    COMPLETED: 'completed',
-    PENDING: 'pending',
-    REJECTED: 'rejected',
-    CANCELED: 'canceled',
-  },
-
-  // AI Session statuses
-  AI_SESSION_STATUS: {
-    ACTIVE: 'active',
-    COMPLETED: 'completed',
-  },
-
   // Metric types
   METRIC_TYPES: {
     BLOOD_PRESSURE: 'blood_pressure',

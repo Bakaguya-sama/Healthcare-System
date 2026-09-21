@@ -9,7 +9,7 @@ export class AiFeedback extends Document {
   patientId: Types.ObjectId;
 
   @Prop({ required: true, type: Types.ObjectId })
-  aiSessionId: Types.ObjectId;
+  aiConversationId: Types.ObjectId;
 
   @Prop({ required: true })
   content: string;
@@ -19,4 +19,4 @@ export const AiFeedbackSchema = SchemaFactory.createForClass(AiFeedback);
 
 // Create indexes
 AiFeedbackSchema.index({ patientId: 1, createdAt: -1 });
-AiFeedbackSchema.index({ aiSessionId: 1 });
+AiFeedbackSchema.index({ aiConversationId: 1, createdAt: -1 });

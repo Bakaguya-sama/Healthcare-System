@@ -50,7 +50,7 @@ export class Notification {
   // ✅ NEW: Metadata cho notification (tùy chọn)
   @Prop({ type: Object })
   metadata?: {
-    relatedEntityId?: string; // VD: sessionId, documentId
+    relatedEntityId?: string; // Example: consultationId, documentId
     relatedEntityType?: string; // VD: 'session', 'document'
     action?: string; // VD: 'view', 'download'
   };

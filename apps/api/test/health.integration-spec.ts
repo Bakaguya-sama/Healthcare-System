@@ -12,7 +12,7 @@ import type { RedisClientType } from 'redis';
 
 const mongoUri =
   process.env.TEST_MONGODB_URI ??
-  'mongodb://localhost:27017/healthcare_rf4_health?replicaSet=rs0&directConnection=true';
+  'mongodb://localhost:27018/healthcare_rf4_health?replicaSet=rs0&directConnection=true';
 const redisUrl = process.env.TEST_REDIS_URL ?? 'redis://127.0.0.1:16379';
 
 describe('RF-4 readiness and infrastructure lifecycle', () => {

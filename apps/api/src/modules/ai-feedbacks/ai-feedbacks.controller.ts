@@ -11,7 +11,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AiFeedbacksService } from './ai-feedbacks.service';
-import { CreateAiFeedbackDto, UpdateAiFeedbackDto, QueryAiFeedbackDto } from './dto/create-ai-feedback.dto';
+import {
+  CreateAiFeedbackDto,
+  UpdateAiFeedbackDto,
+  QueryAiFeedbackDto,
+} from './dto/create-ai-feedback.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Roles } from '../../core/decorators/roles.decorator';
@@ -27,23 +31,32 @@ export class AiFeedbacksController {
   constructor(private readonly aiFeedbacksService: AiFeedbacksService) {}
 
   @Post()
-  async create(@CurrentUser() user: UserPayload, @Body() createDto: CreateAiFeedbackDto) {
+  async create(
+    @CurrentUser() user: UserPayload,
+    @Body() createDto: CreateAiFeedbackDto,
+  ) {
     return this.aiFeedbacksService.create(user.id, createDto);
   }
 
   @Get('my-feedbacks')
-  async getMyFeedbacks(@CurrentUser() user: UserPayload, @Query() query: QueryAiFeedbackDto) {
+  async getMyFeedbacks(
+    @CurrentUser() user: UserPayload,
+    @Query() query: QueryAiFeedbackDto,
+  ) {
     return this.aiFeedbacksService.findByPatientId(user.id, query);
   }
 
-  @Get('session/:sessionId')
-  async getSessionFeedbacks(@Param('sessionId') sessionId: string, @Query() query: QueryAiFeedbackDto) {
-    return this.aiFeedbacksService.findBySessionId(sessionId, query);
+  @Get('conversation/:conversationId')
+  async getConversationFeedbacks(
+    @Param('conversationId') conversationId: string,
+    @Query() query: QueryAiFeedbackDto,
+  ) {
+    return this.aiFeedbacksService.findByConversationId(conversationId, query);
   }
 
-  @Get('session/:sessionId/stats')
-  async getSessionStats(@Param('sessionId') sessionId: string) {
-    return this.aiFeedbacksService.getAverageRating(sessionId);
+  @Get('conversation/:conversationId/stats')
+  async getConversationStats(@Param('conversationId') conversationId: string) {
+    return this.aiFeedbacksService.getFeedbackCount(conversationId);
   }
 
   @Get()
@@ -53,7 +66,10 @@ export class AiFeedbacksController {
   }
 
   @Get(':id')
-  async getFeedback(@CurrentUser() user: UserPayload, @Param('id') feedbackId: string) {
+  async getFeedback(
+    @CurrentUser() user: UserPayload,
+    @Param('id') feedbackId: string,
+  ) {
     return this.aiFeedbacksService.findByIdAndUserId(feedbackId, user.id);
   }
 
@@ -78,7 +94,10 @@ export class AiFeedbacksController {
   }
 
   @Delete(':id')
-  async deleteFeedback(@CurrentUser() user: UserPayload, @Param('id') feedbackId: string) {
+  async deleteFeedback(
+    @CurrentUser() user: UserPayload,
+    @Param('id') feedbackId: string,
+  ) {
     return this.aiFeedbacksService.delete(feedbackId, user.id);
   }
 }

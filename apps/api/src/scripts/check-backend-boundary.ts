@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const apiRoot = resolve(process.cwd());
@@ -22,6 +22,8 @@ if (workspaceDependencies.length > 0) {
 }
 
 const forbiddenImports: string[] = [];
+const legacyConsultationReferences: string[] = [];
+const staleContractArtifacts: string[] = [];
 function inspectDirectory(directory: string): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -36,6 +38,17 @@ function inspectDirectory(directory: string): void {
     ) {
       forbiddenImports.push(path);
     }
+    const normalizedPath = path.replaceAll('\\', '/');
+    if (
+      !normalizedPath.endsWith('.spec.ts') &&
+      !normalizedPath.includes('/database/migrations/') &&
+      !normalizedPath.endsWith('/scripts/check-backend-boundary.ts') &&
+      /modules[\\/]sessions|doctorSessionId|legacyAiSessionId|legacySourceKey|Sessions(?:Module|Service|Controller|Gateway)|LEGACY_SESSION_API_ENABLED/.test(
+        content,
+      )
+    ) {
+      legacyConsultationReferences.push(path);
+    }
   }
 }
 
@@ -43,6 +56,43 @@ inspectDirectory(join(apiRoot, 'src'));
 if (forbiddenImports.length > 0) {
   throw new Error(
     `Backend source crosses the repository boundary: ${forbiddenImports.join(', ')}`,
+  );
+}
+
+if (existsSync(join(apiRoot, 'src', 'modules', 'sessions'))) {
+  legacyConsultationReferences.push(
+    join(apiRoot, 'src', 'modules', 'sessions'),
+  );
+}
+if (legacyConsultationReferences.length > 0) {
+  throw new Error(
+    `Canonical source still contains legacy consultation references: ${legacyConsultationReferences.join(', ')}`,
+  );
+}
+
+for (const artifact of [
+  join(apiRoot, 'openapi', 'openapi.json'),
+  join(apiRoot, 'contracts', 'realtime-events.json'),
+]) {
+  if (
+    existsSync(artifact) &&
+    /doctorSessionId|LEGACY_SESSION_API_ENABLED|join_session|leave_session|get_session_messages|\/api\/v1\/(?:sessions|admin\/sessions|chat\/session|reviews\/session)/.test(
+      readFileSync(artifact, 'utf8'),
+    )
+  ) {
+    staleContractArtifacts.push(artifact);
+  }
+}
+for (const stalePostmanCollection of [
+  'Healthcare-API-Complete.postman_collection.json',
+  'QUICK-SETUP-TESTS.postman_collection.json',
+]) {
+  const path = join(apiRoot, stalePostmanCollection);
+  if (existsSync(path)) staleContractArtifacts.push(path);
+}
+if (staleContractArtifacts.length > 0) {
+  throw new Error(
+    `Canonical contract artifacts still expose legacy APIs: ${staleContractArtifacts.join(', ')}`,
   );
 }
 

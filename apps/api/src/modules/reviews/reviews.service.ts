@@ -15,19 +15,24 @@ import {
   DoctorDocument,
   DoctorVerificationStatus,
 } from '../users/entities/doctor.schema';
-import { Consultation, ConsultationDocument, ConsultationSessionStatus } from '../sessions/entities/consultation.entity';
+import { ConsultationSessionStatus } from '../consultations/entities/consultation.entity';
+import { ConsultationsService } from '../consultations/consultations.service';
 import { UsersCacheService } from '../users/users-cache.service';
-import { decodeCursor, encodeCursor, InvalidCursorError } from '../../common/pagination';
+import {
+  decodeCursor,
+  encodeCursor,
+  InvalidCursorError,
+} from '../../common/pagination';
 
 const REVIEW_READ_PROJECTION =
-  '_id patientId doctorId consultationId doctorSessionId rating comment helpfulCount flagged createdAt updatedAt';
+  '_id patientId doctorId consultationId rating comment helpfulCount flagged createdAt updatedAt';
 
 @Injectable()
 export class ReviewsService {
   constructor(
     @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
-    @InjectModel(Consultation.name) private consultationModel: Model<ConsultationDocument>,
+    private readonly consultations: ConsultationsService,
     private readonly usersCache: UsersCacheService,
   ) {}
 
@@ -110,8 +115,8 @@ export class ReviewsService {
     if (!Types.ObjectId.isValid(dto.doctorId)) {
       throw new BadRequestException('Invalid doctor ID');
     }
-    const consultationId = dto.consultationId ?? dto.doctorSessionId;
-    if (!consultationId || !Types.ObjectId.isValid(consultationId)) {
+    const consultationId = dto.consultationId;
+    if (!Types.ObjectId.isValid(consultationId)) {
       throw new BadRequestException('A valid consultation ID is required');
     }
 
@@ -125,20 +130,25 @@ export class ReviewsService {
       );
     }
 
-    const session = typeof (this.consultationModel as any).findOne === 'function'
-      ? await this.consultationModel.findOne({
-          _id: new Types.ObjectId(consultationId),
-          patientId: new Types.ObjectId(patientId),
-          doctorId: new Types.ObjectId(dto.doctorId),
-        })
-      : await this.consultationModel.findById(new Types.ObjectId(consultationId));
+    const consultation = await this.consultations.findForReview(
+      consultationId,
+      patientId,
+      dto.doctorId,
+    );
 
-    if (!session) {
-      throw new NotFoundException('Consultation not found or not owned by patient');
+    if (!consultation) {
+      throw new NotFoundException(
+        'Consultation not found or not owned by patient',
+      );
     }
 
-    if (session.sessionStatus && session.sessionStatus !== ConsultationSessionStatus.COMPLETED) {
-      throw new BadRequestException('A review can only be created after consultation completion');
+    if (
+      consultation.sessionStatus &&
+      consultation.sessionStatus !== ConsultationSessionStatus.COMPLETED
+    ) {
+      throw new BadRequestException(
+        'A review can only be created after consultation completion',
+      );
     }
 
     // const existingReview = await this.reviewModel.findOne({
@@ -160,7 +170,10 @@ export class ReviewsService {
     try {
       await review.save();
     } catch (error: any) {
-      if (error?.code === 11000) throw new BadRequestException('This consultation has already been reviewed');
+      if (error?.code === 11000)
+        throw new BadRequestException(
+          'This consultation has already been reviewed',
+        );
       throw error;
     }
     try {
@@ -183,7 +196,7 @@ export class ReviewsService {
   async findAll(query: QueryReviewDto) {
     const filter: any = {};
 
-    const requestedConsultationId = query.consultationId ?? query.doctorSessionId;
+    const requestedConsultationId = query.consultationId;
     if (requestedConsultationId) {
       if (!Types.ObjectId.isValid(requestedConsultationId)) {
         throw new BadRequestException('Invalid consultation ID');
@@ -255,16 +268,22 @@ export class ReviewsService {
     const pageNum = query?.page || 1;
     const limitNum = query?.limit || 10;
     const skip = (pageNum - 1) * limitNum;
-    const reviewFilter: Record<string, unknown> = { doctorId: new Types.ObjectId(doctorId) };
+    const reviewFilter: Record<string, unknown> = {
+      doctorId: new Types.ObjectId(doctorId),
+    };
     if (query?.cursor) {
       try {
         const cursor = decodeCursor(query.cursor);
         reviewFilter.$or = [
           { createdAt: { $lt: new Date(cursor.sortValue) } },
-          { createdAt: new Date(cursor.sortValue), _id: { $lt: new Types.ObjectId(cursor.id) } },
+          {
+            createdAt: new Date(cursor.sortValue),
+            _id: { $lt: new Types.ObjectId(cursor.id) },
+          },
         ];
       } catch (error) {
-        if (error instanceof InvalidCursorError) throw new BadRequestException('Invalid review cursor');
+        if (error instanceof InvalidCursorError)
+          throw new BadRequestException('Invalid review cursor');
         throw error;
       }
     }
@@ -279,19 +298,27 @@ export class ReviewsService {
         .limit(query?.cursor ? limitNum + 1 : limitNum)
         .lean()
         .exec(),
-      this.reviewModel.countDocuments({ doctorId: new Types.ObjectId(doctorId) }),
+      this.reviewModel.countDocuments({
+        doctorId: new Types.ObjectId(doctorId),
+      }),
     ]);
     const hasNextPage = Boolean(query?.cursor && reviews.length > limitNum);
     const data = hasNextPage ? reviews.slice(0, limitNum) : reviews;
-    const last = data.at(-1) as { createdAt?: Date; _id?: Types.ObjectId } | undefined;
+    const last = data.at(-1) as
+      | { createdAt?: Date; _id?: Types.ObjectId }
+      | undefined;
 
     return {
       statusCode: 200,
       message: 'Doctor reviews retrieved successfully',
       data,
-      nextCursor: hasNextPage && last?.createdAt && last?._id
-        ? encodeCursor({ sortValue: last.createdAt.toISOString(), id: String(last._id) })
-        : null,
+      nextCursor:
+        hasNextPage && last?.createdAt && last?._id
+          ? encodeCursor({
+              sortValue: last.createdAt.toISOString(),
+              id: String(last._id),
+            })
+          : null,
       hasNextPage,
       pagination: {
         page: pageNum,
@@ -397,14 +424,14 @@ export class ReviewsService {
     };
   }
 
-  async findBySessionId(id: string) {
+  async findByConsultationId(id: string) {
     if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid session ID');
+      throw new BadRequestException('Invalid consultation ID');
     }
 
-    const session = await this.consultationModel.findById(new Types.ObjectId(id));
+    const consultation = await this.consultations.findDocument(id);
 
-    if (!session) {
+    if (!consultation) {
       throw new NotFoundException('Consultation not found');
     }
 
@@ -496,7 +523,10 @@ export class ReviewsService {
     }
 
     if (!review.helpfulBy?.some((value) => value.toString() === userId)) {
-      review.helpfulBy = [...(review.helpfulBy ?? []), new Types.ObjectId(userId)];
+      review.helpfulBy = [
+        ...(review.helpfulBy ?? []),
+        new Types.ObjectId(userId),
+      ];
       review.helpfulCount = review.helpfulBy.length;
       await review.save();
     }
@@ -521,7 +551,9 @@ export class ReviewsService {
       throw new NotFoundException('Review not found');
     }
 
-    review.helpfulBy = (review.helpfulBy ?? []).filter((value) => value.toString() !== userId);
+    review.helpfulBy = (review.helpfulBy ?? []).filter(
+      (value) => value.toString() !== userId,
+    );
     review.helpfulCount = review.helpfulBy.length;
     await review.save();
     return {

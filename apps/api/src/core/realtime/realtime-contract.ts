@@ -2,8 +2,8 @@ export const realtimeContract = {
   asyncapi: '3.0.0',
   info: {
     title: 'Healthcare realtime contract',
-    version: '1.1.0',
-    description: 'RF-7 consultation chat contract. Legacy session event aliases remain supported.',
+    version: '2.0.0',
+    description: 'Canonical-only consultation and messaging contract.',
   },
   servers: {
     runtime: {
@@ -23,28 +23,56 @@ export const realtimeContract = {
       messages: {
         join_consultation: { $ref: '#/components/messages/joinConsultation' },
         leave_consultation: { $ref: '#/components/messages/leaveConsultation' },
-        get_consultation_messages: { $ref: '#/components/messages/getConsultationMessages' },
-        consultation_message_v1: { $ref: '#/components/messages/messageDocument' },
-        join_session: { $ref: '#/components/messages/joinSession' },
-        leave_session: { $ref: '#/components/messages/leaveSession' },
-        send_message: { $ref: '#/components/messages/sendMessage' },
-        get_session_messages: {
-          $ref: '#/components/messages/getSessionMessages',
+        get_consultation_messages: {
+          $ref: '#/components/messages/getConsultationMessages',
         },
-        new_message: { $ref: '#/components/messages/messageDocument' },
+        send_consultation_message: {
+          $ref: '#/components/messages/sendConsultationMessage',
+        },
+        consultation_message: {
+          $ref: '#/components/messages/messageDocument',
+        },
+        joined_consultation: {
+          $ref: '#/components/messages/consultationRoomResult',
+        },
+        left_consultation: {
+          $ref: '#/components/messages/consultationRoomResult',
+        },
+        consultation_messages: {
+          $ref: '#/components/messages/consultationMessages',
+        },
+        consultation_message_sent: {
+          $ref: '#/components/messages/messageDocument',
+        },
+        join_consultation_error: {
+          $ref: '#/components/messages/consultationError',
+        },
+        leave_consultation_error: {
+          $ref: '#/components/messages/consultationError',
+        },
+        get_consultation_messages_error: {
+          $ref: '#/components/messages/consultationError',
+        },
+        send_consultation_message_error: {
+          $ref: '#/components/messages/consultationError',
+        },
       },
     },
-    session: {
-      address: '/session',
+    consultations: {
+      address: '/consultations',
       messages: {
-        session_changed: { $ref: '#/components/messages/sessionChanged' },
+        consultation_changed: {
+          $ref: '#/components/messages/consultationChanged',
+        },
       },
     },
     notifications: {
       address: '/notifications',
       messages: {
         notifications: { $ref: '#/components/messages/notificationChanged' },
-        chat_notification: { $ref: '#/components/messages/chatNotification' },
+        consultation_message_notification: {
+          $ref: '#/components/messages/consultationMessageNotification',
+        },
         account_banned: { $ref: '#/components/messages/accountBanned' },
       },
     },
@@ -65,36 +93,57 @@ export const realtimeContract = {
       },
     },
     messages: {
-      joinSession: { payload: { type: 'string', description: 'sessionId' } },
-      leaveSession: { payload: { type: 'string', description: 'sessionId' } },
-      joinConsultation: { payload: { type: 'string', description: 'consultationId' } },
-      leaveConsultation: { payload: { type: 'string', description: 'consultationId' } },
-      sendMessage: {
+      joinConsultation: {
+        payload: { type: 'string', description: 'consultationId' },
+      },
+      leaveConsultation: {
+        payload: { type: 'string', description: 'consultationId' },
+      },
+      sendConsultationMessage: {
         payload: {
           type: 'object',
           required: ['consultationId', 'senderType', 'content'],
-          properties: { consultationId: { type: 'string' }, clientMessageId: { type: 'string' } },
-        },
-      },
-      getSessionMessages: {
-        payload: {
-          type: 'object',
-          required: ['doctorSessionId'],
-          properties: { doctorSessionId: { type: 'string' } },
+          properties: {
+            consultationId: { type: 'string' },
+            senderType: { type: 'string', enum: ['patient', 'doctor'] },
+            content: { type: 'string' },
+            clientMessageId: { type: 'string' },
+          },
         },
       },
       getConsultationMessages: {
         payload: {
           type: 'object',
           required: ['consultationId'],
-          properties: { consultationId: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer' } },
+          properties: {
+            consultationId: { type: 'string' },
+            cursor: { type: 'string' },
+            limit: { type: 'integer', maximum: 100 },
+          },
+        },
+      },
+      consultationRoomResult: {
+        payload: {
+          type: 'object',
+          required: ['consultationId'],
+          properties: { consultationId: { type: 'string' } },
+        },
+      },
+      consultationMessages: { payload: { type: 'object' } },
+      consultationError: {
+        description:
+          'Payload for *_consultation_error, get_consultation_messages_error and send_consultation_message_error.',
+        payload: {
+          type: 'object',
+          required: ['message'],
+          properties: { message: { type: 'string' } },
         },
       },
       messageDocument: { payload: { type: 'object' } },
-      sessionChanged: {
+      consultationChanged: {
         payload: {
           type: 'object',
-          required: ['action', 'sessionId', 'patientId', 'doctorId'],
+          required: ['action', 'consultationId', 'patientId', 'doctorId'],
         },
       },
       notificationChanged: {
@@ -103,11 +152,11 @@ export const realtimeContract = {
           required: ['userId', 'action'],
         },
       },
-      chatNotification: {
+      consultationMessageNotification: {
         payload: {
           type: 'object',
           required: [
-            'sessionId',
+            'consultationId',
             'lastMessageAt',
             'lastMessageId',
             'senderId',

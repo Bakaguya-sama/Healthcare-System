@@ -498,19 +498,19 @@ interface ViolationReportDto {
 | CON-04 | `DELETE /availability-slots/:id` | Doctor owner | none | `204` | Target P0 |
 | CON-05 | `POST /consultations/scheduled` | Patient | `{ availabilitySlotId, patientNotes }` + idempotency | `ConsultationDto` | Target P0 |
 | CON-06 | `POST /consultations/on-demand` | Patient | `{ doctorId, patientNotes }` + idempotency | `ConsultationDto` | Target P0 |
-| CON-07 | `GET /consultations` | Patient/Doctor | mode, requestStatus, sessionStatus, from/to, page | `PageResult<ConsultationDto>` | Target P0; legacy `/sessions` |
+| CON-07 | `GET /consultations` | Patient/Doctor | mode, requestStatus, sessionStatus, from/to, page | `PageResult<ConsultationDto>` | Current canonical |
 | CON-08 | `GET /consultations/:id` | Participant/Admin policy | none | `ConsultationDto` | Target P0 |
-| CON-09 | `POST /consultations/:id/accept` | Doctor owner | none + idempotency | consultation | Target P0; legacy `/confirm` |
-| CON-10 | `POST /consultations/:id/decline` | Doctor owner | `{ reason? }` | consultation | Target P0; legacy `/reject` |
+| CON-09 | `POST /consultations/:id/accept` | Doctor owner | none + idempotency | consultation | Current canonical |
+| CON-10 | `POST /consultations/:id/decline` | Doctor owner | `{ reason? }` | consultation | Current canonical |
 | CON-11 | `POST /consultations/:id/cancel` | Participant | `{ reason }` + idempotency | consultation | Target P0 |
 | CON-12 | `POST /consultations/:id/check-in` | Patient | none + idempotency | consultation + queue snapshot | Target P0 |
 | CON-13 | `GET /consultations/:id/queue` | Patient participant | none | own position/wait estimate | Target P0 |
 | CON-14 | `GET /doctors/me/queue` | Doctor | page/limit | `QueueEntryDto[]` | Target P0 |
 | CON-15 | `POST /doctors/me/queue/call-next` | Doctor | idempotency | claimed consultation | Target P0 |
 | CON-16 | `POST /consultations/:id/start` | Doctor/participant policy | consent/version | consultation | Target P0 |
-| CON-17 | `POST /consultations/:id/complete` | Doctor | `{ doctorNotes? }` | consultation | Target P0; legacy exists |
-| CON-18 | `GET /consultations/:id/messages` | Participant | before/cursor, limit | message page | Target P0; legacy `/chat/session/:id` |
-| CON-19 | `POST /consultations/:id/messages` | Participant | content/files/clientMessageId | message | Target P0; legacy `/chat/send` |
+| CON-17 | `POST /consultations/:id/complete` | Doctor | `{ doctorNotes? }` | consultation | Current canonical |
+| CON-18 | `GET /chat/consultation/:consultationId` | Participant | cursor, limit | message page | Current canonical |
+| CON-19 | `POST /chat/consultation/messages` | Participant | consultationId, content/files/clientMessageId | message | Current canonical |
 | CON-20 | `POST /consultations/:id/review` | Patient participant | rating/comment | `ReviewDto` | Target P0; legacy `/reviews` |
 | CON-21 | `PATCH /consultations/:id/review` | Patient owner | rating/comment | review | Target P0 |
 | CON-22 | `POST /consultations/:id/report` | Participant | violation payload/files | violation | Target P0 |
@@ -687,7 +687,7 @@ const queryKeys = {
 | Doctor detail `/patient/doctors/:id` | modal/card hiện tại | DoctorCardDto, reviews summary, booking settings | DOC-02, DOC-03 | chọn on-demand hoặc sang slot picker; not-approved/not-found state |
 | Slot booking `/patient/doctors/:id/book` | New | slots + selected doctor | DOC-03, CON-05 | refetch khi 409; timezone display; idempotency key giữ qua retry |
 | Create on-demand request | request modal hiện tại | doctor + patientNotes | CON-06 | handle duplicate pending 409; invalidate consultation lists |
-| Consultation list `/patient/consultations` | `/doctor-chat` + `/sessions` | paged ConsultationDto | CON-07 | `consultation.v1.updated`, message preview; tabs upcoming/pending/active/history |
+| Consultation list `/patient/consultations` | `/doctor-chat` + `/consultations` | paged ConsultationDto | CON-07 | `consultation.v1.updated`, message preview; tabs upcoming/pending/active/history |
 | Consultation detail `/patient/consultations/:id` | doctor-chat selected session | ConsultationDto, messages, review | CON-08, CON-18, CON-11, CON-12, CON-20/21/22 | join room; send message; check-in/cancel/review/report from `allowedActions` |
 | Waiting room `/patient/consultations/:id/queue` | New | consultation + own queue snapshot | CON-08, CON-13 | `queue.v1.changed/called`; reconnect refetch; leave/cancel policy |
 | Chat/call surface | embedded current chat | Message DTO, FileDto, call state | CON-18/19, USER-03 | message and call events; optimistic message keyed clientMessageId; upload retry |
@@ -769,19 +769,19 @@ Mobile MVP ưu tiên các page: login, dashboard, doctor discovery, booking/on-d
 | `/doctor-chat` | `/patient/consultations` | selection chuyển thành route có consultationId |
 | `/doctor-overview` | `/doctor/dashboard` | server dashboard summary |
 | `/consultations` doctor page | `/doctor/consultations` | giữ page, đổi data contract |
-| `GET/POST /sessions` | `/consultations/*` | backend compatibility adapter trong Phase 5 |
-| `/sessions/:id/confirm` | `/consultations/:id/accept` | map legacy status sang requestStatus/sessionStatus |
-| `/sessions/:id/reject` | `/consultations/:id/decline` | không dùng reject cho cancel |
-| `/chat/session/:id`, `/chat/send` | `/consultations/:id/messages` | dùng consultationId + clientMessageId |
-| legacy socket `join_session`, `new_message`, `session_changed` | versioned consultation/message events | dual emit tạm thời, rồi xóa legacy |
-| `/reviews/session/:id` | `/consultations/:id/review` | một review/consultation |
+| `GET/POST /sessions` | `/consultations/*` | Đã xóa ở RF-10B; FE mới chỉ gọi canonical API |
+| `/sessions/:id/confirm` | `/consultations/:id/accept` | Đã xóa; dùng requestStatus/sessionStatus canonical |
+| `/sessions/:id/reject` | `/consultations/:id/decline` | Đã xóa; cancel là transition riêng |
+| `/chat/session/:id`, `/chat/send` | `/chat/consultation/:consultationId`, `/chat/consultation/messages` | Đã xóa; request/event dùng `consultationId` |
+| legacy socket `join_session`, `new_message`, `session_changed` | canonical consultation/message events | Đã xóa ở RF-10B; không có compatibility alias |
+| `/reviews/session/:id` | `/reviews/consultation/:id` | Đã xóa; một review/consultation |
 | `/users/doctors` | `/doctors` | paginated DoctorCardDto |
 | Admin tự merge `/users`, `/users/doctors`, `/admins` | `/admin/users` | server-side pagination/aggregation |
 | Admin dashboard tải collections | `/admin/dashboard` | endpoint aggregate chuyên dụng |
 | `/ai-assistant/*` và AI CRUD trùng | `/ai/*` + `/admin/ai/*` | migrate từng capability |
 | `/notifications/mark-all-as-read` | `/notifications/read-all` | compatibility alias tạm thời |
 
-Không xóa endpoint/event legacy cho đến khi Web Client và Web Admin target build, contract test và E2E pass.
+Session endpoint/event legacy đã bị xóa vì frontend được xây mới ở repository khác. Web Client và Web Admin phải sinh client/contract test từ OpenAPI và realtime artifact canonical.
 
 ## 14. UI state bắt buộc cho mỗi page
 

@@ -4,8 +4,8 @@ Machine-readable contract chính thức của backend được sinh tại `apps/
 
 - Transport: Socket.IO.
 - Path mặc định: `/socket.io`, cấu hình bằng `SOCKET_PATH`.
-- Namespaces hiện tại: `/chat`, `/session`, `/notifications`, `/` (presence).
-- RF-7 canonical chat events: `join_consultation`, `leave_consultation`, `get_consultation_messages`, `consultation.message.v1`; `*_session` events remain compatibility aliases.
+- Namespaces hiện tại: `/chat`, `/consultations`, `/notifications`, `/` (presence).
+- RF-10B canonical-only events: `join_consultation`, `leave_consultation`, `get_consultation_messages`, `send_consultation_message`, `consultation_message` và `consultation_changed`. Không còn namespace `/session` hoặc alias `*_session`.
 - Message send accepts `consultationId` and optional `clientMessageId`; duplicate retries return the original message.
 - Origin: dùng chung allowlist `CORS_ORIGINS`; không chấp nhận wildcard.
 - Authentication: `handshake.auth.token` hoặc `Authorization: Bearer <token>`.

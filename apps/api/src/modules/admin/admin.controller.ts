@@ -20,7 +20,7 @@ import { UserRole } from '../users/enums/user-role.enum';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
-import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
+import { QueryConsultationDto } from '../consultations/dto/query-consultation.dto';
 import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
 
 @ApiTags('admin')
@@ -110,29 +110,27 @@ export class AdminController {
   }
 
   // ============================================
-  // SESSIONS MANAGEMENT ENDPOINTS
+  // CONSULTATIONS MANAGEMENT ENDPOINTS
   // ============================================
 
   /**
-   * 📊 GET /admin/sessions
-   * Lấy tất cả sessions
+   * GET /admin/consultations
    */
-  @Get('sessions')
+  @Get('consultations')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy tất cả sessions' })
-  async getAllSessions(@Query() query: QuerySessionAdminDto) {
-    return this.adminService.getAllSessions(query);
+  @ApiOperation({ summary: 'Lấy tất cả consultations' })
+  async getAllConsultations(@Query() query: QueryConsultationDto) {
+    return this.adminService.getAllConsultations(query);
   }
 
   /**
-   * 🔍 GET /admin/sessions/:id
-   * Lấy chi tiết 1 session
+   * GET /admin/consultations/:id
    */
-  @Get('sessions/:id')
+  @Get('consultations/:id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy chi tiết session' })
-  async getSessionById(@Param('id') id: string) {
-    return this.adminService.getSessionById(id);
+  @ApiOperation({ summary: 'Lấy chi tiết consultation' })
+  async getConsultationById(@Param('id') id: string) {
+    return this.adminService.getConsultationById(id);
   }
 
   // ============================================

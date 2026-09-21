@@ -26,6 +26,9 @@ export class NodemailerService implements OnModuleInit {
       host: smtpHost,
       port: smtpPort,
       secure: smtpSecure,
+      connectionTimeout: 5_000,
+      greetingTimeout: 5_000,
+      socketTimeout: 10_000,
       auth: {
         user: smtpUser,
         pass: smtpPass,

@@ -14,11 +14,11 @@ import {
   DoctorVerificationStatus,
 } from '../users/entities/doctor.schema';
 import { UserRole } from '../users/enums/user-role.enum';
-import { Session, SessionDocument } from '../sessions/entities/session.entity';
+import { ConsultationsService } from '../consultations/consultations.service';
 import { VerifyDoctorDto } from './dto/verify-doctor.dto';
 import { RejectDoctorDto } from './dto/reject-doctor.dto';
 import { LockAccountDto } from './dto/lock-account.dto';
-import { QuerySessionAdminDto } from './dto/query-session-admin.dto';
+import { QueryConsultationDto } from '../consultations/dto/query-consultation.dto';
 import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
 import {
   Admin,
@@ -32,8 +32,6 @@ import { UsersCacheService } from '../users/users-cache.service';
 
 const DOCTOR_APPLICATION_READ_PROJECTION =
   '_id userId specialty workplace verificationDocuments experienceYears averageRating ratingSum reviewCount verifiedAt verificationStatus rejectReason createdAt updatedAt';
-const ADMIN_SESSION_READ_PROJECTION =
-  '_id patientId doctorId scheduledAt startedAt endedAt status patientNotes doctorNotes lastMessageAt lastMessageId createdAt updatedAt';
 const POPULATED_USER_READ_PROJECTION =
   'fullName email gender dateOfBirth phoneNumber avatarUrl address role accountStatus createdAt updatedAt';
 
@@ -42,7 +40,7 @@ export class AdminService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Doctor.name) private doctorModel: Model<DoctorDocument>,
-    @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
+    private readonly consultations: ConsultationsService,
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     private nodemailerService: NodemailerService,
     private readonly notificationGateway: NotificationsGateway,
@@ -199,8 +197,10 @@ export class AdminService {
       throw new NotFoundException('User account for this doctor not found.');
     }
     if (doctorUserDetails.doctorProfile) {
-      doctorUserDetails.doctorProfile.verificationStatus = DoctorVerificationStatus.APPROVED;
-      doctorUserDetails.doctorProfile.verifiedAt = doctor.verifiedAt ?? new Date();
+      doctorUserDetails.doctorProfile.verificationStatus =
+        DoctorVerificationStatus.APPROVED;
+      doctorUserDetails.doctorProfile.verifiedAt =
+        doctor.verifiedAt ?? new Date();
       doctorUserDetails.doctorProfile.rejectReason = '';
       await doctorUserDetails.save();
     }
@@ -252,8 +252,10 @@ export class AdminService {
       throw new NotFoundException('User account for this doctor not found.');
     }
     if (doctorUserDetails.doctorProfile) {
-      doctorUserDetails.doctorProfile.verificationStatus = DoctorVerificationStatus.REJECTED;
-      doctorUserDetails.doctorProfile.verifiedAt = doctor.verifiedAt ?? new Date();
+      doctorUserDetails.doctorProfile.verificationStatus =
+        DoctorVerificationStatus.REJECTED;
+      doctorUserDetails.doctorProfile.verifiedAt =
+        doctor.verifiedAt ?? new Date();
       doctorUserDetails.doctorProfile.rejectReason = dto.reason;
       await doctorUserDetails.save();
     }
@@ -379,85 +381,21 @@ export class AdminService {
   }
 
   // ============================================
-  // SESSIONS ADMIN VIEW
+  // CONSULTATIONS ADMIN VIEW
   // ============================================
 
   /**
-   * 📊 GET /admin/sessions
-   * Admin xem tất cả sessions (filter + pagination)
+   * GET /admin/consultations
    */
-  async getAllSessions(query: QuerySessionAdminDto) {
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Number(query.limit) || 10);
-    const skip = (page - 1) * limit;
-
-    type SessionFilter = {
-      doctorId?: Types.ObjectId;
-      patientId?: Types.ObjectId;
-      status?: string;
-    };
-
-    // Build filter
-    const filter: SessionFilter = {};
-    if (query.doctorId) {
-      filter.doctorId = new Types.ObjectId(query.doctorId);
-    }
-    if (query.patientId) {
-      filter.patientId = new Types.ObjectId(query.patientId);
-    }
-    if (query.status) {
-      filter.status = query.status;
-    }
-
-    // Build sort
-    const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
-    const sort: Record<string, 1 | -1> = {};
-    sort[query.sortBy || 'createdAt'] = sortOrder;
-    sort._id = sortOrder;
-
-    const [data, total] = await Promise.all([
-      this.sessionModel
-        .find(filter)
-        .select(ADMIN_SESSION_READ_PROJECTION)
-        .populate('patientId', 'fullName email phoneNumber')
-        .populate('doctorId', 'fullName email specialty')
-        .sort(sort)
-        .limit(limit)
-        .skip(skip)
-        .lean()
-        .exec(),
-      this.sessionModel.countDocuments(filter),
-    ]);
-
-    return {
-      data,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
-    };
+  async getAllConsultations(query: QueryConsultationDto) {
+    return this.consultations.findAllForAdmin(query);
   }
 
   /**
-   * 🔍 GET /admin/sessions/:id
-   * Admin xem chi tiết 1 session
+   * GET /admin/consultations/:id
    */
-  async getSessionById(id: string) {
-    const session = await this.sessionModel
-      .findById(id)
-      .select(ADMIN_SESSION_READ_PROJECTION)
-      .populate('patientId', 'fullName email phoneNumber')
-      .populate('doctorId', 'fullName email specialty licenseNumber')
-      .lean()
-      .exec();
-
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
-
-    return session;
+  async getConsultationById(id: string) {
+    return this.consultations.findOneForAdmin(id);
   }
 
   /**
@@ -469,7 +407,7 @@ export class AdminService {
       totalUsers,
       totalDoctors,
       pendingDoctors,
-      totalSessions,
+      totalConsultations,
       bannedAccounts,
     ] = await Promise.all([
       this.userModel.countDocuments(),
@@ -477,7 +415,7 @@ export class AdminService {
       this.doctorModel.countDocuments({
         verificationStatus: DoctorVerificationStatus.PENDING,
       }),
-      this.sessionModel.countDocuments(),
+      this.consultations.countAll(),
       this.userModel.countDocuments({
         accountStatus: AccountStatus.BANNED,
       }),
@@ -489,8 +427,8 @@ export class AdminService {
         doctors: totalDoctors,
         pendingDoctors,
       },
-      sessions: {
-        total: totalSessions,
+      consultations: {
+        total: totalConsultations,
       },
       security: {
         bannedAccounts,

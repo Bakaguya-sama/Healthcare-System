@@ -972,6 +972,114 @@ Exit gate:
 
 Ước lượng: **4-6 person-days**.
 
+Trạng thái RF-10: **DONE — RF-10A/B/C đã hoàn tất ở source và local release rehearsal (21/09/2026)**.
+
+- Đã xóa implementation/schema/module AI cũ (`AiSession`, `AiMessage`, `AiHealthInsight`) và legacy destructive seed; collection lịch sử chưa bị drop để bảo toàn rollback/retention.
+- Đã xóa Session schema/model token, nhánh persistence trùng và toàn bộ compatibility adapter. Runtime chỉ expose canonical `ConsultationsModule`; Admin, Chat và Review đi qua owner service.
+- Đã xóa `LEGACY_SESSION_API_ENABLED`, HTTP `/sessions`, namespace `/session`, Socket alias `*_session` và runtime field `doctorSessionId`. Frontend repo mới phải tích hợp contract canonical ngay từ đầu.
+- Đã gỡ dependency `@nestjs/bullmq` không dùng; worker tiếp tục dùng trực tiếp `bullmq`.
+- Không sửa checksum migration đã áp dụng và không drop collection trong application migration. Manifest/runbook cutover nằm ở `docs/current-state/rf10-cutover.md` và `migration-manifest.md`.
+- Release sign-off còn cần: staging full regression từ DB đã migrate, đối soát số liệu theo runbook, frontend contract test, observation window và quyết định drop collection/index/field lịch sử sau backup/retention.
+
+#### RF-10A — Runtime/data cutover (đã thực hiện)
+
+Mục tiêu của RF-10A là loại bỏ dual persistence và duplicate runtime trước, chưa phải đích cuối về tên/cấu trúc source:
+
+1. `SessionSchema`, `SessionModel` và nhánh đọc/ghi collection `sessions` đã bị xóa khỏi runtime.
+2. AI legacy modules/services/schemas đã bị xóa sau khi migration canonical hoàn tất.
+3. Admin, Chat và Review không còn tự đăng ký `ConsultationSchema`; chỉ owner Consultation giữ model token.
+4. `/sessions` hiện là adapter có feature flag và không còn nghiệp vụ/persistence riêng.
+5. Collection cũ vẫn được giữ theo retention/rollback; không sửa checksum migration đã chạy.
+
+Việc RF-10A còn giữ thư mục `modules/sessions`, `SessionsModule`, các DTO/method mang tên Session và mapper `legacyResponse/toLegacy` chỉ là trạng thái chuyển tiếp. Đây **không phải cấu trúc cuối cùng** và không được dùng làm nền để viết feature mới.
+
+#### RF-10B — Canonical structure cleanup (đã thực hiện, backend-only)
+
+Mục tiêu: source code và internal API chỉ dùng ngôn ngữ Consultation; compatibility nếu còn cần phải bị cô lập ở mép hệ thống, không bọc logic mới bằng service cũ và không làm bẩn canonical response.
+
+Quyết định mặc định cho project hiện tại: frontend sẽ được xây ở repository mới và chưa có bằng chứng về consumer production cần giữ, vì vậy ưu tiên **canonical-only** và xóa compatibility ngay trong RF-10B. Chỉ chuyển sang phương án adapter cô lập nếu access log hoặc owner của một client đang deploy chứng minh contract cũ vẫn còn được dùng.
+
+Thứ tự thực hiện:
+
+1. Tạo/move canonical module sang `modules/consultations/`:
+   - `consultations.module.ts` / `ConsultationsModule`;
+   - `consultations.controller.ts`;
+   - `consultations.service.ts` hoặc tách rõ command/query/access policy nếu file tiếp tục lớn;
+   - `entities/consultation.entity.ts`;
+   - `dto/create-consultation.dto.ts`, `update-consultation.dto.ts`, `query-consultation.dto.ts`.
+2. Đổi toàn bộ internal import từ `modules/sessions/**` sang `modules/consultations/**`; `AppModule`, Admin, Chat và Review chỉ import `ConsultationsModule` hoặc consultation port/facade.
+3. Làm canonical service thuần Consultation:
+   - input dùng Consultation DTO, không nhận `CreateSessionDto/UpdateSessionDto/QuerySessionDto`;
+   - output giữ `requestStatus`, `sessionStatus`, `scheduledStartAt`, không tự thêm `status` hoặc `scheduledAt` legacy;
+   - bỏ `legacyResponse`, `toLegacy`, `applyLegacyStatusFilter` khỏi canonical path;
+   - tách mapper legacy ra compatibility boundary nếu adapter vẫn còn.
+4. Đổi tên internal method để không tiếp tục lan vocabulary cũ:
+   - `getSessionMessages` → `getConsultationMessages`;
+   - `getSessionDetails` → xóa, chỉ giữ `getConsultationDetails`;
+   - `findBySessionId` → `findByConsultationId`;
+   - Admin `getAllSessions/getSessionById` → `getAllConsultations/getConsultationById`;
+   - biến `session/sessionId/sessionModel` trong code canonical → `consultation/consultationId/consultationModel`.
+5. Chuẩn hóa canonical HTTP/realtime contract:
+   - `/admin/consultations`, `/chat/consultation/:consultationId`, `/reviews/consultation/:consultationId`;
+   - event/payload chỉ dùng `consultation_*` và `consultationId`;
+   - canonical consultation controller phát event canonical sau command thành công, không phụ thuộc `SessionsGateway`.
+6. Cô lập compatibility (chỉ khi còn consumer được chứng minh) vào `modules/compatibility/legacy-sessions/`:
+   - chỉ gồm controller/gateway DTO cũ, mapper và feature guard;
+   - controller gọi trực tiếp canonical facade/use case rồi map response tại boundary;
+   - **không tạo `SessionsService` trung gian**, không model token, không business rule, không database query;
+   - không cho module feature mới import compatibility module.
+7. Nếu dự án chưa có frontend production/consumer thực tế, chọn canonical-only ngay:
+   - xóa `SessionsController`, `SessionsService`, `SessionsGateway`, `LegacySessionStatus`, legacy DTO và `LEGACY_SESSION_API_ENABLED`;
+   - xóa `/sessions`, `/admin/sessions`, `/chat/session/**`, `/reviews/session/**` và Socket alias `*_session` khỏi OpenAPI/realtime contract;
+   - không cần duy trì adapter chỉ để tương thích với source frontend cũ không còn được deploy.
+8. Loại runtime compatibility fields sau khi data migration đã được verify:
+   - ngừng nhận `doctorSessionId` trong Message/Review DTO;
+   - ngừng select/map `doctorSessionId` trong response;
+   - tạo migration mới để drop legacy indexes/fields/collections sau retention; tuyệt đối không sửa migration cũ.
+9. Cập nhật tests và tài liệu:
+   - unit test canonical DTO/output không chứa alias Session;
+   - architecture test fail nếu source ngoài `compatibility/` chứa `Session(s)` vocabulary hoặc import path `modules/sessions`;
+   - OpenAPI breaking diff phải chỉ chứa danh sách endpoint legacy đã duyệt;
+   - realtime contract, FE integration, query catalog, responsibility map và cutover runbook cùng dùng canonical names.
+
+Exit gate RF-10B:
+
+- Không còn directory `modules/sessions`.
+- Không còn `SessionsModule`, `SessionsService` hoặc Session DTO trong canonical source.
+- Canonical response không chứa `status/scheduledAt/doctorSessionId` do mapper legacy tự thêm.
+- Ngoài `modules/compatibility/legacy-sessions` (nếu còn), code chỉ dùng `Consultation` vocabulary.
+- Feature mới chỉ phụ thuộc `ConsultationsModule`/port canonical.
+- Nếu chưa có consumer production, compatibility directory cũng phải được xóa và backend chạy canonical-only.
+
+Ước lượng RF-10B: **2-4 person-days** nếu xóa compatibility ngay; **3-5 person-days** nếu phải giữ adapter cô lập và kiểm thử cả hai contract.
+
+Kết quả RF-10B thực hiện 20/09/2026:
+
+- Canonical owner đã chuyển hoàn toàn sang `modules/consultations`; không còn directory/module/service/controller/gateway/DTO `sessions` trong runtime source.
+- HTTP Admin/Chat/Review và Socket chỉ còn route/event/payload `consultation`; không còn feature flag hoặc adapter compatibility.
+- Message và Review chỉ nhận/đọc `consultationId`; AI feedback dùng `aiConversationId`. Migration `202609202000-rf10b-canonical-cleanup` backfill AI feedback và tạo index canonical mà không sửa migration cũ.
+- Boundary check chặn tái xuất hiện `modules/sessions`, `Sessions*`, `doctorSessionId` và legacy flag ngoài migration/spec lịch sử.
+- Typecheck, build, lint, unit và E2E đã pass tại local. Migration/backfill canonical pass trên Mongo local; full integration cần chạy lại trong RF-10C với Mongo replica set + Redis đúng topology.
+
+#### RF-10C — Release evidence và physical cleanup
+
+1. Chạy migration/verify/full regression với database rỗng và bản restore production-like.
+2. Đối soát dữ liệu và audit access log/Socket event trong observation window.
+3. Nhận xác nhận frontend chỉ dùng canonical contract.
+4. Xóa compatibility directory còn lại và feature flag nếu RF-10B phải giữ tạm.
+5. Sau backup + retention deadline, tạo migration mới drop legacy fields, indexes và collections.
+
+Kết quả RF-10C hoàn tất 21/09/2026:
+
+- Migration `202609202100-rf10c-physical-cleanup` chạy reconciliation trước mọi thao tác destructive và fail nếu còn bản ghi chưa ánh xạ canonical.
+- Đã drop ở rehearsal database các collection `sessions`, `aisessions`, `aimessages`, `aihealthinsights`; unset các field provenance/compatibility và loại legacy indexes khỏi schema manifest.
+- Đã chạy migration → verify → migration no-op → reconciliation trên MongoDB `rs0` database riêng; schema version `202609202100`, 36 managed indexes, 0 blocker.
+- Full integration 5 suite/13 test, unit 13 suite/56 test, E2E 4 test, boundary/typecheck/build/lint/OpenAPI/realtime đều pass.
+- Frontend owner đã quyết định repository mới chỉ dùng canonical API; dự án không có legacy frontend production cần observation window, nên consumer/access-log gate được ghi **N/A theo owner decision**, không giả lập traffic.
+- Backup legacy đã được owner xác nhận trong preflight. Migration destructive chưa được chạy tự động lên database ngoài local rehearsal; deployment phải chạy `rf10c:reconcile` trước `database:migrate` trên URI đích.
+
+RF-10 được đánh dấu **DONE** cho codebase/local release evidence. Việc chạy migration trên staging/production vẫn là deployment operation có backup và URI đích rõ ràng, không phải thay đổi source còn thiếu.
+
 ## 6. Definition of Done cho refactor
 
 Một task `BE-RF-*` chỉ Done khi:

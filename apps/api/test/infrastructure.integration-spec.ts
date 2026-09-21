@@ -3,7 +3,7 @@ import { MongoClient } from 'mongodb';
 
 const mongoUri =
   process.env.TEST_MONGODB_URI ??
-  'mongodb://localhost:27017/healthcare_rf1_test?replicaSet=rs0&directConnection=true';
+  'mongodb://localhost:27018/healthcare_rf1_test?replicaSet=rs0&directConnection=true';
 const redisHost = process.env.TEST_REDIS_HOST ?? '127.0.0.1';
 const redisPort = Number(process.env.TEST_REDIS_PORT ?? 16379);
 

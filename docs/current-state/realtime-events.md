@@ -1,5 +1,7 @@
 # RF-0 — Realtime event inventory
 
+> RF-10B update (2026-09-20): this file remains the historical RF-0 inventory only. The canonical contract is `apps/api/contracts/realtime-events.json`; `/session` and every `*_session` alias have been removed from runtime.
+
 Ngày chụp baseline: **2026-09-15**; platform policy cập nhật RF-3 ngày **2026-09-17**. Tất cả gateway dùng Socket.IO và xác thực JWT từ `handshake.auth.token` hoặc bearer header, ngoại trừ HTTP presence lookup. Contract sinh tự động nằm tại `apps/api/contracts/realtime-events.json`.
 
 ## 1. Namespace và authentication

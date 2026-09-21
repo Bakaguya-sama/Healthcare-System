@@ -32,7 +32,7 @@ Copy-Item apps/api/.env.example apps/api/.env
 Local Mongo URI dùng `directConnection=true` để host process kết nối ổn định tới single-node replica set chạy trong Docker:
 
 ```env
-MONGODB_URI=mongodb://localhost:27017/healthcare_v2_local?replicaSet=rs0&directConnection=true
+MONGODB_URI=mongodb://localhost:27018/healthcare_v2_local?replicaSet=rs0&directConnection=true
 REDIS_URL=redis://localhost:16379
 JWT_SECRET=replace-with-at-least-32-characters
 CORS_ORIGINS=http://localhost:5173,http://localhost:5174

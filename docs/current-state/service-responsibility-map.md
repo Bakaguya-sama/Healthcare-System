@@ -2,6 +2,8 @@
 
 Ngày audit: **2026-09-16**. Phạm vi: toàn bộ **32** file `*.service.ts` trong backend. Chín service phối hợp nhiều capability được map đến từng method; 23 service còn lại được kiểm kê theo nhóm method và disposition.
 
+> RF-10B update (2026-09-20): đây là decomposition baseline lịch sử. Runtime hiện chỉ có `modules/consultations`, `ConsultationsService` và canonical Consultation routes; toàn bộ Session facade/method/route được liệt kê bên dưới đã bị xóa. Xem contract hiện hành ở `apps/api/openapi/openapi.json`.
+
 Tài liệu này là decomposition plan của `BE-RF-005`, không phải thiết kế feature mới và không cho phép di chuyển source hàng loạt. Public HTTP/Socket contract hiện tại phải được giữ bởi compatibility facade cho đến task cutover tương ứng.
 
 ## 1. Quy ước

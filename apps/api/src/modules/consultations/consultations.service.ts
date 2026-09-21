@@ -13,9 +13,9 @@ import {
   ConsultationRequestStatus,
   ConsultationSessionStatus,
 } from './entities/consultation.entity';
-import { CreateSessionDto } from './dto/create-session.dto';
-import { UpdateSessionDto } from './dto/update-session.dto';
-import { QuerySessionDto } from './dto/query-session.dto';
+import { CreateConsultationDto } from './dto/create-consultation.dto';
+import { UpdateConsultationDto } from './dto/update-consultation.dto';
+import { QueryConsultationDto } from './dto/query-consultation.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { UsersService } from '../users/users.service';
@@ -32,11 +32,13 @@ export class ConsultationsService {
     private readonly users: UsersService,
   ) {}
 
-  async create(patientId: string, dto: CreateSessionDto) {
+  async create(patientId: string, dto: CreateConsultationDto) {
     this.assertId(patientId, 'patient');
     this.assertId(dto.doctorId, 'doctor');
-    const scheduledAt = new Date(dto.scheduledAt);
-    if (scheduledAt < new Date())
+    const scheduledStartAt = dto.scheduledStartAt
+      ? new Date(dto.scheduledStartAt)
+      : undefined;
+    if (scheduledStartAt && scheduledStartAt < new Date())
       throw new BadRequestException('Cannot schedule consultation in the past');
     const consultation = await this.consultationModel.create({
       patientId: new Types.ObjectId(patientId),
@@ -45,7 +47,7 @@ export class ConsultationsService {
       requestStatus: ConsultationRequestStatus.PENDING,
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
       requestedAt: new Date(),
-      scheduledStartAt: scheduledAt,
+      scheduledStartAt,
       patientNotes: dto.patientNotes,
     });
     const patient = await this.users.findById(patientId);
@@ -55,32 +57,33 @@ export class ConsultationsService {
       title: 'Consultation request',
       message: `New consultation request from ${patient.fullName}. Note: ${dto.patientNotes ?? ''}.`,
     });
-    return this.legacyResponse(
+    return this.response(
       'Consultation request created successfully',
       consultation,
       201,
     );
   }
 
-  async findAll(userId: string, userRole: string, query: QuerySessionDto) {
+  async findAll(userId: string, userRole: string, query: QueryConsultationDto) {
     this.assertId(userId, 'user');
     const filter: Record<string, unknown> =
       userRole === 'doctor'
         ? { doctorId: new Types.ObjectId(userId) }
         : { patientId: new Types.ObjectId(userId) };
-    if (query.status) this.applyLegacyStatusFilter(filter, query.status);
+    if (query.mode) filter.mode = query.mode;
+    if (query.requestStatus) filter.requestStatus = query.requestStatus;
+    if (query.sessionStatus) filter.sessionStatus = query.sessionStatus;
     if (query.doctorId && userRole !== 'doctor')
       filter.doctorId = new Types.ObjectId(query.doctorId);
     if (query.patientId && userRole !== 'patient')
       filter.patientId = new Types.ObjectId(query.patientId);
-    if (query.startDate || query.endDate)
+    if (query.from || query.to)
       filter.scheduledStartAt = {
-        ...(query.startDate ? { $gte: new Date(query.startDate) } : {}),
-        ...(query.endDate ? { $lte: new Date(query.endDate) } : {}),
+        ...(query.from ? { $gte: new Date(query.from) } : {}),
+        ...(query.to ? { $lte: new Date(query.to) } : {}),
       };
     const sort = {
-      [query.sortBy === 'scheduledAt' ? 'scheduledStartAt' : query.sortBy]:
-        query.sortOrder ?? -1,
+      [query.sortBy]: query.sortOrder,
       _id: query.sortOrder ?? -1,
     };
     const [items, total] = await Promise.all([
@@ -102,7 +105,7 @@ export class ConsultationsService {
     return {
       statusCode: 200,
       message: 'Consultations retrieved successfully',
-      data: items.map((item) => this.toLegacy(item)),
+      data: items,
       pagination: {
         page: query.page,
         limit: query.limit,
@@ -115,13 +118,10 @@ export class ConsultationsService {
   async findOne(userId: string, id: string) {
     const consultation = await this.load(id);
     this.assertParticipant(consultation, userId);
-    return this.legacyResponse(
-      'Consultation retrieved successfully',
-      consultation,
-    );
+    return this.response('Consultation retrieved successfully', consultation);
   }
 
-  async update(userId: string, id: string, dto: UpdateSessionDto) {
+  async update(userId: string, id: string, dto: UpdateConsultationDto) {
     const consultation = await this.load(id);
     this.assertParticipant(consultation, userId);
     if (
@@ -137,13 +137,16 @@ export class ConsultationsService {
       consultation.patientNotes = dto.patientNotes;
     if (dto.doctorNotes !== undefined)
       consultation.doctorNotes = dto.doctorNotes;
-    if (dto.scheduledAt)
-      consultation.scheduledStartAt = new Date(dto.scheduledAt);
+    if (dto.scheduledStartAt) {
+      const scheduledStartAt = new Date(dto.scheduledStartAt);
+      if (scheduledStartAt < new Date())
+        throw new BadRequestException(
+          'Cannot schedule consultation in the past',
+        );
+      consultation.scheduledStartAt = scheduledStartAt;
+    }
     await consultation.save();
-    return this.legacyResponse(
-      'Consultation updated successfully',
-      consultation,
-    );
+    return this.response('Consultation updated successfully', consultation);
   }
 
   async accept(userId: string, id: string) {
@@ -193,7 +196,7 @@ export class ConsultationsService {
           : 'Consultation declined',
       message,
     });
-    return this.legacyResponse(message, consultation);
+    return this.response(message, consultation);
   }
 
   async start(userId: string, id: string) {
@@ -210,13 +213,10 @@ export class ConsultationsService {
     consultation.sessionStatus = ConsultationSessionStatus.IN_PROGRESS;
     consultation.sessionStartedAt = new Date();
     await consultation.save();
-    return this.legacyResponse(
-      'Consultation started successfully',
-      consultation,
-    );
+    return this.response('Consultation started successfully', consultation);
   }
 
-  async complete(userId: string, id: string, dto: UpdateSessionDto) {
+  async complete(userId: string, id: string, dto: UpdateConsultationDto) {
     const consultation = await this.load(id);
     if (!this.same(consultation.doctorId, userId))
       throw new ForbiddenException('Only doctor can complete consultation');
@@ -227,13 +227,10 @@ export class ConsultationsService {
     consultation.completedBy = new Types.ObjectId(userId);
     consultation.doctorNotes = dto.doctorNotes;
     await consultation.save();
-    return this.legacyResponse(
-      'Consultation completed successfully',
-      consultation,
-    );
+    return this.response('Consultation completed successfully', consultation);
   }
 
-  async cancel(userId: string, id: string, dto: UpdateSessionDto) {
+  async cancel(userId: string, id: string, dto: UpdateConsultationDto) {
     const consultation = await this.load(id);
     this.assertParticipant(consultation, userId);
     if (consultation.sessionStatus === ConsultationSessionStatus.COMPLETED)
@@ -242,37 +239,9 @@ export class ConsultationsService {
     consultation.sessionStatus = ConsultationSessionStatus.CANCELLED;
     consultation.cancelledAt = new Date();
     consultation.cancelledBy = new Types.ObjectId(userId);
-    consultation.cancellationReason = dto.doctorNotes ?? dto.patientNotes;
+    consultation.cancellationReason = dto.reason;
     await consultation.save();
-    return this.legacyResponse(
-      'Consultation cancelled successfully',
-      consultation,
-    );
-  }
-
-  async reschedule(userId: string, id: string, dto: UpdateSessionDto) {
-    const consultation = await this.load(id);
-    this.assertParticipant(consultation, userId);
-    if (!dto.scheduledAt || new Date(dto.scheduledAt) < new Date())
-      throw new BadRequestException('A future scheduledAt is required');
-    consultation.scheduledStartAt = new Date(dto.scheduledAt);
-    consultation.requestStatus = ConsultationRequestStatus.PENDING;
-    consultation.respondedAt = undefined;
-    await consultation.save();
-    return this.legacyResponse(
-      'Consultation rescheduled successfully',
-      consultation,
-    );
-  }
-
-  async remove(userId: string, id: string) {
-    const consultation = await this.load(id);
-    if (!this.same(consultation.patientId, userId))
-      throw new ForbiddenException('Only patient can delete consultation');
-    if (consultation.requestStatus !== ConsultationRequestStatus.PENDING)
-      throw new BadRequestException('Can only delete pending consultation');
-    await this.consultationModel.deleteOne({ _id: consultation._id });
-    return { statusCode: 200, message: 'Consultation deleted successfully' };
+    return this.response('Consultation cancelled successfully', consultation);
   }
 
   async getUpcoming(userId: string, userRole: string, days = 7) {
@@ -306,9 +275,97 @@ export class ConsultationsService {
     return {
       statusCode: 200,
       message: 'Upcoming consultations retrieved successfully',
-      data: items.map((item) => this.toLegacy(item)),
+      data: items,
       count: items.length,
     };
+  }
+
+  async findAccessible(id: string, userId: string) {
+    if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(userId))
+      return null;
+    return this.consultationModel.findOne({
+      _id: new Types.ObjectId(id),
+      $or: [
+        { patientId: new Types.ObjectId(userId) },
+        { doctorId: new Types.ObjectId(userId) },
+      ],
+    });
+  }
+
+  async findForReview(id: string, patientId: string, doctorId: string) {
+    if (
+      !Types.ObjectId.isValid(id) ||
+      !Types.ObjectId.isValid(patientId) ||
+      !Types.ObjectId.isValid(doctorId)
+    )
+      return null;
+    return this.consultationModel.findOne({
+      _id: new Types.ObjectId(id),
+      patientId: new Types.ObjectId(patientId),
+      doctorId: new Types.ObjectId(doctorId),
+    });
+  }
+
+  async findDocument(id: string) {
+    if (!Types.ObjectId.isValid(id)) return null;
+    return this.consultationModel.findById(new Types.ObjectId(id));
+  }
+
+  async recordLastMessage(id: string, messageId: string, sentAt: Date) {
+    await this.consultationModel.updateOne(
+      { _id: new Types.ObjectId(id) },
+      { $set: { lastMessageId: messageId, lastMessageAt: sentAt } },
+    );
+  }
+
+  async findAllForAdmin(query: QueryConsultationDto) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+    const filter: Record<string, any> = {};
+    if (query.doctorId) filter.doctorId = new Types.ObjectId(query.doctorId);
+    if (query.patientId) filter.patientId = new Types.ObjectId(query.patientId);
+    if (query.mode) filter.mode = query.mode;
+    if (query.requestStatus) filter.requestStatus = query.requestStatus;
+    if (query.sessionStatus) filter.sessionStatus = query.sessionStatus;
+    if (query.from || query.to)
+      filter.scheduledStartAt = {
+        ...(query.from ? { $gte: new Date(query.from) } : {}),
+        ...(query.to ? { $lte: new Date(query.to) } : {}),
+      };
+    const [items, total] = await Promise.all([
+      this.consultationModel
+        .find(filter)
+        .select(CONSULTATION_PROJECTION)
+        .populate('patientId', 'fullName email phoneNumber')
+        .populate('doctorId', 'fullName email doctorProfile')
+        .sort({ [query.sortBy]: query.sortOrder, _id: query.sortOrder })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.consultationModel.countDocuments(filter),
+    ]);
+    return {
+      data: items,
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findOneForAdmin(id: string) {
+    this.assertId(id, 'consultation');
+    const item = await this.consultationModel
+      .findById(id)
+      .select(CONSULTATION_PROJECTION)
+      .populate('patientId', 'fullName email phoneNumber')
+      .populate('doctorId', 'fullName email doctorProfile')
+      .lean()
+      .exec();
+    if (!item) throw new NotFoundException('Consultation not found');
+    return item;
+  }
+
+  countAll() {
+    return this.consultationModel.countDocuments();
   }
 
   private async load(id: string): Promise<ConsultationDocument> {
@@ -331,58 +388,16 @@ export class ConsultationsService {
         'You are not authorized to access this consultation',
       );
   }
-  private applyLegacyStatusFilter(
-    filter: Record<string, unknown>,
-    status: string,
-  ) {
-    if (status === 'pending')
-      filter.requestStatus = ConsultationRequestStatus.PENDING;
-    else if (status === 'rejected')
-      filter.requestStatus = {
-        $in: [
-          ConsultationRequestStatus.DECLINED,
-          ConsultationRequestStatus.CANCELLED,
-        ],
-      };
-    else if (status === 'completed')
-      filter.sessionStatus = ConsultationSessionStatus.COMPLETED;
-    else if (status === 'active')
-      filter.sessionStatus = {
-        $in: [
-          ConsultationSessionStatus.CONFIRMED,
-          ConsultationSessionStatus.IN_PROGRESS,
-        ],
-      };
-  }
-  private legacyResponse(
+  private response(
     message: string,
     item: ConsultationDocument | Record<string, any>,
     statusCode = 200,
   ) {
-    return { statusCode, message, data: this.toLegacy(item) };
+    return { statusCode, message, data: this.serialize(item) };
   }
-  private toLegacy(item: ConsultationDocument | Record<string, any>) {
-    const value =
-      typeof (item as any).toObject === 'function'
-        ? (item as any).toObject()
-        : item;
-    const status =
-      value.requestStatus === 'pending'
-        ? 'pending'
-        : value.requestStatus === 'declined' ||
-            value.requestStatus === 'cancelled'
-          ? 'rejected'
-          : value.sessionStatus === 'completed'
-            ? 'completed'
-            : value.sessionStatus === 'in_progress' ||
-                value.requestStatus === 'accepted'
-              ? 'active'
-              : 'pending';
-    return {
-      ...value,
-      id: value._id,
-      status,
-      scheduledAt: value.scheduledStartAt,
-    };
+  private serialize(item: ConsultationDocument | Record<string, any>) {
+    return typeof (item as any).toObject === 'function'
+      ? (item as any).toObject()
+      : item;
   }
 }

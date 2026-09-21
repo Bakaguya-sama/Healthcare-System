@@ -13,7 +13,7 @@ import {
 } from './dto/create-ai-feedback.dto';
 
 const AI_FEEDBACK_READ_PROJECTION =
-  '_id aiSessionId patientId content createdAt updatedAt';
+  '_id aiConversationId patientId content createdAt updatedAt';
 
 @Injectable()
 export class AiFeedbacksService {
@@ -30,7 +30,7 @@ export class AiFeedbacksService {
       const feedback = new this.aiFeedbackModel({
         ...createDto,
         patientId: new Types.ObjectId(patientId),
-        aiSessionId: new Types.ObjectId(createDto.aiSessionId),
+        aiConversationId: new Types.ObjectId(createDto.aiConversationId),
       });
       return await feedback.save();
     } catch (error) {
@@ -47,14 +47,15 @@ export class AiFeedbacksService {
     const {
       page = 1,
       limit = 10,
-      aiSessionId,
+      aiConversationId,
       sortBy = 'createdAt',
       sortOrder = -1,
     } = query;
 
     const filter: any = { patientId: new Types.ObjectId(patientId) };
 
-    if (aiSessionId) filter.aiSessionId = new Types.ObjectId(aiSessionId);
+    if (aiConversationId)
+      filter.aiConversationId = new Types.ObjectId(aiConversationId);
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
@@ -72,8 +73,8 @@ export class AiFeedbacksService {
     return { data, total };
   }
 
-  async findBySessionId(
-    aiSessionId: string,
+  async findByConversationId(
+    aiConversationId: string,
     query: QueryAiFeedbackDto,
   ): Promise<{ data: AiFeedback[]; total: number }> {
     const {
@@ -83,7 +84,9 @@ export class AiFeedbacksService {
       sortOrder = -1,
     } = query;
 
-    const filter: any = { aiSessionId: new Types.ObjectId(aiSessionId) };
+    const filter: any = {
+      aiConversationId: new Types.ObjectId(aiConversationId),
+    };
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
@@ -205,11 +208,11 @@ export class AiFeedbacksService {
     return feedback;
   }
 
-  async getAverageRating(
-    sessionId: string,
+  async getFeedbackCount(
+    conversationId: string,
   ): Promise<{ totalFeedbacks: number }> {
     const totalFeedbacks = await this.aiFeedbackModel.countDocuments({
-      aiSessionId: new Types.ObjectId(sessionId),
+      aiConversationId: new Types.ObjectId(conversationId),
     });
 
     return { totalFeedbacks };
@@ -242,11 +245,11 @@ export class AiFeedbacksService {
     return feedback;
   }
 
-  async deleteBySessionId(
-    sessionId: string,
+  async deleteByConversationId(
+    conversationId: string,
   ): Promise<{ deletedCount: number }> {
     const result = await this.aiFeedbackModel.deleteMany({
-      aiSessionId: new Types.ObjectId(sessionId),
+      aiConversationId: new Types.ObjectId(conversationId),
     });
 
     return { deletedCount: result.deletedCount };

@@ -12,7 +12,7 @@ import { AiDocumentsModule } from './modules/ai-documents/ai-documents.module';
 import { AiDocumentChunksModule } from './modules/ai-document-chunks/ai-document-chunks.module';
 import { BlacklistKeywordsModule } from './modules/blacklist-keywords/blacklist-keywords.module';
 import { HealthMetricsModule } from './modules/health-metrics/health-metrics.module';
-import { SessionsModule } from './modules/sessions/sessions.module';
+import { ConsultationsModule } from './modules/consultations/consultations.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -66,7 +66,7 @@ import { RedisThrottlerStorage } from './infrastructure/redis/redis-throttler.st
     AiDocumentChunksModule,
     BlacklistKeywordsModule,
     HealthMetricsModule,
-    SessionsModule,
+    ConsultationsModule,
     ChatModule,
     ReviewsModule,
     AdminModule,

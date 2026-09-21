@@ -35,8 +35,30 @@ import {
   RF8_AI_MESSAGE_CUTOVER_NAME,
   RF8_AI_MESSAGE_CUTOVER_VERSION,
 } from './202609182400-rf8-ai-message-cutover';
-import { applyRf9Outbox, RF9_OUTBOX_CHECKSUM, RF9_OUTBOX_NAME, RF9_OUTBOX_VERSION } from './202609182500-rf9-outbox';
-import { applyRf9AtomicNotifications, RF9_ATOMIC_NOTIFICATIONS_CHECKSUM, RF9_ATOMIC_NOTIFICATIONS_NAME, RF9_ATOMIC_NOTIFICATIONS_VERSION } from './202609182510-rf9-atomic-notifications';
+import {
+  applyRf9Outbox,
+  RF9_OUTBOX_CHECKSUM,
+  RF9_OUTBOX_NAME,
+  RF9_OUTBOX_VERSION,
+} from './202609182500-rf9-outbox';
+import {
+  applyRf9AtomicNotifications,
+  RF9_ATOMIC_NOTIFICATIONS_CHECKSUM,
+  RF9_ATOMIC_NOTIFICATIONS_NAME,
+  RF9_ATOMIC_NOTIFICATIONS_VERSION,
+} from './202609182510-rf9-atomic-notifications';
+import {
+  applyRf10bCanonicalCleanup,
+  RF10B_CANONICAL_CLEANUP_CHECKSUM,
+  RF10B_CANONICAL_CLEANUP_NAME,
+  RF10B_CANONICAL_CLEANUP_VERSION,
+} from './202609202000-rf10b-canonical-cleanup';
+import {
+  applyRf10cPhysicalCleanup,
+  RF10C_PHYSICAL_CLEANUP_CHECKSUM,
+  RF10C_PHYSICAL_CLEANUP_NAME,
+  RF10C_PHYSICAL_CLEANUP_VERSION,
+} from './202609202100-rf10c-physical-cleanup';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -75,8 +97,30 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     checksum: RF8_AI_MESSAGE_CUTOVER_CHECKSUM,
     up: applyRf8AiMessageCutover,
   },
-  { version: RF9_OUTBOX_VERSION, name: RF9_OUTBOX_NAME, checksum: RF9_OUTBOX_CHECKSUM, up: applyRf9Outbox },
-  { version: RF9_ATOMIC_NOTIFICATIONS_VERSION, name: RF9_ATOMIC_NOTIFICATIONS_NAME, checksum: RF9_ATOMIC_NOTIFICATIONS_CHECKSUM, up: applyRf9AtomicNotifications },
+  {
+    version: RF9_OUTBOX_VERSION,
+    name: RF9_OUTBOX_NAME,
+    checksum: RF9_OUTBOX_CHECKSUM,
+    up: applyRf9Outbox,
+  },
+  {
+    version: RF9_ATOMIC_NOTIFICATIONS_VERSION,
+    name: RF9_ATOMIC_NOTIFICATIONS_NAME,
+    checksum: RF9_ATOMIC_NOTIFICATIONS_CHECKSUM,
+    up: applyRf9AtomicNotifications,
+  },
+  {
+    version: RF10B_CANONICAL_CLEANUP_VERSION,
+    name: RF10B_CANONICAL_CLEANUP_NAME,
+    checksum: RF10B_CANONICAL_CLEANUP_CHECKSUM,
+    up: applyRf10bCanonicalCleanup,
+  },
+  {
+    version: RF10C_PHYSICAL_CLEANUP_VERSION,
+    name: RF10C_PHYSICAL_CLEANUP_NAME,
+    checksum: RF10C_PHYSICAL_CLEANUP_CHECKSUM,
+    up: applyRf10cPhysicalCleanup,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = Math.max(

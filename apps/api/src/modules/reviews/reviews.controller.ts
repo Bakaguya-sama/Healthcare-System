@@ -88,11 +88,11 @@ export class ReviewsController {
     return this.reviewsService.findOne(id);
   }
 
-  @Get('session/:id')
+  @Get('consultation/:id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Lấy chi tiết 1 đánh giá' })
-  findBySessionId(@Param('id') id: string) {
-    return this.reviewsService.findBySessionId(id);
+  findByConsultationId(@Param('id') id: string) {
+    return this.reviewsService.findByConsultationId(id);
   }
 
   /**

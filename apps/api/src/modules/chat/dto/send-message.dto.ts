@@ -57,17 +57,10 @@ export class MessageAttachmentDto {
 }
 
 export class SendMessageDto {
-  @ApiProperty({ example: '65e456def789abc012345678', required: false })
-  @IsOptional()
+  @ApiProperty({ example: '65e456def789abc012345678' })
   @IsNotEmpty()
   @IsMongoId()
-  doctorSessionId?: string;
-
-  @ApiProperty({ example: '65e456def789abc012345678', required: false })
-  @IsOptional()
-  @IsNotEmpty()
-  @IsMongoId()
-  consultationId?: string;
+  consultationId!: string;
 
   @ApiProperty({
     required: false,

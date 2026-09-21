@@ -8,14 +8,12 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { PresenceModule } from '../presence/presence.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WsThrottleGuard } from '../../core/throttling/ws-throttle.guard';
-import { Consultation, ConsultationSchema } from '../sessions/entities/consultation.entity';
+import { ConsultationsModule } from '../consultations/consultations.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Message.name, schema: MessageSchema },
-      { name: Consultation.name, schema: ConsultationSchema },
-    ]),
+    MongooseModule.forFeature([{ name: Message.name, schema: MessageSchema }]),
+    ConsultationsModule,
     PresenceModule,
     NotificationsModule,
   ],

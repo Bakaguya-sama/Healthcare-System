@@ -13,14 +13,12 @@ export const REVIEW_SORT_FIELDS = ['createdAt', 'rating'] as const;
 export type ReviewSortField = (typeof REVIEW_SORT_FIELDS)[number];
 
 export class QueryReviewDto extends PageSortQueryDto {
-  @ApiProperty({ required: false, description: 'Opaque cursor for doctor review history' })
+  @ApiProperty({
+    required: false,
+    description: 'Opaque cursor for doctor review history',
+  })
   @IsOptional()
   cursor?: string;
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsMongoId()
-  doctorSessionId?: string;
-
   @ApiProperty({ required: false })
   @IsOptional()
   @IsMongoId()

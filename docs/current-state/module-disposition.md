@@ -9,7 +9,8 @@ Mỗi module legacy đã được gán đúng một hướng chính. `keep` khô
 | `patients`           | **consolidate**                    | Chốt Patient profile ownership với canonical User, tránh hai API profile                   |
 | `admins`             | **consolidate**                    | Account/admin profile ownership về Identity/Admin; không duy trì hai admin modules độc lập |
 | `admin`              | **refactor**                       | Tách practitioner verification, account moderation, dashboard query                        |
-| `sessions`           | **replace with adapter**           | Canonical Consultation ở `BE-RF-040`; legacy `/sessions` là adapter tạm                    |
+| `consultations`      | **canonical owner**                | Owner duy nhất của schema, state transition, HTTP và realtime Consultation                 |
+| `sessions`           | **removed**                        | RF-10B đã xóa module, adapter, feature flag, HTTP/Socket aliases và Session DTO             |
 | `chat`               | **refactor**                       | Message command/query, authorization, cursor, attachment port                              |
 | `reviews`            | **refactor**                       | Unique consultation review + atomic rating projection/moderation                           |
 | `health-metrics`     | **keep/refactor**                  | Giữ capability, tách command/query/statistics/rules và tối ưu aggregation                  |
@@ -23,14 +24,14 @@ Mỗi module legacy đã được gán đúng một hướng chính. `keep` khô
 | `rag`                | **keep/refactor**                  | Giữ retrieval/ingestion ports; version search definition và background ingest              |
 | `ai-documents`       | **consolidate**                    | Knowledge/document owner cho RAG; refactor ingestion async                                 |
 | `ai-document-chunks` | **consolidate/internalize**        | Không coi raw chunk CRUD là public product API lâu dài                                     |
-| `ai-sessions`        | **defer then consolidate**         | Legacy parallel conversation model; không thấy direct old-client consumer                  |
-| `ai-messages`        | **defer then consolidate**         | Legacy parallel AI message model; migrate/retain theo data audit                           |
-| `ai-feedbacks`       | **consolidate**                    | Rating/feedback về canonical AI conversation feedback contract                             |
-| `ai-health-insights` | **defer/remove candidate**         | Không có consumer được xác nhận; chỉ giữ nếu scope tư vấn cần insight có human review      |
+| `ai-sessions`        | **removed after consolidation**    | Runtime/source đã xóa ở RF-10; historical collection chỉ giữ cho retention/rollback         |
+| `ai-messages`        | **removed after consolidation**    | Runtime/source đã xóa ở RF-10; canonical history là `AiConversationMessage`                 |
+| `ai-feedbacks`       | **canonical**                      | Dùng `aiConversationId`; RF-10B đã backfill liên kết và xóa runtime `aiSessionId`            |
+| `ai-health-insights` | **removed**                        | Không có runtime consumer; module/schema/service đã xóa ở RF-10                             |
 
 ## Feature modules chưa tồn tại
 
-OAuth, AvailabilitySlot, scheduled booking, Queue/Check-in/No-show, Payment/Refund, UserDevice/FCM và Outbox không thuộc disposition legacy. Chúng là `BE-NF-*` hoặc platform foundation có dependency rõ trong plan.
+OAuth, AvailabilitySlot, scheduled booking, Queue/Check-in/No-show, Payment/Refund và UserDevice/FCM không thuộc disposition legacy. Chúng là `BE-NF-*` có dependency rõ trong plan. Outbox foundation đã được triển khai ở RF-9.
 
 ## Removal gate
 

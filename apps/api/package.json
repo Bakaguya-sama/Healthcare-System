@@ -33,14 +33,12 @@
     "database:verify": "ts-node -r tsconfig-paths/register src/database/verify-database.ts",
     "database:seed:reference": "ts-node -r tsconfig-paths/register src/database/seeds/reference.seed.ts",
     "database:seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/demo.seed.ts",
+    "rf10c:reconcile": "ts-node -r tsconfig-paths/register src/scripts/rf10c-reconcile.ts",
     "database:bootstrap": "pnpm run database:migrate && pnpm run database:verify && pnpm run database:seed:reference",
     "migration:up": "pnpm run database:migrate",
-    "perf:rf2d": "ts-node -r tsconfig-paths/register src/scripts/rf2d-query-baseline.ts",
     "perf:rf2e": "ts-node -r tsconfig-paths/register src/scripts/rf2e-cache-baseline.ts",
     "seed": "pnpm run database:seed:demo",
-    "seed:legacy": "ts-node -r tsconfig-paths/register src/seeds/seed.ts",
-    "seed:build": "npm run build && node dist/database/seeds/demo.seed.js",
-    "seed:legacy:build": "npm run build && node dist/seeds/seed.js"
+    "seed:build": "npm run build && node dist/database/seeds/demo.seed.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -52,7 +50,6 @@
     "@langchain/mongodb": "^1.1.0",
     "@langchain/textsplitters": "^1.0.1",
     "@llamaindex/llama-cloud": "^2.4.1",
-    "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",

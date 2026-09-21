@@ -287,7 +287,7 @@ Nguyên tắc:
 |---|---|---|
 | Backend | Node.js, TypeScript, NestJS | API, authorization, use case và worker bootstrap |
 | Persistence | MongoDB Atlas, Mongoose, MongoDB driver | Business data, migration và feature MongoDB đặc thù |
-| Cache/jobs | Redis, BullMQ, `@nestjs/bullmq` | OTP, quota, presence, delayed/retry jobs |
+| Cache/jobs | Redis, BullMQ | OTP, quota, presence, delayed/retry jobs; worker dùng trực tiếp BullMQ |
 | Realtime | Socket.IO, Redis Adapter, WebRTC, TURN | Chat, notification, queue và call signaling/media |
 | AI | Google GenAI SDK, Atlas Vector Search | AI advisory, summary và RAG |
 | Files/push/email | Cloudinary, FCM, Nodemailer | Attachment, push notification và email |
@@ -300,10 +300,10 @@ Nguyên tắc:
 
 | Hiện trạng DA1/code hiện tại | Đích DA2 |
 |---|---|
-| `/sessions` với status `pending|active|completed|rejected` | `/consultations` với requestStatus và sessionStatus tách biệt |
+| Session API cũ đã bị xóa ở RF-10B | `/consultations` với requestStatus và sessionStatus tách biệt |
 | Patient gửi thời gian tùy ý | Scheduled booking chỉ từ AvailabilitySlot |
 | Chưa có check-in/queue atomic | `queuePriorityAt`, call-next và no-show policy |
-| Chat dùng `sessionId` và event legacy | Message/room theo `consultationId`, event versioned |
+| Chat compatibility theo `sessionId` đã bị xóa | Message/room theo `consultationId`, event canonical |
 | User/Doctor/Admin models còn trùng | Một Users model với embedded role profiles |
 | AI models/endpoints trùng | Một AI Conversation/Message model và capability services |
 | Presence trong process | Redis TTL/heartbeat và Socket.IO Redis Adapter |
@@ -311,7 +311,7 @@ Nguyên tắc:
 | Chưa có billing implementation | Plans, payment/IPN, cancel, Subscription grant và refund P1 |
 | Frontend/backend cùng monorepo | Backend repo riêng; frontend monorepo riêng; OpenAPI contract |
 
-Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/fe-integration.md`; không xóa compatibility endpoint trước khi frontend target flow đã pass E2E.
+Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/fe-integration.md`. Frontend repo mới chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
 
 ## 11. Phạm vi theo deadline
 

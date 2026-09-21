@@ -14,10 +14,6 @@ export class Review {
   @Prop({ type: Types.ObjectId, ref: 'Consultation', required: true })
   consultationId: Types.ObjectId;
 
-  /** @deprecated Compatibility field for old review documents. */
-  @Prop({ type: Types.ObjectId, ref: 'Session', required: false, select: false })
-  doctorSessionId?: Types.ObjectId;
-
   @Prop({ required: true, min: 1, max: 5 })
   rating: number;
 
@@ -43,4 +39,7 @@ export const ReviewSchema = SchemaFactory.createForClass(Review);
 ReviewSchema.index({ doctorId: 1, createdAt: -1 });
 ReviewSchema.index({ patientId: 1, createdAt: -1 });
 ReviewSchema.index({ rating: 1 });
-ReviewSchema.index({ consultationId: 1 }, { unique: true, sparse: true, name: 'consultationId_unique' });
+ReviewSchema.index(
+  { consultationId: 1 },
+  { unique: true, sparse: true, name: 'consultationId_unique' },
+);

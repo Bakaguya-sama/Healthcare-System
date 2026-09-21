@@ -12,10 +12,14 @@ import {
   UploadedAttachmentMetadata,
 } from './dto/send-message.dto';
 import { QueryMessageDto } from './dto/query-message.dto';
-import { SessionStatus } from '../sessions/entities/session.entity';
 import { CloudinaryService } from 'src/modules/cloudinary/cloudinary.service';
-import { Consultation, ConsultationDocument } from '../sessions/entities/consultation.entity';
-import { decodeCursor, encodeCursor, InvalidCursorError } from '../../common/pagination';
+import { ConsultationSessionStatus } from '../consultations/entities/consultation.entity';
+import { ConsultationsService } from '../consultations/consultations.service';
+import {
+  decodeCursor,
+  encodeCursor,
+  InvalidCursorError,
+} from '../../common/pagination';
 
 type MessageDbAttachment = {
   fileUrl: string;
@@ -25,7 +29,7 @@ type MessageDbAttachment = {
 };
 
 const MESSAGE_READ_PROJECTION =
-  '_id consultationId doctorSessionId clientMessageId senderId senderType content attachments sentAt createdAt updatedAt';
+  '_id consultationId clientMessageId senderId senderType content attachments sentAt createdAt updatedAt';
 
 @Injectable()
 export class ChatService {
@@ -37,7 +41,7 @@ export class ChatService {
 
   constructor(
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
-    @InjectModel(Consultation.name) private consultationModel: Model<ConsultationDocument>,
+    private readonly consultations: ConsultationsService,
     private readonly cloudinaryService: CloudinaryService,
   ) {
     this.allowedMimeTypes = new Set(
@@ -126,22 +130,14 @@ export class ChatService {
    * � GET SESSION DETAILS (with user verification)
    */
   async getConsultationDetails(consultationId: string, userId: string) {
-    if (!Types.ObjectId.isValid(consultationId) || !Types.ObjectId.isValid(userId)) {
+    if (
+      !Types.ObjectId.isValid(consultationId) ||
+      !Types.ObjectId.isValid(userId)
+    ) {
       return null;
     }
 
-    const consultationObjectId = new Types.ObjectId(consultationId);
-    const userObjectId = new Types.ObjectId(userId);
-
-    return this.consultationModel.findOne({
-      _id: consultationObjectId,
-      $or: [{ patientId: userObjectId }, { doctorId: userObjectId }],
-    });
-  }
-
-  /** @deprecated Use getConsultationDetails. */
-  async getSessionDetails(sessionId: string, userId: string) {
-    return this.getConsultationDetails(sessionId, userId);
+    return this.consultations.findAccessible(consultationId, userId);
   }
 
   /**
@@ -155,24 +151,24 @@ export class ChatService {
     if (!Types.ObjectId.isValid(senderId)) {
       throw new BadRequestException('Invalid sender ID');
     }
-    const consultationId = dto.consultationId ?? dto.doctorSessionId;
-    if (!consultationId || !Types.ObjectId.isValid(consultationId)) {
+    const consultationId = dto.consultationId;
+    if (!Types.ObjectId.isValid(consultationId)) {
       throw new BadRequestException('Invalid consultation ID');
     }
 
     const senderObjectId = new Types.ObjectId(senderId);
     const consultationObjectId = new Types.ObjectId(consultationId);
 
-    const session = await this.consultationModel.findById(consultationObjectId);
-    if (!session) {
+    const consultation = await this.consultations.findDocument(consultationId);
+    if (!consultation) {
       throw new NotFoundException('Consultation not found');
     }
 
-    const isPatient = session.patientId.equals(senderObjectId);
-    const isDoctor = session.doctorId.equals(senderObjectId);
+    const isPatient = consultation.patientId.equals(senderObjectId);
+    const isDoctor = consultation.doctorId.equals(senderObjectId);
     if (!isPatient && !isDoctor) {
       throw new BadRequestException(
-        'Sender is not a participant of this session',
+        'Sender is not a participant of this consultation',
       );
     }
 
@@ -199,11 +195,18 @@ export class ChatService {
       }));
     }
 
-    const lifecycle = session as unknown as { status?: string; sessionStatus?: string };
-    const isCompleted = lifecycle.status === SessionStatus.COMPLETED || lifecycle.sessionStatus === 'completed';
-    const isClosed = lifecycle.status === SessionStatus.REJECTED || lifecycle.sessionStatus === 'cancelled';
-    if (isCompleted) throw new BadRequestException('Cannot send message in completed session');
-    if (isClosed) throw new BadRequestException('Cannot send message in cancelled session');
+    const isCompleted =
+      consultation.sessionStatus === ConsultationSessionStatus.COMPLETED;
+    const isClosed =
+      consultation.sessionStatus === ConsultationSessionStatus.CANCELLED;
+    if (isCompleted)
+      throw new BadRequestException(
+        'Cannot send message in completed consultation',
+      );
+    if (isClosed)
+      throw new BadRequestException(
+        'Cannot send message in cancelled consultation',
+      );
 
     if (isPatient && dto.senderType !== 'patient') {
       throw new BadRequestException('senderType does not match sender role');
@@ -231,11 +234,11 @@ export class ChatService {
       message = await this.messageModel.create({
         consultationId: consultationObjectId,
         clientMessageId: dto.clientMessageId,
-      senderId: senderObjectId,
-      senderType: dto.senderType,
-      content: dto.content,
-      attachments: attachmentsForDb.length > 0 ? attachmentsForDb : [],
-      sentAt: new Date(),
+        senderId: senderObjectId,
+        senderType: dto.senderType,
+        content: dto.content,
+        attachments: attachmentsForDb.length > 0 ? attachmentsForDb : [],
+        sentAt: new Date(),
       });
     } catch (error: any) {
       if (error?.code === 11000 && dto.clientMessageId) {
@@ -243,14 +246,21 @@ export class ChatService {
           consultationId: consultationObjectId,
           clientMessageId: dto.clientMessageId,
         });
-        if (existing) return { statusCode: 200, message: 'Message already sent', data: existing };
+        if (existing)
+          return {
+            statusCode: 200,
+            message: 'Message already sent',
+            data: existing,
+          };
       }
       throw error;
     }
 
-    session.lastMessageAt = message.sentAt;
-    session.lastMessageId = String(message.id);
-    await session.save();
+    await this.consultations.recordLastMessage(
+      consultationId,
+      String(message.id),
+      message.sentAt,
+    );
 
     return {
       statusCode: 201,
@@ -262,13 +272,16 @@ export class ChatService {
   /**
    * 💬 GET MESSAGES BY SESSION
    */
-  async getSessionMessages(sessionId: string, query: QueryMessageDto) {
-    if (!Types.ObjectId.isValid(sessionId)) {
+  async getConsultationMessages(
+    consultationId: string,
+    query: QueryMessageDto,
+  ) {
+    if (!Types.ObjectId.isValid(consultationId)) {
       throw new BadRequestException('Invalid consultation ID');
     }
 
     const filter = {
-      consultationId: new Types.ObjectId(sessionId),
+      consultationId: new Types.ObjectId(consultationId),
     };
     const cursorFilter: Record<string, unknown> = { ...filter };
     if (query.cursor) {
@@ -276,10 +289,14 @@ export class ChatService {
         const cursor = decodeCursor(query.cursor);
         cursorFilter.$or = [
           { sentAt: { $lt: new Date(cursor.sortValue) } },
-          { sentAt: new Date(cursor.sortValue), _id: { $lt: new Types.ObjectId(cursor.id) } },
+          {
+            sentAt: new Date(cursor.sortValue),
+            _id: { $lt: new Types.ObjectId(cursor.id) },
+          },
         ];
       } catch (error) {
-        if (error instanceof InvalidCursorError) throw new BadRequestException('Invalid message cursor');
+        if (error instanceof InvalidCursorError)
+          throw new BadRequestException('Invalid message cursor');
         throw error;
       }
     }
@@ -292,15 +309,21 @@ export class ChatService {
       .exec();
     const hasNextPage = messages.length > query.limit;
     const data = hasNextPage ? messages.slice(0, query.limit) : messages;
-    const last = data.at(-1) as { sentAt?: Date; _id?: Types.ObjectId } | undefined;
+    const last = data.at(-1) as
+      | { sentAt?: Date; _id?: Types.ObjectId }
+      | undefined;
 
     return {
       statusCode: 200,
       message: 'Messages retrieved successfully',
       data,
-      nextCursor: hasNextPage && last?.sentAt && last?._id
-        ? encodeCursor({ sortValue: last.sentAt.toISOString(), id: String(last._id) })
-        : null,
+      nextCursor:
+        hasNextPage && last?.sentAt && last?._id
+          ? encodeCursor({
+              sortValue: last.sentAt.toISOString(),
+              id: String(last._id),
+            })
+          : null,
       hasNextPage,
       pagination: {
         limit: query.limit,
@@ -319,11 +342,6 @@ export class ChatService {
         throw new BadRequestException('Invalid consultation ID');
       }
       filter.consultationId = new Types.ObjectId(query.consultationId);
-    } else if (query.doctorSessionId) {
-      if (!Types.ObjectId.isValid(query.doctorSessionId)) {
-        throw new BadRequestException('Invalid session ID');
-      }
-      filter.consultationId = new Types.ObjectId(query.doctorSessionId);
     }
 
     const skip = (query.page - 1) * query.limit;

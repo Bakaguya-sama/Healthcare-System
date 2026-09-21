@@ -48,18 +48,14 @@ export class ChatController {
   /**
    * API 1: Send Message
    */
-  @Post('send')
+  @Post('consultation/messages')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
-    FilesInterceptor(
-      'attachments',
-      CHAT_ATTACHMENT_UPLOAD_LIMIT,
-      {
-        limits: {
-          fileSize: CHAT_ATTACHMENT_MAX_BYTES,
-        },
+    FilesInterceptor('attachments', CHAT_ATTACHMENT_UPLOAD_LIMIT, {
+      limits: {
+        fileSize: CHAT_ATTACHMENT_MAX_BYTES,
       },
-    ),
+    }),
   )
   @ApiOperation({ summary: 'Gửi tin nhắn mới' })
   @ApiConsumes('multipart/form-data')
@@ -69,7 +65,6 @@ export class ChatController {
       required: ['consultationId', 'senderType', 'content'],
       properties: {
         consultationId: { type: 'string' },
-        doctorSessionId: { type: 'string' },
         senderType: { type: 'string', enum: ['patient', 'doctor'] },
         content: { type: 'string' },
         attachments: {
@@ -88,29 +83,10 @@ export class ChatController {
 
     const message = result.data || result;
     this.chatGateway.server
-      .to(dto.consultationId ?? dto.doctorSessionId!)
-      .emit('new_message', message);
+      .to(dto.consultationId)
+      .emit('consultation_message', message);
 
     return result;
-  }
-
-  /**
-   * API 2: Get Session Messages
-   */
-  @Get('session/:sessionId')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Lấy tin nhắn trong phiên tư vấn' })
-  @ApiParam({ name: 'sessionId', description: 'ID của phiên tư vấn' })
-  async getSessionMessages(
-    @CurrentUser('sub') userId: string,
-    @Param('sessionId') sessionId: string,
-    @Query() query: QueryMessageDto,
-  ) {
-    const consultation = await this.chatService.getConsultationDetails(sessionId, userId);
-    if (!consultation) {
-      throw new ForbiddenException('Not a participant of this consultation');
-    }
-    return this.chatService.getSessionMessages(sessionId, query);
   }
 
   @Get('consultation/:consultationId')
@@ -121,9 +97,13 @@ export class ChatController {
     @Param('consultationId') consultationId: string,
     @Query() query: QueryMessageDto,
   ) {
-    const consultation = await this.chatService.getConsultationDetails(consultationId, userId);
-    if (!consultation) throw new ForbiddenException('Not a participant of this consultation');
-    return this.chatService.getSessionMessages(consultationId, query);
+    const consultation = await this.chatService.getConsultationDetails(
+      consultationId,
+      userId,
+    );
+    if (!consultation)
+      throw new ForbiddenException('Not a participant of this consultation');
+    return this.chatService.getConsultationMessages(consultationId, query);
   }
 
   /**

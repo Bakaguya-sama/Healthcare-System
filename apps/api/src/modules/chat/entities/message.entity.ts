@@ -13,10 +13,6 @@ export class Message {
   @Prop({ type: Types.ObjectId, ref: 'Consultation', required: true })
   consultationId: Types.ObjectId;
 
-  /** @deprecated Kept only while old clients/data are being migrated. */
-  @Prop({ type: Types.ObjectId, ref: 'Session', required: false, select: false })
-  doctorSessionId?: Types.ObjectId;
-
   /** Client generated UUID/nonce used to make retries idempotent. */
   @Prop({ type: String, required: false, trim: true, maxlength: 128 })
   clientMessageId?: string;
@@ -69,10 +65,6 @@ MessageSchema.index(
       clientMessageId: { $exists: true },
     },
   },
-);
-MessageSchema.index(
-  { doctorSessionId: 1, sentAt: -1, _id: -1 },
-  { name: 'doctorSessionId_1_sentAt_-1__id_-1' },
 );
 MessageSchema.index({ senderId: 1, sentAt: -1 });
 MessageSchema.index({ sentAt: -1 });

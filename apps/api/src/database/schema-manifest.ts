@@ -61,7 +61,9 @@ export const MANAGED_DATABASE_INDEXES = [
     key: { expiresAt: 1 },
     expireAfterSeconds: 0,
   },
-  ...RF2D_QUERY_INDEXES,
+  ...RF2D_QUERY_INDEXES.filter(
+    (index) => !['sessions', 'messages'].includes(index.collection),
+  ),
   {
     collection: 'users',
     name: 'email_1',
@@ -160,23 +162,14 @@ export const MANAGED_DATABASE_INDEXES = [
     key: { userId: 1, status: 1, lastMessageAt: -1, _id: -1 },
   },
   {
-    collection: 'aiconversations',
-    name: 'legacyAiSessionId_unique',
-    key: { legacyAiSessionId: 1 },
-    unique: true,
-    sparse: true,
-  },
-  {
     collection: 'aiconversationmessages',
     name: 'conversationId_1_timestamp_-1__id_-1',
     key: { conversationId: 1, timestamp: -1, _id: -1 },
   },
   {
-    collection: 'aiconversationmessages',
-    name: 'legacySourceKey_unique',
-    key: { legacySourceKey: 1 },
-    unique: true,
-    sparse: true,
+    collection: 'aifeedbacks',
+    name: 'aiConversationId_1_createdAt_-1',
+    key: { aiConversationId: 1, createdAt: -1 },
   },
   {
     collection: 'outboxevents',

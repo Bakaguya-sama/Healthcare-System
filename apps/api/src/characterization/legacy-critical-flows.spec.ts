@@ -2,8 +2,6 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { AdminService } from '../modules/admin/admin.service';
 import { AiAssistantService } from '../modules/ai-assistant/ai-assistant.service';
-import { AiHealthInsightsService } from '../modules/ai-health-insights/services/ai-health-insights.service';
-import { AiMessagesService } from '../modules/ai-messages/ai-messages.service';
 import {
   ConversationType,
   MessageRole,
@@ -16,8 +14,6 @@ import { NotificationsService } from '../modules/notifications/notifications.ser
 import { NotificationType } from '../modules/notifications/entities/notification.entity';
 import { RagRetrievalService } from '../modules/rag/services/rag-retrieval.service';
 import { ReviewsService } from '../modules/reviews/reviews.service';
-import { SessionsService } from '../modules/sessions/sessions.service';
-import { SessionStatus } from '../modules/sessions/entities/session.entity';
 import { UserRole } from '../modules/users/enums/user-role.enum';
 import { DoctorVerificationStatus } from '../modules/users/entities/doctor.schema';
 
@@ -25,7 +21,7 @@ describe('legacy critical-flow characterization', () => {
   const patientId = new Types.ObjectId();
   const doctorId = new Types.ObjectId();
   const adminId = new Types.ObjectId();
-  const sessionId = new Types.ObjectId();
+  const consultationId = new Types.ObjectId();
 
   describe('doctor approval', () => {
     it('moves a pending doctor to approved and sends the legacy email', async () => {
@@ -66,7 +62,7 @@ describe('legacy critical-flow characterization', () => {
         sendApproveEmail: jest.fn().mockResolvedValue(undefined),
       };
       const usersCache = {
-         invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
+        invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
       };
       const service = new AdminService(
         userModel as never,
@@ -89,79 +85,19 @@ describe('legacy critical-flow characterization', () => {
       expect(mailer.sendApproveEmail).toHaveBeenCalledWith(
         'doctor@example.com',
       );
-       expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(
-        1,
-      );
+      expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(1);
       expect(result).toBe(populatedDoctor);
     });
   });
 
-  describe('consultation request lifecycle', () => {
-    function createSessionService(sessionModel: Record<string, jest.Mock>) {
-      return new SessionsService(
-        sessionModel as never,
-        { create: jest.fn().mockResolvedValue({}) } as never,
-        {
-          findById: jest.fn().mockResolvedValue({ fullName: 'Legacy User' }),
-        } as never,
-      );
-    }
-
-    it('creates a pending consultation request', async () => {
-      const session = {
-        _id: sessionId,
-        patientId,
-        doctorId,
-        status: SessionStatus.PENDING,
-      };
-      const sessionModel = { create: jest.fn().mockResolvedValue(session) };
-      const service = createSessionService(sessionModel);
-
-      const result = await service.create(patientId.toString(), {
-        doctorId: doctorId.toString(),
-        scheduledAt: new Date(Date.now() + 60_000).toISOString(),
-        patientNotes: 'Need consultation',
-      });
-
-      expect(result.data.status).toBe(SessionStatus.PENDING);
-      expect(sessionModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({ status: SessionStatus.PENDING }),
-      );
-    });
-
-    it.each([
-      ['confirm', SessionStatus.ACTIVE],
-      ['reject', SessionStatus.REJECTED],
-    ] as const)(
-      '%s transitions a pending request',
-      async (command, expected) => {
-        const session = {
-          _id: sessionId,
-          patientId,
-          doctorId,
-          status: SessionStatus.PENDING,
-          save: jest.fn().mockResolvedValue(undefined),
-        };
-        const service = createSessionService({
-          findById: jest.fn().mockResolvedValue(session),
-        });
-
-        await service[command](doctorId.toString(), sessionId.toString());
-
-        expect(session.status).toBe(expected);
-        expect(session.save).toHaveBeenCalled();
-      },
-    );
-  });
-
   describe('chat authorization', () => {
     it('rejects a sender who is not a session participant', async () => {
-      const sessionModel = {
-        findById: jest.fn().mockResolvedValue({ patientId, doctorId }),
+      const consultations = {
+        findDocument: jest.fn().mockResolvedValue({ patientId, doctorId }),
       };
       const service = new ChatService(
         {} as never,
-        sessionModel as never,
+        consultations as never,
         {
           getAllowedMimeTypes: jest.fn().mockReturnValue([]),
           getAllowedFileTypes: jest.fn().mockReturnValue([]),
@@ -170,7 +106,7 @@ describe('legacy critical-flow characterization', () => {
 
       await expect(
         service.sendMessage(new Types.ObjectId().toString(), {
-          doctorSessionId: sessionId.toString(),
+          consultationId: consultationId.toString(),
           senderType: SenderType.PATIENT,
           content: 'hello',
         }),
@@ -197,31 +133,29 @@ describe('legacy critical-flow characterization', () => {
         updateOne: jest.fn().mockResolvedValue({ matchedCount: 1 }),
         findById: jest.fn().mockResolvedValue({ userId: doctorId }),
       };
-      const sessionModel = {
-        findById: jest.fn().mockResolvedValue({ _id: sessionId }),
+      const consultations = {
+        findForReview: jest.fn().mockResolvedValue({ _id: consultationId }),
       };
       const usersCache = {
-         invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
+        invalidateDoctorDirectory: jest.fn().mockResolvedValue(undefined),
       };
       const service = new ReviewsService(
         ReviewModel as never,
         doctorModel as never,
-        sessionModel as never,
+        consultations as never,
         usersCache as never,
       );
 
       const result = await service.create(patientId.toString(), {
         doctorId: doctorId.toString(),
-        doctorSessionId: sessionId.toString(),
+        consultationId: consultationId.toString(),
         rating: 5,
         comment: 'Helpful consultation',
       });
 
       expect(result.statusCode).toBe(201);
       expect(doctorModel.updateOne).toHaveBeenCalled();
-       expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(
-        1,
-      );
+      expect(usersCache.invalidateDoctorDirectory).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -332,26 +266,6 @@ describe('legacy critical-flow characterization', () => {
     });
   });
 
-  describe('AI health insight statistics', () => {
-    it('groups risk counts in MongoDB instead of loading every insight', async () => {
-      const aggregate = jest.fn().mockResolvedValue([
-        { _id: 'warning', count: 2 },
-        { _id: 'danger', count: 1 },
-      ]);
-      const service = new AiHealthInsightsService({ aggregate } as never);
-
-      await expect(
-        service.getStatsByPatient(patientId.toString()),
-      ).resolves.toEqual({
-        total: 3,
-        byRiskLevel: { warning: 2, danger: 1 },
-      });
-      expect(aggregate).toHaveBeenCalled();
-      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$group"');
-      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$project"');
-    });
-  });
-
   describe('AI conversation and RAG', () => {
     it('starts the legacy AI conversation with the initial user message', async () => {
       const conversation = { _id: new Types.ObjectId() };
@@ -388,7 +302,10 @@ describe('legacy critical-flow characterization', () => {
         }),
       );
       expect(conversationMessageModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({ role: MessageRole.USER, conversationId: conversation._id }),
+        expect.objectContaining({
+          role: MessageRole.USER,
+          conversationId: conversation._id,
+        }),
       );
     });
 
@@ -420,30 +337,6 @@ describe('legacy critical-flow characterization', () => {
 
       expect(result.hits).toHaveLength(1);
       expect(result.hits[0].chunkId).toBe('1');
-    });
-
-    it('queries user AI messages through a bounded lookup instead of loading session IDs', async () => {
-      const aggregate = jest
-        .fn()
-        .mockResolvedValue([{ data: [{ content: 'hello' }], total: 1 }]);
-      const sessionsService = { findByUserId: jest.fn() };
-      const service = new AiMessagesService(
-        { aggregate } as never,
-        sessionsService as never,
-      );
-
-      await expect(
-        service.findByUserId(patientId.toString(), {
-          page: 1,
-          limit: 20,
-          sortBy: 'sentAt',
-          sortOrder: -1,
-        }),
-      ).resolves.toEqual({ data: [{ content: 'hello' }], total: 1 });
-      expect(sessionsService.findByUserId).not.toHaveBeenCalled();
-      expect(aggregate).toHaveBeenCalled();
-      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$lookup"');
-      expect(JSON.stringify(aggregate.mock.calls)).toContain('"$facet"');
     });
   });
 

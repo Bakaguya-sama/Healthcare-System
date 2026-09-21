@@ -14,7 +14,7 @@ import {
   toMongoSortDirection,
 } from './pagination.utils';
 import { QueryMessageDto } from '../../modules/chat/dto/query-message.dto';
-import { QuerySessionDto } from '../../modules/sessions/dto/query-session.dto';
+import { QueryConsultationDto } from '../../modules/consultations/dto/query-consultation.dto';
 
 describe('pagination contract', () => {
   describe('DTO validation', () => {
@@ -48,7 +48,7 @@ describe('pagination contract', () => {
 
     it.each([
       [new QueryMessageDto(), 'unexpectedMessageField'],
-      [new QuerySessionDto(), '$where'],
+      [new QueryConsultationDto(), '$where'],
     ])('rejects a non-allowlisted domain sort field', async (query, sortBy) => {
       Object.assign(query, { sortBy });
 

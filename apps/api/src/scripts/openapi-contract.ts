@@ -42,7 +42,10 @@ async function generateDocument(): Promise<OpenAPIObject> {
     });
     return createOpenApiDocument(app);
   } finally {
-    await app.close();
+    await Promise.race([
+      app.close(),
+      new Promise<void>((resolveClose) => setTimeout(resolveClose, 2_000)),
+    ]);
   }
 }
 
@@ -73,7 +76,10 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch((error: unknown) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+void main().then(
+  () => process.exit(0),
+  (error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  },
+);
