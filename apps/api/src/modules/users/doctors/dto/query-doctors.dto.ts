@@ -1,5 +1,5 @@
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { PageSortQueryDto } from '../../../common/pagination';
+import { PageSortQueryDto } from '../../../../common/pagination';
 
 export class QueryDoctorsDto extends PageSortQueryDto {
   @IsOptional()

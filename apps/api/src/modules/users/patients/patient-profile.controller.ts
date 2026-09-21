@@ -2,55 +2,48 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
   Delete,
-  Body,
   UseGuards,
   Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { PatientsService } from './patients.service';
-import {
-  CreatePatientDto,
-  UpdatePatientDto,
-  QueryPatientDto,
-} from './dto/create-patient.dto';
+import { PatientProfileService } from './patient-profile.service';
+import { QueryPatientsDto } from './dto/query-patients.dto';
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../core/guards/roles.guard';
 import { Roles } from '../../../core/decorators/roles.decorator';
 import { CurrentUser } from '../../../core/decorators/current-user.decorator';
-import { UserRole } from '../enums/user-role.enum';
+import { UserRole } from '../../../core/domain/user.enums';
 
 @ApiTags('patients')
 @Controller('patients')
-export class PatientsController {
-  constructor(private readonly patientsService: PatientsService) {}
+export class PatientProfileController {
+  constructor(private readonly patientProfiles: PatientProfileService) {}
 
   /**
-   * 📝 POST /patients
+   * 📝 POST /patients/me
    * Tạo hồ sơ bệnh nhân mới
    */
-  @Post()
-  @UseGuards(JwtAuthGuard)
+  @Post('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PATIENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tạo hồ sơ bệnh nhân mới' })
-  async create(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: CreatePatientDto,
-  ) {
-    return this.patientsService.create(userId, dto);
+  async create(@CurrentUser('sub') userId: string) {
+    return this.patientProfiles.create(userId);
   }
 
   /**
-   * 👤 GET /patients/profile
+   * 👤 GET /patients/me
    * Lấy hồ sơ bệnh nhân của user hiện tại
    */
-  @Get('profile')
-  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PATIENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy hồ sơ bệnh nhân của tôi' })
   async getProfile(@CurrentUser('sub') userId: string) {
-    return this.patientsService.findByUserId(userId);
+    return this.patientProfiles.findByUserId(userId);
   }
 
   /**
@@ -62,34 +55,20 @@ export class PatientsController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy danh sách bệnh nhân (ADMIN)' })
-  async findAll(@Query() query: QueryPatientDto) {
-    return this.patientsService.findAll(query);
+  async findAll(@Query() query: QueryPatientsDto) {
+    return this.patientProfiles.findAll(query);
   }
 
   /**
-   * ✏️ PATCH /patients/profile
-   * Cập nhật hồ sơ bệnh nhân
-   */
-  @Patch('profile')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật hồ sơ bệnh nhân' })
-  async update(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: UpdatePatientDto,
-  ) {
-    return this.patientsService.update(userId, dto);
-  }
-
-  /**
-   * 🗑️ DELETE /patients/profile
+   * 🗑️ DELETE /patients/me
    * Xóa hồ sơ bệnh nhân
    */
-  @Delete('profile')
-  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PATIENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xóa hồ sơ bệnh nhân' })
   async delete(@CurrentUser('sub') userId: string) {
-    return this.patientsService.delete(userId);
+    return this.patientProfiles.delete(userId);
   }
 }

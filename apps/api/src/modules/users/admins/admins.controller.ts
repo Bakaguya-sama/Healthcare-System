@@ -20,7 +20,7 @@ import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../core/guards/roles.guard';
 import { Roles } from '../../../core/decorators/roles.decorator';
 import { CurrentUser } from '../../../core/decorators/current-user.decorator';
-import { UserRole } from '../enums/user-role.enum';
+import { UserRole } from '../../../core/domain/user.enums';
 
 @ApiTags('admins')
 @Controller('admins')

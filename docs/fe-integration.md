@@ -474,6 +474,12 @@ interface ViolationReportDto {
 | USER-04 | `DELETE /files/:publicId` | Owner/Admin | purpose | `204` | Target P0 |
 | USER-05 | `POST /devices` | Authenticated | push token/platform/appVersion | device DTO | Target P1 |
 | USER-06 | `DELETE /devices/:id` | Owner | none | `204` | Target P1 |
+| PAT-01 | `POST /patients/me` | Patient | none | patient profile | Current canonical |
+| PAT-02 | `GET /patients/me` | Patient | none | patient profile + public user fields | Current canonical |
+| PAT-03 | `DELETE /patients/me` | Patient | none | success response | Current canonical |
+| PAT-04 | `GET /patients` | Admin | page, limit, sortBy, sortOrder | paginated patient profiles | Current canonical |
+
+`/users/profile`, `/patients/profile` và patient profile `PATCH` không còn được hỗ trợ. Patient profile hiện chỉ có quan hệ `userId`; dữ liệu tài khoản thay đổi qua `PATCH /users/me`.
 
 ### 5.2 Doctor discovery và verification
 

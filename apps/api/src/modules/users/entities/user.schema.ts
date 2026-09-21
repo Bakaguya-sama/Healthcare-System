@@ -1,8 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { UserRole, AccountStatus } from '../../../core/domain/user.enums';
-import { DoctorProfile, DoctorProfileSchema } from './doctorProfile.schema';
-import { AdminProfile, AdminProfileSchema } from './adminProfile.schema';
+import {
+  DoctorProfile,
+  DoctorProfileSchema,
+} from '../doctors/schemas/doctor-profile.schema';
+import {
+  AdminProfile,
+  AdminProfileSchema,
+} from '../admins/schemas/admin-profile.schema';
 import { Address, AddressSchema } from './address.schema';
 
 export type UserDocument = HydratedDocument<User>;

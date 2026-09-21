@@ -1,15 +1,12 @@
 import {
   Controller,
   Get,
-  Post,
   Patch,
   Param,
   Body,
   UseGuards,
   UseInterceptors,
   Delete,
-  HttpCode,
-  HttpStatus,
   UploadedFiles,
   Query,
 } from '@nestjs/common';
@@ -17,16 +14,15 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { Public } from '../../core/decorators/public.decorator'; // Import Public decorator
+import { Public } from '../../core/decorators/public.decorator';
 import { UserRole } from '../../core/domain/user.enums';
-import { DoctorPrefillData } from './dto/doctor-prefill.dto'; // Import the new DTO
-import { QueryDoctorsDto } from './dto/query-doctors.dto';
-import { DoctorDirectoryService } from './doctor-directory.service';
+import { DoctorPrefillData } from './doctors/dto/doctor-prefill.dto';
+import { QueryDoctorsDto } from './doctors/dto/query-doctors.dto';
+import { DoctorDirectoryService } from './doctors/doctor-directory.service';
 import { QueryUsersDto } from './dto/query-users.dto';
 
 @ApiTags('users')
@@ -105,41 +101,5 @@ export class UsersController {
   @ApiOperation({ summary: 'Admin: vô hiệu hoá tài khoản' })
   deactivate(@Param('id') id: string) {
     return this.usersService.deactivate(id);
-  }
-
-  /**
-   * 👤 PATIENT PROFILE ENDPOINTS
-   */
-
-  @Post('profile')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Bệnh nhân tạo profile' })
-  createPatientProfile(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: CreatePatientProfileDto,
-  ) {
-    return this.usersService.createPatientProfile(userId, dto);
-  }
-
-  @Get('profile')
-  @ApiOperation({ summary: 'Xem patient profile của mình' })
-  getPatientProfile(@CurrentUser('sub') userId: string) {
-    return this.usersService.getPatientProfile(userId);
-  }
-
-  @Patch('profile')
-  @ApiOperation({ summary: 'Cập nhật patient profile' })
-  updatePatientProfile(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: CreatePatientProfileDto,
-  ) {
-    return this.usersService.updatePatientProfile(userId, dto);
-  }
-
-  @Delete('profile')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Xóa patient profile' })
-  deletePatientProfile(@CurrentUser('sub') userId: string) {
-    return this.usersService.deletePatientProfile(userId);
   }
 }

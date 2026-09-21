@@ -57,7 +57,7 @@ Source hiện có **173 operations trên 121 path**, thuộc 21 controller tags.
 
 Các path dưới dùng prefix `/api/v1`.
 
-- Identity/profile: `/auth/*`, `/users`, `/users/me`, `/users/doctors`, `/users/doctor/{email}`, `/users/{id}`, `/users/{id}/profile`, `/users/profile`, `/patients`, `/patients/profile`, `/admins`, `/admins/{id}`.
+- Identity/profile: `/auth/*`, `/users`, `/users/me`, `/users/doctors`, `/users/doctor/{email}`, `/users/{id}`, `/users/{id}/profile`, `/patients`, `/patients/me`, `/admins`, `/admins/{id}`. Patient self-profile chỉ còn canonical API `POST|GET|DELETE /patients/me`; `/users/profile`, `/patients/profile` và empty `PATCH` đã bị loại bỏ tại RF-13.
 - Admin operations: `/admin/doctors/applications`, `/admin/doctors/{id}/verify|reject`, `/admin/users/{id}/lock|unlock`, `/admin/sessions`, `/admin/sessions/{id}`, `/admin/dashboard/stats`.
 - Consultation/chat/review: `/sessions`, `/sessions/upcoming`, `/sessions/{id}`, `/sessions/{id}/confirm|reject|start|complete|cancel|reschedule`, `/chat`, `/chat/send`, `/chat/session/{sessionId}`, `/chat/{id}`, `/reviews`, `/reviews/doctor/{doctorId}`, `/reviews/doctor/{doctorId}/rating`, `/reviews/top/doctors`, `/reviews/session/{id}`, `/reviews/{id}`, `/reviews/{id}/helpful|flag`.
 - Health: `/health-metrics`, `/health-metrics/statistics/{type}`, `/health-metrics/alerts`, `/health-metrics/{id}`, `/health-metrics/{id}/review`.

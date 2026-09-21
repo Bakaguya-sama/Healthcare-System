@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument } from './entities/user.schema';
+import { User, UserDocument } from '../entities/user.schema';
 import {
   AccountStatus,
   DoctorVerificationStatus,
   UserRole,
-} from '../../core/domain/user.enums';
+} from '../../../core/domain/user.enums';
 import { QueryDoctorsDto } from './dto/query-doctors.dto';
 
 const DOCTOR_PROJECTION =

@@ -1265,6 +1265,23 @@ Exit gate:
 
 Trạng thái RF-12: **DONE — 2026-09-21** (`BE-RF-090` đến `BE-RF-093`). Cycle Users–Administration đã được loại bỏ; cross-context imports đi qua public API và được boundary check cưỡng chế; `doctors` đã bị loại khỏi allowlist. AI/Health god service đã tách theo orchestration/query/management/alert responsibility. Build, lint, typecheck, unit, integration, E2E, boundary, OpenAPI và realtime checks đều pass. Evidence nằm tại `docs/current-state/rf12-boundary-hardening.md`; staging evidence RF-9/RF-10 tiếp tục là release task riêng và không thuộc RF-12.
 
+### RF-13 — Chuẩn hóa capability Doctor/Patient trong Users
+
+Mục tiêu: hoàn tất physical organization còn lệch sau RF-11 và loại hai implementation patient profile song song. Đây vẫn là một Identity/Users bounded context; không tạo lại `DoctorsModule`, `PatientsModule` hoặc collection `doctors`.
+
+Các bước:
+
+1. Gom doctor directory, DTO và embedded profile schema vào `users/doctors`; giữ registration của doctor profile trong canonical `User` schema.
+2. Đổi capability patient thành `PatientProfileController`/`PatientProfileService` và đặt schema, DTO trong `users/patients`.
+3. Đặt embedded admin-profile schema cùng capability `users/admins`; chỉ giữ shared User/address schema trong `users/entities`.
+4. Xóa Patient model dependency cùng CRUD patient khỏi `UsersService`/`UsersController`.
+5. Chốt self-profile API tại `POST|GET|DELETE /patients/me`; xóa `/users/profile`, `/patients/profile` và `PATCH` rỗng.
+6. Kiểm tra `User.role = patient` trước khi tạo profile; giữ unique `userId` và physical collection `patients` để không cần migration dữ liệu.
+7. Không export patient implementation nếu chưa có cross-context consumer; cập nhật OpenAPI và characterization test.
+8. Xóa feature-level `UserRole` re-export; core/infrastructure/Users cùng dùng enum canonical trong `core/domain`.
+
+Trạng thái RF-13: **DONE — 2026-09-21** (`BE-RF-094` đến `BE-RF-095`). Frontend mới phải dùng `/patients/me`; runtime collection vẫn là `patients`. Evidence nằm tại `docs/current-state/rf13-user-capability-normalization.md`.
+
 ## 6. Definition of Done cho refactor
 
 Một task `BE-RF-*` chỉ Done khi:
@@ -1722,6 +1739,7 @@ RF-0 đến RF-10 đã được triển khai sớm hơn lịch dự kiến ban �
 | 15/09-21/09 | RF-0 đến RF-10                | Đã hoàn tất source refactor, canonical cutover và local release rehearsal      |
 | 21/09       | RF-11                         | Đã hợp nhất bounded-context modules, xóa orphan code và bật boundary enforcement |
 | 21/09-22/09 | RF-12                         | Harden public boundary, loại dependency cycle và tách AI/Health god service       |
+| 21/09       | RF-13                         | Chuẩn hóa Doctor/Patient capability và patient profile API canonical              |
 | 06/10-26/10 | NF-2                          | AvailabilitySlot và scheduled booking hoàn chỉnh                               |
 | 27/10-16/11 | NF-3, NF-4, NF-5              | Queue/check-in/no-show, reminder và AI quota                                   |
 | 17/11-30/11 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line |
@@ -1966,6 +1984,7 @@ Thực hiện đúng thứ tự:
 16. [ ] Không tạo task Web/Admin/Mobile trong repository hoặc board backend.
 17. [x] Hoàn thành RF-11 (`BE-RF-080` đến `BE-RF-086`) ngày `2026-09-21`; bounded-context topology, ownership, cleanup, boundary và contract exit gate đều pass.
 18. [x] Hoàn thành RF-12 (`BE-RF-090` đến `BE-RF-093`) ngày `2026-09-21`: public API, cross-context enforcement và AI/Health service decomposition; staging evidence RF-9/RF-10 vẫn là release gate riêng.
+19. [x] Hoàn thành RF-13 (`BE-RF-094` đến `BE-RF-095`) ngày `2026-09-21`: chuẩn hóa Doctor/Patient capability, xóa patient CRUD trùng và chốt `/patients/me`.
 
 ## 23. Tóm tắt quyết định
 

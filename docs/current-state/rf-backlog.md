@@ -46,7 +46,9 @@ Owner mặc định: **Huy (backend/architecture owner theo preflight đã duy�
 | BE-RF-091 | Public APIs + cross-context enforcement       | Huy   | BE-RF-090                |       1d | Done 2026-09-21 |
 | BE-RF-092 | AI conversation service decomposition         | Huy   | BE-RF-091                |     1-2d | Done 2026-09-21 |
 | BE-RF-093 | Health query/alert service decomposition      | Huy   | BE-RF-091                |     1-2d | Done 2026-09-21 |
+| BE-RF-094 | Normalize User doctor/patient capabilities    | Huy   | BE-RF-082, 091           |     0.5d | Done 2026-09-21 |
+| BE-RF-095 | Canonical patient profile API cutover         | Huy   | BE-RF-094                |     0.5d | Done 2026-09-21 |
 
 ## Next ready work
 
-RF-12 (`BE-RF-090`–`093`) đã hoàn tất source implementation và full local verification. Công việc tiếp theo là feature backend theo dependency/cut-line trong `plan/refactor-plan.md`; staging evidence RF-9/RF-10 vẫn là release gate riêng.
+RF-13 (`BE-RF-094`–`095`) đã chuẩn hóa capability Doctor/Patient trong Users và loại patient profile API trùng. Công việc tiếp theo là feature backend theo dependency/cut-line trong `plan/refactor-plan.md`; staging evidence RF-9/RF-10 vẫn là release gate riêng.

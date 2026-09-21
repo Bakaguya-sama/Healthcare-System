@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { DoctorVerificationStatus } from '../../../core/domain/user.enums';
+import { DoctorVerificationStatus } from '../../../../core/domain/user.enums';
 
 @Schema({ _id: false })
 export class DoctorProfile {
