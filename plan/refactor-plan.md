@@ -1348,6 +1348,8 @@ Một task `BE-RF-*` chỉ Done khi:
 
 # PHẦN B — PHÁT TRIỂN BACKEND FEATURE MỚI
 
+> Quyết định sản phẩm ngày 23/09/2026: DA2 ưu tiên **HealthAI Chronic Care**. Phạm vi, backlog `BE-CC-*`, cut-line và Definition of Done nằm tại `plan/chronic-care-plan.md`. Khi có xung đột về thứ tự feature, Chronic Care P0 được ưu tiên hơn Payment/Refund/WebRTC/Mobile không phục vụ critical journey.
+
 ## 8. Điều kiện bắt đầu feature mới
 
 Không cần đợi toàn bộ refactor hoàn tất, nhưng mọi feature đều phụ thuộc `BE-RF-006` (query/pagination convention) và `BE-RF-007` (query catalog/performance baseline), sau đó mới xét dependency domain trực tiếp dưới đây.
@@ -1733,6 +1735,8 @@ Frontend repository chịu trách nhiệm:
 ## 13. Lịch thực hiện backend đến 31/12
 
 RF-0 đến RF-10 đã được triển khai sớm hơn lịch dự kiến ban đầu. Từ 22/09, ưu tiên đóng RF-11 trước khi đặt feature mới vào các bounded context tương ứng; contract/design feature có thể chuẩn bị song song nhưng không code vào module đang chờ hợp nhất.
+
+> Bảng dưới đây được giữ làm baseline kỹ thuật trước quyết định Chronic Care. Từ 23/09/2026, lịch feature và cut-line thực thi theo `plan/chronic-care-plan.md`; các NF chỉ được nhận khi phục vụ critical journey Chronic Care hoặc sau khi Chronic Care P0 đạt gate.
 
 | Thời gian   | Nhóm việc                     | Kết quả bắt buộc                                                               |
 | ----------- | ----------------------------- | ------------------------------------------------------------------------------ |

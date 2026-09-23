@@ -7,22 +7,28 @@ Tài liệu mô tả phạm vi sản phẩm, nghiệp vụ, kiến trúc và tr�
 - Nghiệp vụ: `docs/BUSINESS_RULES.md`.
 - Dữ liệu: `docs/db-template-v7.dbml`.
 - Kế hoạch thực thi: `plan/refactor-plan.md`.
+- Kế hoạch sản phẩm Chronic Care: `plan/chronic-care-plan.md`.
 - Hợp đồng tích hợp frontend: `docs/fe-integration.md`.
 
 DA2 được triển khai trong giai đoạn 09/2026–12/2026, deadline mục tiêu 31/12/2026. Những chức năng được mô tả là **mục tiêu của phiên bản DA2**, không mặc định đã tồn tại trong code DA1.
 
 ## 2. Định vị sản phẩm
 
-Healthcare Application là nền tảng **theo dõi sức khỏe và tư vấn từ xa**, không phải hệ thống khám bệnh, chẩn đoán hoặc thay thế cơ sở y tế.
+Healthcare Application được định vị thành **HealthAI Chronic Care — nền tảng theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa**, không phải hệ thống khám bệnh, chẩn đoán hoặc thay thế cơ sở y tế. MVP bắt buộc có hai Care Program dùng chung Program engine: tăng huyết áp và tiểu đường.
 
 Sản phẩm hỗ trợ:
 
 - Bệnh nhân theo dõi chỉ số sức khỏe và nhận cảnh báo tham khảo.
+- Bệnh nhân tham gia Care Program, nhận lịch đo và xem mức độ hoàn thành theo dõi.
+- Rule engine version hóa phân tầng `normal|attention|urgent` với lý do giải thích được; kết quả không phải chẩn đoán.
+- Bác sĩ theo dõi Priority Inbox và báo cáo 7/30 ngày thay vì đọc toàn bộ dữ liệu thô.
 - Bệnh nhân chủ động đặt lịch theo slot bác sĩ đã mở.
 - Bệnh nhân gửi yêu cầu tư vấn nhanh theo cơ chế on-demand.
 - Bác sĩ tiếp nhận yêu cầu, quản lý lịch, hàng đợi và tư vấn qua chat/audio/video.
 - AI cung cấp thông tin, tóm tắt và truy xuất tri thức RAG; không tự đưa ra chẩn đoán.
 - Gói hội viên và quota kiểm soát quyền lợi AI.
+- Ba tier `Free`, `Plus`, `Care` lần lượt phục vụ theo dõi cơ bản, tự theo dõi nâng cao và chương trình có Doctor/Clinic đồng hành.
+- Mọi enrollment đều bắt buộc Doctor assignment để xác định ownership; chỉ tier Care mặc định có quyền lợi Doctor review theo cadence đã snapshot.
 - Thanh toán, cancel payment order và full refund có quản trị viên duyệt.
 - Quản trị người dùng, hồ sơ bác sĩ, tri thức AI, billing và báo cáo vi phạm.
 
@@ -33,7 +39,7 @@ Khi có dấu hiệu khẩn cấp, hệ thống phải hướng người dùng t
 | Vai trò | Web Client | Mobile | Web Admin |
 |---|---|---|---|
 | Patient | Theo dõi sức khỏe, tìm bác sĩ, đặt lịch, on-demand, queue, chat/call, AI, billing | Critical patient flows, FCM và secure token storage | Không |
-| Doctor | Dashboard, slot, request, queue, chat/call, hồ sơ và review | Critical doctor flows, FCM và call foreground | Không |
+| Doctor | Care Program, Priority Inbox, dashboard, slot, request, queue, chat/call, hồ sơ và review | Critical doctor flows, FCM và call foreground | Không |
 | Admin | Không dùng client cho nghiệp vụ quản trị | Ngoài MVP | Dashboard, users, doctor verification, AI knowledge, plans, payments/refunds, moderation |
 
 Frontend sẽ được tách thành repository riêng gồm:
@@ -63,6 +69,8 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Hủy consultation theo policy; check-in và theo dõi vị trí hàng đợi.
 - Chat, gửi tệp/hình ảnh và tham gia audio/video call khi consultation cho phép.
 - Nhập, sửa, xóa và xem biểu đồ HealthMetrics.
+- Tham gia Care Program, xem nhiệm vụ đo, mức độ hoàn thành và báo cáo 7/30 ngày.
+- Nhận Care Alert có lý do rõ ràng và chuyển sang đặt lịch/on-demand consultation khi cần.
 - Hỏi AI, xem citation/lịch sử và quota còn lại.
 - Xem Plans, tạo PaymentOrder, theo dõi kết quả thanh toán và Subscription.
 - Cancel order chưa thanh toán; gửi full-refund request cho order đã paid.
@@ -78,6 +86,8 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Theo dõi patient đã check-in, gọi người tiếp theo bằng thao tác atomic và xử lý no-show.
 - Chat/call trong consultation được authorize.
 - Xem health context của patient trong phạm vi consultation.
+- Enroll Patient vào Care Program đã duyệt; xem Priority Inbox và xử lý Care Alert được phân công.
+- Xem báo cáo xu hướng xác định và AI summary trước consultation; AI không quyết định severity.
 - Ghi consultation note, hoàn tất phiên và xem review.
 - Nhận notification về request, queue, lịch, message và verification.
 
@@ -90,6 +100,7 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Xem PaymentOrders, PaymentTransactions và trạng thái đối soát.
 - Review/approve/reject PaymentRefunds; provider call do worker thực hiện.
 - Quản lý tài liệu RAG và blacklist keywords.
+- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin quản lý lifecycle, nguồn, version và publish/retire rule/ngưỡng.
 - Xử lý ViolationReports theo workflow bốn trạng thái.
 - Tạo và theo dõi NotificationCampaigns nếu còn trong release cut-line.
 
@@ -170,16 +181,28 @@ queuePriorityAt != null
 - Patient chỉ review consultation của mình sau khi completed; một consultation có tối đa một review.
 - Rating summary của doctor được cập nhật trong transaction và có job đối soát.
 
-### 5.6 Health tracking và AI
+### 5.6 Chronic Care, Health tracking và AI
 
 - HealthMetrics lưu theo UTC; timezone dùng cho hiển thị.
-- Alert threshold chỉ là cảnh báo tham khảo.
+- Care Program xác định loại metric, tần suất đo, timezone, thời hạn và rule set áp dụng.
+- Monitoring task được hoàn thành bởi HealthMetric hợp lệ; adherence chỉ phản ánh mức độ hoàn thành theo dõi, không phải tuân thủ điều trị.
+- Alert threshold/rule chỉ là cảnh báo tham khảo. Rule engine là deterministic, version hóa và trả về reason codes; AI không được tạo hoặc thay đổi severity.
+- Care Alert `urgent` phải hiển thị hành động an toàn từ template đã duyệt và không chờ LLM.
+- Doctor Priority Inbox chỉ chứa Patient thuộc enrollment được phân công và có pagination/stable sort.
+- Báo cáo 7/30 ngày tính số liệu bằng backend; LLM chỉ diễn đạt từ payload chuẩn hóa và phải có fallback.
 - Redis reserve/commit/release quota theo ngày; `AiUsageDaily` là dữ liệu bền vững để thống kê và đối soát.
 - Không dùng cron xóa toàn bộ quota key; key theo ngày có TTL.
 - RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
 - AI response phải có safety policy/disclaimer và không chẩn đoán.
 
 ### 5.7 Billing, cancel và refund
+
+- Free giữ HealthMetrics, biểu đồ cơ bản, safety alert, một Care Program cơ bản, in-app notification và quota AI cơ bản.
+- Plus bổ sung nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder, medication reminder, export và quota AI cao hơn.
+- Care bao gồm Plus cùng Doctor-assigned Program, review định kỳ, Priority Inbox, follow-up, tái khám và ưu đãi giá consultation theo Plan snapshot.
+- `consultationLimitPerCycle` mặc định: Free `1`, Plus `3`, Care `6`; hệ thống đếm trực tiếp `consultationsUsed` và số còn lại.
+- Scheduled/on-demand dùng chung consultation limit và reservation ledger idempotent. `AiQuestionQuota` là entitlement khác, chỉ đếm câu hỏi AI.
+- Subscription không được thay đổi severity/ưu tiên lâm sàng; safety alert và quyền truy cập dữ liệu cơ bản không bị khóa khi hết hạn.
 
 ```mermaid
 stateDiagram-v2
@@ -252,6 +275,7 @@ Backend sử dụng Modular Monolith, chia theo capability:
 | practitioner-management | DoctorProfile embedded trong Users và verification policy |
 | consultations | AvailabilitySlots, Consultations, ConsultationMessages, Reviews |
 | health-tracking | HealthMetrics |
+| chronic-care | CareProgramTemplates, CareEnrollments, MonitoringTasks, CareRuleSets, CareEvaluations, CareAlerts, CareSummaries |
 | ai-advisory | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords |
 | billing | Plans, PaymentOrders, PaymentTransactions, Subscriptions, PaymentRefunds |
 | notifications | NotificationCampaigns, Notifications, OutboxEvents |
@@ -261,7 +285,7 @@ Mongoose là ODM chính. Mỗi collection có một canonical model thuộc modu
 
 ## 7. Dữ liệu
 
-DB v7 gồm 27 collections được mô tả tại `docs/db-template-v7.dbml`, bao gồm 25 collection nghiệp vụ và hai collection hạ tầng migration `_schema_migrations`, `_migration_lock`.
+DB v7 hiện gồm 27 collections được mô tả tại `docs/db-template-v7.dbml`. Chronic Care sẽ được bổ sung bằng migration/schema version mới sau design review; không sửa lịch sử migration hoặc xem DBML hiện tại là đã có các collection Chronic Care.
 
 Nguyên tắc:
 
@@ -309,6 +333,7 @@ Nguyên tắc:
 | Presence trong process | Redis TTL/heartbeat và Socket.IO Redis Adapter |
 | Notification side effect trực tiếp | Notification + transactional outbox + worker |
 | Chưa có billing implementation | Plans, payment/IPN, cancel, Subscription grant và refund P1 |
+| Health Metrics mới dừng ở ghi nhận/cảnh báo đơn lẻ | Care Program, monitoring adherence, rule evaluation, Care Alert và Doctor Priority Inbox |
 | Frontend/backend cùng monorepo | Backend repo riêng; frontend monorepo riêng; OpenAPI contract |
 
 Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/fe-integration.md`. Frontend repo mới chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
@@ -322,7 +347,9 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - AvailabilitySlot, scheduled/on-demand Consultation, check-in, queue và chat.
 - Notification/outbox/worker.
 - AI quota/RAG cốt lõi.
-- VNPAY payment cơ bản và cancel unpaid order.
+- Chronic Care cho tăng huyết áp và tiểu đường: Doctor-assigned enrollment/consent, monitoring tasks, rule engine, Care Alert, Priority Inbox, báo cáo 7/30 ngày và AI summary có fallback.
+- Liên kết Care Alert với scheduled/on-demand consultation và follow-up.
+- VNPAY Sandbox payment/subscription và cancel unpaid order.
 - Web critical journeys và test race/idempotency.
 
 ### P1 có feature flag/cut-line
@@ -331,12 +358,15 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - Mobile patient/doctor critical flow, FCM.
 - WebRTC foreground call.
 - AI hỗ trợ moderation.
+- Medication adherence sau khi hai chương trình P0 đạt gate.
 
 ### Ngoài phạm vi DA2
 
 - Partial refund, chargeback và auto-refund.
 - Admin mobile đầy đủ và CallKeep production-grade.
 - AI chẩn đoán hoặc tự quyết định chế tài.
+- AI tạo severity, kê/đổi thuốc hoặc thay thế phản ứng cấp cứu.
+- IoT/Bluetooth medical device, caregiver sharing và tích hợp nhà thuốc/bảo hiểm.
 - Microservices, Kafka, Kubernetes và scale claim chưa được đo.
 
 Nếu muốn giữ full refund trong release, payment cơ bản phải ổn trước 22/11 và refund phải đạt gate trước 29/11; nếu không, tắt `VNPAY_REFUND_ENABLED` và ưu tiên P0.
@@ -345,7 +375,7 @@ Nếu muốn giữ full refund trong release, payment cơ bản phải ổn trư
 
 - Business rule và API contract không mâu thuẫn DB v7.
 - Backend, Web Client và Web Admin build/typecheck/test xanh.
-- Critical E2E cho auth, booking, queue, chat, payment và feature P1 được bật.
+- Critical E2E cho auth, Care Program, monitoring, alert, Doctor Inbox, AI fallback, booking/queue/chat và feature P1 được bật.
 - Race/idempotency tests pass cho slot, call-next, IPN và refund.
 - Database rỗng được tạo lại từ migration files và `database:verify` pass.
 - Không log dữ liệu nhạy cảm; room/file/API đều authorize phía server.

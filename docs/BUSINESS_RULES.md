@@ -2,7 +2,7 @@
 
 ## Mục đích và phạm vi
 
-Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh trong quá trình phát triển. Hệ thống phục vụ tư vấn trực tuyến; AI chỉ hỗ trợ thông tin, tóm tắt hoặc truy xuất tài liệu, không đưa ra chẩn đoán.
+Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh trong quá trình phát triển. Hệ thống phục vụ theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa kết hợp tư vấn trực tuyến; AI chỉ hỗ trợ thông tin, tóm tắt hoặc truy xuất tài liệu, không đưa ra chẩn đoán.
 
 ## Khái niệm chính
 
@@ -12,6 +12,74 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 - Scheduled là bệnh nhân chủ động chọn slot bác sĩ đã mở.
 - Request status thể hiện kết quả xử lý yêu cầu hoặc quyền truy cập tư vấn.
 - Session status thể hiện trạng thái thực tế của phiên tư vấn.
+- Care Program là chương trình theo dõi có thời hạn, loại chỉ số, lịch đo và bộ rule đã được duyệt.
+- Care Enrollment là quan hệ Patient tham gia Care Program và Doctor được phân công theo dõi.
+- Monitoring Task là nhiệm vụ đo chỉ số theo lịch; completion/adherence chỉ phản ánh hoạt động theo dõi.
+- Care Evaluation là kết quả deterministic của rule engine; Care Alert là item cần Patient/Doctor chú ý và xử lý.
+
+## Care Program và enrollment
+
+1. MVP cam kết cả Care Program tăng huyết áp và tiểu đường; hai chương trình phải dùng chung domain model/rule engine.
+2. Chỉ Patient active mới được enroll. Admin và Doctor có thể tạo/chỉnh draft Program Template theo permission; chỉ Doctor `active + approved` được khởi tạo enrollment cho Patient.
+3. Patient phải xác nhận consent và mục đích sử dụng dữ liệu trước khi enrollment chuyển `active`; consent lưu version và timestamp.
+4. Enrollment có trạng thái `pending`, `active`, `paused`, `completed`, `cancelled`. Chỉ enrollment `active` sinh Monitoring Task và Care Evaluation mới.
+5. Mỗi enrollment phải tham chiếu đúng một Care Program version và bắt buộc có một Doctor `active + approved` phụ trách trước khi chuyển active.
+6. Cập nhật template/rule set không được âm thầm đổi lịch sử. Enrollment đang chạy chỉ chuyển version theo thao tác có audit và effective time rõ ràng.
+7. Patient có thể yêu cầu dừng chương trình; dữ liệu lịch sử được giữ theo chính sách retention/audit, không xóa cứng cùng enrollment.
+8. Care Program không tạo quan hệ cấp cứu 24/7 và giao diện phải nêu rõ thời gian/phạm vi phản hồi của Doctor.
+9. Program version đã publish là bất biến; chỉnh sửa tạo draft/version mới. Chỉ version published/active mới được dùng cho enrollment mới.
+10. Baseline, eligibility, consent, task templates, reminder, rule set, review policy, content journey và completion criteria phải được snapshot hoặc tham chiếu version ổn định khi enrollment kích hoạt.
+11. Doctor chỉ được tùy chỉnh các field được Program Template allowlist. Thay đổi patient-specific threshold hoặc review cadence phải có quyền, lý do và audit.
+12. Admin là owner quản lý lifecycle, version, publish/retire của Program Template và Care Rule Set. Doctor được tạo/chỉnh draft nhưng không tự publish rule/ngưỡng ngoài policy của Admin.
+13. Admin phải lưu nguồn/căn cứ, người duyệt, simulation/test evidence và audit cho mỗi rule/ngưỡng trước publish; AI không được tự tạo rồi tự động phát hành rule lâm sàng.
+14. Doctor assignment bắt buộc ở mọi tier để xác định ownership và authorization; không mặc định tạo nghĩa vụ review định kỳ, SLA hoặc chat 24/7. Các quyền đó chỉ có khi Plan/Enrollment snapshot ghi rõ.
+
+## Monitoring Task và mức độ hoàn thành
+
+1. Monitoring Task được sinh từ schedule, timezone và version của Care Program; worker tạo task phải idempotent.
+2. Task type P0 gồm `metric`, `check_in`, `education`, `appointment`, `doctor_review`; `medication` và `journal` chỉ bật khi feature tương ứng hoàn tất.
+3. Mỗi task template phải có type, schedule, time window, completion rule, reminder policy, required/optional và version. LLM không được tự đánh dấu task hoàn thành.
+4. Với task `metric`, HealthMetrics là source of truth; task chỉ tham chiếu metric dùng để hoàn thành, không nhân bản raw health value.
+5. Một HealthMetric chỉ hoàn thành task `metric` khi đúng Patient, metric type và cửa sổ thời gian cho phép. Task type khác dùng response/progress/Consultation/DoctorReview canonical tương ứng.
+6. Task có trạng thái `scheduled`, `due`, `completed`, `missed`, `cancelled`; task của enrollment paused/cancelled không tiếp tục nhắc.
+7. Monitoring adherence bằng số task Patient-required đã completed chia số task Patient-required đến hạn hợp lệ; `doctor_review` không tính vào adherence của Patient.
+8. Adherence chỉ phản ánh hoạt động theo dõi, không được mô tả là tuân thủ điều trị hoặc uống thuốc trừ khi medication module được định nghĩa riêng.
+9. Sửa/xóa dữ liệu nguồn phải kích hoạt re-evaluation và điều chỉnh task/summary liên quan theo cơ chế có audit.
+10. Mọi thời gian lưu UTC; việc xác định ngày và cửa sổ task dùng timezone snapshot của enrollment.
+11. Worker chỉ materialize task trong rolling window cấu hình; không tạo toàn bộ task dài hạn ngay khi enroll nếu gây write amplification.
+12. Quiet hours, giới hạn tần suất và trạng thái hoàn thành phải được kiểm tra trước khi gửi reminder để tránh notification fatigue.
+
+## Care rule, evaluation và alert
+
+1. Rule set có lifecycle `draft`, `active`, `retired`; chỉ version active đã được duyệt mới áp dụng cho dữ liệu mới.
+2. Rule engine phải deterministic và trả về `normal`, `attention` hoặc `urgent` cùng `reasonCodes`, `ruleSetVersion` và input references.
+3. Rule có thể dùng giá trị hiện tại, số lần lặp, xu hướng ngắn hạn hoặc dữ liệu bị thiếu; không được trả về chẩn đoán/tên bệnh mới.
+4. Ngưỡng và nội dung hành động không hard-code rải rác trong service. Mọi thay đổi phải có actor, lý do, version và audit log.
+5. AI/LLM không được tạo, nâng/hạ severity hoặc ghi đè kết quả Care Evaluation.
+6. Evaluation `urgent` dùng safety template đã duyệt để hướng Patient liên hệ cơ sở y tế/cấp cứu phù hợp; không chờ AI và không cam kết Doctor phản hồi tức thời.
+7. Care Alert phải có deduplication key theo enrollment, rule và evaluation window để retry không tạo cảnh báo trùng.
+8. Alert có trạng thái `open`, `acknowledged`, `resolved`, `dismissed`; acknowledge không đồng nghĩa đã giải quyết hoặc đã liên hệ Patient.
+9. Chỉ Doctor được phân công, Patient sở hữu dữ liệu và Admin có quyền audit mới xem alert theo phạm vi tương ứng.
+10. Resolve/dismiss phải lưu actor, timestamp và lý do; alert quan trọng không được hard-delete.
+
+## Doctor Priority Inbox và follow-up
+
+1. Priority Inbox là projection/query từ Care Alerts và enrollments, không phải nguồn dữ liệu lâm sàng mới.
+2. Thứ tự mặc định: severity, detectedAt và `_id` tie-breaker; AI score không tham gia quyết định thứ tự P0.
+3. Mọi list phải pagination, projection và hard limit; Doctor không được truy vấn Patient ngoài assignment hợp lệ.
+4. Doctor có thể acknowledge, ghi chú liên hệ, tạo/liên kết Consultation và resolve alert.
+5. Consultation liên kết alert vẫn phải tuân thủ đầy đủ booking, participant authorization và session state hiện có.
+6. Sau consultation, Doctor có thể ghi follow-up note hoặc thay đổi chương trình trong phạm vi được cấp quyền; hệ thống phải lưu audit.
+
+## Báo cáo và AI summary Chronic Care
+
+1. Báo cáo 7/30 ngày được tính xác định từ HealthMetrics, Monitoring Tasks, Care Alerts và Consultations trong phạm vi được authorize.
+2. Backend tính thống kê, trend và adherence; LLM chỉ diễn đạt từ payload chuẩn hóa, không tự tính lại hoặc bổ sung dữ kiện.
+3. Summary phải lưu window, data cutoff, model/prompt version, nguồn dữ liệu/provenance và trạng thái generation.
+4. Nếu AI timeout, lỗi hoặc evidence không đủ, hệ thống vẫn trả báo cáo số liệu và reason codes; narrative chuyển `unavailable`.
+5. Patient summary dùng ngôn ngữ tham khảo, không chẩn đoán. Doctor summary phải phân biệt dữ kiện, dữ liệu thiếu và nội dung AI sinh.
+6. RAG chỉ sử dụng document/chunk active, approved, chưa hết hạn; citation trả về phải được backend kiểm tra tồn tại.
+7. Dữ liệu Patient chỉ được đưa vào summary trong đúng authorization scope; không dùng raw health payload để huấn luyện hoặc gọi provider ngoài policy.
 
 ## Quy tắc tài khoản và bác sĩ
 
@@ -98,6 +166,33 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 4. IPN lặp phải idempotent: cùng transaction reference không được kích hoạt subscription hai lần.
 5. Redis kiểm quota AI realtime theo ngày; AiUsageDaily là dữ liệu bền vững cho thống kê và đối soát.
 6. Khi subscription hết hạn, API AI áp dụng quota Free ở request tiếp theo. Worker chỉ hỗ trợ thông báo hết hạn.
+7. Hệ thống có ba tier sản phẩm: `free`, `plus`, `care`; giá và giới hạn cụ thể nằm trong Plan/Subscription snapshot, không hard-code theo tên tier.
+8. Free luôn có quyền nhập/xem HealthMetrics của chính Patient, biểu đồ cơ bản, một Care Program cơ bản, in-app notification, quota AI cơ bản và safety alert thiết yếu.
+9. Plus bao gồm Free và có thể cấp nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder/quiet hours, medication reminder, PDF/CSV và quota AI cao hơn theo Plan.
+10. Care bao gồm Plus và có thể cấp Doctor-assigned Program, Doctor review theo cadence, Priority Inbox, follow-up, nhắc tái khám và ưu đãi giá consultation theo Plan snapshot.
+11. Doctor-reviewed/confirmed report chỉ xác nhận Doctor đã xem báo cáo; không được trình bày thành chẩn đoán, đơn thuốc hoặc bảo đảm kết quả điều trị.
+12. Nhắn tin Doctor chỉ tồn tại trong Consultation được authorize. Không tier nào mặc định tạo chat 24/7 hoặc cam kết phản hồi cấp cứu.
+13. SLA phản hồi chỉ được hiển thị khi Clinic có giờ phục vụ, nhân sự, escalation và cơ chế đo SLA đã cấu hình; nếu không, giao diện phải nêu rõ Doctor không theo dõi realtime.
+14. Cảnh báo `urgent`, safety template và quyền truy cập dữ liệu cơ bản của Patient không được tắt khi hết hạn, downgrade hoặc vượt quota AI.
+15. Downgrade/hết hạn không xóa HealthMetrics, Care Alerts hoặc báo cáo lịch sử. Quyền lợi trả phí mới dừng theo `paidThroughAt` và grace policy đã snapshot.
+16. Giới hạn lưu lịch sử theo tier chỉ được áp dụng sau privacy/retention review; không được làm mất quyền truy cập/xuất dữ liệu tối thiểu của chính Patient.
+17. Consultation usage/reservation ledger dùng idempotency key; retry không được đếm một Consultation nhiều lần.
+18. Entitlement được kiểm tra phía backend. Client không được tự khai tier, AI quota, consultation limit, Doctor review hoặc quyền Care Program.
+19. Plan trả phí không được thay đổi Care Evaluation severity, thứ tự ưu tiên lâm sàng hoặc quyền được nhận safety escalation.
+20. Khi VNPAY chưa nằm trong cut-line, seed/demo subscription có thể dùng để kiểm thử entitlement nhưng phải được đánh dấu rõ, không ghi nhận là doanh thu thật.
+21. Trong DA2, VNPAY Sandbox payment/subscription và cancel unpaid order là P0 bắt buộc; seed subscription không thay thế acceptance demo giao dịch Sandbox.
+22. Full refund vẫn là P1 và chỉ được bật khi payment, IPN, cancel, entitlement và reconciliation đã đạt release gate.
+23. Số consultation tối đa mỗi cycle mặc định là Free `1`, Plus `3`, Care `6`. Field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot; đây không phải AI quota.
+24. Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription. Free dùng entitlement cycle 30 ngày neo tại thời điểm grant/activation; ledger phải gắn cycle cụ thể, không reset toàn bộ người dùng bằng một cron chung.
+25. `consultationsUsed` đếm trực tiếp số Consultation đã sử dụng; số còn lại bằng limit trừ số đã dùng và reservation đang hoạt động.
+26. Giới hạn consultation không đồng nghĩa phiên miễn phí và không bảo đảm Doctor còn slot. Chi phí/ưu đãi của từng phiên là chính sách giá độc lập trong Plan.
+27. Add-on có thể tăng consultation limit hiệu dụng; add-on phải có source order, expiry, số lượt bổ sung và ledger idempotent.
+28. Cả scheduled và on-demand consultation dùng chung một limit. Pending on-demand request chưa tạo reservation; reservation được tạo atomically khi Doctor accept.
+29. Scheduled consultation tạo reservation khi booking được xác nhận. Reservation phải chống race để hai request đồng thời không vượt số lượt còn lại.
+30. Consultation được count khi chuyển `in_consultation`; Patient `no_show` cũng được count theo no-show policy. Doctor/system cancel hoặc Patient cancel đúng hạn phải hủy reservation.
+31. Retry, duplicate event hoặc reconnect không được count/hủy reservation hai lần; ledger entry phải gắn `consultationId` và idempotency key.
+32. Khi hết số lượt, Patient có thể chờ cycle mới, nâng gói hoặc mua add-on. Safety alert vẫn hoạt động và tình huống khẩn cấp phải hướng tới cơ sở y tế/cấp cứu.
+33. `AiQuestionQuota` là entitlement riêng chỉ đếm câu hỏi AI; không dùng chung counter, ledger hoặc tên field với consultation limit.
 
 ## Notification, Outbox và worker
 
