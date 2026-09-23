@@ -67,6 +67,7 @@ Bao gồm toàn bộ Free và:
 - Quota AI cao hơn Free.
 - Lịch sử mở rộng chỉ áp dụng nếu retention policy được duyệt; dữ liệu tối thiểu và quyền truy cập dữ liệu của chính Patient không được phụ thuộc Plan.
 - Được thực hiện tối đa **3 consultations trong mỗi subscription cycle**; chi phí từng phiên vẫn thanh toán riêng nếu Plan không cấu hình ưu đãi.
+- Khi tính năng P1 được bật, Patient có thể mua thêm quyền mời một người thân đồng hành để nhận nhắc nhở bỏ lỡ nhiệm vụ; quyền này không bao gồm xem dữ liệu sức khỏe chi tiết.
 
 #### Care — có bác sĩ/phòng khám đồng hành
 
@@ -79,6 +80,7 @@ Bao gồm toàn bộ Plus và:
 - Follow-up task/note sau consultation.
 - Báo cáo có trạng thái Doctor reviewed/confirmed; trạng thái này không có nghĩa chứng nhận chẩn đoán.
 - Nhắc tái khám.
+- Khi tính năng P1 được bật, bao gồm một người thân đồng hành nhận nhắc nhở bỏ lỡ nhiệm vụ theo consent của Patient.
 - Kênh nhắn tin trong phạm vi Consultation đang được authorize; Care không tạo kênh chat 24/7.
 
 Care chỉ được quảng bá SLA phản hồi nếu Clinic thực sự cấu hình nhân sự, giờ phục vụ và cơ chế giám sát SLA. Nếu không có SLA, giao diện phải ghi rõ Doctor không theo dõi realtime và Care Alert không thay thế cấp cứu.
@@ -96,6 +98,7 @@ Giá và giới hạn số lượng là dữ liệu cấu hình của `Plans`, k
 | AI RAG/summary | Quota cơ bản | Quota cao + weekly summary | Quota cao + Doctor-context summary |
 | Reminder | In-app cơ bản | Smart + quiet hours | Smart + follow-up/tái khám |
 | Medication reminder | Không/P1 | Có khi feature bật | Có khi feature bật |
+| Người thân nhận nhắc bỏ lỡ nhiệm vụ | Không | Mua thêm khi P1 bật | Bao gồm 1 người khi P1 bật |
 | PDF/CSV export | Dữ liệu cơ bản | Báo cáo nâng cao | Báo cáo nâng cao/reviewed |
 | Doctor Priority Inbox | Không | Không | Có |
 | Số consultations tối đa mỗi cycle | 1 | 3 | 6 |
@@ -232,6 +235,39 @@ AI được dùng ở những vị trí tạo giá trị nhưng có fallback rõ
 
 LLM không được quyết định eligibility, thay đổi threshold, tạo severity, enroll/loại Patient, cấp entitlement hoặc publish Program. Các thao tác đó dùng rule/permission/state transition xác định.
 
+#### Chuỗi xử lý AI đọc và tóm tắt HealthMetrics
+
+AI không nhận toàn bộ dữ liệu thô rồi tự tính toán. Luồng chuẩn gồm bảy bước có thể kiểm thử độc lập:
+
+```text
+HealthMetrics gốc
+ -> chuẩn hóa đơn vị/thời gian/nguồn
+ -> tổng hợp xác định bằng backend
+ -> Care Rule Evaluation
+ -> SummaryInput snapshot có cấu trúc
+ -> LLM diễn đạt theo schema
+ -> kiểm tra grounding/safety
+ -> lưu AI summary hoặc deterministic fallback
+```
+
+1. **Chuẩn hóa:** kiểm tra loại chỉ số, đơn vị, timezone, khoảng thời gian, nguồn nhập và cờ dữ liệu không hợp lệ. Không tự sửa giá trị bất thường; bản ghi bị loại phải có reason code.
+2. **Tổng hợp xác định:** backend tính số lần dự kiến/đã đo, adherence, min/max/average/median, chênh lệch theo kỳ, trend, missing windows, alert counts và consultation/follow-up liên quan. LLM không tính lại các số này.
+3. **Đánh giá rule:** rule engine version hóa tạo `normal|attention|urgent` và `reasonCodes`. Severity luôn là dữ liệu đầu vào bất biến đối với LLM.
+4. **Đóng gói đầu vào:** tạo `SummaryInputSnapshot` chỉ chứa khoảng báo cáo, dữ liệu thống kê cần thiết, missing data, rule results và source references đã authorize; không gửi toàn bộ hồ sơ nếu không cần.
+5. **Sinh nội dung:** yêu cầu structured output tách `overview`, `observations`, `missingData`, `alertsToMention`, `questionsForDoctor` và `disclaimer`. Patient view dùng ngôn ngữ dễ hiểu; Doctor view giữ số liệu, provenance và điểm cần kiểm tra.
+6. **Kiểm tra đầu ra:** schema validation, kiểm tra mọi con số/tuyên bố có trong snapshot, cấm diagnosis/prescription/dose change, kiểm tra citation và giới hạn ngôn ngữ khẳng định. Output không đạt không được hiển thị như summary hợp lệ.
+7. **Fallback và lưu vết:** khi provider timeout, schema sai, grounding fail hoặc evidence thiếu, trả báo cáo xác định bằng template. Lưu window, data cutoff, input hash/source refs, rule set version, prompt/model version, validation result và trạng thái `generated|fallback|failed`.
+
+RAG chỉ bổ sung nội dung giáo dục đã duyệt và citation; không dùng RAG để tính thống kê, chọn ngưỡng hoặc thay đổi severity. Summary job và API phải idempotent theo `(enrollmentId, reportWindow, dataCutoff, summaryVersion)`; dữ liệu nguồn thay đổi thì tạo version mới thay vì âm thầm ghi đè.
+
+#### Bộ kiểm thử AI summary
+
+- Bộ dữ liệu cố định cho tăng huyết áp và tiểu đường gồm trường hợp bình thường, thiếu dữ liệu, giá trị lặp vượt ngưỡng, đơn vị sai và `urgent`.
+- Đối chiếu số liệu trong output với `SummaryInputSnapshot`; không chấp nhận số không có nguồn.
+- Kiểm tra lời khuyên chẩn đoán/kê đơn/đổi liều, hạ severity và tuyên bố chắc chắn.
+- Kiểm tra hai dạng Patient/Doctor, fallback khi provider lỗi và giới hạn dữ liệu theo authorization.
+- Theo dõi tỷ lệ grounding pass, fallback, validation failure, latency và token cost; không dùng demo summary làm bằng chứng hiệu quả lâm sàng.
+
 ### Ví dụ hoàn chỉnh: Program tăng huyết áp 30 ngày
 
 | Giai đoạn | Patient | Hệ thống | Doctor |
@@ -253,7 +289,8 @@ Mở rộng theo module và mức tái sử dụng, không fork toàn bộ code 
 | P1 | Medication adherence | Schedule, reminder, report | Medication plan/log và safety copy | Add-on Plus/Care |
 | P1 | Kiểm soát cân nặng/chuyển hóa | Goals, metric, check-in, content | Weight/waist/habit templates | Subscription Patient-led, Doctor-assigned dễ tiếp cận |
 | P2 | Chăm sóc sau khám 7/14/30 ngày | Tasks, content, consultation, report | Checklist/attachment theo chuyên khoa | Clinic bán gói follow-up |
-| P2 | Family/Caregiver | Notification/report | Consent delegation và field-level permission | Family add-on |
+| P1 | Người thân đồng hành | Nhắc nhở/thông báo | Lời mời, consent, giới hạn một contact và quyền theo từng loại dữ liệu | Add-on Plus, gồm trong Care |
+| P1 | Tìm cơ sở y tế | Tìm theo bệnh/chuyên khoa và vị trí | Danh mục đã kiểm duyệt, ánh xạ chuyên khoa, xếp hạng theo khoảng cách, bản đồ bổ sung | Tạo bước hành động sau cảnh báo/tái khám; hỗ trợ hợp tác phòng khám sau DA2 |
 | Sau DA2 | Thiết bị đo/Health platform | Metric ingestion | Device identity, provenance, reconciliation | Giảm nhập tay, tăng retention |
 
 Điều kiện nhận một Program mới:
@@ -275,7 +312,7 @@ Có thể tận dụng AI hỗ trợ lập trình để nhận thêm các phần
 - Simulation endpoint/test harness chạy template trên dữ liệu giả để xem task/alert dự kiến.
 - Structured-output AI summary và program draft assistant có schema validation.
 
-AI hỗ trợ code làm giảm thời gian tạo boilerplate/test/data mapping, nhưng không thay thế việc duyệt rule y khoa, threat model, race condition, authorization và usability. Vì vậy các phần thiết bị thật, caregiver permission, marketplace nhiều phòng khám và autonomous agent vẫn để sau DA2.
+AI hỗ trợ code làm giảm thời gian tạo boilerplate/test/data mapping, nhưng không thay thế việc duyệt rule y khoa, threat model, race condition, authorization và usability. Vì vậy các phần thiết bị thật, mạng lưới nhiều phòng khám và tác tử AI tự vận hành vẫn để sau DA2. Người thân đồng hành chỉ nhận ở mức P1 giới hạn một contact và nhắc bỏ lỡ nhiệm vụ; quyền xem dữ liệu chi tiết để sau DA2. Tìm cơ sở y tế P1 chỉ dùng danh mục kiểm duyệt và bản đồ bổ sung, không tích hợp lịch trống/đặt lịch trực tiếp của bệnh viện.
 
 ## 4. Vòng lặp chăm sóc cốt lõi
 
@@ -361,7 +398,9 @@ Một hành trình demo đạt yêu cầu:
 ### 5.3 P0 thương mại — VNPAY Sandbox
 
 - VNPAY payment/subscription và cancel unpaid order là tiêu chí bắt buộc của MVP/demo.
-- Chỉ IPN hợp lệ kích hoạt Plus/Care; Return URL không cấp entitlement.
+- Chỉ IPN hợp lệ chuyển order sang paid và ghi `SubscriptionGrantRequested` vào transactional outbox; Return URL không cấp entitlement.
+- Worker cấp Subscription idempotent theo source order; reconciliation xử lý `processing` quá lâu và `paid` nhưng chưa có grant.
+- DA2 dùng payment state machine + Mongo transaction + outbox + worker + reconciliation, không thêm Saga framework. Chỉ cân nhắc Saga sau khi tách Payment/Subscription/Booking thành service và database độc lập.
 - Free/Plus/Care entitlement phải chạy end-to-end với Plan/PaymentOrder/Subscription snapshot.
 - Seed subscription chỉ dùng cho test nội bộ; acceptance demo doanh thu phải dùng giao dịch VNPAY Sandbox có audit.
 - Full refund vẫn là P1 và chỉ nhận khi payment/cancel/idempotency đã ổn định.
@@ -370,8 +409,8 @@ Một hành trình demo đạt yêu cầu:
 
 - AI chẩn đoán, kê đơn, đổi liều hoặc dự đoán biến cố lâm sàng.
 - Doctor theo dõi realtime 24/7 hoặc cam kết phản hồi cấp cứu.
-- Tích hợp thiết bị y tế/Bluetooth, nhà thuốc, bảo hiểm và bệnh viện.
-- Caregiver/Family sharing; là hướng mở rộng sau khi consent model được thiết kế riêng.
+- Tích hợp thiết bị y tế/Bluetooth, nhà thuốc, bảo hiểm và giao diện đặt lịch chính thức của bệnh viện.
+- Người thân đồng hành nhiều contact hoặc chia sẻ dữ liệu chi tiết ngoài consent P1.
 - WebRTC production-grade, full refund, GraphRAG và autonomous medical agent nếu làm chậm P0.
 
 ## 6. Ranh giới AI và an toàn
@@ -446,8 +485,8 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 | BE-CC-003 | Versioned rule engine/evaluation | P0 | BE-CC-001, Health Tracking | Boundary/repeat/missing-data tests pass |
 | BE-CC-004 | Care Alert lifecycle | P0 | BE-CC-003, Outbox | Dedupe/audit/retry tests pass |
 | BE-CC-005 | Doctor Priority Inbox | P0 | BE-CC-004 | Auth/pagination/sort/query plan pass |
-| BE-CC-006 | Deterministic 7/30-day report | P0 | BE-CC-002, BE-CC-004 | Aggregation/timezone tests pass |
-| BE-CC-007 | AI narrative summary | P0 | BE-CC-006, AI/RAG | Grounding/fallback/privacy tests pass |
+| BE-CC-006 | Deterministic 7/30-day report + SummaryInput snapshot | P0 | BE-CC-002, BE-CC-004 | Normalization/aggregation/timezone/provenance tests pass |
+| BE-CC-007 | AI narrative summary + output guard | P0 | BE-CC-006, AI/RAG | Schema/numerical grounding/safety/fallback/privacy tests pass |
 | BE-CC-008 | Consultation link/follow-up | P0 | BE-CC-004, NF-2/NF-3 | Critical journey E2E pass |
 | BE-CC-009 | Product/clinic metrics | P0 | BE-CC-001..008 | KPI queries bounded and verified |
 | BE-CC-010 | Medication adherence | P1 | BE-CC-001/002 | Reminder/log/privacy tests pass |
@@ -457,21 +496,25 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 | BE-CC-014 | Baseline/check-in schema engine | P0 | BE-CC-001 | Validation/version/privacy tests pass |
 | BE-CC-015 | Program Builder Lite + simulation | P1 | BE-CC-001/003/014 | Draft/publish/preview/audit tests pass |
 | BE-CC-016 | Education journey/content progress | P1 | BE-CC-001, AI/RAG | Approved-content/auth/progress tests pass |
+| BE-CC-017 | Người thân đồng hành | P1 | BE-CC-001/002, Notification | Invite/consent/revoke/privacy/deduplication tests pass |
+| BE-CC-018 | Tìm cơ sở y tế | P1 | Care Program, vị trí, Admin | Verified directory/map/ranking/privacy/fallback tests pass |
 
 ## 10. Lịch thực hiện đến 31/12/2026
 
-Giả định hai thành viên, ưu tiên một vertical slice chạy được trên Web. Feature freeze ngày 14/12.
+Giả định hai thành viên, ưu tiên một vertical slice chạy được trên Web. Feature freeze ngày 08/12; từ thời điểm này không nhận feature mới.
 
 | Thời gian | Mục tiêu | Đầu ra review/demo |
 |---|---|---|
-| 23/09–05/10 | Product/domain design | Duyệt plan, rule governance, wireflow, data/API draft và seed scenario. |
-| 06/10–19/10 | Care Program foundation | Enrollment/consent bắt buộc Doctor, monitoring tasks và chương trình tăng huyết áp. |
-| 20/10–02/11 | Risk & alert | Rule engine version hóa, alert lifecycle, notification và audit. |
-| 03/11–16/11 | Doctor workflow + diabetes | Priority Inbox, report, authorization và chứng minh Program engine dùng lại cho tiểu đường. |
-| 17/11–30/11 | AI + consultation + entitlement | AI summary; link consultation; Free/Plus/Care enforcement. |
-| 01/12–13/12 | VNPAY + integration | VNPAY Sandbox payment/cancel, KPI, E2E, concurrency, security và demo data. |
-| 14/12–23/12 | Release candidate | Regression, báo cáo, video/kịch bản demo và sửa lỗi. |
-| 24/12–31/12 | Buffer | Chỉ xử lý blocker/security/demo; không thêm feature. |
+| 01/09–14/09 | Khảo sát và nền tảng | Audit DA1, chốt Chronic Care scope, business rules, wireflow, database/API draft, refactor/hardening nền tảng và seed scenario. |
+| 15/09–28/09 | Care Program foundation | Program Template/version, Doctor assignment bắt buộc, consent, baseline/check-in schema, monitoring tasks và chương trình tăng huyết áp. |
+| 29/09–12/10 | Risk, alert và reminder | Rule engine version hóa, Care Evaluation, Care Alert lifecycle, notification/outbox, reminder, audit và test boundary. |
+| 13/10–26/10 | Doctor workflow và consultation | Priority Inbox, deterministic report 7/30 ngày, authorization, scheduled/on-demand link, follow-up và queue/check-in cần thiết. |
+| 27/10–09/11 | Chương trình tiểu đường và AI | Dùng lại Program Engine cho tiểu đường; chuẩn hóa/tổng hợp HealthMetrics, SummaryInput snapshot, structured output, numerical grounding/safety guard, RAG citation, fallback và evaluation dataset. |
+| 10/11–23/11 | Subscription và VNPAY | Free/Plus/Care entitlement, AI question limit, consultation limit/reservation, VNPAY Sandbox payment/cancel, outbox grant và reconciliation; không dùng Saga framework. |
+| 24/11–07/12 | Tích hợp và bằng chứng | KPI dashboard, hợp đồng giao diện lập trình/thời gian thực, kiểm thử từ đầu đến cuối, truy cập đồng thời, hiệu năng, bảo mật, chuyển đổi/đối soát dữ liệu và dữ liệu trình diễn. Chỉ khi P0 ổn định mới nhận P1 theo thứ tự: tìm cơ sở y tế cơ bản, sau đó Người thân đồng hành. |
+| 08/12–13/12 | Feature freeze và UAT | Chỉ hoàn thiện P0, kiểm thử người dùng kịch bản, sửa lỗi ưu tiên cao và chốt báo cáo. |
+| 14/12–23/12 | Release candidate | Full regression, load/security test, demo rehearsal, video/kịch bản trình bày và sửa lỗi release blocker. |
+| 24/12–31/12 | Buffer | Chỉ xử lý blocker, bảo mật và lỗi demo; không thêm feature mới. |
 
 Điều chỉnh so với `refactor-plan.md`:
 
@@ -479,6 +522,8 @@ Giả định hai thành viên, ưu tiên một vertical slice chạy được t
 - NF-2/NF-3/NF-4 chỉ triển khai phần cần cho hành trình Chronic Care: đặt lịch/tư vấn, reminder và notification.
 - AI quota và VNPAY Sandbox payment/cancel là P0; full refund vẫn là P1 có cut-line riêng.
 - Medication adherence là P1, không được làm chậm Care Program, risk, inbox và summary.
+- Người thân đồng hành là P1: chỉ thực hiện sau khi P0 ổn định; giới hạn một contact, nhắc bỏ lỡ nhiệm vụ và không chia sẻ chỉ số chi tiết.
+- Tìm cơ sở y tế là P1: chỉ thực hiện sau khi P0 ổn định; hoàn thành danh mục đã kiểm duyệt, tìm theo chuyên khoa/khoảng cách và liên kết chỉ đường trước. Tích hợp lịch trống/đặt lịch bệnh viện để sau DA2.
 
 ## 11. KPI và bằng chứng giá trị
 

@@ -1348,7 +1348,7 @@ Một task `BE-RF-*` chỉ Done khi:
 
 # PHẦN B — PHÁT TRIỂN BACKEND FEATURE MỚI
 
-> Quyết định sản phẩm ngày 23/09/2026: DA2 ưu tiên **HealthAI Chronic Care**. Phạm vi, backlog `BE-CC-*`, cut-line và Definition of Done nằm tại `plan/chronic-care-plan.md`. Khi có xung đột về thứ tự feature, Chronic Care P0 được ưu tiên hơn Payment/Refund/WebRTC/Mobile không phục vụ critical journey.
+> Quyết định sản phẩm ngày 23/09/2026: DA2 ưu tiên **HealthAI Chronic Care**. Phần A về refactor được giữ nguyên làm lịch sử kỹ thuật và bằng chứng hoàn tất. Từ Phần B trở đi, kế hoạch thực thi phải theo `plan/PROJECT_OVERVIEW_DA2.md`, `plan/chronic-care-plan.md`, `docs/overview.md` và `docs/BUSINESS_RULES.md`. Khi có xung đột, business rules và Chronic Care P0 được ưu tiên; các NF cũ chỉ được nhận nếu phục vụ hành trình cốt lõi hoặc sau khi P0 đạt gate.
 
 ## 8. Điều kiện bắt đầu feature mới
 
@@ -1356,6 +1356,14 @@ Không cần đợi toàn bộ refactor hoàn tất, nhưng mọi feature đều
 
 | Feature                | Refactor bắt buộc hoàn thành trước                 |
 | ---------------------- | -------------------------------------------------- |
+| Care Program/Enrollment | BE-RF-020, BE-RF-030, BE-RF-050, BE-RF-061, BE-RF-082, BE-RF-084 |
+| Monitoring task/reminder | Care Program, BE-RF-050, BE-RF-061, BE-RF-084 |
+| Rule/Evaluation/Alert | Monitoring task, BE-RF-050, BE-RF-060, BE-RF-061 |
+| Doctor Priority Inbox | Care Alert, BE-RF-031, BE-RF-052, BE-RF-082 |
+| Báo cáo xác định/AI summary | BE-RF-050 đến BE-RF-052, BE-RF-081, Care Program/Alert |
+| Entitlement/consultation limit | BE-RF-030, BE-RF-040, BE-RF-061, BE-RF-082 đến BE-RF-084 |
+| Người thân đồng hành P1 | Monitoring task, Notification/Outbox, consent policy |
+| Tìm cơ sở y tế P1 | Care Program, Admin capability, location/privacy policy |
 | OAuth                  | BE-RF-030, BE-RF-011, BE-RF-082                    |
 | AvailabilitySlot       | BE-RF-020, BE-RF-031, BE-RF-082                    |
 | Scheduled booking      | BE-RF-040, BE-RF-083 và AvailabilitySlot           |
@@ -1383,7 +1391,142 @@ business rules
  -> sign-off
 ```
 
+Quy tắc bổ sung cho AI/Health: feature chỉ được code sau khi chốt metric/unit/timezone, nguồn dữ liệu, phép tổng hợp xác định, rule version, authorization scope, structured output, fallback và bộ dữ liệu đánh giá. Không dùng prompt để thay thế business rule chưa được định nghĩa.
+
 ## 9. Các feature backend mới
+
+### CC-1 — Care Program, phiên bản và Enrollment
+
+Ưu tiên: **P0**.
+
+1. Tạo `CareProgramTemplates`, version bất biến sau publish và trạng thái `draft|published|retired`.
+2. Admin và Doctor được tạo/chỉnh draft theo quyền; chỉ Admin quản lý nguồn, publish/retire rule/ngưỡng.
+3. Tạo `CareEnrollments` với snapshot Program version, consent, timezone, baseline và Doctor `active + approved` bắt buộc trước khi active.
+4. Trạng thái enrollment: `pending|active|paused|completed|cancelled`; chỉ active sinh task/evaluation mới.
+5. MVP có hai template dùng chung engine: tăng huyết áp và tiểu đường; không fork luồng theo từng bệnh.
+6. Mọi chuyển version, pause/complete/cancel và patient-specific override phải có actor, reason, effective time và audit.
+
+Done khi authorization, consent/version/state E2E pass và hai Program chạy chung một domain model.
+
+### CC-2 — Monitoring Task, baseline và check-in
+
+Ưu tiên: **P0**.
+
+1. Task type P0 gồm `metric`, `check_in`, `education`, `appointment`, `doctor_review`.
+2. Task template có schedule, time window, completion rule, reminder policy, required/optional và version.
+3. Worker chỉ sinh task trong rolling window, dùng timezone snapshot và idempotency key ổn định.
+4. HealthMetric là nguồn dữ liệu gốc; task `metric` chỉ tham chiếu bản ghi phù hợp patient/type/window.
+5. Adherence chỉ đo mức hoàn thành theo dõi; không mô tả là tuân thủ điều trị.
+6. Quiet hours, frequency cap, trạng thái task/enrollment và deduplication được kiểm tra trước khi nhắc.
+
+Done khi timezone, retry, duplicate generation, source edit/delete và adherence tests pass.
+
+### CC-3 — Rule Evaluation, Care Alert và Doctor Priority Inbox
+
+Ưu tiên: **P0**.
+
+1. Rule set version hóa, allowlist operator và chỉ chạy version active đã duyệt.
+2. Evaluation xác định trả `normal|attention|urgent`, `reasonCodes`, input references và rule version; AI không tham gia severity.
+3. Alert có deduplication key và vòng đời `open|acknowledged|resolved|dismissed`; resolve/dismiss lưu actor/reason.
+4. `urgent` dùng safety template đã duyệt, không chờ AI hoặc cam kết Doctor phản hồi tức thời.
+5. Priority Inbox là projection bounded từ alert/enrollment, sort theo severity, detectedAt và `_id`; chỉ Doctor được assign mới truy cập.
+6. Doctor có thể acknowledge, liên kết consultation, ghi follow-up và resolve trong phạm vi quyền.
+
+Done khi boundary/repeat/missing-data/dedupe/authorization/query-plan/concurrency tests pass.
+
+### CC-4 — Báo cáo xác định và AI đọc HealthMetrics
+
+Ưu tiên: **P0**.
+
+AI summary là chuỗi xử lý, không phải một lời gọi LLM trực tiếp:
+
+```text
+HealthMetrics
+ -> MetricNormalizer
+ -> DeterministicReportAggregator
+ -> CareRuleEvaluation
+ -> SummaryInputSnapshot
+ -> AiNarrativeGenerator
+ -> SummaryOutputGuard
+ -> CareSummary hoặc deterministic fallback
+```
+
+#### CC-4A Chuẩn hóa và tổng hợp
+
+1. Chuẩn hóa metric type, unit, timezone, source, report window; không tự sửa giá trị bất thường.
+2. Backend tính expected/completed count, adherence, min/max/average/median, period delta, trend, missing windows, alert count và consultation/follow-up references.
+3. Tạo `SummaryInputSnapshot` bất biến có `dataCutoff`, source refs, statistics, missing data, evaluations, rule version và input hash.
+4. Patient/Doctor report dùng chung facts; chỉ khác presentation policy và trường được phép hiển thị.
+
+#### CC-4B Sinh nội dung và kiểm soát đầu ra
+
+1. Provider nhận snapshot tối thiểu đã authorize, không nhận toàn bộ hồ sơ hoặc raw history không cần thiết.
+2. Structured output gồm `overview`, `observations`, `missingData`, `alertsToMention`, `questionsForDoctor`, `disclaimer`.
+3. Guard kiểm tra schema, mọi con số/tuyên bố có nguồn, citation tồn tại, không diagnosis/prescription/dose change/stop-medication và không thay đổi severity.
+4. Guard/provider/evidence fail trả deterministic fallback; báo cáo số và reason codes vẫn hoạt động.
+5. Lưu `generated|fallback|failed`, window, data cutoff, input hash/source refs, model/prompt/rule version, validation result, token/latency và Doctor review status.
+6. Generation idempotent theo `(enrollmentId, reportWindow, dataCutoff, summaryVersion)`; dữ liệu thay đổi tạo version mới, không ghi đè report đã review.
+7. RAG chỉ bổ sung nội dung giáo dục approved/citation; không tính số liệu hoặc chọn ngưỡng.
+
+Done khi numerical-grounding, unsupported-claim, safety, authorization, fallback, idempotency và fixed evaluation dataset pass cho cả tăng huyết áp/tiểu đường.
+
+### CC-5 — Consultation link và follow-up
+
+Ưu tiên: **P0 trong phạm vi phục vụ Chronic Care**.
+
+1. Consultation vẫn hoạt động độc lập với Care Program.
+2. Alert/report có thể tạo hoặc liên kết scheduled/on-demand consultation đã authorize.
+3. Doctor ghi follow-up note/task sau consultation; không mở chat 24/7 ngoài consultation.
+4. Chỉ triển khai phần slot/check-in/queue/reminder NF-2 đến NF-4 cần cho critical journey; WebRTC mở rộng là P1.
+
+### CC-6 — Gói Free/Plus/Care, AI quota và giới hạn consultation
+
+Ưu tiên: **P0**.
+
+1. Entitlement lấy từ Plan/Subscription snapshot phía backend; không hard-code theo tên tier.
+2. `AiQuestionQuota` chỉ đếm câu hỏi AI; summary job có budget/policy riêng và không dùng consultation counter.
+3. `consultationLimitPerCycle` mặc định Free 1, Plus 3, Care 6; scheduled/on-demand dùng chung reservation ledger idempotent.
+4. Downgrade/hết hạn không xóa HealthMetrics/report/alert và không tắt safety alert.
+5. Paid tier không thay đổi severity, ưu tiên lâm sàng hoặc quyền truy cập dữ liệu cơ bản của Patient.
+
+### CC-7 — Payment VNPAY và quyết định không dùng Saga trong DA2
+
+Ưu tiên: **P0 theo quyết định sản phẩm hiện tại**.
+
+DA2 là modular monolith với một MongoDB và một cổng thanh toán ngoài, vì vậy không triển khai Saga framework. Dùng state machine + Mongo transaction + transactional outbox + idempotent worker + reconciliation:
+
+```text
+PaymentOrder pending
+ -> VNPAY
+ -> verified IPN
+ -> transaction: PaymentTransaction + order paid + OutboxEvent
+ -> worker idempotent cấp Subscription
+ -> reconciliation xử lý trạng thái chưa rõ
+```
+
+1. Return URL chỉ hiển thị/truy vấn; không cấp quyền.
+2. IPN xác minh signature, merchant, order reference, amount và currency; provider transaction/reference có unique index.
+3. Trong một Mongo transaction: upsert transaction, conditional transition order và ghi một outbox grant event. Không gọi provider trong transaction.
+4. Worker cấp Subscription idempotent theo order/grant key; lỗi cấp quyền được retry, không tạo payment mới.
+5. `created|pending|processing|paid|failed|expired|cancelled` là state machine; cancel-vs-IPN có policy/audit xác định.
+6. Job/command đối soát query provider cho order `processing` hoặc mismatch; timeout/unknown không tự đánh dấu failed.
+7. Saga chỉ xem xét sau DA2 khi Payment, Subscription, Booking, Invoice thuộc các service/database độc lập và cần compensation liên dịch vụ.
+
+### CC-8 — Người thân đồng hành
+
+Ưu tiên: **P1, chỉ sau P0 ổn định**.
+
+Giới hạn một contact active; invite/accept/consent/revoke có audit. Patient luôn được nhắc trước; contact chỉ nhận thông báo chung khi task missed sau grace period, không mặc định xem HealthMetrics, Care Alert, AI hoặc consultation. `urgent` không biến contact thành kênh cấp cứu.
+
+### CC-9 — Tìm cơ sở y tế
+
+Ưu tiên: **P1, ưu tiên đầu tiên sau P0**.
+
+Admin quản lý `HealthcareFacilities` verified và `ConditionSpecialtyMaps`; truy vấn lọc specialty/khu vực rồi sort xác định theo khớp chuyên khoa, verified và khoảng cách. External map là fallback có source label; AI chỉ chuẩn hóa truy vấn thành filter/explanation, không suy luận bệnh hoặc xếp hạng chất lượng cơ sở. Tích hợp lịch trống bệnh viện để sau DA2.
+
+### Các feature hỗ trợ kế thừa
+
+Các NF dưới đây không còn là roadmap độc lập. Chỉ nhận slice phục vụ CC-1 đến CC-9 hoặc khi Chronic Care P0 đã qua release gate.
 
 ### NF-1 — OAuth login và account linking
 
@@ -1550,7 +1693,7 @@ Done khi:
 
 ### NF-6 — Billing, VNPAY và cancel unpaid order
 
-Ưu tiên: **P0 nếu payment bắt buộc trong demo**, nếu không có thể hạ P1 để bảo vệ Consultation P0.
+Ưu tiên: **P0**, phục vụ gói Free/Plus/Care; triển khai theo CC-7 và không dùng Saga framework trong DA2.
 
 Các bước payment:
 
@@ -1564,10 +1707,11 @@ Các bước payment:
 8. Xử lý IPN idempotent trong transaction:
    - ghi/upsert PaymentTransaction;
    - order chuyển sang paid;
-   - tạo đúng một subscription grant cho order;
-   - tạo Notification/OutboxEvent.
+   - tạo đúng một `SubscriptionGrantRequested` OutboxEvent;
+   - tạo Notification/OutboxEvent cần thiết.
 9. Unique provider transaction/reference indexes.
-10. Tạo reconciliation command cho pending/paid mismatch.
+10. Worker cấp Subscription idempotent ngoài IPN request path; retry không tạo grant trùng.
+11. Tạo reconciliation command cho pending/paid/grant mismatch và trạng thái provider timeout/unknown.
 
 Các bước cancel unpaid order:
 
@@ -1582,6 +1726,7 @@ Done khi:
 - Invalid signature không thay đổi dữ liệu.
 - Duplicate IPN không tạo duplicate transaction/subscription.
 - Cancel/late-IPN behavior nhất quán và audit được.
+- Payment `paid` nhưng grant chưa hoàn tất được worker/reconciliation phục hồi mà không cần Saga.
 
 Ước lượng: payment **9-13**, cancel **1-2 person-days**.
 
@@ -1681,8 +1826,35 @@ Một task `BE-NF-*` chỉ Done khi:
 - Mọi list/history endpoint dùng shared pagination contract, hard max và stable sort.
 - Query mới có entry trong query catalog; compound/partial index được chứng minh bằng explain trên representative data.
 - Không đưa query/business logic mới trở lại service cũ đang chờ xóa.
+- Với Health/AI: phép chuẩn hóa/tổng hợp có unit tests, SummaryInput snapshot truy vết được, structured output qua schema/numerical-grounding/safety guard và fallback không phụ thuộc provider.
+- Với Care rule/alert: severity chỉ do rule engine version hóa; test boundary, repeated condition, missing data, dedupe và audit pass.
+- Với payment: IPN không trực tiếp phụ thuộc frontend; order transition, transaction, outbox grant, worker và reconciliation đều idempotent. Không yêu cầu Saga framework cho DA2.
+- Với P1 người thân/cơ sở y tế: consent/location privacy, source label, feature flag và khả năng tắt mà không ảnh hưởng P0 phải được kiểm thử.
 
 ## 11. Backlog feature backend
+
+Backlog Chronic Care dưới đây là phạm vi điều khiển release; `plan/chronic-care-plan.md` là nguồn chi tiết. `BE-NF-*` phía sau chỉ là capability hỗ trợ và không được ưu tiên cao hơn `BE-CC-*` P0.
+
+| ID | Feature | Ưu tiên | Phụ thuộc | Done khi |
+|---|---|---:|---|---|
+| BE-CC-001 | Care Program + Enrollment + consent | P0 | Identity, Doctor capability | State/version/authorization E2E pass |
+| BE-CC-002 | Monitoring schedule/tasks | P0 | BE-CC-001, Health | Timezone/idempotent generation pass |
+| BE-CC-003 | Versioned rule engine/evaluation | P0 | BE-CC-001, Health | Boundary/repeat/missing-data tests pass |
+| BE-CC-004 | Care Alert lifecycle | P0 | BE-CC-003, Outbox | Dedupe/audit/retry tests pass |
+| BE-CC-005 | Doctor Priority Inbox | P0 | BE-CC-004 | Auth/pagination/sort/query-plan pass |
+| BE-CC-006 | Deterministic report + SummaryInput snapshot | P0 | BE-CC-002/004 | Normalize/aggregate/timezone/provenance pass |
+| BE-CC-007 | AI narrative + output guard/fallback | P0 | BE-CC-006, AI/RAG | Schema/grounding/safety/privacy/evaluation pass |
+| BE-CC-008 | Consultation link/follow-up | P0 | BE-CC-004, NF-2/NF-3 slice | Critical journey E2E pass |
+| BE-CC-009 | Product/clinic metrics | P0 | BE-CC-001..008 | Bounded KPI queries verified |
+| BE-CC-010 | Medication adherence | P1 | BE-CC-001/002 | Reminder/log/privacy tests pass |
+| BE-CC-011 | Diabetes Program | P0 | BE-CC-001..007 | E2E pass, shared engine |
+| BE-CC-012 | Free/Plus/Care entitlement | P0 | Plans/Subscriptions, AI quota | Enforcement/downgrade/safety tests pass |
+| BE-CC-013 | Consultation usage/reservation ledger | P0 | BE-CC-012, Consultation | Limit/count/reserve/release/race pass |
+| BE-CC-014 | Baseline/check-in schema engine | P0 | BE-CC-001 | Validation/version/privacy tests pass |
+| BE-CC-015 | Program Builder Lite + simulation | P1 | BE-CC-001/003/014 | Draft/preview/publish/audit pass |
+| BE-CC-016 | Education journey/content progress | P1 | BE-CC-001, AI/RAG | Approved-content/auth/progress pass |
+| BE-CC-017 | Người thân đồng hành | P1 | BE-CC-001/002, Notification | Invite/consent/revoke/privacy/dedupe pass |
+| BE-CC-018 | Tìm cơ sở y tế | P1 | Care Program, Admin, location | Verified directory/map/ranking/privacy pass |
 
 | ID        | Feature                        |         Ưu tiên | Phụ thuộc                       | Done khi                          |
 | --------- | ------------------------------ | --------------: | ------------------------------- | --------------------------------- |
@@ -1698,7 +1870,7 @@ Một task `BE-NF-*` chỉ Done khi:
 | BE-NF-031 | UserDevices + FCM              |              P1 | BE-RF-061                       | Revoke/retry/privacy tests pass   |
 | BE-NF-032 | Campaign fan-out               |              P2 | BE-RF-061                       | Batch/rate-limit/audit pass       |
 | BE-NF-040 | AI daily quota                 |              P0 | BE-RF-051                       | Concurrent reserve/reconcile pass |
-| BE-NF-050 | VNPAY payment/subscription     |           P0/P1 | BE-RF-030, BE-RF-061            | Signature/IPN/idempotency pass    |
+| BE-NF-050 | VNPAY payment/subscription/outbox grant | P0 | BE-RF-030, BE-RF-061 | Signature/IPN/grant/reconcile idempotency pass |
 | BE-NF-051 | Cancel unpaid order            | P0 cùng payment | BE-NF-050                       | Cancel-vs-IPN race pass           |
 | BE-NF-052 | Full refund                    |              P1 | BE-NF-050, BE-RF-061            | Provider/reconcile/grant E2E pass |
 | BE-NF-060 | Manual moderation              |              P1 | BE-RF-030, BE-RF-040, BE-RF-042 | Workflow/audit pass               |
@@ -1721,6 +1893,9 @@ Backend phải cung cấp; không implement consumer:
 6. Seed data và staging account phục vụ frontend integration.
 7. CORS origins và environment contract.
 8. Contract smoke tests chạy độc lập với UI.
+9. Care Program/Enrollment/Task/Alert/Report/Summary DTO và reason-code catalog; AI facts, narrative và validation status phải phân biệt rõ.
+10. Entitlement response trả riêng AI quota, consultation limit/usage/reservation và quyền Doctor review; frontend không tự suy ra từ tên tier.
+11. Nếu P1 bật, contract cho contact consent/revoke và facility result source/reason/distance; không trả raw location history.
 
 Frontend repository chịu trách nhiệm:
 
@@ -1734,30 +1909,29 @@ Frontend repository chịu trách nhiệm:
 
 ## 13. Lịch thực hiện backend đến 31/12
 
-RF-0 đến RF-10 đã được triển khai sớm hơn lịch dự kiến ban đầu. Từ 22/09, ưu tiên đóng RF-11 trước khi đặt feature mới vào các bounded context tương ứng; contract/design feature có thể chuẩn bị song song nhưng không code vào module đang chờ hợp nhất.
+Phần refactor RF-0 đến RF-13 được giữ nguyên và đã hoàn tất theo evidence trong Part A. Lịch dưới đây là lịch sản phẩm thống nhất từ 01/09 đến 31/12; `BE-CC-*` điều khiển release, còn `BE-NF-*` chỉ được lấy theo dependency của từng lát Chronic Care.
 
-> Bảng dưới đây được giữ làm baseline kỹ thuật trước quyết định Chronic Care. Từ 23/09/2026, lịch feature và cut-line thực thi theo `plan/chronic-care-plan.md`; các NF chỉ được nhận khi phục vụ critical journey Chronic Care hoặc sau khi Chronic Care P0 đạt gate.
-
-| Thời gian   | Nhóm việc                     | Kết quả bắt buộc                                                               |
-| ----------- | ----------------------------- | ------------------------------------------------------------------------------ |
-| 15/09-21/09 | RF-0 đến RF-10                | Đã hoàn tất source refactor, canonical cutover và local release rehearsal      |
-| 21/09       | RF-11                         | Đã hợp nhất bounded-context modules, xóa orphan code và bật boundary enforcement |
-| 21/09-22/09 | RF-12                         | Harden public boundary, loại dependency cycle và tách AI/Health god service       |
-| 21/09       | RF-13                         | Chuẩn hóa Doctor/Patient capability và patient profile API canonical              |
-| 06/10-26/10 | NF-2                          | AvailabilitySlot và scheduled booking hoàn chỉnh                               |
-| 27/10-16/11 | NF-3, NF-4, NF-5              | Queue/check-in/no-show, reminder và AI quota                                   |
-| 17/11-30/11 | NF-6 và tối đa một P1 đã chọn | Payment/cancel nếu bắt buộc; hoặc OAuth/refund/moderation/WebRTC theo cut-line |
-| 01/12-13/12 | Integration                   | Reconciliation, contract freeze, performance/concurrency/security regression   |
-| 14/12-23/12 | Release Candidate             | Full regression, load/security, backup/restore, demo rehearsal                 |
-| 24/12-31/12 | Buffer                        | Chỉ blocker, security và lỗi demo; không thêm feature                          |
+| Thời gian | Nhóm việc | Kết quả bắt buộc |
+|---|---|---|
+| 01/09-14/09 | Khảo sát và nền tảng | Audit DA1, chốt overview/business rules, luồng nghiệp vụ, dữ liệu/API; chuẩn bị và thực hiện các gate refactor nền tảng. |
+| 15/09-28/09 | Refactor hoàn tất + Care Program foundation | RF-0..RF-13 có evidence; Program Template/version, Doctor assignment, consent, baseline/check-in, monitoring task và Program tăng huyết áp. |
+| 29/09-12/10 | Rule, alert và reminder | Versioned rule engine, Care Evaluation, Care Alert, outbox/reminder, audit, boundary/repeat/missing-data tests. |
+| 13/10-26/10 | Doctor workflow và consultation link | Priority Inbox, deterministic report 7/30 ngày, authorization, scheduled/on-demand slice, follow-up và queue/check-in cần thiết. |
+| 27/10-09/11 | Diabetes và AI summary | Program tiểu đường dùng chung engine; MetricNormalizer, report aggregator, SummaryInput snapshot, structured AI output, guard, RAG citation, fallback và evaluation dataset. |
+| 10/11-23/11 | Subscription, consultation limit và VNPAY | Free/Plus/Care entitlement, AI quota, consultation reservation ledger, VNPAY Sandbox payment/cancel, outbox grant và reconciliation; không dùng Saga framework. |
+| 24/11-07/12 | Tích hợp và bằng chứng | KPI, contract, E2E, concurrency, performance, security, migration/reconciliation và demo data. Chỉ khi P0 ổn định mới lấy P1 theo thứ tự: tìm cơ sở y tế, Người thân đồng hành. |
+| 08/12-13/12 | Đóng băng tính năng và kiểm thử người dùng | Chỉ hoàn thiện P0/P1 đã nhận, sửa lỗi ưu tiên cao, chốt báo cáo và contract. |
+| 14/12-23/12 | Bản ứng viên phát hành | Full regression, load/security, backup/restore, demo rehearsal và tài liệu bàn giao. |
+| 24/12-31/12 | Dự phòng | Chỉ blocker, security và lỗi demo; không thêm feature. |
 
 Quy tắc cut-line:
 
-- Feature freeze tuyệt đối từ 14/12.
+- Feature freeze tuyệt đối từ 08/12.
 - Không nhận toàn bộ OAuth + refund + moderation + WebRTC cùng lúc.
-- Nếu payment không bắt buộc cho demo, ưu tiên Consultation/Queue stability hơn Billing.
+- VNPAY Sandbox payment/subscription và cancel unpaid order là P0 theo overview hiện tại; full refund vẫn P1.
 - Nếu payment được giữ, refund chỉ làm khi payment basic pass trước 29/11.
 - FCM và campaign không được làm chậm in-app notification/reminder P0.
+- P1 tìm cơ sở y tế/Người thân đồng hành chỉ được nhận khi hai Program, alert, report/AI fallback, entitlement và payment đã qua critical E2E.
 
 ## 14. Ước lượng backend
 
@@ -1781,7 +1955,25 @@ Quy tắc cut-line:
 
 Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nếu bỏ cache khỏi deadline, tổng RF thô là **76-114 person-days**; vẫn giữ Redis vì OTP, throttling phân tán, presence, quota và BullMQ cần Redis.
 
-### 14.2 Feature mới
+### 14.2 Chronic Care và thương mại hóa
+
+| Feature | Person-days | Cut-line |
+|---|---:|---|
+| Care Program/Enrollment/baseline | 8-12 | P0 |
+| Monitoring task/reminder | 6-9 | P0 |
+| Rule Evaluation/Care Alert | 8-12 | P0 |
+| Priority Inbox + deterministic report | 6-9 | P0 |
+| AI SummaryInput/generator/guard/fallback/evaluation | 7-11 | P0 |
+| Diabetes Program trên engine chung | 4-6 | P0 |
+| Free/Plus/Care + consultation ledger | 6-9 | P0 |
+| VNPAY payment/cancel/outbox grant/reconciliation | 10-15 | P0 |
+| Product/clinic metrics + release evidence | 4-6 | P0 |
+| Tìm cơ sở y tế cơ bản | 4-7 | P1 |
+| Người thân đồng hành cơ bản | 5-8 | P1 |
+
+Các ước lượng này giả định tái sử dụng refactor foundation và capability NF hiện có; không cộng lại cùng một phần việc ở hai bảng.
+
+### 14.3 Feature hỗ trợ kế thừa
 
 | Feature                                   | Person-days | Cut-line       |
 | ----------------------------------------- | ----------: | -------------- |
@@ -1792,13 +1984,13 @@ Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nế
 | FCM                                       |         3-5 | P1             |
 | Campaign                                  |         3-5 | P2             |
 | AI quota                                  |         4-6 | P0             |
-| Payment + cancel                          |       10-15 | P0/P1 tùy demo |
+| Payment + cancel                          |       10-15 | P0, đã tính ở 14.2 |
 | Full refund                               |         6-9 | P1             |
 | Manual moderation                         |         5-8 | P1             |
 | AI moderation draft                       |         2-4 | P2             |
 | WebRTC/TURN backend                       |         4-7 | P1             |
 
-Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF không an toàn trước 31/12. Committed scope nên là RF bắt buộc + Slot/Scheduled + Queue + Reminder + AI quota; Payment chỉ là P0 nếu đề cương/demo bắt buộc.
+Với hai thành viên học tập song song, không nhận toàn bộ NF cũ. Committed scope là RF đã hoàn tất + `BE-CC-*` P0; chỉ lấy lát Slot/Scheduled, Queue, Reminder và AI quota thật sự cần cho Chronic Care. Payment/cancel là P0 theo overview; refund, OAuth, moderation mở rộng và WebRTC production-grade không được làm chậm Care Program, alert, AI fallback hoặc entitlement.
 
 ## 15. Kiểm thử backend
 
@@ -1815,6 +2007,13 @@ Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF khô
 
 - Auth rotation/replay/logout-all/ban.
 - Doctor approval/authorization.
+- Care Program publish/version, Doctor assignment, consent và enrollment transition.
+- Monitoring task timezone/idempotent generation/completion/adherence.
+- Rule boundary/repeated attention/missing data/urgent safety template.
+- Care Alert dedupe/acknowledge/resolve và Priority Inbox authorization/sort/pagination.
+- Deterministic report normalization/aggregation/source change/provenance.
+- AI SummaryInput snapshot, numerical grounding, unsupported claim, safety guard, Patient/Doctor policy, provider failure và deterministic fallback.
+- Hypertension và diabetes chạy chung Program engine nhưng giữ rule/content version riêng.
 - Old on-demand request compatibility.
 - Scheduled double booking.
 - Check-in/call-next/no-show races.
@@ -1822,8 +2021,10 @@ Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF khô
 - Review unique/rating transaction.
 - Outbox crash/retry/dead job.
 - AI quota reserve/commit/release.
-- VNPAY signature/duplicate-IPN/cancel race nếu payment bật.
+- Consultation limit reserve/count/release và cycle/add-on race.
+- VNPAY signature/duplicate-IPN/cancel race/outbox grant/reconciliation.
 - Refund unknown/reconcile nếu refund bật.
+- Người thân invite/consent/revoke/dedupe và location/facility source/ranking/privacy nếu P1 bật.
 - Database bootstrap/no-op/drift.
 
 ### 15.3 Query và pagination performance tests
@@ -1839,7 +2040,8 @@ Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF khô
 3. Repository test chạy `explain('executionStats')` cho P0 query shapes và lưu winning plan/keys/docs examined.
 4. Test/query instrumentation đếm số Mongo operations để phát hiện populate hoặc loop gây N+1 ngoài budget.
 5. Không assert thời gian millisecond tuyệt đối trong CI không ổn định; CI kiểm tra plan shape, bounded scan và query count. p95 latency được đo trên staging với dataset đã ghi nhận.
-6. Load test riêng cho message history, doctor search, health history/statistics, consultation list/queue và notification history.
+6. Load test riêng cho message history, doctor search, health history/statistics, Care task list, Doctor Priority Inbox, consultation list/queue, facility search và notification history.
+7. AI evaluation không assert văn phong cố định; kiểm tra schema, facts/numbers có nguồn, forbidden medical claims, fallback và latency/token budget trên dataset version hóa.
 
 ## 16. Security và privacy
 
@@ -1853,9 +2055,13 @@ Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF khô
 - Không tin `userId`, role, amount, price hoặc queue priority từ client.
 - Sanitize rich text/message; validate MIME, size, magic bytes và ownership upload.
 - Không log password, OTP, token, cookie, provider secret, raw health payload hoặc device token.
+- SummaryInput/AI log chỉ chứa ID/hash/metadata allowlist; không log prompt chứa raw HealthMetrics. Provider chỉ nhận snapshot tối thiểu theo policy và authorization.
 - Room authorization luôn kiểm tra participant phía server.
 - Payment/refund verify signature và idempotency server-side.
+- Vị trí chính xác dùng cho facility search chỉ được lấy khi Patient chủ động cho phép và không lưu lịch sử mặc định.
+- Care support contact không kế thừa quyền Patient; consent scope/revoke được kiểm tra tại mọi query/notification.
 - Audit admin actions, doctor approval, ban/unban, plan changes và refund/moderation decisions.
+- Audit Program/rule publish, patient-specific override, summary review, facility verification và consent người thân.
 - Không hard-delete dữ liệu audit quan trọng.
 
 ## 17. Observability và vận hành
@@ -1871,12 +2077,15 @@ Với hai thành viên học tập song song, toàn bộ RF + toàn bộ NF khô
   - oldest pending outbox;
   - booking conflict/call-next race;
   - AI provider latency/token/quota;
+  - AI summary generated/fallback/failed, schema/grounding/safety rejection và evaluation pass rate;
+  - monitoring task completion, alert acknowledgment/follow-up, nhưng không gắn nhãn outcome lâm sàng;
   - payment invalid/duplicate IPN;
+  - payment paid-without-grant, processing age và reconciliation result;
   - refund pending/manual-review nếu bật.
 - Theo dõi Mongo slow query, operation/route, documents examined/returned, pool wait và query timeout; không log filter chứa dữ liệu sức khỏe nhạy cảm.
 - Dashboard p95/p99 cho các query ID P0 và cảnh báo khi pagination endpoint trả vượt hard cap.
 - Alert staging/demo cho worker dead jobs, outbox backlog, payment mismatch và migration version mismatch.
-- Có reconciliation commands cho rating, outbox, AI usage và payment/refund.
+- Có reconciliation commands cho rating, outbox, monitoring tasks, Care summary source drift, AI usage và payment/subscription/refund.
 
 ## 18. Feature flags và rollback
 
@@ -1885,6 +2094,13 @@ CONSULTATIONS_V2_ENABLED
 SCHEDULED_BOOKING_ENABLED
 ON_DEMAND_QUEUE_ENABLED
 OUTBOX_DELIVERY_ENABLED
+CARE_PROGRAM_ENABLED
+CARE_RULE_EVALUATION_ENABLED
+CARE_AI_SUMMARY_ENABLED
+CARE_AI_SUMMARY_PROVIDER_ENABLED
+CARE_SUPPORT_CONTACT_ENABLED
+HEALTHCARE_FACILITY_SEARCH_ENABLED
+EXTERNAL_MAP_FALLBACK_ENABLED
 OAUTH_ENABLED
 AI_DAILY_QUOTA_ENABLED
 VNPAY_ENABLED
@@ -1898,6 +2114,8 @@ Nguyên tắc:
 - Migration additive trước; không xóa field/collection trong cùng release cutover.
 - Deploy code backward-compatible trước migration phá vỡ.
 - Worker có kill switch nhưng giữ OutboxEvents pending.
+- Tắt AI provider vẫn phải trả deterministic report/fallback; không tắt rule evaluation hoặc safety alert.
+- Tắt external map fallback vẫn giữ facility directory nội bộ; tắt P1 contact/facility không ảnh hưởng Care Program P0.
 - Tắt VNPAY chỉ chặn tạo order mới, không bỏ IPN của order đã tạo.
 - Tắt refund chỉ chặn request/approve mới; refund processing phải đi đến kết luận.
 - Có backup/restore rehearsal và export index definitions.
@@ -1943,9 +2161,16 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
 | Double booking/call-next race                          | Cao        | Conditional update, partial unique index, transaction, race tests                            |
 | Worker gửi lặp                                         | Cao        | Outbox, stable idempotency key, consumer idempotent                                          |
 | Mongoose schema/index drift                            | Cao        | Versioned migration + verifier trong CI                                                      |
-| Scope payment/refund quá lớn                           | Cao        | Payment conditional P0; refund P1 gate 29/11                                                 |
+| Scope payment/refund quá lớn                           | Cao        | Payment/cancel/outbox grant P0 có state machine; không Saga framework; refund P1 gate 29/11   |
 | WebRTC thất bại qua NAT                                | Trung bình | TURN spike; backend-only scope; P1                                                           |
 | AI quota/cost                                          | Trung bình | Redis reserve + daily reconciliation                                                         |
+| AI tóm tắt sai số hoặc thêm dữ kiện                    | Cao        | Backend tính số; SummaryInput snapshot; schema/numerical grounding/safety guard; fallback     |
+| AI làm thay đổi severity/chẩn đoán                     | Cao        | Rule engine là nguồn duy nhất; forbidden-claim tests; provider kill switch không tắt safety   |
+| Rule/ngưỡng thiếu nguồn hoặc đổi lịch sử               | Cao        | Admin publish, version bất biến, simulation/evidence/audit và enrollment snapshot             |
+| Task/reminder gửi sai giờ hoặc gửi lặp                 | Cao        | Timezone snapshot, rolling window, idempotency, quiet hours/frequency cap                      |
+| Payment đã thu nhưng chưa cấp quyền                    | Cao        | Transactional outbox, idempotent grant worker, paid-without-grant metric và reconciliation    |
+| Dữ liệu cơ sở y tế lỗi thời/quảng cáo ảnh hưởng xếp hạng | Trung bình | Verified source/date, deterministic rank, source label; không trả phí để đổi clinical order   |
+| P1 người thân/cơ sở y tế làm trễ P0                    | Cao        | Chỉ nhận sau critical E2E; feature flag; thứ tự facility rồi contact; cut tại feature freeze  |
 | Dữ liệu sức khỏe lọt log                               | Cao        | Allowlist logging và redaction tests                                                         |
 | Frontend chưa chuyển khỏi legacy                       | Trung bình | Giữ adapter, theo dõi access log; không nhận implement frontend vào plan BE                  |
 
@@ -1962,8 +2187,11 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
   - Mongoose ownership/migrations/transactions;
   - Consultation state model;
   - Redis/BullMQ/Outbox;
+  - Care Program/rule versioning và Doctor assignment;
+  - AI SummaryInput/structured output/guard/fallback boundary;
   - OAuth/session rotation;
-  - VNPAY/refund idempotency.
+  - VNPAY state machine/outbox/reconciliation và quyết định chưa dùng Saga;
+  - Facility directory/external map data policy nếu P1 bật.
 - Mỗi sprint demo bằng API/Socket test hoặc scripted scenario; không cần chờ frontend UI.
 
 ## 22. Checklist bắt đầu ngay
@@ -1989,6 +2217,11 @@ Thực hiện đúng thứ tự:
 17. [x] Hoàn thành RF-11 (`BE-RF-080` đến `BE-RF-086`) ngày `2026-09-21`; bounded-context topology, ownership, cleanup, boundary và contract exit gate đều pass.
 18. [x] Hoàn thành RF-12 (`BE-RF-090` đến `BE-RF-093`) ngày `2026-09-21`: public API, cross-context enforcement và AI/Health service decomposition; staging evidence RF-9/RF-10 vẫn là release gate riêng.
 19. [x] Hoàn thành RF-13 (`BE-RF-094` đến `BE-RF-095`) ngày `2026-09-21`: chuẩn hóa Doctor/Patient capability, xóa patient CRUD trùng và chốt `/patients/me`.
+20. [ ] Chốt schema/migration/API cho `BE-CC-001`, `BE-CC-002`, `BE-CC-014`; seed Program tăng huyết áp và consent/Doctor assignment scenario.
+21. [ ] Chốt rule source/version/simulation và test matrix normal/attention/urgent/missing/repeated trước `BE-CC-003`.
+22. [ ] Chốt `SummaryInputSnapshot`, phép tổng hợp, structured output, output guard, fallback và evaluation dataset trước khi nối AI provider (`BE-CC-006/007`).
+23. [ ] Tạo VNPAY state machine/outbox grant/reconciliation design; không thêm Saga framework (`BE-NF-050/051`, CC-7).
+24. [ ] Chỉ tạo task P1 facility/contact sau khi critical E2E của hai Program, alert, report/AI fallback, entitlement và payment xanh.
 
 ## 23. Tóm tắt quyết định
 
@@ -1999,16 +2232,19 @@ Thực hiện đúng thứ tự:
 5. Mongoose tiếp tục là ODM; database mới được dựng bằng migration versioned.
 6. Redis + BullMQ + Outbox được dùng; Kafka chưa cần.
 7. Notification worker foundation là refactor; reminder/FCM/campaign là feature mới.
-8. AI/RAG consolidation là refactor; AI quota là feature mới.
-9. Payment/cancel/refund đều là feature mới; refund là P1 có gate.
-10. Backend bàn giao OpenAPI, realtime schemas và `fe-integration.md`; không implement frontend.
-11. Feature freeze ngày 14/12; 24/12-31/12 chỉ dành cho buffer và blocker.
-12. Deadline 31/12 chỉ khả thi khi giữ P0 và không nhận đồng thời toàn bộ OAuth, refund, moderation và WebRTC.
-13. Service dài/rải rác được refactor theo capability và ownership; không dùng LOC làm tiêu chí tách máy móc.
-14. Mọi list/history query phải bounded, có pagination chuẩn, projection, sort allowlist và index được xác minh bằng query catalog/explain.
-15. Giữ Swagger, Passport/JWT và ValidationPipe hiện có; chuẩn hóa thay vì thay framework.
-16. Thêm P0: Helmet, Throttler, Redis/ioredis, BullMQ và Terminus; dùng structured JSON logging/correlation ID không cần package mới ở vòng đầu.
-17. Cache manager là P1, chỉ dùng cache-aside có chọn lọc sau tối ưu query; không cache state nhạy cảm của auth, booking/queue, health, payment/refund hoặc AI quota.
-18. Dev tools/APM/OAuth strategy chỉ thêm khi có use case và owner rõ; Kafka, CQRS package, Elasticsearch, Prisma và GraphQL không thuộc scope deadline này.
-19. Module được hợp nhất theo bounded context và ownership, không theo collection; một public module vẫn phải chia capability/use case và không được trở thành god service.
-20. Module/provider/schema chỉ bị xóa sau khi qua consumer, DI, data-retention, contract và regression gates; migration lịch sử không bị sửa hoặc xóa theo source module.
+8. AI/RAG consolidation là refactor; AI quota và Chronic Care summary pipeline là feature mới.
+9. AI không tự đọc dữ liệu thô để tính toán: backend chuẩn hóa/tổng hợp/rule evaluation, LLM chỉ diễn đạt SummaryInput snapshot qua structured output, guard và fallback.
+10. Payment/cancel/refund đều là feature mới; payment/cancel là P0, refund là P1 có gate.
+11. VNPAY dùng state machine, Mongo transaction, transactional outbox, idempotent grant worker và reconciliation; không cần Saga framework trong modular monolith DA2.
+12. Backend bàn giao OpenAPI, realtime schemas và `fe-integration.md`; không implement frontend.
+13. Feature freeze ngày 08/12; 24/12-31/12 chỉ dành cho buffer và blocker.
+14. Deadline 31/12 chỉ khả thi khi giữ `BE-CC-*` P0 và không nhận đồng thời toàn bộ OAuth, refund, moderation và WebRTC.
+15. P1 ưu tiên sau P0 là tìm cơ sở y tế cơ bản rồi Người thân đồng hành; cả hai phải có feature flag và không làm chậm release.
+16. Service dài/rải rác được refactor theo capability và ownership; không dùng LOC làm tiêu chí tách máy móc.
+17. Mọi list/history query phải bounded, có pagination chuẩn, projection, sort allowlist và index được xác minh bằng query catalog/explain.
+18. Giữ Swagger, Passport/JWT và ValidationPipe hiện có; chuẩn hóa thay vì thay framework.
+19. Thêm P0: Helmet, Throttler, Redis/ioredis, BullMQ và Terminus; dùng structured JSON logging/correlation ID không cần package mới ở vòng đầu.
+20. Cache manager là P1, chỉ dùng cache-aside có chọn lọc sau tối ưu query; không cache state nhạy cảm của auth, booking/queue, health, payment/refund hoặc AI quota.
+21. Dev tools/APM/OAuth strategy chỉ thêm khi có use case và owner rõ; Kafka, CQRS package, Saga framework, Elasticsearch, Prisma và GraphQL không thuộc scope deadline này.
+22. Module được hợp nhất theo bounded context và ownership, không theo collection; một public module vẫn phải chia capability/use case và không được trở thành god service.
+23. Module/provider/schema chỉ bị xóa sau khi qua consumer, DI, data-retention, contract và regression gates; migration lịch sử không bị sửa hoặc xóa theo source module.

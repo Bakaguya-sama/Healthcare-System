@@ -20,14 +20,15 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Dùng AI để tóm tắt dữ liệu đã chuẩn hóa và giải thích kiến thức từ RAG; AI không quyết định severity hoặc chẩn đoán.
 - Tích hợp hội viên Premium và thanh toán VNPAY Sandbox để quản lý quyền lợi cũng như định mức AI.
 - Kiểm soát lượt dùng AI, tối ưu realtime khi tải cao và tự động hóa kiểm thử/triển khai; WebRTC/Mobile đầy đủ là P1 sau Chronic Care P0.
-- Duy trì mô hình ba vai trò: Bệnh nhân, Bác sĩ và Quản trị viên; không mở rộng mảng mạng xã hội trong DA2.
+- Duy trì mô hình ba vai trò: Bệnh nhân, Bác sĩ và Quản trị viên.
+- Bổ sung ở mức P1 tính năng **Người thân đồng hành**: bệnh nhân tự mời và cấp quyền cho một người thân nhận nhắc nhở khi bệnh nhân bỏ lỡ hoạt động theo dõi; đây không phải là một vai trò y tế mới.
 
 ### Phạm vi nền tảng
 
-| Kênh | Đối tượng chính | Vai trò |
-| --- | --- | --- |
-| Web Admin | Quản trị viên | Vận hành người dùng, bác sĩ, AI, gói hội viên, thanh toán và báo cáo vi phạm. |
-| Web Client | Bệnh nhân, bác sĩ | Theo dõi sức khỏe, tư vấn, chat, video call, hồ sơ và dashboard. |
+| Kênh       | Đối tượng chính                  | Vai trò                                                                                       |
+| ---------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
+| Web Admin  | Quản trị viên                    | Vận hành người dùng, bác sĩ, AI, gói hội viên, thanh toán và báo cáo vi phạm.                 |
+| Web Client | Bệnh nhân, bác sĩ                | Theo dõi sức khỏe, tư vấn, chat, video call, hồ sơ và dashboard.                              |
 | Mobile App | Bệnh nhân, bác sĩ, quản trị viên | Truy cập nghiệp vụ trên thiết bị di động, nhận push notification và đồng bộ dữ liệu sức khỏe. |
 
 ## 2. Chức năng theo vai trò
@@ -37,7 +38,9 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Đăng ký/đăng nhập, xác thực Email OTP; trên Mobile định hướng hỗ trợ sinh trắc học.
 - Quản lý hồ sơ cá nhân và các chỉ số như huyết áp, nhịp tim, đường huyết; xem lịch sử, biểu đồ và cảnh báo bất thường.
 - Tham gia Care Program, nhận nhiệm vụ đo theo lịch, theo dõi adherence và báo cáo 7/30 ngày.
+- Mời tối đa một người thân đồng hành, chọn loại thông báo được phép nhận và có thể thu hồi quyền bất cứ lúc nào. Người thân chỉ nhận lời nhắc chung khi bệnh nhân bỏ lỡ nhiệm vụ; không mặc định xem chỉ số sức khỏe, chẩn đoán hay nội dung tư vấn.
 - Nhận Care Alert có lý do giải thích được và chuyển sang đặt lịch/tư vấn khi cần.
+- Tìm cơ sở y tế phù hợp theo chương trình theo dõi hoặc chuyên khoa, vị trí và khoảng cách; kết quả nêu rõ nguồn dữ liệu và liên kết chỉ đường.
 - Tìm kiếm/lọc bác sĩ theo chuyên khoa, xem hồ sơ và gửi yêu cầu tư vấn kèm tóm tắt triệu chứng.
 - Chat thời gian thực, gửi hình ảnh/tệp liên quan; gọi video/audio với bác sĩ trong phiên tư vấn.
 - Trao đổi với trợ lý AI có lưu lịch sử; số lượt hỏi phụ thuộc gói hội viên/định mức.
@@ -84,6 +87,9 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 5. Nếu cần chú ý, hệ thống tạo Care Alert, gửi thông báo và đưa Patient vào Priority Inbox của Doctor phụ trách.
 6. Báo cáo 7/30 ngày được backend tính xác định; AI chỉ diễn đạt từ payload chuẩn hóa và phải fallback khi provider lỗi.
 7. Với `urgent`, hệ thống hiển thị safety template yêu cầu liên hệ cơ sở y tế/cấp cứu phù hợp, không chờ AI hoặc cam kết Doctor phản hồi tức thời.
+8. Trước khi gọi AI, backend chuẩn hóa đơn vị/thời gian/nguồn, tính thống kê và xu hướng, áp dụng rule, rồi tạo `SummaryInputSnapshot` có data cutoff và source references.
+9. AI trả structured output cho Patient hoặc Doctor; output phải qua kiểm tra schema, số liệu có nguồn và guard cấm chẩn đoán/kê đơn/đổi liều/thay đổi severity.
+10. Khi AI lỗi hoặc output không đạt, hệ thống hiển thị báo cáo số liệu bằng template xác định và lưu trạng thái fallback cùng model/prompt/rule version để audit.
 
 ### 3.3. Vòng lặp Chronic Care
 
@@ -104,7 +110,24 @@ flowchart LR
 4. Doctor acknowledge/xử lý alert, liên kết Consultation và ghi follow-up có audit.
 5. KPI MVP gồm monitoring adherence, alert acknowledgment time và follow-up conversion; không tuyên bố hiệu quả lâm sàng.
 
-### 3.4. Vòng đời phiên tư vấn Telemedicine
+### 3.4. Người thân đồng hành và nhắc nhở hỗ trợ (P1)
+
+1. Bệnh nhân chủ động mời một người thân bằng email hoặc số điện thoại; lời mời chỉ có hiệu lực sau khi người thân xác nhận.
+2. Bệnh nhân chọn phạm vi chia sẻ tối thiểu: chỉ nhận lời nhắc chung khi bỏ lỡ nhiệm vụ theo dõi. Việc cho phép xem tiến độ tổng quát là tùy chọn riêng; quyền xem chỉ số chi tiết, lịch sử tư vấn và nội dung AI mặc định bị tắt.
+3. Hệ thống luôn nhắc bệnh nhân trước. Chỉ khi nhiệm vụ quá hạn theo khoảng thời gian cấu hình và bệnh nhân chưa hoàn thành, hệ thống mới gửi cho người thân lời nhắc không chứa dữ liệu sức khỏe nhạy cảm.
+4. Với cảnh báo khẩn, hệ thống hiển thị hướng dẫn an toàn trực tiếp cho bệnh nhân; không dùng người thân như kênh cấp cứu hoặc cam kết phản hồi y tế. Chỉ gửi thông báo cho người thân nếu bệnh nhân đã bật riêng tùy chọn này.
+5. Bệnh nhân có thể tạm dừng, sửa hoặc thu hồi quyền ngay lập tức. Mọi lời mời, xác nhận, thay đổi quyền và thông báo đã gửi đều được lưu vết.
+
+### 3.5. Tìm cơ sở y tế theo nhu cầu theo dõi (P1)
+
+1. Bệnh nhân chọn chương trình đang theo dõi hoặc chuyên khoa, đồng thời chọn tỉnh/thành, quận/huyện hoặc cho phép dùng vị trí hiện tại. Hệ thống chuyển chương trình sang chuyên khoa đã được quản trị viên duyệt, ví dụ tăng huyết áp sang Tim mạch hoặc Nội tổng quát; đây là gợi ý tìm nơi khám, không phải chẩn đoán.
+2. Danh mục cơ sở y tế do quản trị viên kiểm duyệt là nguồn kết quả chính. Mỗi cơ sở có tên, địa chỉ, tọa độ, thông tin liên hệ, chuyên khoa/dịch vụ, nguồn xác thực và ngày cập nhật.
+3. Hệ thống lọc theo chuyên khoa và khu vực, sau đó sắp xếp theo mức khớp chuyên khoa, trạng thái đã kiểm duyệt và khoảng cách. Không xếp hạng chất lượng chuyên môn bằng AI, đánh giá sao hoặc chi trả quảng cáo.
+4. Khi danh mục nội bộ không đủ kết quả, hệ thống có thể gọi dịch vụ bản đồ bên ngoài để tìm địa điểm gần đó. Kết quả bên ngoài phải có nhãn nguồn, tuân thủ điều khoản nhà cung cấp và không được tự lưu thành cơ sở đã kiểm duyệt.
+5. AI chỉ được dùng để hiểu cách diễn đạt tự nhiên và chuyển thành bộ lọc chuyên khoa/vị trí, hoặc giải thích lý do gợi ý. AI không tự suy luận bệnh, không khẳng định cơ sở tốt nhất và không quyết định tình huống khẩn.
+6. Với cảnh báo khẩn, hệ thống luôn hiển thị hướng dẫn an toàn trước; tìm cơ sở y tế chỉ là lựa chọn hỗ trợ, không được làm chậm khuyến nghị liên hệ cấp cứu.
+
+### 3.6. Vòng đời phiên tư vấn Telemedicine
 
 ```mermaid
 stateDiagram-v2
@@ -122,7 +145,7 @@ stateDiagram-v2
 5. Bác sĩ kết thúc phiên, nhập ghi chú lâm sàng; khung chat được khóa theo trạng thái phiên.
 6. Bệnh nhân đánh giá và nhận xét. Hệ thống lưu review, cập nhật điểm trung bình của bác sĩ và lưu lịch sử phiên.
 
-### 3.5. Tư vấn với AI theo RAG và hạn mức sử dụng
+### 3.7. Tư vấn với AI theo RAG và hạn mức sử dụng
 
 1. Quản trị viên tải tài liệu y khoa đã chọn lọc. Hệ thống chia tài liệu thành các đoạn, tạo embedding và lưu để truy xuất ngữ nghĩa.
 2. Bệnh nhân gửi câu hỏi. Hệ thống kiểm tra xác thực, từ khóa cấm và quyền lợi/lượt hỏi còn lại của gói hội viên.
@@ -130,19 +153,20 @@ stateDiagram-v2
 4. Với yêu cầu hợp lệ, hệ thống truy xuất các đoạn tài liệu phù hợp từ MongoDB Atlas Vector Search rồi đưa chúng làm ngữ cảnh cho LLM.
 5. Phản hồi cùng lịch sử hội thoại được lưu lại. Câu trả lời cần được trình bày như thông tin tham khảo y tế, có giới hạn an toàn và không thay thế chẩn đoán chuyên môn.
 
-### 3.6. Hội viên Premium và thanh toán
+### 3.8. Hội viên Premium và thanh toán
 
 1. Bệnh nhân chọn tier: Free giữ dữ liệu/cảnh báo an toàn cơ bản; Plus bổ sung báo cáo, AI summary, smart reminder và export; Care bổ sung Doctor-assigned Program, review, follow-up và ưu đãi consultation theo Plan.
 2. Khi mua Plus/Care, hệ thống tạo yêu cầu thanh toán và chuyển đến VNPAY Sandbox.
-3. VNPAY trả kết quả giao dịch về hệ thống qua luồng callback/xác thực giao dịch.
-4. Chỉ giao dịch hợp lệ mới kích hoạt hoặc gia hạn gói; hệ thống lưu trạng thái giao dịch và gửi thông báo cho bệnh nhân.
+3. Return URL chỉ hiển thị trạng thái; IPN từ VNPAY phải được xác minh chữ ký, mã đơn, số tiền và tiền tệ.
+4. IPN hợp lệ chuyển order sang paid và ghi một outbox event yêu cầu cấp/gia hạn Subscription; worker xử lý idempotent và hệ thống gửi thông báo cho bệnh nhân.
 5. Quyền lợi được kiểm tra phía backend từ Subscription snapshot; client không tự khai tier, AI quota, consultation limit hoặc quyền Doctor review.
 6. `consultationLimitPerCycle` mặc định là Free `1`, Plus `3`, Care `6`; hệ thống đếm trực tiếp số Consultation đã dùng/còn lại. Chi phí từng phiên là chính sách giá riêng.
 7. Reservation/count/release phải idempotent; cancel đúng policy hủy reservation, Patient no-show được count theo policy. `AiQuestionQuota` chỉ đếm câu hỏi AI và hoàn toàn độc lập.
 8. Downgrade/hết hạn không xóa dữ liệu và không tắt safety alert; Plan trả phí không thay đổi severity hoặc ưu tiên lâm sàng.
 9. Quản trị viên cấu hình gói và theo dõi giao dịch/doanh thu; các lỗi thanh toán cần được lưu để đối soát, không tự động cấp quyền trả phí.
+10. DA2 dùng payment state machine, Mongo transaction, transactional outbox, worker và reconciliation; chưa dùng Saga framework vì Payment và Subscription vẫn nằm trong một modular monolith/cơ sở dữ liệu.
 
-### 3.7. Báo cáo vi phạm và kiểm duyệt
+### 3.9. Báo cáo vi phạm và kiểm duyệt
 
 1. Bệnh nhân hoặc bác sĩ tạo báo cáo, chọn đối tượng, loại vi phạm, mô tả lý do và đính kèm bằng chứng nếu có.
 2. Hệ thống lưu báo cáo với mức độ và trạng thái ban đầu `Pending`; bằng chứng được lưu an toàn trên dịch vụ lưu trữ tệp.
@@ -152,7 +176,7 @@ stateDiagram-v2
 
 ## 4. Dữ liệu và kiến trúc nghiệp vụ
 
-Các thực thể kế thừa từ DA1 gồm tài khoản, hồ sơ vai trò, HealthMetrics, Consultations/Messages, Reviews, AI Conversations/Messages/Documents/Chunks, Notifications, ViolationReports và BlacklistKeywords. DA2 bổ sung `CareProgramTemplates`, `CareEnrollments`, `MonitoringTasks`, `CareRuleSets`, `CareEvaluations`, `CareAlerts`, `CareSummaries`; đồng thời mở rộng mô hình dữ liệu cho gói hội viên, quota AI và các integration còn trong cut-line.
+Các thực thể kế thừa từ DA1 gồm tài khoản, hồ sơ vai trò, HealthMetrics, Consultations/Messages, Reviews, AI Conversations/Messages/Documents/Chunks, Notifications, ViolationReports và BlacklistKeywords. DA2 bổ sung `CareProgramTemplates`, `CareEnrollments`, `MonitoringTasks`, `CareRuleSets`, `CareEvaluations`, `CareAlerts`, `CareSummaries`; ở mức P1 bổ sung `CareSupportContacts`, `CareSharingConsents`, `CareReminderEvents`, `HealthcareFacilities` và `ConditionSpecialtyMaps`. Các thực thể sau cùng quản lý người thân đồng hành, quyền chia sẻ, lịch sử nhắc nhở, danh mục cơ sở y tế đã kiểm duyệt và ánh xạ từ chương trình theo dõi sang chuyên khoa. Mô hình dữ liệu cũng được mở rộng cho gói hội viên, định mức AI và các tích hợp nằm trong phạm vi thực hiện.
 
 ```mermaid
 flowchart LR
@@ -172,39 +196,40 @@ flowchart LR
 
 ## 5. Công nghệ
 
-| Nhóm | Công nghệ | Mục đích |
-| --- | --- | --- |
-| Thiết kế | Figma | Thiết kế UI/UX và prototype. |
-| Web frontend | React.js, JavaScript/TypeScript, Vite, Tailwind CSS, Shadcn UI, React Query, Chart.js | Xây giao diện, truy vấn dữ liệu, dashboard và biểu đồ sức khỏe. |
-| Mobile | React Native, Expo, React Native WebRTC, CallKeep | Ứng dụng đa nền tảng, cuộc gọi và trải nghiệm nhận cuộc gọi. |
-| Backend | Node.js, NestJS, Guards, Cron Job | API, phân quyền, nghiệp vụ và tác vụ định kỳ. |
-| Xác thực | JWT, OAuth, Email OTP, sinh trắc học trên Mobile | Xác thực và kiểm soát truy cập theo vai trò. |
-| Dữ liệu | MongoDB Atlas, MongoDB Atlas Vector Search | Dữ liệu nghiệp vụ và tìm kiếm ngữ nghĩa phục vụ RAG. |
-| AI | Google GenAI SDK; Gemini 2.5 Flash là lựa chọn được nêu trong phần nền tảng DA2 | Chatbot, tóm tắt sức khỏe và RAG. |
-| Realtime | Socket.IO, WebRTC, Socket.IO Redis Adapter | Chat/thông báo realtime, signaling cuộc gọi và mở rộng WebSocket. |
-| Cache và giới hạn | Redis | Cache, đếm quota/rate limit AI và hỗ trợ scaling realtime. |
-| Tích hợp ngoài | VNPAY Sandbox, Firebase Cloud Messaging, Cloudinary, Nodemailer | Thanh toán, push notification, lưu tệp/hình ảnh và email. |
-| Chất lượng & vận hành | Jest, k6, GitHub Actions, Postman, GitHub | Unit/integration/load test, CI/CD, kiểm thử API và quản lý mã nguồn. |
+| Nhóm                  | Công nghệ                                                                             | Mục đích                                                             |
+| --------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Thiết kế              | Figma                                                                                 | Thiết kế UI/UX và prototype.                                         |
+| Web frontend          | React.js, JavaScript/TypeScript, Vite, Tailwind CSS, Shadcn UI, React Query, Chart.js | Xây giao diện, truy vấn dữ liệu, dashboard và biểu đồ sức khỏe.      |
+| Mobile                | React Native, Expo, React Native WebRTC, CallKeep                                     | Ứng dụng đa nền tảng, cuộc gọi và trải nghiệm nhận cuộc gọi.         |
+| Backend               | Node.js, NestJS, Guards, Cron Job                                                     | API, phân quyền, nghiệp vụ và tác vụ định kỳ.                        |
+| Xác thực              | JWT, OAuth, Email OTP, sinh trắc học trên Mobile                                      | Xác thực và kiểm soát truy cập theo vai trò.                         |
+| Dữ liệu               | MongoDB Atlas, MongoDB Atlas Vector Search                                            | Dữ liệu nghiệp vụ và tìm kiếm ngữ nghĩa phục vụ RAG.                 |
+| AI                    | Google GenAI SDK; Gemini 2.5 Flash là lựa chọn được nêu trong phần nền tảng DA2       | Chatbot, tóm tắt sức khỏe và RAG.                                    |
+| Realtime              | Socket.IO, WebRTC, Socket.IO Redis Adapter                                            | Chat/thông báo realtime, signaling cuộc gọi và mở rộng WebSocket.    |
+| Cache và giới hạn     | Redis                                                                                 | Cache, đếm quota/rate limit AI và hỗ trợ scaling realtime.           |
+| Tích hợp ngoài        | VNPAY Sandbox, Firebase Cloud Messaging, Cloudinary, Nodemailer                       | Thanh toán, push notification, lưu tệp/hình ảnh và email.            |
+| Chất lượng & vận hành | Jest, k6, GitHub Actions, Postman, GitHub                                             | Unit/integration/load test, CI/CD, kiểm thử API và quản lý mã nguồn. |
 
 **Lưu ý thống nhất tài liệu:** phần phương pháp DA2 có nhắc Express.js, nhưng phần kiến trúc và nền tảng công nghệ xác định NestJS; tài liệu này chọn **NestJS** là backend mục tiêu vì nhất quán với kiến trúc DA1 và mô tả DA2 về Guards/Cron Job.
 
 ## 6. Chuyển đổi từ DA1 sang DA2
 
-| Nền tảng DA1 | Cập nhật DA2 |
-| --- | --- |
-| Web React + NestJS + MongoDB; chat bác sĩ–bệnh nhân; RAG; theo dõi chỉ số và cảnh báo. | Giữ nền tảng lõi, mở rộng Web và Mobile React Native/Expo. |
-| Health Metrics và cảnh báo đơn lẻ. | Care Program, lịch theo dõi, versioned rule engine, Care Alert, Priority Inbox và báo cáo 7/30 ngày. |
-| Tư vấn qua chữ, hình ảnh và tệp. | Gọi video/audio WebRTC, Socket.IO signaling và CallKeep. |
-| AI hỗ trợ theo RAG nhưng chưa kiểm soát chi phí chặt chẽ. | Gói Free/Premium, thanh toán VNPAY, Redis rate limit/quota và Cron reset. |
-| Hạ tầng realtime cơ bản. | Redis adapter để scale WebSocket, bổ sung chiến lược cache. |
-| Kiểm thử/vận hành chưa được tự động hóa đầy đủ. | Jest, k6 và GitHub Actions cho kiểm thử, CI/CD. |
-| Báo cáo vi phạm cơ bản. | Trạng thái xử lý rõ ràng, mức độ nghiêm trọng, bằng chứng và AI hỗ trợ phân loại. |
+| Nền tảng DA1                                                                           | Cập nhật DA2                                                                                         |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Web React + NestJS + MongoDB; chat bác sĩ–bệnh nhân; RAG; theo dõi chỉ số và cảnh báo. | Giữ nền tảng lõi, mở rộng Web và Mobile React Native/Expo.                                           |
+| Health Metrics và cảnh báo đơn lẻ.                                                     | Care Program, lịch theo dõi, versioned rule engine, Care Alert, Priority Inbox và báo cáo 7/30 ngày. |
+| Tư vấn qua chữ, hình ảnh và tệp.                                                       | Gọi video/audio WebRTC, Socket.IO signaling và CallKeep.                                             |
+| AI hỗ trợ theo RAG nhưng chưa kiểm soát chi phí chặt chẽ.                              | Gói Free/Premium, thanh toán VNPAY, Redis rate limit/quota và Cron reset.                            |
+| Hạ tầng realtime cơ bản.                                                               | Redis adapter để scale WebSocket, bổ sung chiến lược cache.                                          |
+| Kiểm thử/vận hành chưa được tự động hóa đầy đủ.                                        | Jest, k6 và GitHub Actions cho kiểm thử, CI/CD.                                                      |
+| Báo cáo vi phạm cơ bản.                                                                | Trạng thái xử lý rõ ràng, mức độ nghiêm trọng, bằng chứng và AI hỗ trợ phân loại.                    |
 
 ## 7. Định hướng sau DA2
 
 - Đồng bộ tự động với thiết bị IoT y tế qua Bluetooth/Wi-Fi để giảm nhập liệu thủ công.
 - Mở rộng Care Program sang medication adherence và các bệnh mạn khác sau khi tăng huyết áp/tiểu đường P0 ổn định.
-- Bổ sung caregiver/family sharing sau khi có consent và permission model riêng.
+- Hoàn thiện tính năng người thân đồng hành từ bản P1: cho phép nhiều người thân, báo cáo tiến độ theo tuần và tích hợp các chính sách đồng ý/chia sẻ dữ liệu chi tiết hơn sau khi mô hình quyền cơ bản được kiểm chứng.
+- Mở rộng tìm cơ sở y tế bằng kết nối chính thức với từng bệnh viện/phòng khám để lấy lịch trống và hỗ trợ đặt lịch; chỉ thực hiện khi đối tác cung cấp giao diện tích hợp đáng tin cậy.
 - Nghiên cứu AI phân tích hình ảnh lâm sàng và dữ liệu CT/MRI với quy trình kiểm định chuyên môn phù hợp.
 - Kết nối nhiều phòng khám/bệnh viện và tăng khả năng liên thông hồ sơ y tế.
 - Tiếp tục tăng cường bảo mật dữ liệu sức khỏe, xác thực đa yếu tố, mã hóa và kiểm thử trước mỗi đợt phát hành.

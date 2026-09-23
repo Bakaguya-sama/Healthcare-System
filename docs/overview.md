@@ -20,9 +20,11 @@ Sản phẩm hỗ trợ:
 
 - Bệnh nhân theo dõi chỉ số sức khỏe và nhận cảnh báo tham khảo.
 - Bệnh nhân tham gia Care Program, nhận lịch đo và xem mức độ hoàn thành theo dõi.
+- Ở phạm vi P1, bệnh nhân có thể mời một người thân đồng hành để nhận lời nhắc chung khi bệnh nhân bỏ lỡ hoạt động theo dõi, trên cơ sở đồng ý và quyền chia sẻ do bệnh nhân kiểm soát.
 - Rule engine version hóa phân tầng `normal|attention|urgent` với lý do giải thích được; kết quả không phải chẩn đoán.
 - Bác sĩ theo dõi Priority Inbox và báo cáo 7/30 ngày thay vì đọc toàn bộ dữ liệu thô.
 - Bệnh nhân chủ động đặt lịch theo slot bác sĩ đã mở.
+- Ở mức P1, bệnh nhân tìm cơ sở y tế theo chương trình theo dõi/chuyên khoa và vị trí; danh mục nội bộ đã kiểm duyệt là nguồn chính, dịch vụ bản đồ chỉ bổ sung khi thiếu kết quả.
 - Bệnh nhân gửi yêu cầu tư vấn nhanh theo cơ chế on-demand.
 - Bác sĩ tiếp nhận yêu cầu, quản lý lịch, hàng đợi và tư vấn qua chat/audio/video.
 - AI cung cấp thông tin, tóm tắt và truy xuất tri thức RAG; không tự đưa ra chẩn đoán.
@@ -70,7 +72,9 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Chat, gửi tệp/hình ảnh và tham gia audio/video call khi consultation cho phép.
 - Nhập, sửa, xóa và xem biểu đồ HealthMetrics.
 - Tham gia Care Program, xem nhiệm vụ đo, mức độ hoàn thành và báo cáo 7/30 ngày.
+- Mời, xác nhận, sửa hoặc thu hồi quyền của một người thân đồng hành; chọn nhận lời nhắc bỏ lỡ nhiệm vụ mà không cần chia sẻ chỉ số sức khỏe chi tiết.
 - Nhận Care Alert có lý do rõ ràng và chuyển sang đặt lịch/on-demand consultation khi cần.
+- Tìm cơ sở y tế theo chuyên khoa, địa điểm và khoảng cách; xem lý do gợi ý, nguồn dữ liệu và liên kết chỉ đường. Kết quả không phải khuyến nghị về chất lượng chuyên môn.
 - Hỏi AI, xem citation/lịch sử và quota còn lại.
 - Xem Plans, tạo PaymentOrder, theo dõi kết quả thanh toán và Subscription.
 - Cancel order chưa thanh toán; gửi full-refund request cho order đã paid.
@@ -188,8 +192,13 @@ queuePriorityAt != null
 - Monitoring task được hoàn thành bởi HealthMetric hợp lệ; adherence chỉ phản ánh mức độ hoàn thành theo dõi, không phải tuân thủ điều trị.
 - Alert threshold/rule chỉ là cảnh báo tham khảo. Rule engine là deterministic, version hóa và trả về reason codes; AI không được tạo hoặc thay đổi severity.
 - Care Alert `urgent` phải hiển thị hành động an toàn từ template đã duyệt và không chờ LLM.
+- Người thân đồng hành là tính năng P1, không phải vai trò y tế: Patient tự mời và cấp quyền; contact chỉ nhận nhắc nhở chung sau khi Patient bỏ lỡ nhiệm vụ quá khoảng thời gian cấu hình. Mặc định contact không xem HealthMetrics, nội dung AI, consultation hoặc Care Alert.
+- Patient luôn được nhắc trước. Thông báo cho contact không chứa chỉ số, chẩn đoán hay lý do cảnh báo; mọi consent, thay đổi quyền, gửi thông báo và thu hồi quyền phải audit. `urgent` không biến contact thành kênh cấp cứu; chỉ thông báo contact nếu Patient bật lựa chọn riêng.
+- Tìm cơ sở y tế P1 nhận đầu vào là Program/condition được chọn rõ ràng hoặc specialty được duyệt cùng khu vực/vị trí do Patient chọn. Hệ thống dùng `ConditionSpecialtyMap` do Admin duyệt, lọc danh mục `HealthcareFacility` active/verified, rồi sắp xếp xác định theo khớp specialty, trạng thái verified và khoảng cách.
+- AI chỉ chuẩn hóa truy vấn tự nhiên thành specialty/khu vực và giải thích reason code; AI không suy luận diagnosis, không xếp hạng chất lượng cơ sở và không thay thế safety flow. External map result phải có source label, chỉ được dùng làm fallback và không tự thành dữ liệu verified.
 - Doctor Priority Inbox chỉ chứa Patient thuộc enrollment được phân công và có pagination/stable sort.
 - Báo cáo 7/30 ngày tính số liệu bằng backend; LLM chỉ diễn đạt từ payload chuẩn hóa và phải có fallback.
+- Chuỗi AI summary là `normalize metrics → deterministic aggregate → rule evaluation → SummaryInput snapshot → structured LLM output → grounding/safety guard → summary hoặc fallback`. Mọi con số và nhận xét phải truy về snapshot/source reference; Patient và Doctor dùng presentation policy khác nhau trên cùng facts.
 - Redis reserve/commit/release quota theo ngày; `AiUsageDaily` là dữ liệu bền vững để thống kê và đối soát.
 - Không dùng cron xóa toàn bộ quota key; key theo ngày có TTL.
 - RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
@@ -218,9 +227,10 @@ stateDiagram-v2
     refund_pending --> refunded: Provider xác nhận thành công
 ```
 
-- Return URL chỉ hiển thị trạng thái; IPN hợp lệ mới ghi nhận paid và cấp quyền lợi.
+- Return URL chỉ hiển thị trạng thái; IPN hợp lệ mới ghi nhận paid và tạo outbox event yêu cầu cấp quyền lợi.
 - Duplicate IPN không tạo hai subscriptions.
 - Mỗi paid order tạo một Subscription grant có `sourceOrderId` unique.
+- Worker cấp grant idempotent và reconciliation phục hồi trường hợp paid-without-grant. DA2 dùng state machine + Mongo transaction + transactional outbox, chưa dùng Saga framework.
 - Cancel order chỉ dành cho `created|pending`; không gọi refund provider.
 - Late valid IPN của order cancelled/expired vẫn phải ghi nhận, không bỏ qua tiền đã thu.
 - Full refund MVP: patient request, admin approve/reject, worker gọi VNPAY, timeout chuyển `manual_review` để đối soát.
@@ -349,6 +359,8 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - AI quota/RAG cốt lõi.
 - Chronic Care cho tăng huyết áp và tiểu đường: Doctor-assigned enrollment/consent, monitoring tasks, rule engine, Care Alert, Priority Inbox, báo cáo 7/30 ngày và AI summary có fallback.
 - Liên kết Care Alert với scheduled/on-demand consultation và follow-up.
+- P1 (chỉ bật nếu P0 ổn định): Người thân đồng hành với một contact, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không làm chậm luồng P0.
+- P1 (chỉ bật nếu P0 ổn định): Tìm cơ sở y tế với danh mục quản trị, ánh xạ Program/specialty, tìm kiếm theo khoảng cách, giải thích kết quả và liên kết chỉ đường; dịch vụ bản đồ bên ngoài chỉ là fallback.
 - VNPAY Sandbox payment/subscription và cancel unpaid order.
 - Web critical journeys và test race/idempotency.
 

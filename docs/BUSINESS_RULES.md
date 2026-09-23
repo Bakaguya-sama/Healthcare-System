@@ -49,6 +49,17 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 11. Worker chỉ materialize task trong rolling window cấu hình; không tạo toàn bộ task dài hạn ngay khi enroll nếu gây write amplification.
 12. Quiet hours, giới hạn tần suất và trạng thái hoàn thành phải được kiểm tra trước khi gửi reminder để tránh notification fatigue.
 
+## Người thân đồng hành và nhắc nhở hỗ trợ (P1)
+
+1. Người thân đồng hành không phải là role `Patient`, `Doctor` hoặc `Admin`, không có quyền y tế và chỉ tồn tại sau khi Patient chủ động tạo lời mời.
+2. Mỗi Patient có tối đa một contact active ở P1. Contact phải xác nhận lời mời qua kênh đã được xác thực trước khi nhận notification; lời mời có TTL và chỉ dùng một lần.
+3. Consent phải tách bạch tối thiểu hai quyền: `missed_task_reminder` và `weekly_progress`. Các quyền xem HealthMetrics chi tiết, Care Alert, AI conversation, consultation, hồ sơ hoặc dữ liệu y tế nhạy cảm đều mặc định `false` và ngoài P1.
+4. Patient luôn nhận reminder trước. Contact chỉ nhận reminder khi task Patient-required đã `missed`, enrollment còn `active`, contact đã consent và qua một grace period cấu hình. Notification chỉ nói Patient có một hoạt động theo dõi chưa hoàn thành; không chứa metric, severity, diagnosis, Doctor name, AI content hay lý do alert.
+5. `urgent` không tự gửi cho contact và không biến contact thành emergency contact. Patient chỉ có thể bật một consent riêng cho notification `urgent` sau khi đọc cảnh báo; nội dung gửi vẫn không nêu chi tiết y khoa và phải theo safety policy đã duyệt.
+6. Patient có thể revoke consent, pause contact hoặc xóa contact bất cứ lúc nào. Revoke có hiệu lực ngay cho notification/query mới; token và session liên quan phải bị vô hiệu hóa.
+7. Invitation, acceptance, consent version, thay đổi scope, reminder event, delivery result, revoke và actor phải audit. Contact không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được mời.
+8. Reminder cho contact tuân thủ quiet hours, frequency cap và deduplication độc lập với notification của Patient. Không gửi reminder nếu task đã hoàn thành, bị hủy hoặc enrollment không còn active.
+
 ## Care rule, evaluation và alert
 
 1. Rule set có lifecycle `draft`, `active`, `retired`; chỉ version active đã được duyệt mới áp dụng cho dữ liệu mới.
@@ -61,6 +72,18 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 8. Alert có trạng thái `open`, `acknowledged`, `resolved`, `dismissed`; acknowledge không đồng nghĩa đã giải quyết hoặc đã liên hệ Patient.
 9. Chỉ Doctor được phân công, Patient sở hữu dữ liệu và Admin có quyền audit mới xem alert theo phạm vi tương ứng.
 10. Resolve/dismiss phải lưu actor, timestamp và lý do; alert quan trọng không được hard-delete.
+
+## Tìm cơ sở y tế theo nhu cầu theo dõi (P1)
+
+1. `HealthcareFacility` là danh mục cơ sở y tế do Admin quản lý. Mỗi bản ghi active phải có tối thiểu tên, loại cơ sở, địa chỉ, tọa độ, tỉnh/thành, kênh liên hệ, danh sách specialty/service, `verificationStatus`, nguồn xác thực, `verifiedAt` hoặc `updatedAt` và audit.
+2. `ConditionSpecialtyMap` ánh xạ condition/Care Program sang một hoặc nhiều specialty. Chỉ Admin có quyền tạo, duyệt, sửa hoặc retire map; mọi thay đổi phải version/audit và không được coi là diagnosis hoặc clinical guideline.
+3. Tìm kiếm cần condition/Program đã chọn rõ ràng hoặc specialty đã duyệt, cùng khu vực hoặc vị trí do Patient chủ động cung cấp. Vị trí chính xác là dữ liệu nhạy cảm: chỉ dùng cho truy vấn hiện tại khi Patient cho phép, không lưu lịch sử mặc định.
+4. Kết quả nội bộ chỉ lấy `HealthcareFacility` active và verified, lọc specialty/khu vực rồi sắp xếp xác định theo: khớp specialty, trạng thái xác thực và khoảng cách. Không dùng AI score, đánh giá sao, doanh thu hay phí quảng cáo để thay đổi thứ tự phù hợp y khoa.
+5. Mỗi kết quả phải hiển thị source, ngày cập nhật, specialty khớp và reason code dễ hiểu. Hệ thống không tuyên bố “tốt nhất”, “phù hợp điều trị nhất” hoặc bảo đảm khả năng tiếp nhận/đặt lịch nếu không có xác nhận chính thức của cơ sở.
+6. Dịch vụ bản đồ bên ngoài chỉ được gọi khi danh mục nội bộ thiếu kết quả hoặc Patient chủ động mở rộng tìm kiếm. Kết quả phải gắn nhãn nguồn bên ngoài, tuân thủ điều khoản/attribution/retention của nhà cung cấp và không tự chuyển thành `verified` hoặc được lưu lâu dài ngoài chính sách đó.
+7. AI chỉ được chuẩn hóa văn bản tự nhiên thành bộ lọc condition/specialty/location trong allowlist và giải thích kết quả dựa trên dữ liệu đã trả về. AI không suy luận bệnh, xếp hạng chất lượng cơ sở, chẩn đoán hoặc xử lý tình huống `urgent`.
+8. Trong luồng `urgent`, safety template luôn hiển thị trước. Tìm cơ sở y tế/chỉ đường là tác vụ bổ trợ và không được trì hoãn hướng dẫn liên hệ cấp cứu/cơ sở y tế phù hợp.
+9. Liên kết đặt lịch chỉ xuất hiện khi cơ sở có tích hợp chính thức hoặc đường dẫn đã được Admin xác thực. Không mô phỏng còn chỗ, giá hoặc xác nhận lịch từ dữ liệu bản đồ.
 
 ## Doctor Priority Inbox và follow-up
 
@@ -80,6 +103,15 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 5. Patient summary dùng ngôn ngữ tham khảo, không chẩn đoán. Doctor summary phải phân biệt dữ kiện, dữ liệu thiếu và nội dung AI sinh.
 6. RAG chỉ sử dụng document/chunk active, approved, chưa hết hạn; citation trả về phải được backend kiểm tra tồn tại.
 7. Dữ liệu Patient chỉ được đưa vào summary trong đúng authorization scope; không dùng raw health payload để huấn luyện hoặc gọi provider ngoài policy.
+8. Trước khi tạo summary, backend phải chuẩn hóa metric type, unit, timezone, source và report window; bản ghi không hợp lệ được loại bằng reason code, không được tự sửa hoặc bỏ qua âm thầm.
+9. Backend, không phải LLM, tính expected/completed measurements, adherence, min/max/average/median, period delta, trend, missing windows, alert counts và consultation/follow-up references.
+10. Mỗi lần sinh nội dung dùng một `SummaryInputSnapshot` bất biến gồm data cutoff, statistics, missing data, Care Evaluations và source references. Snapshot phải có hash/version để audit và tái tạo kết quả.
+11. Structured output tối thiểu tách `overview`, `observations`, `missingData`, `alertsToMention`, `questionsForDoctor` và `disclaimer`; Patient và Doctor dùng hai presentation policy khác nhau trên cùng facts.
+12. Output phải qua schema validation và grounding validation. Mọi con số, xu hướng, alert hoặc nhận xét sự kiện phải ánh xạ được về snapshot/source reference; nội dung không có nguồn bị loại.
+13. Guard cấm diagnosis, prescription, dose change, stop-medication advice, thay đổi severity và tuyên bố chắc chắn không được chứng minh. Guard fail phải dùng deterministic fallback và ghi validation reason.
+14. Summary generation idempotent theo enrollment, report window, data cutoff và summary version. Dữ liệu nguồn thay đổi tạo summary version mới; không ghi đè lịch sử đã được Doctor review.
+15. Summary lưu `generated|fallback|failed`, model/prompt version, rule set version, input hash/source refs, validation result, token/latency metadata không chứa raw health data và Doctor review status nếu có.
+16. RAG chỉ bổ sung kiến thức giáo dục từ tài liệu active/approved; RAG không tính thống kê, chọn threshold, thay đổi rule result hoặc quyết định hành động khẩn.
 
 ## Quy tắc tài khoản và bác sĩ
 
@@ -162,14 +194,15 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 
 1. Giá, quyền lợi và quota tại lúc mua phải được snapshot trong PaymentOrders và Subscriptions.
 2. Tiền VND lưu dưới dạng integer, không dùng số thực.
-3. Return URL chỉ hiển thị kết quả. Chỉ IPN có chữ ký hợp lệ mới chuyển payment order sang paid và kích hoạt subscription.
-4. IPN lặp phải idempotent: cùng transaction reference không được kích hoạt subscription hai lần.
+3. Return URL chỉ hiển thị kết quả. Chỉ IPN có chữ ký hợp lệ mới chuyển payment order sang paid và ghi yêu cầu cấp Subscription vào transactional outbox.
+4. IPN lặp phải idempotent: cùng transaction reference không được tạo transaction, outbox event hoặc Subscription grant hai lần.
 5. Redis kiểm quota AI realtime theo ngày; AiUsageDaily là dữ liệu bền vững cho thống kê và đối soát.
 6. Khi subscription hết hạn, API AI áp dụng quota Free ở request tiếp theo. Worker chỉ hỗ trợ thông báo hết hạn.
 7. Hệ thống có ba tier sản phẩm: `free`, `plus`, `care`; giá và giới hạn cụ thể nằm trong Plan/Subscription snapshot, không hard-code theo tên tier.
 8. Free luôn có quyền nhập/xem HealthMetrics của chính Patient, biểu đồ cơ bản, một Care Program cơ bản, in-app notification, quota AI cơ bản và safety alert thiết yếu.
 9. Plus bao gồm Free và có thể cấp nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder/quiet hours, medication reminder, PDF/CSV và quota AI cao hơn theo Plan.
 10. Care bao gồm Plus và có thể cấp Doctor-assigned Program, Doctor review theo cadence, Priority Inbox, follow-up, nhắc tái khám và ưu đãi giá consultation theo Plan snapshot.
+10a. Khi tính năng Người thân đồng hành P1 được bật, Care bao gồm tối đa một contact active; Plus có thể mua thêm quyền này theo Plan snapshot. Entitlement chỉ cấp khả năng mời/nhắc, không ghi đè consent hoặc mở quyền xem dữ liệu chi tiết.
 11. Doctor-reviewed/confirmed report chỉ xác nhận Doctor đã xem báo cáo; không được trình bày thành chẩn đoán, đơn thuốc hoặc bảo đảm kết quả điều trị.
 12. Nhắn tin Doctor chỉ tồn tại trong Consultation được authorize. Không tier nào mặc định tạo chat 24/7 hoặc cam kết phản hồi cấp cứu.
 13. SLA phản hồi chỉ được hiển thị khi Clinic có giờ phục vụ, nhân sự, escalation và cơ chế đo SLA đã cấu hình; nếu không, giao diện phải nêu rõ Doctor không theo dõi realtime.
@@ -193,6 +226,11 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 31. Retry, duplicate event hoặc reconnect không được count/hủy reservation hai lần; ledger entry phải gắn `consultationId` và idempotency key.
 32. Khi hết số lượt, Patient có thể chờ cycle mới, nâng gói hoặc mua add-on. Safety alert vẫn hoạt động và tình huống khẩn cấp phải hướng tới cơ sở y tế/cấp cứu.
 33. `AiQuestionQuota` là entitlement riêng chỉ đếm câu hỏi AI; không dùng chung counter, ledger hoặc tên field với consultation limit.
+34. PaymentOrder dùng state machine `created|pending|processing|paid|failed|expired|cancelled`; mọi transition là conditional, có actor/source/time và audit. Timeout/unknown không được tự chuyển thành failed nếu chưa đối soát provider.
+35. Trong một Mongo transaction, IPN hợp lệ upsert PaymentTransaction, chuyển order sang paid và ghi đúng một `SubscriptionGrantRequested` OutboxEvent. Không gọi VNPAY hoặc dịch vụ ngoài trong transaction.
+36. Worker cấp Subscription idempotent theo `sourceOrderId`/grant key. Lỗi worker được retry; không tạo payment mới và không chuyển order paid về pending.
+37. Reconciliation phải phát hiện order processing quá lâu, paid-without-grant, duplicate/mismatch provider reference và xác minh lại trước thao tác sửa trạng thái.
+38. DA2 không dùng Saga framework vì Payment, Subscription và Outbox nằm trong một modular monolith/MongoDB. Chỉ xem xét Saga khi các bước thuộc service/database độc lập và cần compensation liên dịch vụ.
 
 ## Notification, Outbox và worker
 
