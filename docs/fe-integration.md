@@ -347,7 +347,121 @@ interface AiQuotaDto {
 }
 ```
 
-### 4.4 Billing
+### 4.4 Chronic Care
+
+```ts
+interface CareProgramDto {
+  id: Id;
+  programCode: string;
+  version: number;
+  name: string;
+  diseaseKey: "hypertension" | "diabetes" | string;
+  description?: string;
+  status: "draft" | "published" | "retired";
+  taskTypes: Array<"metric" | "check_in" | "education" | "appointment" | "doctor_review">;
+  expectedDurationDays?: number;
+  allowedActions: string[];
+}
+
+interface PatientCareProgramDto {
+  id: Id;
+  patient: Pick<UserDto, "id" | "fullName">;
+  doctor: Pick<UserDto, "id" | "fullName">;
+  program: Pick<CareProgramDto, "id" | "programCode" | "version" | "name">;
+  status: "pending" | "active" | "paused" | "completed" | "cancelled";
+  timezone: string;
+  consentAcceptedAt?: IsoDateTime;
+  baselineCompletedAt?: IsoDateTime;
+  startedAt?: IsoDateTime;
+  expectedEndAt?: IsoDateTime;
+  adherence?: number;
+  allowedActions: string[];
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+interface CareTaskDto {
+  id: Id;
+  patientCareProgramId: Id;
+  taskType: "metric" | "check_in" | "education" | "appointment" | "doctor_review";
+  status: "scheduled" | "due" | "completed" | "missed" | "cancelled";
+  title: string;
+  required: boolean;
+  scheduledFor: IsoDateTime;
+  windowStart: IsoDateTime;
+  windowEnd: IsoDateTime;
+  completedAt?: IsoDateTime;
+  allowedActions: string[];
+}
+
+interface CareAlertDto {
+  id: Id;
+  patientCareProgramId: Id;
+  patient: Pick<UserDto, "id" | "fullName">;
+  assignedDoctor: Pick<UserDto, "id" | "fullName">;
+  severity: "attention" | "urgent";
+  status: "open" | "acknowledged" | "resolved" | "dismissed";
+  reasonCodes: string[];
+  detectedAt: IsoDateTime;
+  consultationId?: Id;
+  allowedActions: string[];
+}
+
+interface CareReportDto {
+  id: Id;
+  patientCareProgramId: Id;
+  windowType: "7d" | "30d" | "90d";
+  windowStart: IsoDateTime;
+  windowEnd: IsoDateTime;
+  metrics: Record<string, unknown>;
+  adherence: number;
+  alertCounts: Record<string, number>;
+  generatedAt: IsoDateTime;
+}
+
+interface CareSummaryDto {
+  id: Id;
+  reportId: Id;
+  audience: "patient" | "doctor";
+  status: "pending" | "completed" | "fallback" | "failed";
+  content: string;
+  citations: Array<{ documentId: Id; title: string; page?: number; section?: string }>;
+  generatedAt: IsoDateTime;
+  reviewedAt?: IsoDateTime;
+}
+
+interface FamilyLinkDto {
+  id: Id;
+  patient: Pick<UserDto, "id" | "fullName">;
+  familyUser: Pick<UserDto, "id" | "fullName" | "email">;
+  relationship?: string;
+  status: "pending" | "active" | "paused" | "revoked" | "declined" | "expired";
+  invitationVersion: number;
+  invitationExpiresAt: IsoDateTime;
+  permissions: string[];
+  invitedAt: IsoDateTime;
+  acceptedAt?: IsoDateTime;
+  allowedActions: string[];
+}
+
+interface MedicalFacilityDto {
+  id: Id;
+  name: string;
+  facilityType: string;
+  address: string;
+  location: { latitude: number; longitude: number };
+  specialties: string[];
+  distanceKm?: number;
+  source: "internal" | "map_provider";
+  verificationStatus: "verified" | "external_unverified";
+  directionUrl?: string;
+  matchReasons: string[];
+}
+```
+
+`allowedActions` là nguồn hiển thị hành động theo role/status. State machine đã chốt: Enrollment chỉ active sau Doctor/Program/Rule/entitlement/consent/baseline hợp lệ; CareTask missed là terminal; CareAlert cho phép resolve trực tiếp kèm implicit acknowledge; FamilyLink tái sử dụng record và tăng `invitationVersion` khi mời lại.
+
+### 4.5 Billing
 
 ```ts
 interface PlanDto {
@@ -450,7 +564,7 @@ interface PaymentRefundDto {
 
 Frontend không nhận `gatewayPayload`, `gatewayRequest`, `gatewayResponse`, `lastError` nội bộ hoặc provider secret.
 
-### 4.5 Notification và moderation
+### 4.6 Notification và moderation
 
 ```ts
 interface NotificationDto {
@@ -458,7 +572,7 @@ interface NotificationDto {
   title: string;
   message: string;
   type: "info" | "success" | "warning" | "critical";
-  resourceType?: "consultation" | "paymentOrder" | "paymentRefund" | "subscription" | "violation";
+  resourceType?: "consultation" | "careProgram" | "careTask" | "careAlert" | "careReport" | "familyLink" | "paymentOrder" | "paymentRefund" | "subscription" | "violation";
   resourceId?: Id;
   data?: Record<string, unknown>;
   isRead: boolean;
@@ -575,7 +689,41 @@ interface ViolationReportDto {
 | AI-07 | `DELETE /ai/conversations/:id` | Owner | none | `204`/archive policy | Target P0 |
 | AI-08 | `POST /consultations/:id/ai-brief` | Doctor participant | none | draft consultation brief | Target P1 |
 
-### 5.5 Billing, cancel và refund
+### 5.5 Chronic Care, người thân và cơ sở y tế
+
+| ID | Method + path | Role | Request/query | Response | Status |
+|---|---|---|---|---|---|
+| CARE-01 | `GET /care-programs` | Patient/Doctor/Admin | diseaseKey, status, page | `PageResult<CareProgramDto>`; Patient chỉ thấy published | Target P0 |
+| CARE-02 | `POST /care-programs` | Admin/Doctor có permission | draft program payload + idempotency | `CareProgramDto` | Target P1 Builder Lite; seed P0 |
+| CARE-03 | `PATCH /care-programs/:id` | Admin/Doctor có permission | draft changes + version | `CareProgramDto` | Target P1; draft only |
+| CARE-04 | `POST /care-programs/:id/publish` | Admin | review reason + idempotency | published program | Target P0 cho seed/admin workflow |
+| CARE-05 | `POST /care-programs/:id/enrollments` | Doctor approved | patientId, timezone, allowed custom settings | `PatientCareProgramDto` pending | Target P0 |
+| CARE-06 | `GET /care-enrollments` | Patient/Doctor | status, programCode, page | authorized enrollment page | Target P0 |
+| CARE-07 | `GET /care-enrollments/:id` | Participant/Admin audit policy | none | enrollment + program/task/report summary | Target P0 |
+| CARE-08 | `POST /care-enrollments/:id/consent` | Patient owner | policyVersion, purposes, baseline answers + idempotency | updated enrollment | Target P0 |
+| CARE-09 | `GET /care-enrollments/:id/tasks` | Participant | status, type, from/to, page | `PageResult<CareTaskDto>` | Target P0 |
+| CARE-10 | `POST /care-tasks/:id/responses` | Authorized task actor | structured response + idempotency | updated task | Target P0; metric task hoàn thành từ HLTH-02 |
+| CARE-11 | `GET /care-enrollments/:id/reports` | Participant | windowType, page | reports + summaries | Target P0 |
+| CARE-12 | `GET /doctors/me/care-alerts` | Assigned Doctor | severity, status, from/to, page | `PageResult<CareAlertDto>` | Target P0 |
+| CARE-13 | `POST /care-alerts/:id/acknowledge` | Assigned Doctor | note? + idempotency | updated alert | Target P0 |
+| CARE-14 | `POST /care-alerts/:id/resolve` | Assigned Doctor | reason/note + idempotency | updated alert | Target P0 |
+| CARE-15 | `POST /care-alerts/:id/dismiss` | Assigned Doctor | allowlisted reason + idempotency | updated alert | Target P0; Admin chỉ audit |
+| CARE-16 | `POST /care-alerts/:id/consultations` | Patient/Assigned Doctor policy | scheduled/on-demand input + idempotency | linked `ConsultationDto` | Target P0 |
+| CARE-17 | `POST /care-enrollments/:id/actions/:action` | Participant theo policy | `request_pause|pause|resume|complete|cancel`, reason + idempotency | updated enrollment hoặc pause request | Target P0; Doctor pause/resume/complete, Patient request pause/withdraw consent |
+| FAM-01 | `GET /family-links` | Patient/linked family user | direction, status, page | `PageResult<FamilyLinkDto>` | Target P1 sau P0 |
+| FAM-02 | `POST /family-links` | Patient | family email/userId, relationship + idempotency | pending link | Target P1; enforce `familyLinkLimit`; revoked/declined/expired pair increments invitationVersion |
+| FAM-03 | `POST /family-links/:id/accept` | Invited family user | consent version + idempotency | active link | Target P1 |
+| FAM-04 | `POST /family-links/:id/actions/:action` | Patient/linked family user theo policy | `pause|resume|revoke|decline`, reason + idempotency | updated link | Patient pause/resume; either party revoke; invitee decline |
+| FAM-05 | `PUT /family-links/:id/permissions` | Patient owner | permission allowlist + policyVersion | updated permissions | Target P1 |
+| FAC-01 | `GET /medical-facilities/search` | Patient | programId/specialty, area hoặc lat/lng, radius, page | verified internal results; optional labelled map fallback | Target P1 sau Family |
+| FAC-02 | `GET /medical-facilities/:id` | Patient/Admin | none | `MedicalFacilityDto` | Target P1 |
+| FAC-03 | `POST /admin/medical-facilities/map-candidates` | Admin | provider candidate snapshot | draft facility | Target P1 |
+| FAC-04 | `POST /admin/medical-facilities/:id/verify` | Admin | official sources, review note + idempotency | verified facility | Target P1 |
+| FAC-05 | `POST /admin/disease-specialties/:id/publish` | Admin | approved mapping version + idempotency | active mapping | Target P1 |
+
+Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; frontend không được suy ra authorization chỉ từ trạng thái. Clinic/Clinic Admin không có endpoint hoặc actor trong DA2.
+
+### 5.6 Billing, cancel và refund
 
 | ID | Method + path | Role | Request/query | Response | Status |
 |---|---|---|---|---|---|
@@ -598,7 +746,7 @@ interface ViolationReportDto {
 
 IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` chỉ được mở sau khi BILL-03 trả về. Return page luôn gọi BILL-05 để lấy trạng thái nguồn chuẩn.
 
-### 5.6 Notification, moderation và admin dashboard
+### 5.7 Notification, moderation và admin dashboard
 
 | ID | Method + path | Role | Request/query | Response | Status |
 |---|---|---|---|---|---|
@@ -659,6 +807,12 @@ Frontend không tự join room theo ID bất kỳ. Server xác minh participant/
 | `call.v1.ice` | bidirectional | consultationId + ICE candidate | Call UI |
 | `call.v1.ended` | server → client | `{ consultationId, reason, endedAt }` | Call/consultation detail |
 | `notification.v1.created` | server → client | `NotificationDto` | Global notification store |
+| `care-enrollment.v1.updated` | server → client | enrollment ID/status/version | Patient/Doctor Care Program detail |
+| `care-task.v1.updated` | server → client | task ID/status/version | Patient task list/dashboard |
+| `care-alert.v1.created` | server → client | safe alert summary | Doctor Priority Inbox, Patient alert banner |
+| `care-alert.v1.updated` | server → client | alert ID/status/version | Priority Inbox/detail |
+| `care-report.v1.ready` | server → client | report ID, enrollment ID, windowType | Patient/Doctor report page |
+| `family-link.v1.updated` | server → client | link ID/status/version | Patient/family invitation page P1 |
 | `account.v1.banned` | server → client | `{ reason }` | Global logout/ban modal |
 | `payment.v1.updated` | server → client | safe PaymentOrder status payload | Payment result/history |
 | `refund.v1.updated` | server → client | safe PaymentRefund status payload | Refund detail/admin queue |
@@ -678,6 +832,14 @@ const queryKeys = {
   messages: (id: Id) => ["consultation-messages", id],
   queue: (doctorIdOrConsultationId: Id) => ["queue", doctorIdOrConsultationId],
   healthMetrics: (filter: unknown) => ["health-metrics", filter],
+  carePrograms: (filter: unknown) => ["care-programs", filter],
+  careEnrollments: (filter: unknown) => ["care-enrollments", filter],
+  careEnrollment: (id: Id) => ["care-enrollment", id],
+  careTasks: (enrollmentId: Id, filter: unknown) => ["care-tasks", enrollmentId, filter],
+  careAlerts: (filter: unknown) => ["care-alerts", filter],
+  careReports: (enrollmentId: Id) => ["care-reports", enrollmentId],
+  familyLinks: (filter: unknown) => ["family-links", filter],
+  medicalFacilities: (filter: unknown) => ["medical-facilities", filter],
   aiConversations: (filter: unknown) => ["ai-conversations", filter],
   aiConversation: (id: Id) => ["ai-conversation", id],
   aiQuota: ["ai-quota"],
@@ -735,6 +897,11 @@ const queryKeys = {
 | Chat/call surface | embedded current chat | Message DTO, FileDto, call state | CON-18/19, USER-03 | message and call events; optimistic message keyed clientMessageId; upload retry |
 | Health dashboard `/patient/health` | `/health-metric` | HealthMetricDto page/chart | HLTH-01 | filter metric/date; timezone; loading/empty/error per chart/table |
 | Health metric editor | modal current | metric draft | HLTH-02/03/04 | invalidate health/dashboard; critical alert may arrive notification socket |
+| Care Programs `/patient/care-programs` | New | authorized PatientCareProgramDto page | CARE-06 | enrollment status, adherence, next task và alert; `care-enrollment.v1.updated` |
+| Care Program detail `/patient/care-programs/:id` | New | enrollment, CareTaskDto, alerts, reports | CARE-07/09/11 | consent/baseline qua CARE-08; task response CARE-10; lifecycle actions chỉ từ `allowedActions` |
+| Care report `/patient/care-programs/:id/reports/:reportId` | New | CareReportDto + patient CareSummaryDto | CARE-11 | deterministic metrics luôn hiển thị; AI fallback/citation state |
+| Người thân `/patient/family` | New P1 | FamilyLinkDto page + effective `familyLinkLimit` | FAM-01..05 | invite/accept/pause/resume/revoke; không hiển thị dữ liệu sức khỏe chi tiết |
+| Tìm cơ sở y tế `/patient/medical-facilities` | New P1 sau Family | MedicalFacilityDto page | FAC-01/02 | source/verification label, distance và direction URL; không quảng bá xếp hạng chất lượng |
 | AI chat `/patient/ai` | `/ai-chat` | conversations/messages/quota | AI-01..07 | optimistic user message; pending AI response; quota rollback on provider failure |
 | Plans `/patient/plans` | New | PlanDto[], effective entitlement | BILL-01/02 | plan comparison; hide inactive; no price from client in create order |
 | Checkout/payment result `/patient/billing/orders/:id` | New | PaymentOrderDto | BILL-03/05/07 | open payment URL; poll/refetch after return; `payment.v1.updated`; never trust query success alone |
@@ -759,6 +926,9 @@ Patient page guards:
 | Queue `/doctor/queue` | New | QueueEntryDto[] + current consultation | CON-14/15 | `queue.v1.changed`; call-next atomic; 409 refetch; no manual client reordering |
 | Consultation list `/doctor/consultations` | `/consultations` | paged ConsultationDto | CON-07 | tabs request/upcoming/in-progress/history; message preview events |
 | Consultation detail `/doctor/consultations/:id` | selected card/chat | consultation/messages/patient health context | CON-08/16/17/18/19, HLTH-05, AI-08 P1 | join room; start/complete; authorized health range only; AI brief is draft |
+| Care enrollment `/doctor/care-programs` | New | published CareProgramDto + assigned enrollment page | CARE-01/05/06/07 | enroll Patient; assignment authorization; pending consent state |
+| Priority Inbox `/doctor/care-alerts` | New | CareAlertDto page | CARE-12..16 | stable severity/time sort; acknowledge/resolve/dismiss/link consultation; alert realtime events |
+| Patient Care detail `/doctor/care-programs/:id` | New | enrollment, tasks, reports, Doctor summary | CARE-07/09/11/17 | chỉ assigned Doctor; pause/resume/complete theo `allowedActions`; audit reason bắt buộc |
 | Reviews `/doctor/reviews` | dashboard/list partial | ReviewDto page/summary | DOC-08 | filter/rating; no edit/delete by doctor |
 | Notifications/global | Current partial | NotificationDto | NOTI-01..04 | request/check-in/called/message/verification events |
 
@@ -774,6 +944,10 @@ Doctor route guard phải phân biệt:
 | Dashboard `/admin/dashboard` | `/` | aggregate cards/charts | ADM-01 | date filter; server aggregation; không gọi 5 API rồi tự đếm như hiện tại |
 | User management `/admin/users` | `/user-management` | user page + totals | ADM-02..06 | lock/unlock/create admin; confirm modal; invalidate me nếu self-change |
 | Doctor verification `/admin/doctors/verification` | `/doc-verification` | applications/files/summary | DOC-04..06 | approve/reject reason; file preview; audit result notification |
+| Care Program management `/admin/care-programs` | New | CareProgramDto versions/rules | CARE-01..04 | draft/preview/publish/retire; published version immutable; Admin là publisher |
+| Care operations `/admin/care-operations` | New | bounded aggregate/alert audit | CARE-06/07/12 + Admin aggregate contract | audit/operational metrics; không đóng vai assigned Doctor |
+| Family audit `/admin/family-links` | New P1 | scoped FamilyLinkDto/audit | FAM-01 + audit endpoint | hỗ trợ tranh chấp/thu hồi; không mở dữ liệu sức khỏe |
+| Medical facilities `/admin/medical-facilities` | New P1 sau Family | drafts, verified facilities, disease mappings | FAC-02..05 | chọn map candidate, xác minh nguồn chính thức, publish mapping |
 | AI knowledge `/admin/ai/knowledge` | `/ai-knowledge-base` | documents + processing status | ADM-10..13 | upload progress; processing polling/event; deactivate instead of unsafe hard delete |
 | AI blacklist `/admin/ai/blacklist` | tab hiện tại | keyword page | ADM-14..17 | normalized keyword conflicts; mutation invalidation |
 | Plans `/admin/plans` | New | all plans | ADM-07..09 | edit creates future-facing plan version/snapshot behavior; existing orders unchanged |

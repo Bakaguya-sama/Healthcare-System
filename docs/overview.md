@@ -5,7 +5,7 @@
 Tài liệu mô tả phạm vi sản phẩm, nghiệp vụ, kiến trúc và trạng thái chuyển đổi của Healthcare Application từ DA1 sang DA2. Nguồn chuẩn đi kèm:
 
 - Nghiệp vụ: `docs/BUSINESS_RULES.md`.
-- Dữ liệu hiện tại: `docs/db-template-v7.dbml`; bản thiết kế Chronic Care đang chờ duyệt: `docs/db-template-v8.dbml`.
+- Dữ liệu đã triển khai trước migration: `docs/db-template-v7.dbml`; target schema DA2 đã duyệt: `docs/db-template-v8.dbml`.
 - Kế hoạch thực thi: `plan/refactor-plan.md`.
 - Kế hoạch sản phẩm Chronic Care: `plan/chronic-care-plan.md`.
 - Hợp đồng tích hợp frontend: `docs/fe-integration.md`.
@@ -20,7 +20,7 @@ Sản phẩm hỗ trợ:
 
 - Bệnh nhân theo dõi chỉ số sức khỏe và nhận cảnh báo tham khảo.
 - Bệnh nhân tham gia Care Program, nhận lịch đo và xem mức độ hoàn thành theo dõi.
-- Ở phạm vi P1, bệnh nhân có thể mời một người thân đồng hành để nhận lời nhắc chung khi bệnh nhân bỏ lỡ hoạt động theo dõi, trên cơ sở đồng ý và quyền chia sẻ do bệnh nhân kiểm soát.
+- Ở phạm vi P1, bệnh nhân có thể mời một hoặc nhiều người thân đồng hành trong giới hạn `familyLinkLimit` để nhận lời nhắc chung khi bệnh nhân bỏ lỡ hoạt động theo dõi, trên cơ sở đồng ý và quyền chia sẻ do bệnh nhân kiểm soát.
 - Rule engine version hóa phân tầng `normal|attention|urgent` với lý do giải thích được; kết quả không phải chẩn đoán.
 - Bác sĩ theo dõi Priority Inbox và báo cáo 7/30 ngày thay vì đọc toàn bộ dữ liệu thô.
 - Bệnh nhân chủ động đặt lịch theo slot bác sĩ đã mở.
@@ -29,7 +29,7 @@ Sản phẩm hỗ trợ:
 - Bác sĩ tiếp nhận yêu cầu, quản lý lịch, hàng đợi và tư vấn qua chat/audio/video.
 - AI cung cấp thông tin, tóm tắt và truy xuất tri thức RAG; không tự đưa ra chẩn đoán.
 - Gói hội viên và quota kiểm soát quyền lợi AI.
-- Ba tier `Free`, `Plus`, `Care` lần lượt phục vụ theo dõi cơ bản, tự theo dõi nâng cao và chương trình có Doctor/Clinic đồng hành.
+- Ba tier `Free`, `Plus`, `Care` lần lượt phục vụ theo dõi cơ bản, tự theo dõi nâng cao và chương trình có Doctor đồng hành. Clinic/Clinic Admin chưa thuộc phạm vi DA2.
 - Mọi enrollment đều bắt buộc Doctor assignment để xác định ownership; chỉ tier Care mặc định có quyền lợi Doctor review theo cadence đã snapshot.
 - Thanh toán, cancel payment order và full refund có quản trị viên duyệt.
 - Quản trị người dùng, hồ sơ bác sĩ, tri thức AI, billing và báo cáo vi phạm.
@@ -72,7 +72,7 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Chat, gửi tệp/hình ảnh và tham gia audio/video call khi consultation cho phép.
 - Nhập, sửa, xóa và xem biểu đồ HealthMetrics.
 - Tham gia Care Program, xem nhiệm vụ đo, mức độ hoàn thành và báo cáo 7/30 ngày.
-- Mời, xác nhận, sửa hoặc thu hồi quyền của một người thân đồng hành; chọn nhận lời nhắc bỏ lỡ nhiệm vụ mà không cần chia sẻ chỉ số sức khỏe chi tiết.
+- Mời, xác nhận, sửa hoặc thu hồi quyền của người thân đồng hành trong giới hạn `familyLinkLimit`; chọn nhận lời nhắc bỏ lỡ nhiệm vụ mà không cần chia sẻ chỉ số sức khỏe chi tiết.
 - Nhận Care Alert có lý do rõ ràng và chuyển sang đặt lịch/on-demand consultation khi cần.
 - Tìm cơ sở y tế theo chuyên khoa, địa điểm và khoảng cách; xem lý do gợi ý, nguồn dữ liệu và liên kết chỉ đường. Kết quả không phải khuyến nghị về chất lượng chuyên môn.
 - Hỏi AI, xem citation/lịch sử và phần trăm quota token còn lại.
@@ -307,7 +307,7 @@ Mongoose là ODM chính. Mỗi collection có một canonical model thuộc modu
 
 ## 7. Dữ liệu
 
-DB v7 hiện gồm 27 collections và vẫn là mốc dữ liệu đã chốt. Bản nháp `docs/db-template-v8.dbml` gồm 42 collections, bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 chỉ là thiết kế để review; chưa được xem là đã triển khai cho tới khi có migration, verifier và kiểm thử tương ứng.
+DB v7 gồm 27 collections và vẫn là baseline đã triển khai trước migration. `docs/db-template-v8.dbml` gồm 42 collections, trong đó có hai collection hạ tầng migration/lock, và đã được duyệt làm target schema DA2. V8 bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 có thể dùng làm nguồn vẽ ERD và triển khai model, nhưng chưa được xem là đã triển khai vật lý cho tới khi có migration, verifier và kiểm thử tương ứng.
 
 Nguyên tắc:
 
@@ -397,7 +397,7 @@ Nếu muốn giữ full refund trong release, payment cơ bản phải ổn trư
 
 ## 12. Tiêu chí hoàn thành
 
-- Business rule, API contract và migration không mâu thuẫn DB version đã được duyệt; trước khi v8 được duyệt/triển khai, v7 vẫn là current-state canonical.
+- Business rule, API contract và migration không mâu thuẫn DB v8 đã duyệt; v7 chỉ còn là baseline đã triển khai trước migration, còn v8 là target canonical cho DA2.
 - Backend, Web Client và Web Admin build/typecheck/test xanh.
 - Critical E2E cho auth, Care Program, monitoring, alert, Doctor Inbox, AI fallback, booking/queue/chat và feature P1 được bật.
 - Race/idempotency tests pass cho slot, call-next, IPN và refund.

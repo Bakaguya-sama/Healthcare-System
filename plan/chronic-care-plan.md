@@ -4,7 +4,7 @@
 
 HealthAI DA2 được định vị là nền tảng **theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa**. MVP bắt buộc có hai Care Program cho người trưởng thành: **tăng huyết áp** và **tiểu đường**; cả hai dùng chung Program engine, chỉ khác metric context, rule set và nội dung đã duyệt.
 
-Thiết kế dữ liệu đề xuất nằm tại `docs/db-template-v8.dbml`. Đây là bản nháp để review; chỉ trở thành schema triển khai sau khi các quyết định mở được chốt và migration/version verifier được tạo.
+Thiết kế dữ liệu đã được duyệt nằm tại `docs/db-template-v8.dbml` và là target schema của DA2. Việc được duyệt không đồng nghĩa các collection/index đã tồn tại; triển khai vẫn phải đi qua migration có version và `database:verify`.
 
 Sản phẩm không khám bệnh, không chẩn đoán, không kê đơn và không thay thế bác sĩ hoặc cơ sở y tế. Hệ thống giúp bệnh nhân duy trì việc theo dõi giữa hai lần khám, giúp bác sĩ nhận biết bệnh nhân cần chú ý và hỗ trợ hai bên kết nối đúng thời điểm.
 
@@ -28,14 +28,15 @@ Sản phẩm không khám bệnh, không chẩn đoán, không kê đơn và kh�
 |---|---|
 | Patient | Kế hoạch theo dõi rõ ràng, nhắc đúng lịch, biết khi nào nên liên hệ bác sĩ, xem tiến triển dễ hiểu. |
 | Doctor | Priority Inbox, xu hướng chỉ số, tóm tắt trước tư vấn và giảm thời gian đọc dữ liệu thô. |
-| Admin/Clinic | Quản lý chương trình, gói dịch vụ, chất lượng vận hành và chỉ số sử dụng. |
+| Admin | Quản lý chương trình, gói dịch vụ, chất lượng vận hành và chỉ số sử dụng. |
 
 ### 2.3 Giá trị kinh tế
 
-MVP hỗ trợ hai mô hình, nhưng chỉ cần chứng minh một mô hình trong demo:
+MVP chứng minh mô hình kinh doanh trực tiếp với Patient:
 
 1. **B2C subscription:** bệnh nhân mua gói theo dõi theo tháng, gồm Care Program, báo cáo định kỳ, quota AI và quyền lợi tư vấn.
-2. **B2B2C clinic package:** phòng khám sử dụng dashboard để theo dõi nhóm bệnh nhân và bán gói chăm sóc sau khám/tái khám.
+
+Mô hình B2B2C cho phòng khám là định hướng sau DA2. Phiên bản hiện tại chưa có `Clinic`, `ClinicAdmin`, tenant hoặc quan hệ Doctor–Clinic nên không đưa phòng khám vào actor/use case hay cam kết demo.
 
 Không đưa claim tiết kiệm chi phí y tế hoặc cải thiện kết quả lâm sàng nếu chưa có nghiên cứu người dùng và dữ liệu xác nhận. Trong DA2, giá trị kinh tế được chứng minh bằng chỉ số vận hành và conversion.
 
@@ -69,23 +70,23 @@ Bao gồm toàn bộ Free và:
 - Quota AI cao hơn Free.
 - Lịch sử mở rộng chỉ áp dụng nếu retention policy được duyệt; dữ liệu tối thiểu và quyền truy cập dữ liệu của chính Patient không được phụ thuộc Plan.
 - Được thực hiện tối đa **3 consultations trong mỗi subscription cycle**; chi phí từng phiên vẫn thanh toán riêng nếu Plan không cấu hình ưu đãi.
-- Khi tính năng P1 được bật, Patient có thể mua thêm quyền mời một người thân đồng hành để nhận nhắc nhở bỏ lỡ nhiệm vụ; quyền này không bao gồm xem dữ liệu sức khỏe chi tiết.
+- Khi tính năng P1 được bật, Patient có thể mua thêm `familyLinkLimit` hoặc dùng giới hạn đã có trong Plan để mời một hoặc nhiều người thân nhận nhắc nhở bỏ lỡ nhiệm vụ; quyền này không bao gồm xem dữ liệu sức khỏe chi tiết.
 
-#### Care — có bác sĩ/phòng khám đồng hành
+#### Care — có bác sĩ đồng hành
 
 Bao gồm toàn bộ Plus và:
 
-- Care Program do Doctor/Clinic gán và quản lý.
+- Care Program do Doctor được phân công gán và theo dõi; Admin quản lý template/rule lifecycle.
 - Doctor review định kỳ theo cadence được snapshot khi enrollment/subscription bắt đầu.
 - Care Alert xuất hiện trong Doctor Priority Inbox của người phụ trách.
 - Được thực hiện tối đa **6 consultations trong mỗi subscription cycle**; Plan có thể cấu hình mức ưu đãi giá nhưng không dùng mô hình credit trong MVP.
 - Follow-up task/note sau consultation.
 - Báo cáo có trạng thái Doctor reviewed/confirmed; trạng thái này không có nghĩa chứng nhận chẩn đoán.
 - Nhắc tái khám.
-- Khi tính năng P1 được bật, bao gồm một người thân đồng hành nhận nhắc nhở bỏ lỡ nhiệm vụ theo consent của Patient.
+- Khi tính năng P1 được bật, số người thân đồng hành được giới hạn bởi `familyLinkLimit` trong Plan snapshot; từng người phải xác nhận liên kết và consent riêng.
 - Kênh nhắn tin trong phạm vi Consultation đang được authorize; Care không tạo kênh chat 24/7.
 
-Care chỉ được quảng bá SLA phản hồi nếu Clinic thực sự cấu hình nhân sự, giờ phục vụ và cơ chế giám sát SLA. Nếu không có SLA, giao diện phải ghi rõ Doctor không theo dõi realtime và Care Alert không thay thế cấp cứu.
+DA2 không quảng bá SLA phản hồi vì chưa có mô hình Clinic và cơ chế trực vận hành. Giao diện phải ghi rõ Doctor không theo dõi realtime và Care Alert không thay thế cấp cứu.
 
 #### Ma trận entitlement đề xuất
 
@@ -100,7 +101,7 @@ Giá và giới hạn số lượng là dữ liệu cấu hình của `Plans`, k
 | AI RAG/summary | Quota cơ bản | Quota cao + weekly summary | Quota cao + Doctor-context summary |
 | Reminder | In-app cơ bản | Smart + quiet hours | Smart + follow-up/tái khám |
 | Medication reminder | Không/P1 | Có khi feature bật | Có khi feature bật |
-| Người thân nhận nhắc bỏ lỡ nhiệm vụ | Không | Mua thêm khi P1 bật | Bao gồm 1 người khi P1 bật |
+| Người thân nhận nhắc bỏ lỡ nhiệm vụ | Không | Theo `familyLinkLimit`/add-on khi P1 bật | Theo `familyLinkLimit` trong Plan khi P1 bật |
 | PDF/CSV export | Dữ liệu cơ bản | Báo cáo nâng cao | Báo cáo nâng cao/reviewed |
 | Doctor Priority Inbox | Không | Không | Có |
 | Số consultations tối đa mỗi cycle | 1 | 3 | 6 |
@@ -212,7 +213,7 @@ Doctor có thể:
 - Acknowledge/resolve alert, ghi review note, tạo consultation và giao follow-up task.
 - Pause, complete hoặc chuyển version enrollment với lý do/audit.
 
-Admin/Clinic có thể:
+Admin có thể:
 
 - Tạo/chỉnh draft bằng **Program Builder Lite** theo các khối cấu hình có sẵn; DA2 không cần drag-and-drop workflow builder tổng quát.
 - Preview lịch/task/rule trên dữ liệu giả lập trước khi publish.
@@ -290,8 +291,8 @@ Mở rộng theo module và mức tái sử dụng, không fork toàn bộ code 
 | P0 | Tiểu đường | Enrollment, tasks, alerts, report, AI | Glucose context, rule/content đã duyệt | Chứng minh engine tái sử dụng và tăng giá trị Plus/Care |
 | P1 | Medication adherence | Schedule, reminder, report | Medication plan/log và safety copy | Add-on Plus/Care |
 | P1 | Kiểm soát cân nặng/chuyển hóa | Goals, metric, check-in, content | Weight/waist/habit templates | Subscription Patient-led, Doctor-assigned dễ tiếp cận |
-| P2 | Chăm sóc sau khám 7/14/30 ngày | Tasks, content, consultation, report | Checklist/attachment theo chuyên khoa | Clinic bán gói follow-up |
-| P1 | Người thân đồng hành | Nhắc nhở/thông báo | Người thân có tài khoản Patient, xác nhận liên kết, giới hạn một người và quyền theo từng loại dữ liệu | Add-on Plus, gồm trong Care |
+| Sau DA2 | Chăm sóc sau khám theo mô hình Clinic | Tasks, content, consultation, report | Cần bổ sung Clinic/tenant/Doctor membership trước | Không thuộc actor/use case DA2 |
+| P1 | Người thân đồng hành | Nhắc nhở/thông báo | Người thân có tài khoản Patient, xác nhận từng liên kết, tổng số active không vượt `familyLinkLimit` và quyền theo từng loại dữ liệu | Add-on Plus, cấu hình trong Care |
 | P1 | Tìm cơ sở y tế | Tìm theo bệnh/chuyên khoa và vị trí | Admin chọn kết quả bản đồ, tạo bản nháp, xác minh nguồn chính thức; tìm theo khoảng cách | Tạo bước hành động sau cảnh báo/tái khám; hỗ trợ hợp tác phòng khám sau DA2 |
 | Sau DA2 | Thiết bị đo/Health platform | Metric ingestion | Device identity, provenance, reconciliation | Giảm nhập tay, tăng retention |
 
@@ -351,6 +352,7 @@ Một hành trình demo đạt yêu cầu:
 - Admin/Doctor tạo hoặc chỉnh draft template theo permission; Admin quản lý publish/retire và rule/ngưỡng theo version.
 - Doctor `active + approved` enroll Patient vào chương trình có thời gian bắt đầu/kết thúc; enrollment không được active nếu chưa có Doctor assignment.
 - Một enrollment có trạng thái `pending`, `active`, `paused`, `completed`, `cancelled`.
+- Enrollment chỉ `active` sau khi Doctor/Program/Rule/entitlement hợp lệ, Patient consent đúng version và hoàn thành baseline bắt buộc. Doctor pause/resume/complete; Patient có thể yêu cầu pause hoặc rút consent để cancel; completed/cancelled không reopen.
 - Chương trình cấu hình loại chỉ số, tần suất đo, timezone và rule cảnh báo.
 - Patient xem mục tiêu theo dõi và xác nhận tham gia trước khi kích hoạt.
 
@@ -359,6 +361,7 @@ Một hành trình demo đạt yêu cầu:
 - Hệ thống sinh nhiệm vụ đo chỉ số theo lịch chương trình.
 - Patient có thể đánh dấu hoàn thành bằng cách nhập HealthMetric hợp lệ.
 - Adherence chỉ là tỷ lệ hoàn thành nhiệm vụ theo dõi, không phải đánh giá tuân thủ điều trị.
+- Task `missed` là terminal trong DA2; chỉ số nhập muộn vẫn dùng cho biểu đồ/evaluation nhưng không hồi tố adherence của cửa sổ cũ.
 - Nhắc việc sử dụng Notification + Outbox + BullMQ và phải idempotent.
 
 #### CC-3. Rule-based Risk Stratification
@@ -375,6 +378,7 @@ Một hành trình demo đạt yêu cầu:
 - Doctor chỉ xem alert của Patient đang thuộc chương trình mình phụ trách hoặc consultation được authorize.
 - Priority Inbox sắp theo severity, thời điểm phát hiện và trạng thái xử lý; không dùng AI score làm nguồn quyết định duy nhất.
 - Doctor có thể acknowledge, contact patient, link consultation hoặc resolve với ghi chú.
+- Doctor được resolve trực tiếp alert open; backend đồng thời ghi acknowledge. Resolve/dismiss là terminal và dismiss bắt buộc có reason code được phép.
 
 #### CC-5. Chronic Care Summary
 
@@ -393,7 +397,7 @@ Một hành trình demo đạt yêu cầu:
 
 - Medication schedule và medication adherence; không tự chỉnh liều hoặc khuyến nghị ngừng thuốc.
 - PDF report chia sẻ do Patient chủ động xuất.
-- B2B clinic dashboard và cohort analytics nâng cao.
+- Cohort analytics nâng cao cho Admin; dashboard B2B Clinic để sau DA2 khi có mô hình Clinic/tenant.
 - Entitlement đầy đủ cho Free/Plus/Care; trong MVP có thể dùng seed subscription trước khi VNPAY sẵn sàng.
 - FCM/mobile critical flow nếu web + in-app notification đã hoàn chỉnh.
 
@@ -412,7 +416,7 @@ Một hành trình demo đạt yêu cầu:
 - AI chẩn đoán, kê đơn, đổi liều hoặc dự đoán biến cố lâm sàng.
 - Doctor theo dõi realtime 24/7 hoặc cam kết phản hồi cấp cứu.
 - Tích hợp thiết bị y tế/Bluetooth, nhà thuốc, bảo hiểm và giao diện đặt lịch chính thức của bệnh viện.
-- Người thân đồng hành nhiều contact hoặc chia sẻ dữ liệu chi tiết ngoài consent P1.
+- Chia sẻ HealthMetrics, Care Alert, AI conversation hoặc consultation chi tiết cho người thân nằm ngoài P1; số liên kết nhắc nhở cơ bản vẫn theo `familyLinkLimit`.
 - WebRTC production-grade, full refund, GraphRAG và autonomous medical agent nếu làm chậm P0.
 
 ## 6. Ranh giới AI và an toàn
@@ -493,7 +497,7 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 | BE-CC-006 | Deterministic 7/30-day report + SummaryInput snapshot | P0 | BE-CC-002, BE-CC-004 | Normalization/aggregation/timezone/provenance tests pass |
 | BE-CC-007 | AI narrative summary + output guard | P0 | BE-CC-006, AI/RAG | Schema/numerical grounding/safety/fallback/privacy tests pass |
 | BE-CC-008 | Consultation link/follow-up | P0 | BE-CC-004, NF-2/NF-3 | Critical journey E2E pass |
-| BE-CC-009 | Product/clinic metrics | P0 | BE-CC-001..008 | KPI queries bounded and verified |
+| BE-CC-009 | Product/operations metrics | P0 | BE-CC-001..008 | KPI queries bounded and verified |
 | BE-CC-010 | Medication adherence | P1 | BE-CC-001/002 | Reminder/log/privacy tests pass |
 | BE-CC-011 | Diabetes program | P0 | BE-CC-001..007 | E2E pass, no disease-specific fork of core flow |
 | BE-CC-012 | Free/Plus/Care entitlement | P0 | Plans/Subscriptions, AI quota | Backend enforcement/downgrade/safety tests pass |

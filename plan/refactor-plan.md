@@ -1351,7 +1351,7 @@ Một task `BE-RF-*` chỉ Done khi:
 
 > Quyết định sản phẩm ngày 23/09/2026: DA2 ưu tiên **HealthAI Chronic Care**. Phần A về refactor được giữ nguyên làm lịch sử kỹ thuật và bằng chứng hoàn tất. Từ Phần B trở đi, kế hoạch thực thi phải theo `plan/PROJECT_OVERVIEW_DA2.md`, `plan/chronic-care-plan.md`, `docs/overview.md` và `docs/BUSINESS_RULES.md`. Khi có xung đột, business rules và Chronic Care P0 được ưu tiên; các NF cũ chỉ được nhận nếu phục vụ hành trình cốt lõi hoặc sau khi P0 đạt gate.
 >
-> `docs/db-template-v8.dbml` là schema draft cho phần feature mới. Không sửa migration lịch sử hoặc triển khai collection/index v8 trước khi design review chốt; DB v7 vẫn là baseline của phần refactor đã hoàn tất.
+> `docs/db-template-v8.dbml` đã được duyệt ngày 25/09/2026 làm target schema cho feature DA2. Không sửa migration lịch sử; DB v7 vẫn là baseline đã triển khai của phần refactor, còn collection/index v8 phải được tạo bằng migration có version và verifier.
 
 ## 8. Điều kiện bắt đầu feature mới
 
@@ -1405,7 +1405,7 @@ Quy tắc bổ sung cho AI/Health: feature chỉ được code sau khi chốt me
 1. Tạo `CarePrograms`, giữ `taskTemplates` nhúng theo từng phiên bản; phiên bản bất biến sau publish và có trạng thái `draft|published|retired`.
 2. Admin và Doctor được tạo/chỉnh draft theo quyền; chỉ Admin quản lý nguồn, publish/retire rule/ngưỡng.
 3. Tạo `PatientCarePrograms` với snapshot Program version, consent, timezone, baseline và Doctor `active + approved` bắt buộc trước khi active.
-4. Trạng thái enrollment: `pending|active|paused|completed|cancelled`; chỉ active sinh task/evaluation mới.
+4. Trạng thái enrollment: `pending|active|paused|completed|cancelled`; chỉ active sinh task/evaluation mới. `pending -> active` cần Doctor/Program/Rule/entitlement/consent/baseline hợp lệ; completed/cancelled là terminal.
 5. MVP có hai template dùng chung engine: tăng huyết áp và tiểu đường; không fork luồng theo từng bệnh.
 6. Mọi chuyển version, pause/complete/cancel và patient-specific override phải có actor, reason, effective time và audit.
 
@@ -1864,7 +1864,7 @@ Backlog Chronic Care dưới đây là phạm vi điều khiển release; `plan/
 | BE-CC-006 | Deterministic report + SummaryInput snapshot | P0 | BE-CC-002/004 | Normalize/aggregate/timezone/provenance pass |
 | BE-CC-007 | AI narrative + output guard/fallback | P0 | BE-CC-006, AI/RAG | Schema/grounding/safety/privacy/evaluation pass |
 | BE-CC-008 | Consultation link/follow-up | P0 | BE-CC-004, NF-2/NF-3 slice | Critical journey E2E pass |
-| BE-CC-009 | Product/clinic metrics | P0 | BE-CC-001..008 | Bounded KPI queries verified |
+| BE-CC-009 | Product/operations metrics | P0 | BE-CC-001..008 | Bounded KPI queries verified |
 | BE-CC-010 | Medication adherence | P1 | BE-CC-001/002 | Reminder/log/privacy tests pass |
 | BE-CC-011 | Diabetes Program | P0 | BE-CC-001..007 | E2E pass, shared engine |
 | BE-CC-012 | Free/Plus/Care entitlement | P0 | Plans/Subscriptions, AI quota | Enforcement/downgrade/safety tests pass |
@@ -1986,7 +1986,7 @@ Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nế
 | Diabetes Program trên engine chung | 4-6 | P0 |
 | Free/Plus/Care + consultation ledger | 6-9 | P0 |
 | VNPAY payment/cancel/outbox grant/reconciliation | 10-15 | P0 |
-| Product/clinic metrics + release evidence | 4-6 | P0 |
+| Product/operations metrics + release evidence | 4-6 | P0 |
 | Người thân đồng hành cơ bản | 5-8 | P1 |
 | Tìm cơ sở y tế cơ bản | 4-7 | P1 sau Người thân; cắt nếu thiếu thời gian |
 

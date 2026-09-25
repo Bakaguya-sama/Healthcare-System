@@ -33,6 +33,10 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 12. Admin là owner quản lý lifecycle, version, publish/retire của Program Template và Care Rule Set. Doctor được tạo/chỉnh draft nhưng không tự publish rule/ngưỡng ngoài policy của Admin.
 13. Admin phải lưu nguồn/căn cứ, người duyệt, simulation/test evidence và audit cho mỗi rule/ngưỡng trước publish; AI không được tự tạo rồi tự động phát hành rule lâm sàng.
 14. Doctor assignment bắt buộc ở mọi tier để xác định ownership và authorization; không mặc định tạo nghĩa vụ review định kỳ, SLA hoặc chat 24/7. Các quyền đó chỉ có khi Plan/Enrollment snapshot ghi rõ.
+15. `pending -> active` chỉ xảy ra tự động khi đồng thời có Doctor `active + approved`, Program `published`, Care Rule `active`, entitlement hợp lệ, Patient đã chấp nhận đúng consent version và hoàn thành toàn bộ baseline bắt buộc. Thiếu một điều kiện thì enrollment vẫn `pending` và không sinh task/evaluation.
+16. Assigned Doctor được chuyển `active -> paused` và `paused -> active` với lý do. Patient có thể gửi yêu cầu pause; Doctor phải xử lý yêu cầu trước khi resume. Resume phải kiểm tra lại Doctor, Program/Rule, consent và entitlement.
+17. Assigned Doctor hoặc worker completion được duyệt có thể chuyển `active|paused -> completed` khi đạt completion criteria; phải lưu actor/reason. Patient rút consent làm enrollment chưa kết thúc chuyển `cancelled` ngay; Doctor/Admin chỉ cancel với lý do và quyền phù hợp.
+18. `completed` và `cancelled` là trạng thái cuối, không reopen. Nếu Patient tiếp tục chương trình, Doctor tạo enrollment mới để giữ nguyên lịch sử và snapshot cũ.
 
 ## Monitoring Task và mức độ hoàn thành
 
@@ -48,6 +52,9 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 10. Mọi thời gian lưu UTC; việc xác định ngày và cửa sổ task dùng timezone snapshot của enrollment.
 11. Worker chỉ materialize task trong rolling window cấu hình; không tạo toàn bộ task dài hạn ngay khi enroll nếu gây write amplification.
 12. Quiet hours, giới hạn tần suất và trạng thái hoàn thành phải được kiểm tra trước khi gửi reminder để tránh notification fatigue.
+13. Worker chuyển `scheduled -> due` tại `windowStart`; nguồn hoàn thành hợp lệ chuyển `scheduled|due -> completed`; quá `windowEnd` chuyển `due -> missed`. Enrollment bị pause/cancel hoặc task không còn áp dụng có thể chuyển `scheduled|due -> cancelled` với reason.
+14. `completed`, `missed`, `cancelled` là trạng thái cuối trong DA2. Dữ liệu nhập sau hạn vẫn được lưu, hiển thị trong biểu đồ và có thể tạo evaluation mới nhưng không đổi task `missed` thành completed và không hồi tố adherence của cửa sổ cũ.
+15. HealthMetric correction dùng append-only replacement/void. Nếu có metric thay thế hợp lệ, task đã completed có thể đổi `completionSourceId` trong transaction và ghi audit; không đảo ngược trạng thái task. Evaluation/report/summary bị ảnh hưởng phải được tạo version thay thế, không ghi đè lịch sử.
 
 ## Người thân đồng hành và nhắc nhở hỗ trợ (P1)
 
@@ -56,10 +63,12 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 3. Consent phải tách bạch tối thiểu hai quyền: `missed_task_reminder` và `weekly_progress`. Các quyền xem HealthMetrics chi tiết, Care Alert, AI conversation, consultation, hồ sơ hoặc dữ liệu y tế nhạy cảm đều mặc định `false` và ngoài P1.
 4. Patient luôn nhận reminder trước. Contact chỉ nhận reminder khi task Patient-required đã `missed`, enrollment còn `active`, contact đã consent và qua một grace period cấu hình. Notification chỉ nói Patient có một hoạt động theo dõi chưa hoàn thành; không chứa metric, severity, diagnosis, Doctor name, AI content hay lý do alert.
 5. `urgent` không tự gửi cho contact và không biến contact thành emergency contact. Patient chỉ có thể bật một consent riêng cho notification `urgent` sau khi đọc cảnh báo; nội dung gửi vẫn không nêu chi tiết y khoa và phải theo safety policy đã duyệt.
-6. Patient có thể thu hồi quyền hoặc tạm dừng liên kết bất cứ lúc nào. Việc thu hồi có hiệu lực ngay cho notification/query mới nhưng không đăng xuất hay vô hiệu hóa tài khoản Patient độc lập của người thân.
-7. Invitation, acceptance, consent version, thay đổi scope, reminder event, delivery result, revoke và actor phải được ghi trong `AuditLogs` với `domain = care` và các bản ghi `FamilyReminders` liên quan. Người thân không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được liên kết.
-9. `FamilyLinks` đã biểu diễn quan hệ nhiều-nhiều giữa các tài khoản nên DA2 không tạo `FamilyGroups`. Chỉ thêm group khi có nghiệp vụ thật sự như hộ gia đình dùng chung, vai trò trưởng nhóm hoặc hội thoại nhóm.
-8. Reminder cho contact tuân thủ quiet hours, frequency cap và deduplication độc lập với notification của Patient. Không gửi reminder nếu task đã hoàn thành, bị hủy hoặc enrollment không còn active.
+6. `pending -> active` chỉ khi đúng người được mời accept trước `invitationExpiresAt`; người được mời có thể chuyển `pending -> declined`, worker chuyển invitation quá hạn sang `expired`, Patient có thể hủy invitation thành `revoked`.
+7. Patient được chuyển `active -> paused` và `paused -> active`. Patient hoặc người thân có thể chuyển `active|paused -> revoked`; revoke có hiệu lực ngay cho notification/query mới nhưng không đăng xuất hay vô hiệu hóa tài khoản Patient độc lập của người thân.
+8. Khi mời lại cùng cặp Patient–người thân ở trạng thái `revoked|declined|expired`, hệ thống tái sử dụng `FamilyLinks`, tăng `invitationVersion`, reset dữ liệu vòng mời hiện tại và chuyển về `pending`. Mọi FamilyPermission cũ vẫn revoked; khi accept phải tạo permission/consent version mới. Lịch sử các lần mời nằm trong `AuditLogs`.
+9. Invitation, acceptance/decline/expiry, consent version, pause/resume, thay đổi scope, reminder event, delivery result, revoke và actor phải được ghi trong `AuditLogs` với `domain = care` và các bản ghi `FamilyReminders` liên quan. Người thân không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được liên kết.
+10. Reminder cho contact tuân thủ quiet hours, frequency cap và deduplication độc lập với notification của Patient. Không gửi reminder nếu task đã hoàn thành, bị hủy hoặc enrollment không còn active.
+11. `FamilyLinks` đã biểu diễn quan hệ nhiều-nhiều giữa các tài khoản nên DA2 không tạo `FamilyGroups`. Chỉ thêm group khi có nghiệp vụ thật sự như hộ gia đình dùng chung, vai trò trưởng nhóm hoặc hội thoại nhóm.
 
 ## Care rule, evaluation và alert
 
@@ -73,6 +82,9 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 8. Alert có trạng thái `open`, `acknowledged`, `resolved`, `dismissed`; acknowledge không đồng nghĩa đã giải quyết hoặc đã liên hệ Patient.
 9. Chỉ Doctor được phân công, Patient sở hữu dữ liệu và Admin có quyền audit mới xem alert theo phạm vi tương ứng.
 10. Resolve/dismiss phải lưu actor, timestamp và lý do; alert quan trọng không được hard-delete.
+11. Assigned Doctor có thể chuyển `open -> acknowledged -> resolved` hoặc `open -> resolved`. Khi resolve trực tiếp từ `open`, backend phải ghi acknowledge và resolve cùng actor/time trong một transaction để không mất dấu đã tiếp nhận.
+12. Assigned Doctor được chuyển `open|acknowledged -> dismissed` chỉ với reason code được phép như `duplicate`, `invalid_metric`, `rule_false_positive`. Admin có quyền audit nhưng không thay Doctor đưa ra clinical disposition.
+13. `resolved` và `dismissed` là trạng thái cuối, không reopen. Evaluation trong cùng deduplication window phải dùng lại alert `open|acknowledged`; evaluation ở window mới hoặc sau khi alert cũ kết thúc tạo alert mới.
 
 ## Tìm cơ sở y tế theo nhu cầu theo dõi (P1)
 
@@ -238,7 +250,7 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 10a. Khi tính năng Người thân đồng hành P1 được bật, số người thân active lấy từ `familyLinkLimit` trong Plan snapshot; Care có thể mặc định một hoặc nhiều người, Plus có thể mua add-on. Entitlement chỉ cấp số lượng liên kết, không ghi đè consent hoặc mở quyền xem dữ liệu chi tiết.
 11. Doctor-reviewed/confirmed report chỉ xác nhận Doctor đã xem báo cáo; không được trình bày thành chẩn đoán, đơn thuốc hoặc bảo đảm kết quả điều trị.
 12. Nhắn tin Doctor chỉ tồn tại trong Consultation được authorize. Không tier nào mặc định tạo chat 24/7 hoặc cam kết phản hồi cấp cứu.
-13. SLA phản hồi chỉ được hiển thị khi Clinic có giờ phục vụ, nhân sự, escalation và cơ chế đo SLA đã cấu hình; nếu không, giao diện phải nêu rõ Doctor không theo dõi realtime.
+13. DA2 chưa có Clinic/Clinic Admin và không quảng bá SLA phản hồi. Giao diện phải nêu rõ Doctor không theo dõi realtime; SLA theo tổ chức chỉ được xem xét sau DA2 khi có mô hình Clinic, giờ phục vụ, nhân sự, escalation và cơ chế đo lường.
 14. Cảnh báo `urgent`, safety template và quyền truy cập dữ liệu cơ bản của Patient không được tắt khi hết hạn, downgrade hoặc vượt quota AI.
 15. Downgrade/hết hạn không xóa HealthMetrics, Care Alerts hoặc báo cáo lịch sử. Quyền lợi trả phí mới dừng theo `paidThroughAt` và grace policy đã snapshot.
 16. Giới hạn lưu lịch sử theo tier chỉ được áp dụng sau privacy/retention review; không được làm mất quyền truy cập/xuất dữ liệu tối thiểu của chính Patient.

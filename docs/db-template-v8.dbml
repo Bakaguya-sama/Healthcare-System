@@ -1,8 +1,9 @@
-// HEALTHCARE DB SCHEMA v8 DRAFT FOR REVIEW - MongoDB + NestJS + Mongoose
+// HEALTHCARE DB SCHEMA v8 APPROVED TARGET DESIGN - MongoDB + NestJS + Mongoose
 // Extends v7 with Chronic Care, deterministic reports/AI summaries,
 // subscription benefits, consultation usage, family reminders and facility search.
 // Product scope: health monitoring and consultation support, not diagnosis.
-// This is a design draft only; no production migration is implied by this file.
+// Approved on 2026-09-25 as the DA2 target schema. Approval does not imply deployment;
+// physical collections/indexes still require versioned migrations and verification.
 // MongoDB partial, sparse, TTL, time-series and Atlas Vector Search indexes
 // must be created and verified by versioned migration files.
 // Set Mongoose autoIndex/autoCreate=false in staging and production-like environments.
@@ -622,8 +623,12 @@ Table PatientCarePrograms {
   startedAt datetime
   expectedEndAt datetime
   pausedAt datetime
+  pausedBy ObjectID
   pauseReason varchar
+  resumedAt datetime
+  resumedBy ObjectID
   completedAt datetime
+  completedBy ObjectID
   completionReason varchar
   cancelledAt datetime
   cancelledBy ObjectID
@@ -636,7 +641,7 @@ Table PatientCarePrograms {
     (patientId, status, createdAt)
     (doctorId, status, updatedAt)
     (careProgramId, status)
-    (patientId, careProgramId) [note: "Partial unique for statuses pending|active if policy permits only one active enrollment per program"]
+    (patientId, careProgramId) [note: "Partial unique for statuses pending|active|paused; terminal enrollment history may coexist"]
   }
 }
 
@@ -647,7 +652,7 @@ Table CareTasks {
   doctorId ObjectID
   templateKey varchar [not null]
   taskType varchar [not null, note: "metric, check_in, education, appointment, doctor_review; medication, journal are P1"]
-  status varchar [not null, note: "scheduled, due, completed, missed, cancelled"]
+  status varchar [not null, note: "scheduled, due, completed, missed, cancelled; missed/completed/cancelled are terminal in DA2"]
   required boolean [not null, default: true]
   scheduleVersion varchar [not null]
   scheduledFor datetime [not null]
@@ -853,11 +858,19 @@ Table FamilyLinks {
   patientId ObjectID [not null]
   familyUserId ObjectID [not null, note: "The family member must register a normal Patient account; no family role is introduced"]
   relationship varchar
-  status varchar [not null, note: "pending, active, paused, revoked"]
+  status varchar [not null, note: "pending, active, paused, revoked, declined, expired; revoked/declined/expired may be re-invited by incrementing invitationVersion and returning to pending"]
+  invitationVersion int [not null, default: 1, note: "Incremented when the same patient-family pair is invited again; earlier attempts remain in AuditLogs"]
   invitedBy ObjectID [not null, note: "Normally the patient"]
   invitedAt datetime [not null]
+  invitationExpiresAt datetime [not null]
   acceptedAt datetime
   pausedAt datetime
+  pausedBy ObjectID
+  resumedAt datetime
+  resumedBy ObjectID
+  declinedAt datetime
+  declineReason varchar
+  expiredAt datetime
   revokedAt datetime
   revokedBy ObjectID
   revokeReason varchar
@@ -1202,6 +1215,9 @@ Ref: PatientCarePrograms.patientId > Users.id
 Ref: PatientCarePrograms.doctorId > Users.id
 Ref: PatientCarePrograms.careProgramId > CarePrograms.id
 Ref: PatientCarePrograms.careRuleId > CareRules.id
+Ref: PatientCarePrograms.pausedBy > Users.id
+Ref: PatientCarePrograms.resumedBy > Users.id
+Ref: PatientCarePrograms.completedBy > Users.id
 Ref: PatientCarePrograms.cancelledBy > Users.id
 Ref: PatientCarePrograms.createdBy > Users.id
 Ref: CareTasks.patientCareProgramId > PatientCarePrograms.id
@@ -1239,6 +1255,8 @@ Ref: SubscriptionAddOns.sourceOrderId > PaymentOrders.id
 Ref: FamilyLinks.patientId > Users.id
 Ref: FamilyLinks.familyUserId > Users.id
 Ref: FamilyLinks.invitedBy > Users.id
+Ref: FamilyLinks.pausedBy > Users.id
+Ref: FamilyLinks.resumedBy > Users.id
 Ref: FamilyLinks.revokedBy > Users.id
 Ref: FamilyPermissions.patientId > Users.id
 Ref: FamilyPermissions.familyLinkId > FamilyLinks.id

@@ -18,10 +18,10 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Cho phép bệnh nhân tham gia Care Program, nhận lịch đo và xem báo cáo 7/30 ngày.
 - Cung cấp rule engine version hóa, Care Alert và Doctor Priority Inbox có audit.
 - Dùng AI để tóm tắt dữ liệu đã chuẩn hóa và giải thích kiến thức từ RAG; AI không quyết định severity hoặc chẩn đoán.
-- Tích hợp hội viên Premium và thanh toán VNPAY Sandbox để quản lý quyền lợi cũng như định mức AI.
-- Kiểm soát lượt dùng AI, tối ưu realtime khi tải cao và tự động hóa kiểm thử/triển khai; WebRTC/Mobile đầy đủ là P1 sau Chronic Care P0.
+- Tích hợp các gói `Free`, `Plus`, `Care` và thanh toán VNPAY Sandbox để quản lý quyền lợi cũng như định mức AI.
+- Kiểm soát AI theo quota token và request cap chống spam, tối ưu realtime khi tải cao và tự động hóa kiểm thử/triển khai; WebRTC/Mobile đầy đủ là P1 sau Chronic Care P0.
 - Duy trì mô hình ba vai trò: Bệnh nhân, Bác sĩ và Quản trị viên.
-- Bổ sung ở mức P1 tính năng **Người thân đồng hành**: bệnh nhân tự mời và cấp quyền cho một người thân nhận nhắc nhở khi bệnh nhân bỏ lỡ hoạt động theo dõi; đây không phải là một vai trò y tế mới. Đây là tính năng P1 được ưu tiên đầu tiên sau khi P0 ổn định.
+- Bổ sung ở mức P1 tính năng **Người thân đồng hành**: bệnh nhân tự mời và cấp quyền cho một hoặc nhiều người thân trong giới hạn `familyLinkLimit` nhận nhắc nhở khi bệnh nhân bỏ lỡ hoạt động theo dõi; đây không phải là một vai trò y tế mới. Đây là tính năng P1 được ưu tiên đầu tiên sau khi P0 ổn định.
 
 ### Phạm vi nền tảng
 
@@ -29,7 +29,7 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 | ---------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
 | Web Admin  | Quản trị viên                    | Vận hành người dùng, bác sĩ, AI, gói hội viên, thanh toán và báo cáo vi phạm.                 |
 | Web Client | Bệnh nhân, bác sĩ                | Theo dõi sức khỏe, tư vấn, chat, video call, hồ sơ và dashboard.                              |
-| Mobile App | Bệnh nhân, bác sĩ, quản trị viên | Truy cập nghiệp vụ trên thiết bị di động, nhận push notification và đồng bộ dữ liệu sức khỏe. |
+| Mobile App | Bệnh nhân, bác sĩ | Truy cập nghiệp vụ quan trọng trên thiết bị di động và nhận push notification. Quản trị viên không dùng Mobile trong phạm vi DA2. |
 
 ## 2. Chức năng theo vai trò
 
@@ -43,9 +43,9 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Tìm cơ sở y tế phù hợp theo chương trình theo dõi hoặc chuyên khoa, vị trí và khoảng cách; kết quả nêu rõ nguồn dữ liệu và liên kết chỉ đường.
 - Tìm kiếm/lọc bác sĩ theo chuyên khoa, xem hồ sơ và gửi yêu cầu tư vấn kèm tóm tắt triệu chứng.
 - Chat thời gian thực, gửi hình ảnh/tệp liên quan; gọi video/audio với bác sĩ trong phiên tư vấn.
-- Trao đổi với trợ lý AI có lưu lịch sử; số lượt hỏi phụ thuộc gói hội viên/định mức.
-- Mua hoặc gia hạn gói Premium qua VNPAY, nhận thông báo về phiên tư vấn, tin nhắn, thanh toán và cảnh báo sức khỏe.
-- Chọn tier Free, Plus hoặc Care: Free cho theo dõi cơ bản, Plus cho tự quản lý nâng cao, Care cho chương trình có Doctor/Clinic đồng hành.
+- Trao đổi với trợ lý AI có lưu lịch sử; quota chính tính theo tổng input/output token đã commit trong kỳ, kèm request cap chống spam.
+- Mua hoặc gia hạn gói Plus/Care qua VNPAY, nhận thông báo về phiên tư vấn, tin nhắn, thanh toán và cảnh báo sức khỏe; Free được cấp không qua PaymentOrder.
+- Chọn tier Free, Plus hoặc Care: Free cho theo dõi cơ bản, Plus cho tự quản lý nâng cao, Care cho chương trình có Doctor đồng hành. Clinic/Clinic Admin chưa thuộc phạm vi DA2.
 - Đánh giá bác sĩ sau phiên tư vấn và gửi báo cáo vi phạm kèm bằng chứng hình ảnh khi cần.
 
 ### Bác sĩ
@@ -64,7 +64,7 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Quản lý tài khoản; khóa/mở khóa khi cần và kiểm duyệt hồ sơ, bằng cấp của bác sĩ.
 - Quản lý kho tri thức RAG: tải lên/xóa tài liệu, theo dõi xử lý tài liệu; quản lý từ khóa cấm để lọc đầu vào AI.
 - Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin quản lý lifecycle, nguồn, version và publish/retire Care Rule Set/ngưỡng.
-- Cấu hình gói hội viên Premium, theo dõi giao dịch VNPAY.
+- Quản lý version và quyền lợi các gói Free/Plus/Care, theo dõi giao dịch VNPAY.
 - Quản lý báo cáo vi phạm: xem bằng chứng ảnh/đoạn chat, phân loại mức độ `Low`/`Medium`/`High`, cập nhật trạng thái `Pending` → `Processing` → `Resolved` hoặc `Dismissed`, áp dụng biện pháp xử lý khi cần.
 - Định hướng dùng AI để hỗ trợ phân loại báo cáo, nhưng quyết định xử lý thuộc về quản trị viên.
 
@@ -110,6 +110,73 @@ flowchart LR
 4. Doctor acknowledge/xử lý alert, liên kết Consultation và ghi follow-up có audit.
 5. KPI MVP gồm monitoring adherence, alert acknowledgment time và follow-up conversion; không tuyên bố hiệu quả lâm sàng.
 
+#### State machine Chronic Care đã chốt
+
+Enrollment chỉ active sau khi Doctor/Program/Rule/entitlement hợp lệ, Patient consent và hoàn thành baseline bắt buộc:
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: Doctor enroll
+    pending --> active: Consent + baseline + toàn bộ guard hợp lệ
+    pending --> cancelled: Patient rút consent hoặc Doctor/Admin hủy có lý do
+    active --> paused: Assigned Doctor pause
+    paused --> active: Assigned Doctor resume sau khi kiểm tra lại guard
+    active --> completed: Đạt completion criteria
+    paused --> completed: Doctor/System hoàn tất có lý do
+    active --> cancelled: Patient rút consent hoặc Doctor/Admin hủy
+    paused --> cancelled: Patient rút consent hoặc Doctor/Admin hủy
+    completed --> [*]
+    cancelled --> [*]
+```
+
+Task không được hoàn thành muộn để hồi tố adherence:
+
+```mermaid
+stateDiagram-v2
+    [*] --> scheduled: Worker sinh task
+    scheduled --> due: Đến windowStart
+    scheduled --> completed: Có nguồn hoàn thành sớm hợp lệ
+    due --> completed: Có nguồn hoàn thành hợp lệ
+    due --> missed: Quá windowEnd
+    scheduled --> cancelled: Task không còn áp dụng
+    due --> cancelled: Enrollment pause/cancel hoặc task không còn áp dụng
+    completed --> [*]
+    missed --> [*]
+    cancelled --> [*]
+```
+
+Alert cho phép Doctor xử lý ngay mà không cần thao tác acknowledge riêng:
+
+```mermaid
+stateDiagram-v2
+    [*] --> open: Rule Evaluation attention/urgent
+    open --> acknowledged: Assigned Doctor tiếp nhận
+    open --> resolved: Resolve trực tiếp + ghi acknowledge cùng transaction
+    acknowledged --> resolved: Hoàn tất xử lý
+    open --> dismissed: Allowlisted reason
+    acknowledged --> dismissed: Allowlisted reason
+    resolved --> [*]
+    dismissed --> [*]
+```
+
+FamilyLink P1 tái sử dụng một record cho cùng cặp tài khoản và tăng `invitationVersion` khi mời lại:
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: Patient gửi lời mời
+    pending --> active: Người thân accept trước hạn
+    pending --> declined: Người thân từ chối
+    pending --> expired: Worker xử lý quá hạn
+    pending --> revoked: Patient hủy lời mời
+    active --> paused: Patient pause
+    paused --> active: Patient resume
+    active --> revoked: Một trong hai bên thu hồi/rời liên kết
+    paused --> revoked: Một trong hai bên thu hồi/rời liên kết
+    revoked --> pending: Mời lại + tăng invitationVersion
+    declined --> pending: Mời lại + tăng invitationVersion
+    expired --> pending: Mời lại + tăng invitationVersion
+```
+
 ### 3.4. Người thân đồng hành và nhắc nhở hỗ trợ (P1)
 
 Tính năng này là ưu tiên P1 đầu tiên sau P0. Chỉ khi hành trình cốt lõi của hai Care Program, cảnh báo, báo cáo/AI fallback, entitlement và payment đã vượt qua kiểm thử từ đầu đến cuối mới bắt đầu triển khai.
@@ -133,31 +200,47 @@ Tính năng này chỉ được nhận sau khi Người thân đồng hành đã
 
 ### 3.6. Vòng đời phiên tư vấn Telemedicine
 
+Consultation dùng hai nhóm trạng thái độc lập: `requestStatus` biểu diễn vòng đời yêu cầu và `sessionStatus` biểu diễn trạng thái phục vụ thực tế. Review là thực thể riêng, không phải trạng thái của Consultation.
+
 ```mermaid
 stateDiagram-v2
-    [*] --> Pending: Bệnh nhân gửi yêu cầu
-    Pending --> Active: Bác sĩ chấp nhận
-    Pending --> Cancelled: Bác sĩ từ chối hoặc hủy
-    Active --> Completed: Bác sĩ kết thúc và ghi chú
-    Completed --> Reviewed: Bệnh nhân đánh giá
+    state "Request status" as Request {
+        [*] --> pending: Patient gửi yêu cầu cần duyệt
+        pending --> accepted: Doctor chấp nhận
+        pending --> declined: Doctor từ chối
+        pending --> cancelled: Patient/Doctor hủy hợp lệ
+        pending --> expired: Quá requestExpiresAt
+        accepted --> cancelled: Một bên hủy theo policy
+    }
+
+    state "Session status" as Session {
+        [*] --> not_started: Consultation được tạo
+        not_started --> waiting: Patient check-in/được đưa vào hàng đợi
+        waiting --> in_consultation: Doctor call-next/start atomically
+        waiting --> no_show: Quá noShowAfterMinutes
+        in_consultation --> interrupted: Mất heartbeat/kết nối
+        interrupted --> in_consultation: Doctor resume
+        interrupted --> completed: Doctor hoàn tất có lý do
+        in_consultation --> completed: Doctor kết thúc và hoàn tất ghi chú
+    }
 ```
 
 1. Bệnh nhân chọn bác sĩ, nhập tóm tắt triệu chứng và gửi yêu cầu.
 2. Bác sĩ nhận thông báo, xem yêu cầu và chọn chấp nhận, từ chối hoặc xử lý theo chính sách hệ thống.
-3. Khi được chấp nhận, phiên chuyển sang `Active`; hai bên chat qua Socket.IO, gửi tệp/hình ảnh và thực hiện video/audio call qua WebRTC.
+3. Khi `requestStatus = accepted`, hai bên được authorize vào phòng tư vấn; Patient check-in để `sessionStatus = waiting`, sau đó Doctor bắt đầu phiên để chuyển sang `in_consultation`.
 4. Trong phiên, bác sĩ xem hồ sơ, biểu đồ sức khỏe và có thể yêu cầu AI tóm tắt dữ liệu bệnh nhân để hỗ trợ đọc nhanh thông tin.
-5. Bác sĩ kết thúc phiên, nhập ghi chú lâm sàng; khung chat được khóa theo trạng thái phiên.
-6. Bệnh nhân đánh giá và nhận xét. Hệ thống lưu review, cập nhật điểm trung bình của bác sĩ và lưu lịch sử phiên.
+5. Bác sĩ chủ động kết thúc và xác nhận hoàn tất; thời lượng dự kiến không tự chuyển phiên sang `completed`. Khung chat được khóa theo policy của phiên đã hoàn tất.
+6. Sau khi Consultation `completed`, bệnh nhân có thể tạo tối đa một Review. Review không làm thay đổi `sessionStatus`.
 
 ### 3.7. Tư vấn với AI theo RAG và hạn mức sử dụng
 
 1. Quản trị viên tải tài liệu y khoa đã chọn lọc. Hệ thống chia tài liệu thành các đoạn, tạo embedding và lưu để truy xuất ngữ nghĩa.
-2. Bệnh nhân gửi câu hỏi. Hệ thống kiểm tra xác thực, từ khóa cấm và quyền lợi/lượt hỏi còn lại của gói hội viên.
-3. Redis hỗ trợ đếm/rate-limit lượt hỏi theo ngày; Guard từ chối yêu cầu khi vượt định mức. Cron job thực hiện đặt lại hạn mức theo lịch cấu hình.
+2. Bệnh nhân gửi câu hỏi. Hệ thống kiểm tra xác thực, từ khóa cấm, `aiTokenLimit`, `aiRequestLimit` và kỳ quota trong Subscription snapshot.
+3. Trước khi gọi model, Redis reserve lượng token ước tính; khi provider trả kết quả, backend commit input/output token thực tế vào `AiUsageDaily` và release phần dư. Request lỗi/timeout phải release reservation; việc chuyển kỳ quota dựa trên `aiQuotaPeriod`, không reset đồng loạt bằng một cron theo tên gói.
 4. Với yêu cầu hợp lệ, hệ thống truy xuất các đoạn tài liệu phù hợp từ MongoDB Atlas Vector Search rồi đưa chúng làm ngữ cảnh cho LLM.
 5. Phản hồi cùng lịch sử hội thoại được lưu lại. Câu trả lời cần được trình bày như thông tin tham khảo y tế, có giới hạn an toàn và không thay thế chẩn đoán chuyên môn.
 
-### 3.8. Hội viên Premium và thanh toán
+### 3.8. Gói Free/Plus/Care và thanh toán
 
 1. Bệnh nhân chọn tier: Free giữ dữ liệu/cảnh báo an toàn cơ bản; Plus bổ sung báo cáo, AI summary, smart reminder và export; Care bổ sung Doctor-assigned Program, review, follow-up và ưu đãi consultation theo Plan. Free vẫn có một bản ghi Subscription với `source = free_grant` và chu kỳ 30 ngày, nhưng không có PaymentOrder.
 2. Khi mua Plus/Care, hệ thống tạo yêu cầu thanh toán và chuyển đến VNPAY Sandbox.
@@ -223,7 +306,7 @@ flowchart LR
 | Web React + NestJS + MongoDB; chat bác sĩ–bệnh nhân; RAG; theo dõi chỉ số và cảnh báo. | Giữ nền tảng lõi, mở rộng Web và Mobile React Native/Expo.                                           |
 | Health Metrics và cảnh báo đơn lẻ.                                                     | Care Program, lịch theo dõi, versioned rule engine, Care Alert, Priority Inbox và báo cáo 7/30 ngày. |
 | Tư vấn qua chữ, hình ảnh và tệp.                                                       | Gọi video/audio WebRTC, Socket.IO signaling và CallKeep.                                             |
-| AI hỗ trợ theo RAG nhưng chưa kiểm soát chi phí chặt chẽ.                              | Gói Free/Premium, thanh toán VNPAY, Redis rate limit/quota và Cron reset.                            |
+| AI hỗ trợ theo RAG nhưng chưa kiểm soát chi phí chặt chẽ.                              | Gói Free/Plus/Care, thanh toán VNPAY, quota token reserve/commit/release và request cap chống spam. |
 | Hạ tầng realtime cơ bản.                                                               | Redis adapter để scale WebSocket, bổ sung chiến lược cache.                                          |
 | Kiểm thử/vận hành chưa được tự động hóa đầy đủ.                                        | Jest, k6 và GitHub Actions cho kiểm thử, CI/CD.                                                      |
 | Báo cáo vi phạm cơ bản.                                                                | Trạng thái xử lý rõ ràng, mức độ nghiêm trọng, bằng chứng và AI hỗ trợ phân loại.                    |

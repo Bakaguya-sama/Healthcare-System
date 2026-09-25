@@ -1,15 +1,16 @@
-# DB template v8 — Ghi chú duyệt thiết kế
+# DB template v8 — Thiết kế đã duyệt
 
 ## Trạng thái
 
 - File thiết kế: `docs/db-template-v8.dbml`.
-- Trạng thái: **Draft for review**.
-- `db-template-v7.dbml` vẫn là baseline hiện tại; v8 chưa đại diện cho collection/index đã tồn tại.
-- Chỉ tạo migration sau khi các quyết định trong tài liệu này được duyệt.
+- Trạng thái: **Approved target design**.
+- Ngày ghi nhận phê duyệt: **25/09/2026**.
+- `db-template-v8.dbml` là nguồn chuẩn cho target schema DA2 và có thể dùng để vẽ ERD, viết model cũng như thiết kế migration.
+- `db-template-v7.dbml` vẫn mô tả baseline đã triển khai trước migration. Việc duyệt v8 không khẳng định collection/index đã tồn tại trong database; mọi thay đổi vật lý phải đi qua migration có version và `database:verify`.
 
 ## Thay đổi chính so với v7
 
-V8 có 42 collections, bổ sung dữ liệu Chronic Care và dùng một nhật ký chung có phân vùng logic theo `domain`.
+V8 có 42 collections (gồm hai collection hạ tầng migration/lock), bổ sung dữ liệu Chronic Care và dùng một nhật ký chung có phân vùng logic theo `domain`.
 
 | Nhóm | Collection mới/chính | Mục đích |
 |---|---|---|
@@ -158,9 +159,16 @@ Theo `plan/rag-upgrade-blueprint.md`, chunk lưu metadata đủ cho ba việc: l
 - Không dùng một tỷ lệ sử dụng chung. AI token, consultation đã tính lượt/no-show, Doctor review, báo cáo và nhiệm vụ Care trả phí được so riêng với policy. Lỗi thu trùng hoặc cấp quyền sai đi vào `review_required` để Admin xử lý.
 - Admin UI quản lý policy trong Plan draft/publish. ENV chỉ giữ feature flag, timeout/retry provider và hard ceiling; mọi quyết định/override được ghi vào `AuditLogs` domain `billing`.
 
-## Sau khi duyệt
+### 19. State machine Chronic Care đã chốt
 
-1. Chốt collection/field/index và quy tắc lưu dữ liệu nhạy cảm.
+- Enrollment `pending -> active` chỉ sau Doctor/Program/Rule/entitlement/consent/baseline hợp lệ. Doctor pause/resume/complete; Patient có thể yêu cầu pause và rút consent để cancel. `completed|cancelled` là terminal; tiếp tục theo dõi phải tạo enrollment mới.
+- CareTask đi `scheduled -> due -> completed|missed`; `scheduled|due -> cancelled` khi không còn áp dụng. `completed|missed|cancelled` là terminal; dữ liệu nhập muộn không hồi tố task/adherence, còn correction tạo evaluation/report/summary version mới.
+- CareAlert cho phép `open -> acknowledged -> resolved` hoặc `open -> resolved`; trường hợp resolve trực tiếp ghi acknowledge cùng transaction. `open|acknowledged -> dismissed` cần allowlisted reason. Chỉ assigned Doctor xử lý; `resolved|dismissed` là terminal.
+- FamilyLink có `pending|active|paused|revoked|declined|expired`. Patient pause/resume; hai bên có thể revoke; invitee decline; worker expire. Mời lại cùng cặp tái sử dụng record, tăng `invitationVersion`, revoke permission cũ và tạo consent/permission mới sau accept.
+
+## Bước triển khai sau phê duyệt
+
+1. Đóng băng baseline v8 đã duyệt; thay đổi tiếp theo phải có lý do, diff và version review mới.
 2. Viết migration additive từ v7 lên v8; không sửa migration lịch sử.
 3. Cập nhật Mongoose schemas, repository ownership và public ports.
 4. Bổ sung `database:verify`, index verification và rollback/feature flags.
