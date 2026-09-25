@@ -50,17 +50,29 @@ export class Notification {
   // ✅ NEW: Metadata cho notification (tùy chọn)
   @Prop({ type: Object })
   metadata?: {
-    relatedEntityId?: string; // VD: sessionId, documentId
+    relatedEntityId?: string; // Example: consultationId, documentId
     relatedEntityType?: string; // VD: 'session', 'document'
     action?: string; // VD: 'view', 'download'
   };
 
   @Prop({ type: Date })
   expiresAt?: Date; // Notification tự xóa sau khoảng thời gian
+  @Prop({ type: String, maxlength: 120, sparse: true })
+  idempotencyKey?: string;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
 
 // Indexes for better query performance
-NotificationSchema.index({ userId: 1, createdAt: -1 });
-NotificationSchema.index({ userId: 1, isRead: 1 });
+NotificationSchema.index(
+  { userId: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_createdAt_-1__id_-1' },
+);
+NotificationSchema.index(
+  { userId: 1, isRead: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_isRead_1_createdAt_-1__id_-1' },
+);
+NotificationSchema.index(
+  { idempotencyKey: 1 },
+  { name: 'idempotencyKey_unique', unique: true, sparse: true },
+);

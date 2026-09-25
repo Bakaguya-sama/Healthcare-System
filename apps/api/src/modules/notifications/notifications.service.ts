@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import {
   Notification,
   NotificationDocument,
@@ -14,14 +15,23 @@ import {
   UpdateNotificationDto,
   QueryNotificationDto,
 } from './dto/create-notification.dto';
-import { NotificationsGateway } from './notifications.gateway';
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+import {
+  decodeCursor,
+  encodeCursor,
+  InvalidCursorError,
+} from '../../common/pagination';
+
+const NOTIFICATION_READ_PROJECTION =
+  '_id userId type title message isRead readAt attachments metadata expiresAt createdAt updatedAt';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
-    private notificationsGateway: NotificationsGateway,
+    private readonly outbox: OutboxService,
+    @Optional() @InjectConnection() private readonly connection?: Connection,
   ) {}
 
   private mapGatewayNotification(notification: NotificationDocument) {
@@ -36,6 +46,27 @@ export class NotificationsService {
     };
   }
 
+  private async enqueueRealtime(
+    userId: string,
+    action: 'mark_read' | 'mark_all_read' | 'deleted',
+    notification?: NotificationDocument,
+  ) {
+    const aggregateId = notification?._id ?? new Types.ObjectId(userId);
+    await this.outbox.enqueue({
+      eventType: 'notification.realtime',
+      aggregateType: 'notification',
+      aggregateId,
+      idempotencyKey: `notification.${action}.${notification?._id ?? userId}.${notification?.updatedAt?.getTime() ?? Date.now()}`,
+      payload: {
+        userId,
+        action,
+        notification: notification
+          ? this.mapGatewayNotification(notification)
+          : undefined,
+      },
+    });
+  }
+
   /**
    * 📝 TẠO THÔNG BÁO MỚI
    */
@@ -44,19 +75,77 @@ export class NotificationsService {
       throw new BadRequestException('Invalid recipient user ID');
     }
 
-    const notification = await this.notificationModel.create({
-      userId: new Types.ObjectId(dto.userId),
-      type: dto.type,
-      title: dto.title,
-      message: dto.message,
-      isRead: false,
-    });
-
-    this.notificationsGateway.handleNotifications({
-      userId: dto.userId.toString(),
-      action: 'send',
-      notification: this.mapGatewayNotification(notification),
-    });
+    if (!this.connection) {
+      const notification = await this.notificationModel.create({
+        userId: new Types.ObjectId(dto.userId),
+        type: dto.type,
+        title: dto.title,
+        message: dto.message,
+        isRead: false,
+        idempotencyKey: dto.idempotencyKey,
+      });
+      await this.outbox.enqueue({
+        eventType: 'notification.created',
+        aggregateType: 'notification',
+        aggregateId: notification._id,
+        idempotencyKey: `notification.created.${notification._id}`,
+        payload: {
+          userId: dto.userId.toString(),
+          action: 'send',
+          notification: this.mapGatewayNotification(notification),
+        },
+      });
+      return {
+        statusCode: 201,
+        message: 'Notification created successfully',
+        data: notification,
+      };
+    }
+    const session = await this.connection.startSession();
+    let notification!: NotificationDocument;
+    try {
+      await session.withTransaction(async () => {
+        if (dto.idempotencyKey) {
+          const existing = await this.notificationModel
+            .findOne({ idempotencyKey: dto.idempotencyKey })
+            .session(session)
+            .exec();
+          if (existing) {
+            notification = existing;
+            return;
+          }
+        }
+        [notification] = await this.notificationModel.create(
+          [
+            {
+              userId: new Types.ObjectId(dto.userId),
+              type: dto.type,
+              title: dto.title,
+              message: dto.message,
+              isRead: false,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          ],
+          { session },
+        );
+        await this.outbox.enqueue(
+          {
+            eventType: 'notification.created',
+            aggregateType: 'notification',
+            aggregateId: notification._id,
+            idempotencyKey: `notification.created.${notification._id}`,
+            payload: {
+              userId: dto.userId.toString(),
+              action: 'send',
+              notification: this.mapGatewayNotification(notification),
+            },
+          },
+          session,
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
 
     return {
       statusCode: 201,
@@ -85,25 +174,64 @@ export class NotificationsService {
       filter.isRead = false;
     }
 
-    const skip = (query.page - 1) * query.limit;
+    const cursorFilter: Record<string, unknown> = { ...filter };
+    const sortField = query.sortBy || 'createdAt';
+    const sortOrder = query.sortOrder || -1;
+    if (query.cursor) {
+      try {
+        const cursor = decodeCursor(query.cursor);
+        const date = new Date(cursor.sortValue);
+        if (Number.isNaN(date.getTime())) throw new InvalidCursorError();
+        const operator = sortOrder === 1 ? '$gt' : '$lt';
+        cursorFilter.$or = [
+          { [sortField]: { [operator]: date } },
+          {
+            [sortField]: date,
+            _id: { [operator]: new Types.ObjectId(cursor.id) },
+          },
+        ];
+      } catch (error) {
+        if (error instanceof InvalidCursorError)
+          throw new BadRequestException('Invalid notification cursor');
+        throw error;
+      }
+    }
+    const skip = query.cursor ? 0 : (query.page - 1) * query.limit;
     const sort: any = {};
-    sort[query.sortBy || 'createdAt'] = query.sortOrder || -1;
+    sort[sortField] = sortOrder;
+    sort._id = sortOrder;
 
     const [data, total] = await Promise.all([
       this.notificationModel
-        .find(filter)
+        .find(cursorFilter)
+        .select(NOTIFICATION_READ_PROJECTION)
         .sort(sort)
         .skip(skip)
-        .limit(query.limit)
+        .limit(query.limit + 1)
+        .lean()
         .exec(),
       this.notificationModel.countDocuments(filter),
     ]);
 
+    const hasNextPage = data.length > query.limit;
+    const notifications = hasNextPage ? data.slice(0, query.limit) : data;
+    const last = notifications.at(-1) as
+      | { _id?: Types.ObjectId; createdAt?: Date; readAt?: Date }
+      | undefined;
+    const sortValue = last?.[sortField];
     return {
       statusCode: 200,
       message: 'Notifications retrieved successfully',
       data: {
-        notifications: data,
+        notifications,
+        hasNextPage,
+        nextCursor:
+          hasNextPage && last?._id && sortValue
+            ? encodeCursor({
+                sortValue: sortValue.toISOString(),
+                id: String(last._id),
+              })
+            : null,
         pagination: {
           total,
           page: query.page,
@@ -136,11 +264,7 @@ export class NotificationsService {
       notification.isRead = true;
       await notification.save();
 
-      this.notificationsGateway.handleNotifications({
-        userId: userId.toString(),
-        action: 'mark_read',
-        notification: this.mapGatewayNotification(notification),
-      });
+      await this.enqueueRealtime(userId.toString(), 'mark_read', notification);
     }
 
     return {
@@ -178,11 +302,7 @@ export class NotificationsService {
     await notification.save();
 
     if (dto.read !== undefined) {
-      this.notificationsGateway.handleNotifications({
-        userId: userId.toString(),
-        action: 'mark_read',
-        notification: this.mapGatewayNotification(notification),
-      });
+      await this.enqueueRealtime(userId.toString(), 'mark_read', notification);
     }
 
     return {
@@ -211,10 +331,7 @@ export class NotificationsService {
     );
 
     if (result.modifiedCount > 0) {
-      this.notificationsGateway.handleNotifications({
-        userId,
-        action: 'mark_all_read',
-      });
+      await this.enqueueRealtime(userId, 'mark_all_read');
     }
 
     return {
@@ -248,11 +365,7 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
-    this.notificationsGateway.handleNotifications({
-      userId: userId.toString(),
-      action: 'mark_read',
-      notification: this.mapGatewayNotification(notification),
-    });
+    await this.enqueueRealtime(userId.toString(), 'mark_read', notification);
 
     return {
       statusCode: 200,
@@ -278,11 +391,7 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
-    this.notificationsGateway.handleNotifications({
-      userId: userId.toString(),
-      action: 'deleted',
-      notification: this.mapGatewayNotification(result),
-    });
+    await this.enqueueRealtime(userId.toString(), 'deleted', result);
 
     return {
       statusCode: 200,

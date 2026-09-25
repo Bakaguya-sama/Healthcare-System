@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
+    "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*",
     "axios": "^1.14.0",
     "class-variance-authority": "^0.7.1",

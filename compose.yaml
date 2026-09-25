@@ -1,0 +1,41 @@
+name: healthcare-local
+
+services:
+  mongo:
+    image: mongo:8.0.30
+    container_name: healthcare-mongo
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27018:27017"
+    volumes:
+      - healthcare-mongo-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh --host localhost:27017 --quiet --eval "try { quit(rs.status().ok ? 0 : 1) } catch (error) { quit(rs.initiate({_id:''rs0'',members:[{_id:0,host:''mongo:27017''}]}).ok ? 0 : 1) }"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.2.9
+    container_name: healthcare-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "16379:6379"
+    volumes:
+      - healthcare-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  healthcare-mongo-data:
+  healthcare-redis-data:

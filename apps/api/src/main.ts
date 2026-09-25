@@ -1,44 +1,31 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { configureApplication } from './bootstrap/configure-application';
+import { JsonLogger } from './core/observability/json-logger';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  app.setGlobalPrefix('api/v1');
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? [
-      'http://localhost:5173',
-      'http://localhost:5174',
-    ],
-    credentials: true,
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+    bufferLogs: true,
   });
+  const config = app.get(ConfigService);
+  app.useLogger(new JsonLogger());
+  configureApplication(app, config);
 
-  const config = new DocumentBuilder()
-    .setTitle('Healthcare API')
-    .setDescription('Healthcare App REST API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(
-    `Application running on: http://localhost:${process.env.PORT ?? 3000}/api/v1`,
-  );
-  console.log(
-    `Swagger docs: http://localhost:${process.env.PORT ?? 3000}/api/docs`,
-  );
+  const port = config.getOrThrow<number>('PORT');
+  await app.listen(port);
+  new JsonLogger().log({
+    event: 'application_started',
+    port,
+    apiPrefix: config.getOrThrow<string>('API_PREFIX'),
+    apiVersion: config.getOrThrow<string>('API_VERSION'),
+    swaggerEnabled: config.getOrThrow<boolean>('SWAGGER_ENABLED'),
+  });
 }
-bootstrap();
+
+void bootstrap().catch((error: unknown) => {
+  new JsonLogger().fatal(error);
+  process.exitCode = 1;
+});
