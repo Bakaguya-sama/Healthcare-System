@@ -38,7 +38,7 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Đăng ký/đăng nhập, xác thực Email OTP; trên Mobile định hướng hỗ trợ sinh trắc học.
 - Quản lý hồ sơ cá nhân và các chỉ số như huyết áp, nhịp tim, đường huyết; xem lịch sử, biểu đồ và cảnh báo bất thường.
 - Tham gia Care Program, nhận nhiệm vụ đo theo lịch, theo dõi adherence và báo cáo 7/30 ngày.
-- Mời tối đa một người thân đồng hành, chọn loại thông báo được phép nhận và có thể thu hồi quyền bất cứ lúc nào. Người thân chỉ nhận lời nhắc chung khi bệnh nhân bỏ lỡ nhiệm vụ; không mặc định xem chỉ số sức khỏe, chẩn đoán hay nội dung tư vấn.
+- Mời nhiều người thân trong giới hạn `familyLinkLimit` của gói, chọn loại thông báo được phép nhận và có thể thu hồi quyền bất cứ lúc nào. Người thân chỉ nhận lời nhắc chung khi bệnh nhân bỏ lỡ nhiệm vụ; không mặc định xem chỉ số sức khỏe, chẩn đoán hay nội dung tư vấn.
 - Nhận Care Alert có lý do giải thích được và chuyển sang đặt lịch/tư vấn khi cần.
 - Tìm cơ sở y tế phù hợp theo chương trình theo dõi hoặc chuyên khoa, vị trí và khoảng cách; kết quả nêu rõ nguồn dữ liệu và liên kết chỉ đường.
 - Tìm kiếm/lọc bác sĩ theo chuyên khoa, xem hồ sơ và gửi yêu cầu tư vấn kèm tóm tắt triệu chứng.
@@ -112,7 +112,7 @@ flowchart LR
 
 ### 3.4. Người thân đồng hành và nhắc nhở hỗ trợ (P1)
 
-1. Bệnh nhân chủ động mời một người thân bằng email hoặc số điện thoại; lời mời chỉ có hiệu lực sau khi người thân xác nhận.
+1. Người thân đăng ký tài khoản Patient bình thường. Bệnh nhân chủ động chọn/mời tài khoản đó; liên kết chỉ có hiệu lực sau khi người thân đăng nhập và xác nhận. Hệ thống không tạo vai trò `family` riêng.
 2. Bệnh nhân chọn phạm vi chia sẻ tối thiểu: chỉ nhận lời nhắc chung khi bỏ lỡ nhiệm vụ theo dõi. Việc cho phép xem tiến độ tổng quát là tùy chọn riêng; quyền xem chỉ số chi tiết, lịch sử tư vấn và nội dung AI mặc định bị tắt.
 3. Hệ thống luôn nhắc bệnh nhân trước. Chỉ khi nhiệm vụ quá hạn theo khoảng thời gian cấu hình và bệnh nhân chưa hoàn thành, hệ thống mới gửi cho người thân lời nhắc không chứa dữ liệu sức khỏe nhạy cảm.
 4. Với cảnh báo khẩn, hệ thống hiển thị hướng dẫn an toàn trực tiếp cho bệnh nhân; không dùng người thân như kênh cấp cứu hoặc cam kết phản hồi y tế. Chỉ gửi thông báo cho người thân nếu bệnh nhân đã bật riêng tùy chọn này.
@@ -123,7 +123,7 @@ flowchart LR
 1. Bệnh nhân chọn chương trình đang theo dõi hoặc chuyên khoa, đồng thời chọn tỉnh/thành, quận/huyện hoặc cho phép dùng vị trí hiện tại. Hệ thống chuyển chương trình sang chuyên khoa đã được quản trị viên duyệt, ví dụ tăng huyết áp sang Tim mạch hoặc Nội tổng quát; đây là gợi ý tìm nơi khám, không phải chẩn đoán.
 2. Danh mục cơ sở y tế do quản trị viên kiểm duyệt là nguồn kết quả chính. Mỗi cơ sở có tên, địa chỉ, tọa độ, thông tin liên hệ, chuyên khoa/dịch vụ, nguồn xác thực và ngày cập nhật.
 3. Hệ thống lọc theo chuyên khoa và khu vực, sau đó sắp xếp theo mức khớp chuyên khoa, trạng thái đã kiểm duyệt và khoảng cách. Không xếp hạng chất lượng chuyên môn bằng AI, đánh giá sao hoặc chi trả quảng cáo.
-4. Khi danh mục nội bộ không đủ kết quả, hệ thống có thể gọi dịch vụ bản đồ bên ngoài để tìm địa điểm gần đó. Kết quả bên ngoài phải có nhãn nguồn, tuân thủ điều khoản nhà cung cấp và không được tự lưu thành cơ sở đã kiểm duyệt.
+4. Khi danh mục nội bộ không đủ kết quả, backend có thể gọi dịch vụ bản đồ bên ngoài để tìm địa điểm gần đó. Quản trị viên chọn kết quả phù hợp để tạo bản nháp, kiểm tra nguồn chính thức rồi mới đánh dấu đã xác minh. Kết quả API phải có nhãn nguồn và không tự trở thành dữ liệu đã kiểm duyệt.
 5. AI chỉ được dùng để hiểu cách diễn đạt tự nhiên và chuyển thành bộ lọc chuyên khoa/vị trí, hoặc giải thích lý do gợi ý. AI không tự suy luận bệnh, không khẳng định cơ sở tốt nhất và không quyết định tình huống khẩn.
 6. Với cảnh báo khẩn, hệ thống luôn hiển thị hướng dẫn an toàn trước; tìm cơ sở y tế chỉ là lựa chọn hỗ trợ, không được làm chậm khuyến nghị liên hệ cấp cứu.
 
@@ -155,13 +155,13 @@ stateDiagram-v2
 
 ### 3.8. Hội viên Premium và thanh toán
 
-1. Bệnh nhân chọn tier: Free giữ dữ liệu/cảnh báo an toàn cơ bản; Plus bổ sung báo cáo, AI summary, smart reminder và export; Care bổ sung Doctor-assigned Program, review, follow-up và ưu đãi consultation theo Plan.
+1. Bệnh nhân chọn tier: Free giữ dữ liệu/cảnh báo an toàn cơ bản; Plus bổ sung báo cáo, AI summary, smart reminder và export; Care bổ sung Doctor-assigned Program, review, follow-up và ưu đãi consultation theo Plan. Free vẫn có một bản ghi Subscription với `source = free_grant` và chu kỳ 30 ngày, nhưng không có PaymentOrder.
 2. Khi mua Plus/Care, hệ thống tạo yêu cầu thanh toán và chuyển đến VNPAY Sandbox.
 3. Return URL chỉ hiển thị trạng thái; IPN từ VNPAY phải được xác minh chữ ký, mã đơn, số tiền và tiền tệ.
 4. IPN hợp lệ chuyển order sang paid và ghi một outbox event yêu cầu cấp/gia hạn Subscription; worker xử lý idempotent và hệ thống gửi thông báo cho bệnh nhân.
 5. Quyền lợi được kiểm tra phía backend từ Subscription snapshot; client không tự khai tier, AI quota, consultation limit hoặc quyền Doctor review.
 6. `consultationLimitPerCycle` mặc định là Free `1`, Plus `3`, Care `6`; hệ thống đếm trực tiếp số Consultation đã dùng/còn lại. Chi phí từng phiên là chính sách giá riêng.
-7. Reservation/count/release phải idempotent; cancel đúng policy hủy reservation, Patient no-show được count theo policy. `AiQuestionQuota` chỉ đếm câu hỏi AI và hoàn toàn độc lập.
+7. Reservation/count/release phải idempotent; cancel đúng policy hủy reservation, Patient no-show được count theo policy. AI dùng quota token và request cap riêng, hoàn toàn độc lập với consultation limit.
 8. Downgrade/hết hạn không xóa dữ liệu và không tắt safety alert; Plan trả phí không thay đổi severity hoặc ưu tiên lâm sàng.
 9. Quản trị viên cấu hình gói và theo dõi giao dịch/doanh thu; các lỗi thanh toán cần được lưu để đối soát, không tự động cấp quyền trả phí.
 10. DA2 dùng payment state machine, Mongo transaction, transactional outbox, worker và reconciliation; chưa dùng Saga framework vì Payment và Subscription vẫn nằm trong một modular monolith/cơ sở dữ liệu.
@@ -176,7 +176,7 @@ stateDiagram-v2
 
 ## 4. Dữ liệu và kiến trúc nghiệp vụ
 
-Các thực thể kế thừa từ DA1 gồm tài khoản, hồ sơ vai trò, HealthMetrics, Consultations/Messages, Reviews, AI Conversations/Messages/Documents/Chunks, Notifications, ViolationReports và BlacklistKeywords. DA2 bổ sung `CareProgramTemplates`, `CareEnrollments`, `MonitoringTasks`, `CareRuleSets`, `CareEvaluations`, `CareAlerts`, `CareSummaries`; ở mức P1 bổ sung `CareSupportContacts`, `CareSharingConsents`, `CareReminderEvents`, `HealthcareFacilities` và `ConditionSpecialtyMaps`. Các thực thể sau cùng quản lý người thân đồng hành, quyền chia sẻ, lịch sử nhắc nhở, danh mục cơ sở y tế đã kiểm duyệt và ánh xạ từ chương trình theo dõi sang chuyên khoa. Mô hình dữ liệu cũng được mở rộng cho gói hội viên, định mức AI và các tích hợp nằm trong phạm vi thực hiện.
+Các thực thể kế thừa từ DA1 gồm tài khoản, hồ sơ vai trò, HealthMetrics, Consultations/Messages, Reviews, AI Conversations/Messages/Documents/Chunks, Notifications, ViolationReports và BlacklistKeywords. DA2 bổ sung `CarePrograms`, `PatientCarePrograms`, `CareTasks`, `CareRules`, `HealthEvaluations`, `CareAlerts`, `CareReports`, `CareSummaries`; ở mức P1 bổ sung `FamilyLinks`, `FamilyPermissions`, `FamilyReminders`, `MedicalFacilities` và `DiseaseSpecialties`. Các thực thể sau cùng quản lý liên kết với tài khoản người thân, quyền chia sẻ, lịch sử nhắc nhở, cơ sở y tế được Admin chọn từ bản đồ và xác minh, cùng ánh xạ từ bệnh sang chuyên khoa. Toàn hệ thống dùng một `AuditLogs`, phân biệt nhóm nghiệp vụ bằng `domain`. Mô hình dữ liệu cũng được mở rộng cho gói hội viên, định mức AI và các tích hợp nằm trong phạm vi thực hiện.
 
 ```mermaid
 flowchart LR

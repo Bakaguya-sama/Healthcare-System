@@ -5,7 +5,7 @@
 Tài liệu mô tả phạm vi sản phẩm, nghiệp vụ, kiến trúc và trạng thái chuyển đổi của Healthcare Application từ DA1 sang DA2. Nguồn chuẩn đi kèm:
 
 - Nghiệp vụ: `docs/BUSINESS_RULES.md`.
-- Dữ liệu: `docs/db-template-v7.dbml`.
+- Dữ liệu hiện tại: `docs/db-template-v7.dbml`; bản thiết kế Chronic Care đang chờ duyệt: `docs/db-template-v8.dbml`.
 - Kế hoạch thực thi: `plan/refactor-plan.md`.
 - Kế hoạch sản phẩm Chronic Care: `plan/chronic-care-plan.md`.
 - Hợp đồng tích hợp frontend: `docs/fe-integration.md`.
@@ -75,7 +75,7 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Mời, xác nhận, sửa hoặc thu hồi quyền của một người thân đồng hành; chọn nhận lời nhắc bỏ lỡ nhiệm vụ mà không cần chia sẻ chỉ số sức khỏe chi tiết.
 - Nhận Care Alert có lý do rõ ràng và chuyển sang đặt lịch/on-demand consultation khi cần.
 - Tìm cơ sở y tế theo chuyên khoa, địa điểm và khoảng cách; xem lý do gợi ý, nguồn dữ liệu và liên kết chỉ đường. Kết quả không phải khuyến nghị về chất lượng chuyên môn.
-- Hỏi AI, xem citation/lịch sử và quota còn lại.
+- Hỏi AI, xem citation/lịch sử và phần trăm quota token còn lại.
 - Xem Plans, tạo PaymentOrder, theo dõi kết quả thanh toán và Subscription.
 - Cancel order chưa thanh toán; gửi full-refund request cho order đã paid.
 - Review bác sĩ sau consultation completed và gửi ViolationReport.
@@ -155,11 +155,15 @@ stateDiagram-v2
     accepted --> cancelled: Một bên hủy hợp lệ
     waiting --> in_consultation: Doctor call-next atomically
     waiting --> no_show: Quá hạn
+    in_consultation --> interrupted: Mất heartbeat/kết nối
+    interrupted --> in_consultation: Doctor resume
+    interrupted --> completed: Doctor hoàn tất có lý do
     in_consultation --> completed: Doctor hoàn tất
 ```
 
 - Một patient chỉ có tối đa một on-demand request pending tới cùng doctor.
 - Doctor chỉ có tối đa một consultation `in_consultation`.
+- `scheduledEndAt` là mốc dự kiến, không tự động hoàn tất phiên. Doctor kết thúc; worker chỉ được chuyển phiên mất heartbeat sang `interrupted`.
 - `requestStatus` mô tả vòng đời yêu cầu; `sessionStatus` mô tả vòng đời phiên thực tế.
 - Không dùng `active` cho nhiều nghĩa và không dùng `rejected` để biểu diễn cancel.
 
@@ -174,7 +178,7 @@ queueJoinedAt != null
 queuePriorityAt != null
 ```
 
-`queuePriorityAt` là khóa sắp xếp ổn định. `call-next` dùng conditional update/transaction để hai request đồng thời không claim cùng một consultation.
+Scheduled và on-demand dùng chung hàng đợi theo Doctor. Ưu tiên lần lượt: scheduled quá giờ, scheduled đã đến cửa sổ phục vụ, rồi on-demand accepted theo thời điểm vào hàng đợi. On-demand chỉ được gọi trong khoảng trống nếu thời lượng dự kiến cộng buffer không đè lên scheduled kế tiếp. `queuePriorityAt` là khóa sắp xếp ổn định; `call-next` dùng conditional update/transaction để hai request đồng thời không claim cùng một consultation.
 
 ### 5.5 Chat, call và review
 
@@ -182,6 +186,7 @@ queuePriorityAt != null
 - `clientMessageId` chống tạo message trùng khi client retry.
 - Socket.IO phục vụ chat, notification, queue update và WebRTC signaling.
 - WebRTC media đi peer-to-peer/TURN; database chỉ lưu metadata bắt đầu/kết thúc và consent.
+- `callEndedAt` ghi cuộc gọi đã dừng; `completedAt` chỉ được ghi khi Doctor xác nhận hoàn tất consultation/note. Quá thời lượng chỉ tạo cảnh báo/overtime, không tự complete.
 - Patient chỉ review consultation của mình sau khi completed; một consultation có tối đa một review.
 - Rating summary của doctor được cập nhật trong transaction và có job đối soát.
 
@@ -192,16 +197,17 @@ queuePriorityAt != null
 - Monitoring task được hoàn thành bởi HealthMetric hợp lệ; adherence chỉ phản ánh mức độ hoàn thành theo dõi, không phải tuân thủ điều trị.
 - Alert threshold/rule chỉ là cảnh báo tham khảo. Rule engine là deterministic, version hóa và trả về reason codes; AI không được tạo hoặc thay đổi severity.
 - Care Alert `urgent` phải hiển thị hành động an toàn từ template đã duyệt và không chờ LLM.
-- Người thân đồng hành là tính năng P1, không phải vai trò y tế: Patient tự mời và cấp quyền; contact chỉ nhận nhắc nhở chung sau khi Patient bỏ lỡ nhiệm vụ quá khoảng thời gian cấu hình. Mặc định contact không xem HealthMetrics, nội dung AI, consultation hoặc Care Alert.
+- Người thân đồng hành là tính năng P1, không phải vai trò y tế mới: người thân đăng ký tài khoản Patient bình thường, đăng nhập bằng cơ chế sẵn có rồi xác nhận liên kết do Patient mời. Người thân chỉ nhận nhắc nhở chung sau khi Patient bỏ lỡ nhiệm vụ quá khoảng thời gian cấu hình; mặc định không xem HealthMetrics, nội dung AI, consultation hoặc Care Alert.
 - Patient luôn được nhắc trước. Thông báo cho contact không chứa chỉ số, chẩn đoán hay lý do cảnh báo; mọi consent, thay đổi quyền, gửi thông báo và thu hồi quyền phải audit. `urgent` không biến contact thành kênh cấp cứu; chỉ thông báo contact nếu Patient bật lựa chọn riêng.
-- Tìm cơ sở y tế P1 nhận đầu vào là Program/condition được chọn rõ ràng hoặc specialty được duyệt cùng khu vực/vị trí do Patient chọn. Hệ thống dùng `ConditionSpecialtyMap` do Admin duyệt, lọc danh mục `HealthcareFacility` active/verified, rồi sắp xếp xác định theo khớp specialty, trạng thái verified và khoảng cách.
+- Tìm cơ sở y tế P1 nhận đầu vào là Program/bệnh được chọn rõ ràng hoặc chuyên khoa được duyệt cùng khu vực/vị trí do Patient chọn. Hệ thống dùng `DiseaseSpecialties` do Admin duyệt, lọc `MedicalFacilities` đã xác minh, rồi sắp xếp xác định theo mức khớp chuyên khoa và khoảng cách. Khi dữ liệu nội bộ chưa đủ, backend gọi API bản đồ; Admin phải chọn kết quả, tạo bản nháp và kiểm tra nguồn chính thức trước khi đánh dấu đã xác minh.
 - AI chỉ chuẩn hóa truy vấn tự nhiên thành specialty/khu vực và giải thích reason code; AI không suy luận diagnosis, không xếp hạng chất lượng cơ sở và không thay thế safety flow. External map result phải có source label, chỉ được dùng làm fallback và không tự thành dữ liệu verified.
 - Doctor Priority Inbox chỉ chứa Patient thuộc enrollment được phân công và có pagination/stable sort.
 - Báo cáo 7/30 ngày tính số liệu bằng backend; LLM chỉ diễn đạt từ payload chuẩn hóa và phải có fallback.
 - Chuỗi AI summary là `normalize metrics → deterministic aggregate → rule evaluation → SummaryInput snapshot → structured LLM output → grounding/safety guard → summary hoặc fallback`. Mọi con số và nhận xét phải truy về snapshot/source reference; Patient và Doctor dùng presentation policy khác nhau trên cùng facts.
-- Redis reserve/commit/release quota theo ngày; `AiUsageDaily` là dữ liệu bền vững để thống kê và đối soát.
+- Redis reserve/commit/release quota token theo ngày; `AiUsageDaily` là dữ liệu bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam.
 - Không dùng cron xóa toàn bộ quota key; key theo ngày có TTL.
 - RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
+- Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`; trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
 - AI response phải có safety policy/disclaimer và không chẩn đoán.
 
 ### 5.7 Billing, cancel và refund
@@ -210,8 +216,9 @@ queuePriorityAt != null
 - Plus bổ sung nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder, medication reminder, export và quota AI cao hơn.
 - Care bao gồm Plus cùng Doctor-assigned Program, review định kỳ, Priority Inbox, follow-up, tái khám và ưu đãi giá consultation theo Plan snapshot.
 - `consultationLimitPerCycle` mặc định: Free `1`, Plus `3`, Care `6`; hệ thống đếm trực tiếp `consultationsUsed` và số còn lại.
-- Scheduled/on-demand dùng chung consultation limit và reservation ledger idempotent. `AiQuestionQuota` là entitlement khác, chỉ đếm câu hỏi AI.
+- Scheduled/on-demand dùng chung consultation limit và reservation ledger idempotent. Quota AI là entitlement khác, dùng tổng input/output token và request cap, không dùng chung với consultation.
 - Subscription không được thay đổi severity/ưu tiên lâm sàng; safety alert và quyền truy cập dữ liệu cơ bản không bị khóa khi hết hạn.
+- Plan được version hóa `draft → published → retired`. Admin sửa chính sách kinh doanh trong database và hard ceiling hệ thống; Subscription giữ snapshot nên quyền lợi đã mua không đổi âm thầm.
 
 ```mermaid
 stateDiagram-v2
@@ -234,6 +241,9 @@ stateDiagram-v2
 - Cancel order chỉ dành cho `created|pending`; không gọi refund provider.
 - Late valid IPN của order cancelled/expired vẫn phải ghi nhận, không bỏ qua tiền đã thu.
 - Full refund MVP: patient request, admin approve/reject, worker gọi VNPAY, timeout chuyển `manual_review` để đối soát.
+- Refund không xét theo một phần trăm sử dụng chung. Mỗi phiên bản Plan có `refundPolicy` riêng; policy được snapshot vào order và đánh giá theo từng quyền lợi trả phí như AI token, consultation đã tính lượt, Doctor review, báo cáo và nhiệm vụ Care trả phí.
+- Khi tạo yêu cầu, hệ thống chụp mức sử dụng và tạm dừng hành động trả phí mới nhưng vẫn giữ dữ liệu, quyền Free và cảnh báo an toàn. Backend kiểm tra lại mức sử dụng ngay trước khi Admin duyệt để tránh race condition.
+- Lỗi thu trùng/đã thu nhưng chưa cấp hoặc cấp sai quyền đi vào `review_required`. Admin có thể duyệt ngoại lệ với lý do và audit, nhưng không thể vượt số tiền đã thu hoặc tạo nhiều refund cho cùng order.
 - Chỉ khi provider xác nhận refund thành công mới chuyển order `refunded` và cancel đúng subscription grant.
 - Partial refund, chargeback, auto-approve và auto-refund do hủy consultation nằm ngoài DA2.
 
@@ -281,21 +291,23 @@ Backend sử dụng Modular Monolith, chia theo capability:
 
 | Module | Dữ liệu sở hữu |
 |---|---|
-| authentication | Users, OAuthAccounts, AuthSessions, AuthEvents, UserDevices |
+| authentication | Users, OAuthAccounts, AuthSessions, UserDevices |
 | practitioner-management | DoctorProfile embedded trong Users và verification policy |
 | consultations | AvailabilitySlots, Consultations, ConsultationMessages, Reviews |
 | health-tracking | HealthMetrics |
-| chronic-care | CareProgramTemplates, CareEnrollments, MonitoringTasks, CareRuleSets, CareEvaluations, CareAlerts, CareSummaries |
+| chronic-care | CarePrograms, CareRules, PatientCarePrograms, CareTasks, HealthEvaluations, CareAlerts, CareReports, CareSummaries, FamilyLinks, FamilyPermissions, FamilyReminders |
+| care-directory | MedicalFacilities, DiseaseSpecialties |
 | ai-advisory | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords |
-| billing | Plans, PaymentOrders, PaymentTransactions, Subscriptions, PaymentRefunds |
+| billing | Plans, PaymentOrders, PaymentTransactions, Subscriptions, SubscriptionAddOns, ConsultationUsages, PaymentRefunds |
 | notifications | NotificationCampaigns, Notifications, OutboxEvents |
 | moderation | ViolationReports |
+| platform-audit | AuditLogs dùng chung, phân biệt bằng `domain` |
 
 Mongoose là ODM chính. Mỗi collection có một canonical model thuộc module sở hữu; module khác truy cập qua application facade/query port, không inject model trực tiếp.
 
 ## 7. Dữ liệu
 
-DB v7 hiện gồm 27 collections được mô tả tại `docs/db-template-v7.dbml`. Chronic Care sẽ được bổ sung bằng migration/schema version mới sau design review; không sửa lịch sử migration hoặc xem DBML hiện tại là đã có các collection Chronic Care.
+DB v7 hiện gồm 27 collections và vẫn là mốc dữ liệu đã chốt. Bản nháp `docs/db-template-v8.dbml` gồm 42 collections, bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 chỉ là thiết kế để review; chưa được xem là đã triển khai cho tới khi có migration, verifier và kiểm thử tương ứng.
 
 Nguyên tắc:
 
@@ -359,7 +371,7 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - AI quota/RAG cốt lõi.
 - Chronic Care cho tăng huyết áp và tiểu đường: Doctor-assigned enrollment/consent, monitoring tasks, rule engine, Care Alert, Priority Inbox, báo cáo 7/30 ngày và AI summary có fallback.
 - Liên kết Care Alert với scheduled/on-demand consultation và follow-up.
-- P1 (chỉ bật nếu P0 ổn định): Người thân đồng hành với một contact, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không làm chậm luồng P0.
+- P1 (chỉ bật nếu P0 ổn định): Người thân đồng hành với số liên kết theo `familyLinkLimit`, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không cần FamilyGroup trong DA2.
 - P1 (chỉ bật nếu P0 ổn định): Tìm cơ sở y tế với danh mục quản trị, ánh xạ Program/specialty, tìm kiếm theo khoảng cách, giải thích kết quả và liên kết chỉ đường; dịch vụ bản đồ bên ngoài chỉ là fallback.
 - VNPAY Sandbox payment/subscription và cancel unpaid order.
 - Web critical journeys và test race/idempotency.
@@ -385,7 +397,7 @@ Nếu muốn giữ full refund trong release, payment cơ bản phải ổn trư
 
 ## 12. Tiêu chí hoàn thành
 
-- Business rule và API contract không mâu thuẫn DB v7.
+- Business rule, API contract và migration không mâu thuẫn DB version đã được duyệt; trước khi v8 được duyệt/triển khai, v7 vẫn là current-state canonical.
 - Backend, Web Client và Web Admin build/typecheck/test xanh.
 - Critical E2E cho auth, Care Program, monitoring, alert, Doctor Inbox, AI fallback, booking/queue/chat và feature P1 được bật.
 - Race/idempotency tests pass cho slot, call-next, IPN và refund.

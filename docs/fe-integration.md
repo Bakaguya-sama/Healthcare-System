@@ -198,7 +198,7 @@ interface FileDto {
 type SlotStatus = "available" | "booked" | "blocked" | "expired";
 type ConsultationMode = "on_demand" | "scheduled";
 type RequestStatus = "pending" | "accepted" | "declined" | "cancelled" | "expired";
-type SessionStatus = "not_started" | "waiting" | "in_consultation" | "completed" | "no_show";
+type SessionStatus = "not_started" | "waiting" | "in_consultation" | "interrupted" | "completed" | "no_show";
 
 interface AvailabilitySlotDto {
   id: Id;
@@ -227,6 +227,7 @@ interface ConsultationDto {
   scheduledStartAt?: IsoDateTime;
   scheduledEndAt?: IsoDateTime;
   timezone?: string;
+  expectedDurationMinutes: number;
   patientNotes?: string;
   doctorNotes?: string;
   queueJoinedAt?: IsoDateTime;
@@ -234,6 +235,11 @@ interface ConsultationDto {
   estimatedWaitMinutes?: number;
   calledAt?: IsoDateTime;
   sessionStartedAt?: IsoDateTime;
+  lastHeartbeatAt?: IsoDateTime;
+  overtimeStartedAt?: IsoDateTime;
+  interruptedAt?: IsoDateTime;
+  interruptionReason?: string;
+  resumedAt?: IsoDateTime;
   completedAt?: IsoDateTime;
   noShowAt?: IsoDateTime;
   cancelledAt?: IsoDateTime;
@@ -346,13 +352,30 @@ interface AiQuotaDto {
 ```ts
 interface PlanDto {
   id: Id;
+  code: "FREE" | "PLUS" | "CARE" | string;
+  version: number;
   name: string;
   description?: string;
   price: MoneyVnd;
   currency: "VND";
   durationDays: number;
-  dailyAiLimit: number;
+  aiRequestLimit: number;
+  aiTokenLimit: number;
+  aiQuotaPeriod: "day" | "subscription_cycle";
+  consultationLimitPerCycle: number;
+  activeCareProgramLimit: number;
   features: Record<string, boolean | number | string>;
+  refundPolicy: {
+    version: string;
+    refundType: "full_only";
+    refundWindowHours: number;
+    maxAiTokensUsed: number;
+    maxConsultationsCounted: number;
+    maxDoctorReviewsCompleted: number;
+    maxPaidReportsGenerated: number;
+    maxPaidCareTasksCompleted: number;
+    requireAdminApproval: true;
+  };
   isActive: boolean;
 }
 
@@ -381,7 +404,7 @@ interface PaymentOrderDto {
 interface SubscriptionDto {
   id: Id;
   sourceOrderId: Id;
-  plan: Pick<PlanDto, "id" | "name" | "dailyAiLimit" | "features">;
+  plan: Pick<PlanDto, "id" | "name" | "aiTokenLimit" | "aiQuotaPeriod" | "features">;
   status: "active" | "expired" | "cancelled";
   startedAt: IsoDateTime;
   expiresAt: IsoDateTime;
@@ -397,10 +420,22 @@ interface PaymentRefundDto {
   id: Id;
   orderId: Id;
   paymentTransactionId: Id;
+  subscriptionId: Id;
   amount: MoneyVnd;
   currency: "VND";
   reasonCode?: string;
   reason: string;
+  eligibilityStatus: "eligible" | "review_required" | "ineligible";
+  eligibilityReasonCodes: string[];
+  usageSummary: {
+    aiTokensUsed: number;
+    consultationsReserved: number;
+    consultationsCounted: number;
+    doctorReviewsCompleted: number;
+    paidReportsGenerated: number;
+    paidCareTasksCompleted: number;
+  };
+  paidBenefitsPaused: boolean;
   status: RefundStatus;
   requestedAt: IsoDateTime;
   reviewedAt?: IsoDateTime;
@@ -515,6 +550,7 @@ interface ViolationReportDto {
 | CON-15 | `POST /doctors/me/queue/call-next` | Doctor | idempotency | claimed consultation | Target P0 |
 | CON-16 | `POST /consultations/:id/start` | Doctor/participant policy | consent/version | consultation | Target P0 |
 | CON-17 | `POST /consultations/:id/complete` | Doctor | `{ doctorNotes? }` | consultation | Current canonical |
+| CON-17A | `POST /consultations/:id/resume` | Doctor owner | idempotency | consultation | Target P0; only from interrupted and when Doctor has no active session |
 | CON-18 | `GET /chat/consultation/:consultationId` | Participant | cursor, limit | message page | Current canonical |
 | CON-19 | `POST /chat/consultation/messages` | Participant | consultationId, content/files/clientMessageId | message | Current canonical |
 | CON-20 | `POST /consultations/:id/review` | Patient participant | rating/comment | `ReviewDto` | Target P0; legacy `/reviews` |
@@ -556,7 +592,7 @@ interface ViolationReportDto {
 | BILL-11 | `GET /admin/billing/orders` | Admin | status/date/user/orderCode/page | order page + totals | Target P0 |
 | BILL-12 | `GET /admin/billing/orders/:id` | Admin | none | order, transaction, subscription, refund | Target P0 |
 | BILL-13 | `GET /admin/billing/refunds` | Admin | status/date/user/page | refund page + status totals | Target P1 |
-| BILL-14 | `POST /admin/billing/refunds/:id/approve` | Admin | review note + idempotency | refund approved | Target P1 |
+| BILL-14 | `POST /admin/billing/refunds/:id/approve` | Admin | review note + optional override reason + idempotency | refund approved after server re-evaluation | Target P1 |
 | BILL-15 | `POST /admin/billing/refunds/:id/reject` | Admin | rejectionReason | refund rejected | Target P1 |
 | BILL-16 | `POST /admin/billing/refunds/:id/reconcile` | Admin | none + idempotency | refreshed refund status | Target P1 |
 
@@ -703,7 +739,7 @@ const queryKeys = {
 | Plans `/patient/plans` | New | PlanDto[], effective entitlement | BILL-01/02 | plan comparison; hide inactive; no price from client in create order |
 | Checkout/payment result `/patient/billing/orders/:id` | New | PaymentOrderDto | BILL-03/05/07 | open payment URL; poll/refetch after return; `payment.v1.updated`; never trust query success alone |
 | Billing history `/patient/billing` | New | orders, subscriptions, refunds | BILL-02/04/05/10 | cancel allowed order via BILL-06; CTA based on `allowedActions` |
-| Refund request `/patient/billing/orders/:id/refund` | New P1 | paid order + eligibility | BILL-05/09 | reason required; conflict/eligibility; feature flag fallback |
+| Refund request `/patient/billing/orders/:id/refund` | New P1 | paid order + per-benefit eligibility | BILL-05/09 | reason required; show usage/reason codes; paid benefits pause after accepted request; Free/safety remain; feature flag fallback |
 | Refund detail `/patient/refunds/:id` | New P1 | PaymentRefundDto + order summary | BILL-10 | `refund.v1.updated`; manual-review explanatory state; no client provider retry |
 
 Patient page guards:
@@ -742,7 +778,7 @@ Doctor route guard phải phân biệt:
 | AI blacklist `/admin/ai/blacklist` | tab hiện tại | keyword page | ADM-14..17 | normalized keyword conflicts; mutation invalidation |
 | Plans `/admin/plans` | New | all plans | ADM-07..09 | edit creates future-facing plan version/snapshot behavior; existing orders unchanged |
 | Payments `/admin/billing/orders` | New | orders/transactions/totals | BILL-11/12 | filters, detail, reconciliation status; no manual mark-paid button |
-| Refund queue `/admin/billing/refunds` | New P1 | PaymentRefundDto page/totals | BILL-13..16 | approve/reject/reconcile; `refund.v1.updated`; processing action disabled |
+| Refund queue `/admin/billing/refunds` | New P1 | PaymentRefundDto page/totals | BILL-13..16 | show captured/final usage and reason codes; approve re-evaluates server-side; override requires reason; `refund.v1.updated`; processing action disabled |
 | Violation list `/admin/violations` | `/violation-reports` | report page/totals | MOD-02 | filter status/severity/assignee |
 | Violation detail `/admin/violations/:id` | modal/page hiện tại | full report/evidence/AI draft | MOD-03/04 | transition validation; admin decision required; ban action through user API |
 | Notification campaigns `/admin/notifications/campaigns` | New P1 | campaign page/status | contract bổ sung khi feature vào cut-line | worker fan-out status; không gửi hàng loạt trong HTTP request |

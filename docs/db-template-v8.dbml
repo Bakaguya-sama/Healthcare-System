@@ -1,0 +1,1257 @@
+// HEALTHCARE DB SCHEMA v8 DRAFT FOR REVIEW - MongoDB + NestJS + Mongoose
+// Extends v7 with Chronic Care, deterministic reports/AI summaries,
+// subscription benefits, consultation usage, family reminders and facility search.
+// Product scope: health monitoring and consultation support, not diagnosis.
+// This is a design draft only; no production migration is implied by this file.
+// MongoDB partial, sparse, TTL, time-series and Atlas Vector Search indexes
+// must be created and verified by versioned migration files.
+// Set Mongoose autoIndex/autoCreate=false in staging and production-like environments.
+
+Table Users {
+  id ObjectID [pk]
+  fullName varchar [not null]
+  email varchar [not null, unique, note: "Normalize to lowercase before persistence"]
+  passwordHash varchar [note: "Nullable for OAuth-only accounts; select:false; never return publicly"]
+  emailVerifiedAt datetime
+  gender varchar
+  dateOfBirth date
+  phoneNumber varchar
+  avatarUrl varchar
+  avatarPublicId varchar
+  role varchar [not null, note: "patient, doctor, admin"]
+  accountStatus varchar [not null, note: "active, banned"]
+  banReason varchar
+  lastOnlineAt datetime [note: "Durable last-known online time; realtime presence remains in Redis/Socket.IO"]
+  address json [note: "{ street, ward, district, city, country }"]
+  doctorProfile json [note: "{ specialty, workplace, verificationDocuments[], experienceYears, averageRating, ratingSum, reviewCount, verificationStatus: pending|approved|rejected, verifiedAt, rejectReason, bookingSettings: { bookingPolicy: instant|approval_required, defaultDurationMinutes, bufferMinutes, minNoticeMinutes, maxAdvanceDays, cancellationDeadlineMinutes, checkInEarlyMinutes, noShowAfterMinutes } }; business values are Admin-configurable within system hard limits and snapshotted into a Consultation"]
+  adminProfile json [note: "{ adminRole: super_admin|user_manager|ai_manager }"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    email [unique]
+    (role, accountStatus)
+    "doctorProfile.specialty"
+    "doctorProfile.verificationStatus"
+    "doctorProfile.averageRating"
+  }
+}
+
+Table OAuthAccounts {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  provider varchar [not null, note: "google, facebook, apple"]
+  providerAccountId varchar [not null, note: "Stable provider subject ID"]
+  providerEmail varchar
+  linkedAt datetime [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (provider, providerAccountId) [unique]
+    (userId, provider) [unique]
+  }
+}
+
+Table AuthSessions {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  familyId varchar [not null, note: "Groups refresh-token rotations for one device login"]
+  refreshTokenHash varchar [not null, unique, note: "Token carries this session id; backend loads by id then compares the secret hash. Never store plaintext"]
+  rotatedFromSessionId ObjectID
+  replacedBySessionId ObjectID
+  deviceId varchar
+  userAgent varchar
+  ipAddress varchar
+  lastUsedAt datetime
+  expiresAt datetime [not null]
+  revokedAt datetime
+  revokedReason varchar [note: "logout, rotation, password_changed, account_banned, replay_detected"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    refreshTokenHash [unique]
+    familyId
+    (userId, revokedAt, expiresAt)
+    expiresAt [note: "TTL index created by MongoDB migration"]
+  }
+}
+
+Table UserDevices {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  platform varchar [not null, note: "web, android, ios"]
+  pushToken varchar [not null, unique]
+  appVersion varchar
+  lastSeenAt datetime
+  disabledAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    pushToken [unique]
+    (userId, disabledAt)
+  }
+}
+
+// OTP is held in Redis with TTL and rate limiting:
+// otp:{purpose}:{email} -> { codeHash, attempts, expiresAt }
+
+Table AvailabilitySlots {
+  id ObjectID [pk]
+  doctorId ObjectID [not null]
+  startAt datetime [not null]
+  endAt datetime [not null]
+  timezone varchar [not null, note: "IANA timezone used for display/policy; timestamps remain UTC"]
+  status varchar [not null, note: "available, booked, blocked, expired"]
+  blockedAt datetime
+  blockedBy ObjectID
+  blockReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (doctorId, startAt) [unique]
+    (doctorId, status, startAt)
+  }
+}
+
+// Slot overlap (startAt < other.endAt and endAt > other.startAt) is enforced
+// by an application-level conditional check/transaction, not by the unique index alone.
+
+Table Consultations {
+  id ObjectID [pk]
+  patientId ObjectID [not null]
+  doctorId ObjectID [not null]
+  patientCareProgramId ObjectID [note: "Optional link to the Patient Care Program that initiated/follows this consultation"]
+  careAlertId ObjectID [note: "Optional alert context; consultation remains usable without a Care Program"]
+  availabilitySlotId ObjectID [note: "Null for on-demand; sparse unique MongoDB index"]
+  mode varchar [not null, note: "on_demand, scheduled"]
+  requestStatus varchar [not null, note: "pending, accepted, declined, cancelled, expired; instant scheduled booking starts accepted"]
+  sessionStatus varchar [not null, note: "not_started, waiting, in_consultation, interrupted, completed, no_show"]
+  requestedAt datetime [not null]
+  respondedAt datetime
+  requestExpiresAt datetime
+  declinedReason varchar
+  scheduledStartAt datetime [note: "Required for scheduled mode"]
+  scheduledEndAt datetime
+  timezone varchar
+  expectedDurationMinutes int [not null, note: "Expected operational duration; never auto-completes the consultation"]
+  bookingSettingsSnapshot json [note: "Applied bookingPolicy, duration/buffer, notice, cancellation, check-in and no-show values captured at booking/acceptance"]
+  patientNotes text
+  doctorNotes text
+  followUpAt datetime
+  followUp json [note: "{ note, createdBy, createdAt, nextAction, taskId }"]
+  queueJoinedAt datetime
+  queuePriorityAt datetime [note: "Stable queue ordering key; normally scheduledStartAt or queueJoinedAt"]
+  calledAt datetime
+  estimatedWaitMinutes int
+  sessionStartedAt datetime
+  lastHeartbeatAt datetime
+  overtimeStartedAt datetime [note: "Set when the session passes its expected end; does not mean completed"]
+  interruptedAt datetime
+  interruptionReason varchar [note: "heartbeat_timeout, network_lost, doctor_disconnected, system_recovery"]
+  resumedAt datetime
+  completedAt datetime
+  completedBy ObjectID
+  noShowAt datetime
+  noShowReason varchar
+  cancelledAt datetime
+  cancelledBy ObjectID
+  cancellationReason varchar
+  roomId varchar [note: "Sparse unique MongoDB index; Socket.IO/WebRTC room"]
+  callStartedAt datetime
+  callEndedAt datetime
+  callEndReason varchar
+  consultationConsent json [note: "{ acceptedAt, policyVersion }"]
+  aiConsultationBrief json [note: "{ summary, patientQuestions, recentContext, model, generatedAt, status: draft|doctor_reviewed }"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    availabilitySlotId [unique, note: "Sparse unique index created by migration"]
+    roomId [unique, note: "Sparse unique index created by migration"]
+    (doctorId, requestStatus, requestedAt)
+    (patientId, requestStatus, requestedAt)
+    (doctorId, sessionStatus, scheduledStartAt, queuePriorityAt)
+    (patientId, doctorId) [note: "Partial unique where mode=on_demand and requestStatus=pending"]
+    doctorId [note: "Partial unique where sessionStatus=in_consultation"]
+  }
+}
+
+Table ConsultationMessages {
+  id ObjectID [pk]
+  consultationId ObjectID [not null]
+  senderId ObjectID [not null]
+  senderType varchar [not null, note: "patient, doctor, system"]
+  clientMessageId varchar [note: "Client-generated retry/idempotency key; nullable for system messages"]
+  content text
+  attachments json [note: "[{ type, url, publicId, originalName, mimeType, size }]"]
+  deletedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (consultationId, createdAt)
+    (consultationId, clientMessageId) [unique, note: "Sparse unique MongoDB index"]
+    senderId
+  }
+}
+
+Table Reviews {
+  id ObjectID [pk]
+  consultationId ObjectID [not null]
+  patientId ObjectID [not null]
+  doctorId ObjectID [not null]
+  rating int [not null, note: "Integer from 1 to 5"]
+  comment text
+  status varchar [not null, note: "published, hidden, removed"]
+  moderation json [note: "{ flaggedAt, flaggedBy, reason, handledAt, handledBy }"]
+  createdAt datetime
+  updatedAt datetime
+  deletedAt datetime
+
+  Indexes {
+    consultationId [unique]
+    (doctorId, status, createdAt)
+    (patientId, createdAt)
+    (doctorId, rating)
+  }
+}
+
+Table AiConversations {
+  id ObjectID [pk]
+  patientId ObjectID [not null]
+  status varchar [not null, note: "active, completed, archived"]
+  feedbacks json [note: "[{ content, createdAt }]"]
+  startedAt datetime
+  endedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (patientId, status, createdAt)
+  }
+}
+
+Table AiMessages {
+  id ObjectID [pk]
+  aiConversationId ObjectID [not null]
+  senderType varchar [not null, note: "patient, ai"]
+  content text
+  attachments json [note: "[{ type, url, publicId, originalName, mimeType, size }]"]
+  citations json [note: "RAG source metadata; do not store secrets"]
+  model varchar
+  status varchar [not null, note: "pending, completed, failed"]
+  inputTokens int
+  outputTokens int
+  errorCode varchar
+  sentAt datetime [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (aiConversationId, sentAt)
+    (status, createdAt)
+  }
+}
+
+Table AiUsageDaily {
+  id ObjectID [pk]
+  userId ObjectID [not null, note: "Quota owner/requester; scheduled Patient summary is attributed by explicit policy"]
+  usageDate date [not null]
+  chatRequestCount int [not null, default: 0, note: "Secondary abuse/rate cap; token usage is the primary subscription quota"]
+  chatInputTokens bigint [not null, default: 0]
+  chatOutputTokens bigint [not null, default: 0]
+  chatTotalTokens bigint [not null, default: 0, note: "Committed input + output tokens for interactive AI requests"]
+  summaryGenerationCount int [not null, default: 0, note: "Tracked separately; governed by summary budget/policy"]
+  summaryInputTokens bigint [not null, default: 0]
+  summaryOutputTokens bigint [not null, default: 0]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (userId, usageDate) [unique]
+  }
+}
+
+Table HealthMetrics {
+  id ObjectID [pk]
+  meta json [not null, note: "{ patientId, metricType, unit }"]
+  values json [not null, note: "Example: { systolic, diastolic } or { amount }"]
+  source varchar [not null, note: "manual, device, clinician, import"]
+  sourceRef json [note: "{ deviceId, importBatchId, enteredBy }; sanitized provenance"]
+  validationStatus varchar [not null, default: "valid", note: "valid, rejected, superseded, voided"]
+  validationReasonCodes json [note: "Machine-readable reasons; invalid values are not silently corrected"]
+  recordedTimezone varchar [note: "IANA timezone snapshot supplied at capture; recordedAt remains UTC"]
+  replacesMetricId ObjectID [note: "New record points to the old record it corrects; measurement values are never overwritten"]
+  recordedAt datetime [not null, note: "MongoDB time-series timeField"]
+  ingestedAt datetime
+  voidedAt datetime
+  voidedBy ObjectID
+  voidReason varchar
+  createdAt datetime
+
+  Indexes {
+    ("meta.patientId", "meta.metricType", recordedAt)
+  }
+}
+
+Table AiDocuments {
+  id ObjectID [pk]
+  title varchar [not null]
+  fileUrl varchar [not null]
+  fileType varchar [not null]
+  publicId varchar
+  checksum varchar [not null, unique, note: "Prevent duplicate documents"]
+  processingStatus varchar [not null, note: "uploaded, processing, ready, error"]
+  reviewStatus varchar [not null, note: "pending_review, approved, rejected, archived; this is the approval source of truth"]
+  processingError text
+  processedAt datetime
+  chunkCount int
+  sourceOrganization varchar [not null]
+  guidelineVersion varchar
+  sourceUrl varchar
+  publishedAt datetime
+  effectiveUntil datetime
+  specialties json
+  language varchar [not null, default: "vi"]
+  audiences json [note: "patient, doctor, admin"]
+  uploadedBy ObjectID [not null]
+  reviewedBy ObjectID
+  reviewedAt datetime
+  rejectionReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    checksum [unique]
+    uploadedBy
+    (processingStatus, reviewStatus, updatedAt)
+    (reviewStatus, effectiveUntil)
+  }
+}
+
+Table AiDocumentChunks {
+  id ObjectID [pk]
+  documentId ObjectID [not null]
+  chunkIndex int [not null]
+  content text [not null]
+  embedding json [note: "Atlas Vector Search index is provisioned separately"]
+  documentTitle varchar [not null, note: "Snapshot used for retrieval and citation"]
+  sourceOrganization varchar [not null]
+  reviewStatus varchar [not null, note: "Denormalized from AiDocuments for Atlas filtering; never approved independently per chunk"]
+  guidelineVersion varchar
+  sourceUrl varchar
+  publishedAt datetime
+  effectiveUntil datetime
+  specialties json [note: "Admin-approved specialty allowlist"]
+  language varchar [not null, default: "vi"]
+  audiences json [note: "patient, doctor, admin"]
+  pageNumber int
+  sectionPath json [not null, note: "Ordered heading path retained by the parser"]
+  parentChunkId ObjectID [note: "Optional larger parent section used for parent-child retrieval"]
+  tokenCount int [not null]
+  contentHash varchar [not null]
+  ingestionVersion varchar [not null, note: "Parser/chunker/embedding pipeline version"]
+  citation json [not null, note: "Stable display snapshot: { title, organization, version, pageNumber, sectionPath, sourceUrl }"]
+  isActive boolean [not null, default: true]
+  excludedAt datetime
+  excludedBy ObjectID
+  exclusionReason varchar [note: "Parser error, duplicate, unsafe content or Admin exclusion; does not change document approval"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (documentId, chunkIndex) [unique]
+    (documentId, contentHash) [unique]
+    parentChunkId
+    (reviewStatus, isActive, language)
+    (isActive, effectiveUntil)
+  }
+}
+
+Table BlacklistKeywords {
+  id ObjectID [pk]
+  keyword varchar [not null, unique]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    keyword [unique]
+  }
+}
+
+Table Plans {
+  id ObjectID [pk]
+  code varchar [not null, note: "Stable code such as FREE, PLUS, CARE; display name may change"]
+  version int [not null]
+  name varchar [not null]
+  tier varchar [not null, note: "free, plus, care; behavior is read from entitlement values, not hard-coded by tier"]
+  description text
+  price bigint [not null, note: "VND integer; never floating point"]
+  currency varchar [not null, default: "VND"]
+  durationDays int [not null]
+  aiRequestLimit int [not null, note: "Secondary cap against abuse; not the primary billable quota"]
+  aiTokenLimit bigint [not null, note: "Primary quota for interactive AI: committed input + output tokens"]
+  aiQuotaPeriod varchar [not null, default: "day", note: "day, subscription_cycle"]
+  consultationLimitPerCycle int [not null]
+  activeCareProgramLimit int [not null]
+  benefits json [not null, note: "{ weeklyAiSummary, reports[], smartReminder, medicationReminder, exports[], doctorReview, priorityInbox, followUp, familyLinkLimit, facilitySearch }"]
+  refundPolicy json [not null, note: "Versioned business policy: { version, refundType: full_only, refundWindowHours, maxAiTokensUsed, maxConsultationsCounted, maxDoctorReviewsCompleted, maxPaidReportsGenerated, maxPaidCareTasksCompleted, requireAdminApproval }"]
+  status varchar [not null, note: "draft, published, retired"]
+  effectiveFrom datetime
+  effectiveUntil datetime
+  createdBy ObjectID [not null]
+  publishedBy ObjectID
+  publishedAt datetime
+  retiredBy ObjectID
+  retiredAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (code, version) [unique]
+    (code, status) [unique, note: "Partial unique where status=published; only one sellable version per code"]
+    (tier, status, effectiveFrom)
+  }
+}
+
+Table PaymentOrders {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  planId ObjectID [not null]
+  orderCode varchar [not null, unique]
+  idempotencyKey varchar [not null, unique, note: "Prevents duplicate create-order requests"]
+  orderSnapshot json [not null, note: "Immutable plan name, price, duration, quota, features and refundPolicy"]
+  amount bigint [not null, note: "VND integer"]
+  currency varchar [not null, default: "VND"]
+  status varchar [not null, note: "created, pending, processing, paid, expired, cancelled, failed, refund_pending, refunded"]
+  expiresAt datetime
+  paidAt datetime
+  cancelledAt datetime
+  cancelledBy ObjectID
+  cancellationReason varchar
+  refundedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    orderCode [unique]
+    idempotencyKey [unique]
+    (userId, status, createdAt)
+    expiresAt
+  }
+}
+
+Table PaymentTransactions {
+  id ObjectID [pk]
+  orderId ObjectID [not null]
+  provider varchar [not null, note: "vnpay"]
+  transactionRef varchar [not null, unique, note: "Merchant/provider transaction reference"]
+  providerTransactionNo varchar [note: "Sparse unique MongoDB index"]
+  amount bigint [not null, note: "VND integer"]
+  status varchar [not null, note: "pending, succeeded, failed"]
+  responseCode varchar
+  bankCode varchar
+  ipnReceivedAt datetime
+  signatureVerifiedAt datetime
+  gatewayPayload json [note: "Sanitized IPN payload only; never store secret key"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    transactionRef [unique]
+    providerTransactionNo [unique, note: "Sparse unique MongoDB index"]
+    (orderId, createdAt)
+  }
+}
+
+Table Subscriptions {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  planId ObjectID [not null]
+  sourceOrderId ObjectID [note: "Nullable for free_grant/admin_demo; sparse unique for paid order grants"]
+  status varchar [not null, note: "active, expired, cancelled"]
+  source varchar [not null, default: "payment", note: "payment, free_grant, admin_demo"]
+  planSnapshot json [not null, note: "Immutable purchased plan and entitlement data"]
+  nextPlanId ObjectID [note: "Optional plan scheduled for the next cycle; only one pending change is allowed"]
+  nextPlanSnapshot json
+  nextPlanOrderId ObjectID [note: "Paid order that schedules the next plan"]
+  nextPlanStartsAt datetime
+  cycleNumber int [not null, default: 1]
+  currentPeriodStart datetime [not null]
+  currentPeriodEnd datetime [not null]
+  startedAt datetime [not null]
+  expiresAt datetime [not null]
+  cancelledAt datetime
+  cancelledBy ObjectID
+  cancellationReason varchar [note: "user_cancelled, payment_refunded, admin_revoked"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    sourceOrderId [unique, note: "Sparse unique MongoDB index"]
+    nextPlanOrderId [unique, note: "Sparse unique MongoDB index; one scheduled change per paid order"]
+    (userId, status) [unique, note: "Partial unique where status=active; one effective Subscription per user"]
+    (userId, status, expiresAt)
+    (status, nextPlanStartsAt)
+  }
+}
+
+Table PaymentRefunds {
+  id ObjectID [pk]
+  orderId ObjectID [not null, unique, note: "One full-refund lifecycle per order in MVP"]
+  paymentTransactionId ObjectID [not null]
+  subscriptionId ObjectID [not null, note: "Exact subscription whose paid benefits are paused/revoked by this refund"]
+  userId ObjectID [not null]
+  amount bigint [not null, note: "Must equal captured amount for full-refund MVP"]
+  currency varchar [not null, default: "VND"]
+  reasonCode varchar
+  reason text [not null]
+  status varchar [not null, note: "requested, approved, rejected, processing, succeeded, failed, manual_review"]
+  policyVersion varchar [not null]
+  policySnapshot json [not null, note: "Refund policy captured from PaymentOrders.orderSnapshot; later Plan edits do not affect this request"]
+  usageSnapshot json [not null, note: "{ aiTokensUsed, consultationsReserved, consultationsCounted, doctorReviewsCompleted, paidReportsGenerated, paidCareTasksCompleted, capturedAt }"]
+  finalUsageSnapshot json [note: "Usage rechecked immediately before Admin approval; required when eligibility is evaluated again"]
+  eligibilityStatus varchar [not null, note: "eligible, review_required, ineligible"]
+  eligibilityReasonCodes json [not null]
+  evaluatedAt datetime [not null]
+  reEvaluatedAt datetime [note: "Last eligibility check before approval/rejection"]
+  paidBenefitsPausedAt datetime [note: "Paid-only actions are paused while refund is pending; Free/safety access remains"]
+  paidBenefitsResumedAt datetime [note: "Set when request is rejected or conclusively failed and paid access is restored"]
+  requestedBy ObjectID [not null]
+  requestedAt datetime [not null]
+  reviewedBy ObjectID
+  reviewedAt datetime
+  approvedAt datetime
+  rejectionReason text
+  adminOverride boolean [not null, default: false]
+  overrideReason text [note: "Required for approved exception; cannot bypass captured amount/provider/idempotency invariants"]
+  provider varchar [not null, default: "vnpay"]
+  providerRequestId varchar [note: "Stable across safe retries; sparse unique MongoDB index"]
+  providerRefundTransactionNo varchar [note: "Provider refund transaction number if returned"]
+  providerResponseCode varchar
+  providerMessage varchar
+  attemptCount int [not null, default: 0]
+  lastAttemptAt datetime
+  completedAt datetime
+  lastError text
+  gatewayRequest json [note: "Sanitized request metadata; never store secret/hash key"]
+  gatewayResponse json [note: "Sanitized provider response"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    orderId [unique]
+    providerRequestId [unique, note: "Sparse unique MongoDB index"]
+    (subscriptionId, status, createdAt)
+    (status, updatedAt)
+    (userId, createdAt)
+  }
+}
+
+
+Table CarePrograms {
+  id ObjectID [pk]
+  programCode varchar [not null, note: "Stable logical program code, for example hypertension-30d"]
+  version int [not null]
+  name varchar [not null]
+  diseaseKey varchar [not null, note: "hypertension, diabetes; selected from an Admin-managed list, not created by AI"]
+  description text
+  status varchar [not null, note: "draft, published, retired"]
+  eligibilityForm json [note: "Admin-approved structured criteria; informational/program eligibility only"]
+  baselineForm json [not null]
+  taskTemplates json [not null, note: "Versioned definitions for metric, check_in, education, appointment, doctor_review"]
+  reminderPolicy json [not null, note: "{ quietHours, frequencyCap, retryPolicy, defaultChannels }"]
+  reviewPolicy json [note: "{ cadence, requiredTier, slaPolicyId }"]
+  completionCriteria json
+  doctorEditableFields json [note: "Allowlist of fields a Doctor may customize per Patient Care Program"]
+  contentJourney json [note: "Approved document/content references by program stage"]
+  dataSources json [not null, note: "Approved medical/operational sources and review metadata"]
+  createdBy ObjectID [not null]
+  publishedBy ObjectID
+  publishedAt datetime
+  retiredBy ObjectID
+  retiredAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (programCode, version) [unique]
+    (status, diseaseKey, publishedAt)
+    createdBy
+  }
+}
+
+Table CareRules {
+  id ObjectID [pk]
+  careProgramId ObjectID [not null]
+  version int [not null]
+  status varchar [not null, note: "draft, active, retired"]
+  rules json [not null, note: "Allowlisted declarative operators only; no arbitrary code"]
+  dataSources json [not null]
+  testResults json [note: "Dataset/version/result summary used before activation"]
+  createdBy ObjectID [not null]
+  approvedBy ObjectID
+  activatedAt datetime
+  retiredAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (careProgramId, version) [unique]
+    (careProgramId, status)
+  }
+}
+
+Table PatientCarePrograms {
+  id ObjectID [pk]
+  patientId ObjectID [not null]
+  doctorId ObjectID [not null, note: "Must be active + approved before enrollment becomes active"]
+  careProgramId ObjectID [not null]
+  careRuleId ObjectID [not null]
+  status varchar [not null, note: "pending, active, paused, completed, cancelled"]
+  timezone varchar [not null, note: "IANA timezone snapshot used for schedules/report windows"]
+  consent json [not null, note: "{ policyVersion, acceptedAt, purposes[], channels[] }"]
+  baselineAnswers json
+  baselineCompletedAt datetime
+  customSettings json [note: "Only fields listed in CarePrograms.doctorEditableFields"]
+  programConfig json [not null, note: "Stable program/version/config needed to reproduce tasks/reports"]
+  startedAt datetime
+  expectedEndAt datetime
+  pausedAt datetime
+  pauseReason varchar
+  completedAt datetime
+  completionReason varchar
+  cancelledAt datetime
+  cancelledBy ObjectID
+  cancellationReason varchar
+  createdBy ObjectID [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (patientId, status, createdAt)
+    (doctorId, status, updatedAt)
+    (careProgramId, status)
+    (patientId, careProgramId) [note: "Partial unique for statuses pending|active if policy permits only one active enrollment per program"]
+  }
+}
+
+Table CareTasks {
+  id ObjectID [pk]
+  patientCareProgramId ObjectID [not null]
+  patientId ObjectID [not null]
+  doctorId ObjectID
+  templateKey varchar [not null]
+  taskType varchar [not null, note: "metric, check_in, education, appointment, doctor_review; medication, journal are P1"]
+  status varchar [not null, note: "scheduled, due, completed, missed, cancelled"]
+  required boolean [not null, default: true]
+  scheduleVersion varchar [not null]
+  scheduledFor datetime [not null]
+  windowStart datetime [not null]
+  windowEnd datetime [not null]
+  completionRule json [not null]
+  reminderPolicy json [not null]
+  completionSourceType varchar [note: "healthMetric, response, contentProgress, consultation, doctorReview"]
+  completionSourceId ObjectID
+  response json
+  completedAt datetime
+  missedAt datetime
+  cancelledAt datetime
+  cancellationReason varchar
+  uniqueKey varchar [not null, unique, note: "Prevents duplicate task generation for the same program/template/window/version"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    uniqueKey [unique]
+    (patientId, status, scheduledFor)
+    (patientCareProgramId, status, windowStart)
+    (doctorId, taskType, status, scheduledFor)
+    (completionSourceType, completionSourceId)
+  }
+}
+
+Table HealthEvaluations {
+  id ObjectID [pk]
+  patientCareProgramId ObjectID [not null]
+  patientId ObjectID [not null]
+  careTaskId ObjectID
+  healthMetricId ObjectID
+  careRuleId ObjectID [not null]
+  severity varchar [not null, note: "normal, attention, urgent"]
+  reasonCodes json [not null]
+  inputData json [not null, note: "IDs/versions only; enough to reproduce evaluation"]
+  timeRange json [not null, note: "{ startAt, endAt, timezone }"]
+  uniqueKey varchar [not null, unique]
+  evaluatedAt datetime [not null]
+  replacesEvaluationId ObjectID
+  createdAt datetime
+
+  Indexes {
+    uniqueKey [unique]
+    (patientCareProgramId, evaluatedAt)
+    (patientId, severity, evaluatedAt)
+    (careRuleId, evaluatedAt)
+  }
+}
+
+Table CareAlerts {
+  id ObjectID [pk]
+  patientCareProgramId ObjectID [not null]
+  evaluationId ObjectID [not null, unique]
+  patientId ObjectID [not null]
+  assignedDoctorId ObjectID [not null]
+  consultationId ObjectID
+  severity varchar [not null, note: "attention, urgent; copied from deterministic evaluation"]
+  reasonCodes json [not null]
+  status varchar [not null, note: "open, acknowledged, resolved, dismissed"]
+  uniqueKey varchar [not null, unique, note: "Prevents duplicate alert for the same evaluation window"]
+  detectedAt datetime [not null]
+  acknowledgedAt datetime
+  acknowledgedBy ObjectID
+  resolvedAt datetime
+  resolvedBy ObjectID
+  resolutionReason varchar
+  dismissedAt datetime
+  dismissedBy ObjectID
+  dismissalReason varchar
+  followUp json [note: "{ note, nextAction, dueAt, createdBy, createdAt }"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    evaluationId [unique]
+    uniqueKey [unique]
+    (assignedDoctorId, status, severity, detectedAt)
+    (patientId, status, detectedAt)
+    (patientCareProgramId, status, detectedAt)
+  }
+}
+
+Table CareReports {
+  id ObjectID [pk]
+  patientCareProgramId ObjectID [not null]
+  patientId ObjectID [not null]
+  careRuleId ObjectID [not null]
+  reportType varchar [not null, note: "weekly, thirty_day, ninety_day, final, custom"]
+  dataFormatVersion varchar [not null, note: "Fact format shared by Patient/Doctor views"]
+  windowStart datetime [not null]
+  windowEnd datetime [not null]
+  timezone varchar [not null]
+  dataUntil datetime [not null, note: "Only data recorded on or before this time is included"]
+  status varchar [not null, note: "ready, superseded, invalidated"]
+  statistics json [not null, note: "Backend-calculated expected/completed, adherence, min/max/average/median, period delta and counts"]
+  trends json [not null, note: "Backend-calculated trend facts; never calculated by LLM"]
+  missingData json [not null]
+  healthEvaluationSummary json [not null, note: "Severity/reason codes from HealthEvaluations"]
+  consultationSummary json
+  sourceData json [not null, note: "Bounded source IDs/counts/hash; do not embed unbounded raw metric history"]
+  inputHash varchar [not null]
+  reportVersion int [not null]
+  replacesReportId ObjectID
+  generatedAt datetime [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (patientCareProgramId, reportType, windowStart, windowEnd, reportVersion) [unique]
+    (patientId, generatedAt)
+    inputHash
+  }
+}
+
+Table CareSummaries {
+  id ObjectID [pk]
+  reportId ObjectID [not null]
+  patientCareProgramId ObjectID [not null]
+  patientId ObjectID [not null]
+  careRuleId ObjectID [not null]
+  audience varchar [not null, note: "patient, doctor"]
+  status varchar [not null, note: "generated, fallback, failed"]
+  summaryVersion int [not null]
+  uniqueKey varchar [not null, unique, note: "Program/report/dataUntil/audience/prompt-version key used to prevent duplicates"]
+  content json [note: "{ overview, observations[], missingData[], alertsToMention[], questionsForDoctor[], disclaimer }; nullable only when status=failed"]
+  citations json [note: "Approved RAG citations; not used to compute metrics/severity"]
+  provider varchar
+  model varchar
+  promptVersion varchar [not null]
+  ruleVersion int [not null]
+  inputHash varchar [not null]
+  validation json [not null, note: "{ schemaValid, groundingValid, safetyValid, reasonCodes[] }"]
+  inputTokens int
+  outputTokens int
+  latencyMs int
+  errorCode varchar
+  reviewedBy ObjectID
+  reviewedAt datetime
+  reviewStatus varchar [note: "not_required, pending, reviewed, rejected"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    uniqueKey [unique]
+    (reportId, audience, summaryVersion) [unique]
+    (patientCareProgramId, createdAt)
+    (status, createdAt)
+  }
+}
+
+Table ConsultationUsages {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  subscriptionId ObjectID
+  consultationId ObjectID [not null]
+  cycleStart datetime [not null]
+  cycleEnd datetime [not null]
+  limitAtTime int [not null, note: "Consultation limit captured when the reservation is created"]
+  status varchar [not null, note: "reserved, counted, released, expired"]
+  source varchar [not null, note: "plan, addon, admin_adjustment"]
+  uniqueRequestKey varchar [not null, unique, note: "Prevents reserve/count/release from being applied twice"]
+  reservedAt datetime [not null]
+  countedAt datetime
+  releasedAt datetime
+  releaseReason varchar
+  expiresAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    uniqueRequestKey [unique]
+    consultationId [unique, note: "One active lifecycle record per consultation; enforce with partial index if history is split"]
+    (userId, cycleStart, cycleEnd, status)
+    (subscriptionId, cycleStart, status)
+  }
+}
+
+Table SubscriptionAddOns {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  subscriptionId ObjectID
+  sourceOrderId ObjectID [not null]
+  addOnType varchar [not null, note: "consultation_limit, support_contact"]
+  quantity int [not null]
+  benefitsAtPurchase json [not null]
+  status varchar [not null, note: "active, expired, cancelled"]
+  startsAt datetime [not null]
+  expiresAt datetime [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (sourceOrderId, addOnType) [unique]
+    (userId, status, expiresAt)
+    (subscriptionId, status, expiresAt)
+  }
+}
+
+Table FamilyLinks {
+  id ObjectID [pk]
+  patientId ObjectID [not null]
+  familyUserId ObjectID [not null, note: "The family member must register a normal Patient account; no family role is introduced"]
+  relationship varchar
+  status varchar [not null, note: "pending, active, paused, revoked"]
+  invitedBy ObjectID [not null, note: "Normally the patient"]
+  invitedAt datetime [not null]
+  acceptedAt datetime
+  pausedAt datetime
+  revokedAt datetime
+  revokedBy ObjectID
+  revokeReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (patientId, status)
+    (patientId, familyUserId) [unique]
+    (familyUserId, status, updatedAt)
+  }
+}
+
+Table FamilyPermissions {
+  id ObjectID [pk]
+  patientId ObjectID [not null]
+  familyLinkId ObjectID [not null]
+  policyVersion varchar [not null]
+  permissions json [not null, note: "missed_task_reminder, weekly_progress; detailed health/AI/consultation access is outside P1"]
+  status varchar [not null, note: "active, revoked"]
+  grantedBy ObjectID [not null, note: "Must be the patient who owns the data"]
+  grantedAt datetime [not null]
+  revokedAt datetime
+  revokedBy ObjectID
+  revokeReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (familyLinkId, status, createdAt)
+    (patientId, status, createdAt)
+  }
+}
+
+Table FamilyReminders {
+  id ObjectID [pk]
+  patientCareProgramId ObjectID [not null]
+  careTaskId ObjectID [not null]
+  patientId ObjectID [not null]
+  familyLinkId ObjectID [not null]
+  permissionId ObjectID [not null]
+  reminderType varchar [not null, note: "due, overdue, missed_task, urgent_opt_in"]
+  channel varchar [not null, note: "in_app, email, push"]
+  uniqueKey varchar [not null, unique, note: "Prevents duplicate reminder for the same task/family member/type"]
+  status varchar [not null, note: "scheduled, sent, delivered, failed, skipped"]
+  scheduledAt datetime [not null]
+  sentAt datetime
+  providerMessageId varchar
+  skipReason varchar
+  attemptCount int [not null, default: 0]
+  lastError varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    uniqueKey [unique]
+    (careTaskId, status)
+    (familyLinkId, createdAt)
+    (status, scheduledAt)
+  }
+}
+
+Table MedicalFacilities {
+  id ObjectID [pk]
+  name varchar [not null]
+  normalizedName varchar [not null]
+  facilityType varchar [not null, note: "hospital, general_hospital, medical_center, clinic"]
+  status varchar [not null, note: "draft, verified, stale, retired"]
+  specialties json [not null]
+  services json
+  address json [not null, note: "{ street, ward, district, province, country, postalCode }"]
+  location json [not null, note: "GeoJSON Point { type: Point, coordinates: [longitude, latitude] }; 2dsphere index by migration"]
+  phone varchar
+  email varchar
+  websiteUrl varchar
+  mapProvider varchar [note: "internal, google_places, other"]
+  externalPlaceId varchar
+  dataSources json [not null, note: "Map API source plus official website/document used by Admin to verify"]
+  selectedFromMapAt datetime [note: "When Admin selected this place from map API results"]
+  reviewNote varchar
+  verifiedBy ObjectID
+  verifiedAt datetime
+  lastCheckedAt datetime
+  createdBy ObjectID [not null]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    location [note: "2dsphere index created by migration"]
+    (status, "address.province", "address.district")
+    (status, normalizedName)
+    (mapProvider, externalPlaceId) [unique, note: "Sparse/partial unique where externalPlaceId exists"]
+  }
+}
+
+Table DiseaseSpecialties {
+  id ObjectID [pk]
+  diseaseKey varchar [not null]
+  programCode varchar
+  version int [not null]
+  specialties json [not null, note: "Ordered allowlist used for deterministic filtering"]
+  explanation varchar [not null]
+  status varchar [not null, note: "draft, active, retired"]
+  dataSources json [not null]
+  createdBy ObjectID [not null]
+  approvedBy ObjectID
+  approvedAt datetime
+  retiredAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (diseaseKey, version) [unique]
+    (programCode, status)
+    (status, diseaseKey)
+  }
+}
+
+Table AuditLogs {
+  id ObjectID [pk]
+  domain varchar [not null, note: "auth, user, health, consultation, care, ai, billing, facility, notification, moderation"]
+  entityType varchar [not null, note: "Examples: user, authSession, healthMetric, consultation, careProgram, subscription, familyLink"]
+  entityId ObjectID
+  userId ObjectID [note: "Data owner or affected user when applicable"]
+  actorId ObjectID [note: "Nullable for system/worker actions"]
+  action varchar [not null]
+  fromStatus varchar
+  toStatus varchar
+  reason varchar
+  metadata json [note: "IDs, versions and safe changed fields only; never copy tokens, secrets, raw HealthMetrics, messages or AI prompts"]
+  ipAddress varchar [note: "Only when needed for security audit and allowed by retention policy"]
+  userAgent varchar
+  expiresAt datetime [note: "Optional per-record retention; TTL index created by migration"]
+  createdAt datetime [not null]
+
+  Indexes {
+    (domain, entityType, entityId, createdAt)
+    (userId, createdAt)
+    (actorId, createdAt)
+    (domain, action, createdAt)
+    expiresAt [note: "TTL index created by migration; documents without expiresAt are retained"]
+  }
+}
+
+Table NotificationCampaigns {
+  id ObjectID [pk]
+  title varchar [not null]
+  message text [not null]
+  type varchar [not null, note: "info, success, warning, critical"]
+  targetType varchar [not null, note: "individual, segment, all"]
+  targetFilter json [not null, note: "Snapshot such as { userIds[] } or { roles[], planCodes[], careProgramId, province }; all uses an empty filter"]
+  audienceSnapshotAt datetime [not null, note: "Only matching users existing at or before this time are included"]
+  status varchar [not null, note: "draft, scheduled, processing, completed, cancelled"]
+  scheduledAt datetime
+  sentAt datetime
+  completedAt datetime
+  totalRecipients int [not null, default: 0]
+  processedRecipients int [not null, default: 0]
+  failedRecipients int [not null, default: 0]
+  readCount int [not null, default: 0]
+  createdBy ObjectID
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    createdBy
+    (status, scheduledAt)
+    (targetType, createdAt)
+  }
+}
+
+Table Notifications {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  campaignId ObjectID
+  title varchar [not null]
+  message text [not null]
+  type varchar [not null, note: "info, success, warning, critical"]
+  resourceType varchar [note: "consultation, paymentOrder, paymentRefund, subscription, violation, patientCareProgram, careTask, careAlert, careReport, familyLink, medicalFacility"]
+  resourceId ObjectID
+  data json [note: "Deep-link payload for web/mobile"]
+  channels json [not null, note: "in_app, push, email; in_app is always persisted before external delivery"]
+  delivery json [note: "Per-channel status/timestamps/provider message IDs; never store provider secrets"]
+  uniqueKey varchar [not null, unique, note: "Prevents duplicate per-user notification when workers retry"]
+  isRead boolean [not null, default: false]
+  readAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (userId, isRead, createdAt)
+    uniqueKey [unique]
+    campaignId
+    (resourceType, resourceId)
+  }
+}
+
+Table OutboxEvents {
+  id ObjectID [pk]
+  eventType varchar [not null, note: "notification.deliver, appointment.reminder, care.task.materialize, care.task.reminder, care.evaluate, care.summary.generate, care.contact.remind, subscription.grant_requested, subscription.granted, payment.paid, payment.cancelled, refund.requested, refund.approved, refund.rejected, refund.succeeded, refund.failed, refund.manual_review"]
+  aggregateType varchar [not null, note: "consultation, patientCareProgram, careTask, careAlert, careReport, familyLink, paymentOrder, paymentRefund, subscription, notification"]
+  aggregateId ObjectID [not null]
+  payload json [not null]
+  idempotencyKey varchar [not null, unique]
+  status varchar [not null, note: "pending, processing, completed, failed, dead"]
+  availableAt datetime [not null]
+  lockedAt datetime
+  lockExpiresAt datetime [note: "Lease expiry for crash recovery"]
+  lockedBy varchar
+  attempts int [not null, default: 0]
+  lastError text
+  processedAt datetime
+  deadAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    idempotencyKey [unique]
+    (status, availableAt)
+    (status, lockExpiresAt)
+  }
+}
+
+Table ViolationReports {
+  id ObjectID [pk]
+  reporterId ObjectID [note: "Nullable for AI/system-generated report"]
+  reportedUserId ObjectID [note: "Nullable if report target is AI"]
+  reportType varchar [not null, note: "harassment, spam, misinformation, inappropriate_content, impersonation, fraud, ai_hallucination, other"]
+  reason text [not null]
+  status varchar [not null, note: "pending, processing, resolved, dismissed"]
+  severity varchar [not null, note: "low, medium, high"]
+  source json [note: "{ consultationId, consultationMessageIds[], aiConversationId, aiMessageIds[] }"]
+  evidences json [note: "[{ type, url, publicId, uploadedAt }]"]
+  aiClassification json [note: "{ category, severity, confidence, rationale, analyzedAt }"]
+  assignedTo ObjectID
+  resolution json [note: "{ note, action: warning|suspend|ban|none, handledBy, handledAt }"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (status, severity, createdAt)
+    (assignedTo, status, updatedAt)
+    reporterId
+    reportedUserId
+  }
+}
+
+Table SchemaMigrations [note: "Physical MongoDB collection: _schema_migrations"] {
+  id ObjectID [pk]
+  version varchar [not null, unique]
+  name varchar [not null]
+  checksum varchar [not null]
+  status varchar [not null, note: "running, applied, failed"]
+  startedAt datetime [not null]
+  appliedAt datetime
+  durationMs bigint
+  appliedBy varchar
+  appVersion varchar
+  error text
+  metadata json
+
+  Indexes {
+    version [unique]
+    (status, startedAt)
+  }
+}
+
+Table MigrationLocks [note: "Physical MongoDB collection: _migration_lock; normally contains one lock document"] {
+  id varchar [pk]
+  owner varchar [not null]
+  acquiredAt datetime [not null]
+  expiresAt datetime [not null]
+  updatedAt datetime
+
+  Indexes {
+    expiresAt [note: "Used for lease recovery; do not rely on TTL deletion alone"]
+  }
+}
+
+Ref: OAuthAccounts.userId > Users.id
+Ref: AuthSessions.userId > Users.id
+Ref: AuthSessions.rotatedFromSessionId > AuthSessions.id
+Ref: AuthSessions.replacedBySessionId > AuthSessions.id
+Ref: UserDevices.userId > Users.id
+Ref: AvailabilitySlots.doctorId > Users.id
+Ref: AvailabilitySlots.blockedBy > Users.id
+Ref: Consultations.patientId > Users.id
+Ref: Consultations.doctorId > Users.id
+Ref: Consultations.availabilitySlotId > AvailabilitySlots.id
+Ref: Consultations.completedBy > Users.id
+Ref: Consultations.cancelledBy > Users.id
+Ref: ConsultationMessages.consultationId > Consultations.id
+Ref: ConsultationMessages.senderId > Users.id
+Ref: Reviews.consultationId > Consultations.id
+Ref: Reviews.patientId > Users.id
+Ref: Reviews.doctorId > Users.id
+Ref: AiConversations.patientId > Users.id
+Ref: AiMessages.aiConversationId > AiConversations.id
+Ref: AiUsageDaily.userId > Users.id
+Ref: AiDocuments.uploadedBy > Users.id
+Ref: AiDocuments.reviewedBy > Users.id
+Ref: AiDocumentChunks.documentId > AiDocuments.id
+Ref: AiDocumentChunks.parentChunkId > AiDocumentChunks.id
+Ref: AiDocumentChunks.excludedBy > Users.id
+Ref: Plans.createdBy > Users.id
+Ref: Plans.publishedBy > Users.id
+Ref: Plans.retiredBy > Users.id
+Ref: PaymentOrders.userId > Users.id
+Ref: PaymentOrders.planId > Plans.id
+Ref: PaymentOrders.cancelledBy > Users.id
+Ref: PaymentTransactions.orderId > PaymentOrders.id
+Ref: Subscriptions.userId > Users.id
+Ref: Subscriptions.planId > Plans.id
+Ref: Subscriptions.sourceOrderId > PaymentOrders.id
+Ref: Subscriptions.nextPlanId > Plans.id
+Ref: Subscriptions.nextPlanOrderId > PaymentOrders.id
+Ref: Subscriptions.cancelledBy > Users.id
+Ref: PaymentRefunds.orderId > PaymentOrders.id
+Ref: PaymentRefunds.paymentTransactionId > PaymentTransactions.id
+Ref: PaymentRefunds.subscriptionId > Subscriptions.id
+Ref: PaymentRefunds.userId > Users.id
+Ref: PaymentRefunds.requestedBy > Users.id
+Ref: PaymentRefunds.reviewedBy > Users.id
+Ref: NotificationCampaigns.createdBy > Users.id
+Ref: Notifications.userId > Users.id
+Ref: Notifications.campaignId > NotificationCampaigns.id
+Ref: ViolationReports.reporterId > Users.id
+Ref: ViolationReports.reportedUserId > Users.id
+Ref: ViolationReports.assignedTo > Users.id
+
+Ref: Consultations.patientCareProgramId > PatientCarePrograms.id
+Ref: Consultations.careAlertId > CareAlerts.id
+Ref: HealthMetrics.replacesMetricId > HealthMetrics.id
+Ref: HealthMetrics.voidedBy > Users.id
+Ref: CarePrograms.createdBy > Users.id
+Ref: CarePrograms.publishedBy > Users.id
+Ref: CarePrograms.retiredBy > Users.id
+Ref: CareRules.careProgramId > CarePrograms.id
+Ref: CareRules.createdBy > Users.id
+Ref: CareRules.approvedBy > Users.id
+Ref: PatientCarePrograms.patientId > Users.id
+Ref: PatientCarePrograms.doctorId > Users.id
+Ref: PatientCarePrograms.careProgramId > CarePrograms.id
+Ref: PatientCarePrograms.careRuleId > CareRules.id
+Ref: PatientCarePrograms.cancelledBy > Users.id
+Ref: PatientCarePrograms.createdBy > Users.id
+Ref: CareTasks.patientCareProgramId > PatientCarePrograms.id
+Ref: CareTasks.patientId > Users.id
+Ref: CareTasks.doctorId > Users.id
+Ref: HealthEvaluations.patientCareProgramId > PatientCarePrograms.id
+Ref: HealthEvaluations.patientId > Users.id
+Ref: HealthEvaluations.careTaskId > CareTasks.id
+Ref: HealthEvaluations.healthMetricId > HealthMetrics.id
+Ref: HealthEvaluations.careRuleId > CareRules.id
+Ref: HealthEvaluations.replacesEvaluationId > HealthEvaluations.id
+Ref: CareAlerts.patientCareProgramId > PatientCarePrograms.id
+Ref: CareAlerts.evaluationId > HealthEvaluations.id
+Ref: CareAlerts.patientId > Users.id
+Ref: CareAlerts.assignedDoctorId > Users.id
+Ref: CareAlerts.consultationId > Consultations.id
+Ref: CareAlerts.acknowledgedBy > Users.id
+Ref: CareAlerts.resolvedBy > Users.id
+Ref: CareAlerts.dismissedBy > Users.id
+Ref: CareReports.patientCareProgramId > PatientCarePrograms.id
+Ref: CareReports.patientId > Users.id
+Ref: CareReports.careRuleId > CareRules.id
+Ref: CareReports.replacesReportId > CareReports.id
+Ref: CareSummaries.reportId > CareReports.id
+Ref: CareSummaries.patientCareProgramId > PatientCarePrograms.id
+Ref: CareSummaries.patientId > Users.id
+Ref: CareSummaries.careRuleId > CareRules.id
+Ref: CareSummaries.reviewedBy > Users.id
+Ref: ConsultationUsages.userId > Users.id
+Ref: ConsultationUsages.subscriptionId > Subscriptions.id
+Ref: ConsultationUsages.consultationId > Consultations.id
+Ref: SubscriptionAddOns.userId > Users.id
+Ref: SubscriptionAddOns.subscriptionId > Subscriptions.id
+Ref: SubscriptionAddOns.sourceOrderId > PaymentOrders.id
+Ref: FamilyLinks.patientId > Users.id
+Ref: FamilyLinks.familyUserId > Users.id
+Ref: FamilyLinks.invitedBy > Users.id
+Ref: FamilyLinks.revokedBy > Users.id
+Ref: FamilyPermissions.patientId > Users.id
+Ref: FamilyPermissions.familyLinkId > FamilyLinks.id
+Ref: FamilyPermissions.grantedBy > Users.id
+Ref: FamilyPermissions.revokedBy > Users.id
+Ref: FamilyReminders.patientCareProgramId > PatientCarePrograms.id
+Ref: FamilyReminders.careTaskId > CareTasks.id
+Ref: FamilyReminders.patientId > Users.id
+Ref: FamilyReminders.familyLinkId > FamilyLinks.id
+Ref: FamilyReminders.permissionId > FamilyPermissions.id
+Ref: MedicalFacilities.verifiedBy > Users.id
+Ref: MedicalFacilities.createdBy > Users.id
+Ref: DiseaseSpecialties.createdBy > Users.id
+Ref: DiseaseSpecialties.approvedBy > Users.id
+Ref: AuditLogs.userId > Users.id
+Ref: AuditLogs.actorId > Users.id

@@ -151,6 +151,8 @@ Upload document
 → vector search filter theo metadata trước khi xếp hạng semantic
 ```
 
+**Quy tắc duyệt:** `AiDocuments.reviewStatus` là nguồn dữ liệu chuẩn. Admin/bác sĩ được cấp quyền duyệt một document/version sau khi xem metadata và preview kết quả parse; không duyệt từng chunk. Pipeline sao chép `reviewStatus` xuống mọi chunk bằng bulk update để Atlas Vector Search có thể filter mà không cần `$lookup`. Chunk riêng lẻ chỉ có thể bị loại bằng `isActive=false` cùng lý do/actor, không có lifecycle duyệt độc lập.
+
 **Công nghệ:** Mongoose schema, MongoDB Atlas Vector Search filter fields, MongoDB indexes. Không cần thay vector database.
 
 ### 4.2. Structured document parsing và chunking
@@ -664,6 +666,7 @@ Router
 2. Persist `chunk.metadata` khi upsert vào MongoDB.
 3. Giữ `pageNumber` và `sectionPath` từ parser tới chunk.
 4. Đồng bộ trạng thái document/chunk: archive phải làm các chunks không thể truy xuất.
+4a. Duyệt ở cấp document; trạng thái chunk là denormalized retrieval field, không tạo màn hình approve hàng trăm chunk.
 5. Xây citation trả về tên tài liệu, trang, section và version.
 6. Có re-ingestion cho tài liệu cũ sau khi thay schema.
 

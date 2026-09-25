@@ -4,6 +4,8 @@
 
 HealthAI DA2 được định vị là nền tảng **theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa**. MVP bắt buộc có hai Care Program cho người trưởng thành: **tăng huyết áp** và **tiểu đường**; cả hai dùng chung Program engine, chỉ khác metric context, rule set và nội dung đã duyệt.
 
+Thiết kế dữ liệu đề xuất nằm tại `docs/db-template-v8.dbml`. Đây là bản nháp để review; chỉ trở thành schema triển khai sau khi các quyết định mở được chốt và migration/version verifier được tạo.
+
 Sản phẩm không khám bệnh, không chẩn đoán, không kê đơn và không thay thế bác sĩ hoặc cơ sở y tế. Hệ thống giúp bệnh nhân duy trì việc theo dõi giữa hai lần khám, giúp bác sĩ nhận biết bệnh nhân cần chú ý và hỗ trợ hai bên kết nối đúng thời điểm.
 
 Định vị ngắn gọn:
@@ -110,12 +112,12 @@ Giá và giới hạn số lượng là dữ liệu cấu hình của `Plans`, k
 - Downgrade/hết hạn không xóa HealthMetrics, report lịch sử hoặc Care Alert đã phát sinh.
 - Khi Care hết hạn, hệ thống dừng tạo quyền lợi Doctor review mới sau paid-through/grace policy, nhưng vẫn giữ safety alert và quyền Patient xem dữ liệu cơ bản.
 - Giới hạn mặc định Free/Plus/Care là `1/3/6` consultations mỗi cycle; field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot, không gọi là AI quota và không hard-code theo tên tier.
-- Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription; Free dùng entitlement cycle 30 ngày neo tại thời điểm grant/activation, không reset đồng loạt bằng cron toàn hệ thống.
+- Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription; Free cũng có bản ghi Subscription với `source = free_grant`, chu kỳ 30 ngày neo tại thời điểm kích hoạt và được chuyển sang chu kỳ kế tiếp trên cùng bản ghi, không reset đồng loạt bằng cron toàn hệ thống.
 - `consultationsUsed` đếm số phiên đã sử dụng trong cycle và `consultationsRemaining = consultationLimitPerCycle - consultationsUsed - activeReservations`.
 - Giới hạn consultation không đồng nghĩa phiên miễn phí hoặc bảo đảm Doctor còn lịch. Chi phí/ưu đãi của từng phiên là chính sách giá riêng.
 - Patient có thể mua add-on để tăng `consultationLimitPerCycle` hiệu dụng; add-on phải có source order, expiry và ledger idempotent.
 - Hệ thống tạo reservation nội bộ khi scheduled booking được xác nhận hoặc on-demand request được Doctor accept; count khi phiên vào `in_consultation` hoặc Patient `no_show`; hủy reservation khi Doctor/system hủy hoặc Patient hủy đúng policy.
-- `aiQuestionQuota` là khái niệm độc lập, chỉ đếm câu hỏi AI và không liên quan đến `consultationLimitPerCycle`.
+- `aiTokenLimit` là quota chính cho chat AI; `aiRequestLimit` là giới hạn phụ chống spam. Cả hai độc lập với `consultationLimitPerCycle`, còn summary dùng ngân sách token riêng.
 - Plan change không được làm thay đổi quyền lợi của kỳ đã thanh toán nếu chưa có effective time rõ ràng.
 - Enforcement nằm ở backend entitlement service; frontend chỉ dùng entitlement response để hiển thị UI.
 - Không cho phép Plan trả phí thay đổi severity, thứ tự lâm sàng của Care Alert hoặc ưu tiên cấp cứu.
@@ -289,8 +291,8 @@ Mở rộng theo module và mức tái sử dụng, không fork toàn bộ code 
 | P1 | Medication adherence | Schedule, reminder, report | Medication plan/log và safety copy | Add-on Plus/Care |
 | P1 | Kiểm soát cân nặng/chuyển hóa | Goals, metric, check-in, content | Weight/waist/habit templates | Subscription Patient-led, Doctor-assigned dễ tiếp cận |
 | P2 | Chăm sóc sau khám 7/14/30 ngày | Tasks, content, consultation, report | Checklist/attachment theo chuyên khoa | Clinic bán gói follow-up |
-| P1 | Người thân đồng hành | Nhắc nhở/thông báo | Lời mời, consent, giới hạn một contact và quyền theo từng loại dữ liệu | Add-on Plus, gồm trong Care |
-| P1 | Tìm cơ sở y tế | Tìm theo bệnh/chuyên khoa và vị trí | Danh mục đã kiểm duyệt, ánh xạ chuyên khoa, xếp hạng theo khoảng cách, bản đồ bổ sung | Tạo bước hành động sau cảnh báo/tái khám; hỗ trợ hợp tác phòng khám sau DA2 |
+| P1 | Người thân đồng hành | Nhắc nhở/thông báo | Người thân có tài khoản Patient, xác nhận liên kết, giới hạn một người và quyền theo từng loại dữ liệu | Add-on Plus, gồm trong Care |
+| P1 | Tìm cơ sở y tế | Tìm theo bệnh/chuyên khoa và vị trí | Admin chọn kết quả bản đồ, tạo bản nháp, xác minh nguồn chính thức; tìm theo khoảng cách | Tạo bước hành động sau cảnh báo/tái khám; hỗ trợ hợp tác phòng khám sau DA2 |
 | Sau DA2 | Thiết bị đo/Health platform | Metric ingestion | Device identity, provenance, reconciliation | Giảm nhập tay, tăng retention |
 
 Điều kiện nhận một Program mới:
@@ -312,7 +314,7 @@ Có thể tận dụng AI hỗ trợ lập trình để nhận thêm các phần
 - Simulation endpoint/test harness chạy template trên dữ liệu giả để xem task/alert dự kiến.
 - Structured-output AI summary và program draft assistant có schema validation.
 
-AI hỗ trợ code làm giảm thời gian tạo boilerplate/test/data mapping, nhưng không thay thế việc duyệt rule y khoa, threat model, race condition, authorization và usability. Vì vậy các phần thiết bị thật, mạng lưới nhiều phòng khám và tác tử AI tự vận hành vẫn để sau DA2. Người thân đồng hành chỉ nhận ở mức P1 giới hạn một contact và nhắc bỏ lỡ nhiệm vụ; quyền xem dữ liệu chi tiết để sau DA2. Tìm cơ sở y tế P1 chỉ dùng danh mục kiểm duyệt và bản đồ bổ sung, không tích hợp lịch trống/đặt lịch trực tiếp của bệnh viện.
+AI hỗ trợ code làm giảm thời gian tạo boilerplate/test/data mapping, nhưng không thay thế việc duyệt rule y khoa, threat model, race condition, authorization và usability. Vì vậy các phần thiết bị thật, mạng lưới nhiều phòng khám và tác tử AI tự vận hành vẫn để sau DA2. Người thân đồng hành chỉ nhận ở mức P1, số lượng theo `familyLinkLimit`, chủ yếu nhắc bỏ lỡ nhiệm vụ; quyền xem dữ liệu chi tiết để sau DA2. Tìm cơ sở y tế P1 chỉ dùng danh mục kiểm duyệt và bản đồ bổ sung, không tích hợp lịch trống/đặt lịch trực tiếp của bệnh viện.
 
 ## 4. Vòng lặp chăm sóc cốt lõi
 
@@ -403,7 +405,7 @@ Một hành trình demo đạt yêu cầu:
 - DA2 dùng payment state machine + Mongo transaction + outbox + worker + reconciliation, không thêm Saga framework. Chỉ cân nhắc Saga sau khi tách Payment/Subscription/Booking thành service và database độc lập.
 - Free/Plus/Care entitlement phải chạy end-to-end với Plan/PaymentOrder/Subscription snapshot.
 - Seed subscription chỉ dùng cho test nội bộ; acceptance demo doanh thu phải dùng giao dịch VNPAY Sandbox có audit.
-- Full refund vẫn là P1 và chỉ nhận khi payment/cancel/idempotency đã ổn định.
+- Full refund vẫn là P1 và chỉ nhận khi payment/cancel/idempotency đã ổn định. Điều kiện được snapshot theo phiên bản Plan, đánh giá riêng mức dùng AI/consultation/Doctor review/báo cáo/nhiệm vụ Care, tạm dừng quyền trả phí khi chờ và kiểm tra lại trước khi Admin duyệt.
 
 ### 5.4 Ngoài phạm vi DA2
 
@@ -435,13 +437,16 @@ Nếu LLM lỗi, timeout hoặc không đủ evidence, hệ thống vẫn hiển
 
 | Entity | Module sở hữu | Mục đích |
 |---|---|---|
-| `CareProgramTemplates` | chronic-care | Template đã duyệt, loại metric, lịch và ruleSetVersion. |
-| `CareEnrollments` | chronic-care | Patient, Doctor phụ trách, consent, thời hạn và trạng thái. |
-| `MonitoringTasks` | chronic-care | Nhiệm vụ đo theo lịch và trạng thái hoàn thành/bỏ lỡ. |
-| `CareRuleSets` | chronic-care | Rule version hóa; lifecycle draft/active/retired. |
-| `CareEvaluations` | chronic-care | Kết quả xác định, reasonCodes và input references để audit. |
+| `CarePrograms` | chronic-care | Chương trình đã duyệt, loại chỉ số, lịch và phiên bản. |
+| `PatientCarePrograms` | chronic-care | Chương trình Patient tham gia, Doctor phụ trách, đồng ý chia sẻ, thời hạn và trạng thái. |
+| `CareTasks` | chronic-care | Nhiệm vụ theo lịch và trạng thái hoàn thành/bỏ lỡ. |
+| `CareRules` | chronic-care | Bộ quy tắc có phiên bản; trạng thái draft/active/retired. |
+| `HealthEvaluations` | chronic-care | Kết quả tính bằng quy tắc, mã lý do và dữ liệu đầu vào để kiểm tra. |
 | `CareAlerts` | chronic-care | Alert lifecycle và thao tác xử lý của Doctor. |
-| `CareSummaries` | chronic-care | Snapshot số liệu và AI narrative có version/provenance. |
+| `CareReports` | chronic-care | Số liệu, xu hướng và dữ liệu thiếu do backend tính. |
+| `CareSummaries` | chronic-care | Nội dung AI diễn đạt từ CareReport, có phiên bản và nguồn. |
+| `FamilyLinks`, `FamilyPermissions`, `FamilyReminders` | chronic-care | Liên kết tài khoản người thân, quyền được cấp và lịch sử nhắc. |
+| `AuditLogs` | platform-audit | Nhật ký dùng chung; Chronic Care ghi với `domain = care`. |
 | `HealthMetrics` | health-tracking | Source of truth cho dữ liệu chỉ số; không nhân bản sang chronic-care. |
 | `Consultations` | consultations | Phiên tư vấn; chỉ giữ liên kết tùy chọn tới enrollment/alert. |
 
@@ -520,9 +525,9 @@ Giả định hai thành viên, ưu tiên một vertical slice chạy được t
 
 - Chronic Care P0 thay cho việc nhận đồng thời toàn bộ Payment, Refund, WebRTC, OAuth và Mobile.
 - NF-2/NF-3/NF-4 chỉ triển khai phần cần cho hành trình Chronic Care: đặt lịch/tư vấn, reminder và notification.
-- AI quota và VNPAY Sandbox payment/cancel là P0; full refund vẫn là P1 có cut-line riêng.
+- AI quota và VNPAY Sandbox payment/cancel là P0; full refund vẫn là P1 có cut-line riêng, policy quản lý qua Plan/Admin UI còn ENV chỉ giữ feature flag và giới hạn kỹ thuật.
 - Medication adherence là P1, không được làm chậm Care Program, risk, inbox và summary.
-- Người thân đồng hành là P1: chỉ thực hiện sau khi P0 ổn định; giới hạn một contact, nhắc bỏ lỡ nhiệm vụ và không chia sẻ chỉ số chi tiết.
+- Người thân đồng hành là P1: chỉ thực hiện sau khi P0 ổn định; số liên kết theo `familyLinkLimit`, nhắc bỏ lỡ nhiệm vụ và không chia sẻ chỉ số chi tiết.
 - Tìm cơ sở y tế là P1: chỉ thực hiện sau khi P0 ổn định; hoàn thành danh mục đã kiểm duyệt, tìm theo chuyên khoa/khoảng cách và liên kết chỉ đường trước. Tích hợp lịch trống/đặt lịch bệnh viện để sau DA2.
 
 ## 11. KPI và bằng chứng giá trị

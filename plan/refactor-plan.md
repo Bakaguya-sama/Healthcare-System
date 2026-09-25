@@ -730,7 +730,7 @@ Các bước Identity:
 6. Chuyển OTP sang Redis dưới dạng code hash + attempts + TTL.
 7. Password change, ban và logout-all revoke sessions liên quan.
 8. Chuẩn hóa auth guard/decorator/policy.
-9. Thêm audit AuthEvents cho hành động bảo mật quan trọng.
+9. Ghi hành động bảo mật quan trọng vào `AuditLogs` với `domain = auth`.
 10. Xóa User schema trùng chỉ sau khi mọi consumer đã chuyển.
 
 Các bước Doctor:
@@ -873,6 +873,7 @@ Health Tracking:
 6. HealthMetric history dùng cursor `(recordedAt, _id)` và bắt buộc bounded result.
 7. `getStatistics` nhận time range/window; dùng Mongo aggregation cho count/avg/min/max và `$top`/sorted latest.
 8. Không tải toàn bộ metric history vào application memory để thống kê.
+9. Sửa chỉ số theo append-only: tạo HealthMetric mới với `replacesMetricId`, chuyển bản ghi cũ sang `superseded|voided` và ghi `AuditLogs` với `domain = health`; không ghi đè giá trị đã đo.
 
 AI/RAG:
 
@@ -1349,6 +1350,8 @@ Một task `BE-RF-*` chỉ Done khi:
 # PHẦN B — PHÁT TRIỂN BACKEND FEATURE MỚI
 
 > Quyết định sản phẩm ngày 23/09/2026: DA2 ưu tiên **HealthAI Chronic Care**. Phần A về refactor được giữ nguyên làm lịch sử kỹ thuật và bằng chứng hoàn tất. Từ Phần B trở đi, kế hoạch thực thi phải theo `plan/PROJECT_OVERVIEW_DA2.md`, `plan/chronic-care-plan.md`, `docs/overview.md` và `docs/BUSINESS_RULES.md`. Khi có xung đột, business rules và Chronic Care P0 được ưu tiên; các NF cũ chỉ được nhận nếu phục vụ hành trình cốt lõi hoặc sau khi P0 đạt gate.
+>
+> `docs/db-template-v8.dbml` là schema draft cho phần feature mới. Không sửa migration lịch sử hoặc triển khai collection/index v8 trước khi design review chốt; DB v7 vẫn là baseline của phần refactor đã hoàn tất.
 
 ## 8. Điều kiện bắt đầu feature mới
 
@@ -1399,9 +1402,9 @@ Quy tắc bổ sung cho AI/Health: feature chỉ được code sau khi chốt me
 
 Ưu tiên: **P0**.
 
-1. Tạo `CareProgramTemplates`, version bất biến sau publish và trạng thái `draft|published|retired`.
+1. Tạo `CarePrograms`, giữ `taskTemplates` nhúng theo từng phiên bản; phiên bản bất biến sau publish và có trạng thái `draft|published|retired`.
 2. Admin và Doctor được tạo/chỉnh draft theo quyền; chỉ Admin quản lý nguồn, publish/retire rule/ngưỡng.
-3. Tạo `CareEnrollments` với snapshot Program version, consent, timezone, baseline và Doctor `active + approved` bắt buộc trước khi active.
+3. Tạo `PatientCarePrograms` với snapshot Program version, consent, timezone, baseline và Doctor `active + approved` bắt buộc trước khi active.
 4. Trạng thái enrollment: `pending|active|paused|completed|cancelled`; chỉ active sinh task/evaluation mới.
 5. MVP có hai template dùng chung engine: tăng huyết áp và tiểu đường; không fork luồng theo từng bệnh.
 6. Mọi chuyển version, pause/complete/cancel và patient-specific override phải có actor, reason, effective time và audit.
@@ -1484,10 +1487,11 @@ Done khi numerical-grounding, unsupported-claim, safety, authorization, fallback
 Ưu tiên: **P0**.
 
 1. Entitlement lấy từ Plan/Subscription snapshot phía backend; không hard-code theo tên tier.
-2. `AiQuestionQuota` chỉ đếm câu hỏi AI; summary job có budget/policy riêng và không dùng consultation counter.
-3. `consultationLimitPerCycle` mặc định Free 1, Plus 3, Care 6; scheduled/on-demand dùng chung reservation ledger idempotent.
+2. `aiTokenLimit` là quota chính cho chat AI; `aiRequestLimit` chống spam. Summary job có budget token riêng và không dùng consultation counter.
+3. `consultationLimitPerCycle` mặc định Free 1, Plus 3, Care 6; scheduled/on-demand dùng chung `ConsultationUsages`. Mỗi Consultation có một bản ghi cập nhật nguyên tử theo `reserved → counted|released|expired`; mỗi lần đổi trạng thái ghi bất biến trong `AuditLogs` với `domain = billing`.
 4. Downgrade/hết hạn không xóa HealthMetrics/report/alert và không tắt safety alert.
 5. Paid tier không thay đổi severity, ưu tiên lâm sàng hoặc quyền truy cập dữ liệu cơ bản của Patient.
+6. Free vẫn tạo một `Subscriptions` với `source = free_grant` và chu kỳ 30 ngày; không tạo PaymentOrder và không tạo Subscription mới ở mỗi chu kỳ.
 
 ### CC-7 — Payment VNPAY và quyết định không dùng Saga trong DA2
 
@@ -1508,7 +1512,7 @@ PaymentOrder pending
 2. IPN xác minh signature, merchant, order reference, amount và currency; provider transaction/reference có unique index.
 3. Trong một Mongo transaction: upsert transaction, conditional transition order và ghi một outbox grant event. Không gọi provider trong transaction.
 4. Worker cấp Subscription idempotent theo order/grant key; lỗi cấp quyền được retry, không tạo payment mới.
-5. `created|pending|processing|paid|failed|expired|cancelled` là state machine; cancel-vs-IPN có policy/audit xác định.
+5. `created|pending|processing|paid|failed|expired|cancelled|refund_pending|refunded` là state machine; cancel-vs-IPN có policy/audit xác định.
 6. Job/command đối soát query provider cho order `processing` hoặc mismatch; timeout/unknown không tự đánh dấu failed.
 7. Saga chỉ xem xét sau DA2 khi Payment, Subscription, Booking, Invoice thuộc các service/database độc lập và cần compensation liên dịch vụ.
 
@@ -1516,13 +1520,13 @@ PaymentOrder pending
 
 Ưu tiên: **P1, chỉ sau P0 ổn định**.
 
-Giới hạn một contact active; invite/accept/consent/revoke có audit. Patient luôn được nhắc trước; contact chỉ nhận thông báo chung khi task missed sau grace period, không mặc định xem HealthMetrics, Care Alert, AI hoặc consultation. `urgent` không biến contact thành kênh cấp cứu.
+Số người thân active lấy từ `familyLinkLimit`. Người thân phải có tài khoản Patient bình thường, đăng nhập rồi xác nhận liên kết; không tạo role `family` hoặc `FamilyGroups` trong DA2. Invite/accept/consent/revoke ghi vào `AuditLogs` với `domain = care`. Patient luôn được nhắc trước; người thân chỉ nhận thông báo chung khi task missed sau grace period, không mặc định xem HealthMetrics, Care Alert, AI hoặc consultation. `urgent` không biến người thân thành kênh cấp cứu.
 
 ### CC-9 — Tìm cơ sở y tế
 
 Ưu tiên: **P1, ưu tiên đầu tiên sau P0**.
 
-Admin quản lý `HealthcareFacilities` verified và `ConditionSpecialtyMaps`; truy vấn lọc specialty/khu vực rồi sort xác định theo khớp chuyên khoa, verified và khoảng cách. External map là fallback có source label; AI chỉ chuẩn hóa truy vấn thành filter/explanation, không suy luận bệnh hoặc xếp hạng chất lượng cơ sở. Tích hợp lịch trống bệnh viện để sau DA2.
+Admin quản lý `MedicalFacilities` đã xác minh và `DiseaseSpecialties`; truy vấn lọc chuyên khoa/khu vực rồi sắp xếp xác định theo mức khớp chuyên khoa và khoảng cách. Khi danh mục nội bộ chưa đủ, backend gọi API bản đồ; Admin chọn kết quả để tạo bản nháp, kiểm tra nguồn chính thức rồi mới đánh dấu đã xác minh. AI chỉ chuẩn hóa truy vấn thành bộ lọc/giải thích, không suy luận bệnh hoặc xếp hạng chất lượng cơ sở. Tích hợp lịch trống bệnh viện để sau DA2.
 
 ### Các feature hỗ trợ kế thừa
 
@@ -1583,6 +1587,7 @@ Done khi:
 7. Reopen slot chỉ khi policy cho phép và thời gian vẫn hợp lệ.
 8. Expire slot quá hạn bằng idempotent job/query.
 9. E2E và race test nhiều request book cùng slot.
+10. Snapshot `bookingSettings`, `expectedDurationMinutes` và `bufferMinutes`; `scheduledEndAt` không tự complete consultation.
 
 Done khi:
 
@@ -1603,6 +1608,7 @@ Done khi:
 3. Doctor chỉ nhận request khi active, approved và đủ điều kiện nhận tư vấn.
 4. Accept/decline dùng conditional update để chống xử lý lặp/race.
 5. Phát consultation/outbox events sau transition.
+6. Không accept/bắt đầu on-demand nếu thời lượng dự kiến + buffer đè lên scheduled consultation sắp tới; nếu accepted thì vào waiting với ETA.
 
 #### NF-3B Check-in
 
@@ -1614,11 +1620,13 @@ Done khi:
 #### NF-3C Queue và call-next
 
 1. Queue là query/projection từ Consultations; không tạo BullMQ job cho từng bệnh nhân trong hàng đợi.
-2. Sắp xếp theo doctor, status, `queuePriorityAt` và tie-breaker ổn định.
+2. Scheduled và on-demand dùng chung queue: scheduled quá giờ, scheduled tới cửa sổ phục vụ, rồi on-demand theo `queueJoinedAt`; mọi sort có tie-breaker ổn định.
 3. Atomic `call-next` chỉ chuyển đúng một patient sang called/invited state.
 4. Repeated call-next hoặc retry phải idempotent.
 5. Chỉ doctor owner hoặc admin có quyền xem/thao tác queue.
 6. Phát `queue.v1.changed` và consultation update event.
+7. Một Doctor chỉ có một `in_consultation`; không preempt phiên đang chạy. `call-next` dùng conditional update và partial unique index.
+8. `scheduledEndAt` chỉ tạo overtime/ETA update. Doctor tự complete; heartbeat timeout chuyển `interrupted`, không chuyển completed.
 
 #### NF-3D No-show
 
@@ -1631,6 +1639,7 @@ Done khi:
 - Scheduled và on-demand đều có đường vào Consultation hợp lệ.
 - Check-in/call-next/no-show state tests pass.
 - Race test chứng minh không gọi hai patient cho cùng một lượt.
+- Overlap test chứng minh on-demand không đè scheduled, overtime không auto-complete và interrupted có thể resume/finalize.
 - REST và realtime contracts đầy đủ cho frontend repo sử dụng.
 
 Ước lượng: **10-15 person-days**.
@@ -1699,7 +1708,7 @@ Các bước payment:
 
 1. Spike VNPAY Sandbox cho create/query/IPN và quyền merchant.
 2. Tạo Plans, PaymentOrders, PaymentTransactions và Subscriptions migrations.
-3. Order snapshot giá, currency, duration, quota và features tại thời điểm mua.
+3. Plans version hóa `draft|published|retired`; Admin chỉ sửa draft. Order snapshot giá, currency, duration, quota và features của version published tại thời điểm mua.
 4. Tiền VND dùng integer; không dùng floating point.
 5. Tạo signed payment URL phía server.
 6. Return URL chỉ hiển thị/truy vấn trạng thái; không cấp subscription.
@@ -1739,23 +1748,33 @@ Phạm vi MVP:
 - Chỉ full refund một lần cho một paid order.
 - Không partial refund, multiple refund, chargeback hoặc auto-approve.
 - Không tự động refund khi consultation bị hủy.
+- Không dùng phần trăm sử dụng chung: AI token, consultation đã tính lượt/no-show, Doctor review, báo cáo và nhiệm vụ Care trả phí có ngưỡng riêng trong `refundPolicy`.
+- Policy thuộc phiên bản Plan đã publish và được snapshot vào PaymentOrder; Admin sửa policy chỉ ảnh hưởng order mới.
 
 Các bước:
 
-1. Tạo PaymentRefunds migration với unique order lifecycle và provider request ID.
-2. Patient tạo request; admin approve/reject.
-3. Transaction request chuyển order `paid -> refund_pending` và ghi outbox.
-4. Worker claim approved refund và gọi provider ngoài Mongo transaction.
-5. Giữ stable `providerRequestId` khi retry.
-6. Timeout/unknown chuyển `manual_review`; query/reconcile trước khi retry provider.
-7. Chỉ khi provider xác nhận thành công mới transactionally:
+1. Tạo PaymentRefunds migration với unique order lifecycle, provider request ID, policy snapshot, usage snapshots và eligibility reason codes.
+2. Patient tạo request; backend kiểm tra ownership/thời hạn, chụp mức sử dụng và phân loại `eligible|review_required|ineligible`.
+3. Transaction request chuyển order `paid -> refund_pending`, tạo refund/outbox và tạm dừng hành động trả phí mới; dữ liệu, quyền Free và safety alert vẫn hoạt động.
+4. Giải phóng consultation reservation chưa sử dụng theo consultation policy; lượt đã `counted`/`no_show` không tự hoàn lại để lách điều kiện.
+5. Admin approve/reject. Trước approve, backend chụp `finalUsageSnapshot` và kiểm tra lại eligibility để xử lý race với việc sử dụng dịch vụ.
+6. Trường hợp thu trùng, paid-without-grant hoặc cấp sai quyền vào `review_required`; Admin override phải có lý do và audit, không vượt invariant số tiền/giao dịch/idempotency.
+7. Worker claim approved refund và gọi provider ngoài Mongo transaction; giữ stable `providerRequestId` khi retry.
+8. Timeout/unknown chuyển `manual_review`; query/reconcile trước khi retry provider.
+9. Chỉ khi provider xác nhận thành công mới transactionally:
    - refund `succeeded`;
    - order `refunded`;
    - subscription grant của order `cancelled`;
    - audit + notification/outbox.
-8. Failure có kết luận đưa order về paid theo policy; không revoke grant sớm.
-9. Tạo reconciliation command và admin audit endpoints.
-10. E2E cho approve/reject/retry/unknown/duplicate/entitlement rollback.
+10. Reject/failure có kết luận đưa order về `paid` và mở lại quyền lợi trả phí; không revoke grant sớm.
+11. Tạo reconciliation command và admin audit endpoints.
+12. E2E cho eligibility theo từng quyền lợi, request-vs-usage race, approve/reject, pause/resume entitlement, override, retry/unknown, duplicate và entitlement rollback.
+
+Cấu hình:
+
+- Admin UI quản lý `refundPolicy` trong Plan draft/publish: thời hạn yêu cầu và ngưỡng sử dụng của từng quyền lợi.
+- ENV chỉ giữ `VNPAY_REFUND_ENABLED`, provider timeout, retry và hard ceiling kỹ thuật.
+- Seed nghiêm ngặt để review: cửa sổ 168 giờ, các ngưỡng quyền lợi trả phí bằng 0 và luôn cần Admin duyệt; chủ sản phẩm phải xác nhận trước release.
 
 Cut-line:
 
@@ -2017,6 +2036,7 @@ Với hai thành viên học tập song song, không nhận toàn bộ NF cũ. C
 - Old on-demand request compatibility.
 - Scheduled double booking.
 - Check-in/call-next/no-show races.
+- Scheduled/on-demand shared-queue priority, overtime, heartbeat interruption/resume và one-active-session race.
 - Message room authorization/idempotency.
 - Review unique/rating transaction.
 - Outbox crash/retry/dead job.
@@ -2059,9 +2079,9 @@ Với hai thành viên học tập song song, không nhận toàn bộ NF cũ. C
 - Room authorization luôn kiểm tra participant phía server.
 - Payment/refund verify signature và idempotency server-side.
 - Vị trí chính xác dùng cho facility search chỉ được lấy khi Patient chủ động cho phép và không lưu lịch sử mặc định.
-- Care support contact không kế thừa quyền Patient; consent scope/revoke được kiểm tra tại mọi query/notification.
-- Audit admin actions, doctor approval, ban/unban, plan changes và refund/moderation decisions.
-- Audit Program/rule publish, patient-specific override, summary review, facility verification và consent người thân.
+- Tài khoản Patient của người thân không kế thừa quyền xem dữ liệu của Patient được hỗ trợ; phạm vi quyền và việc thu hồi được kiểm tra tại mọi query/notification.
+- Dùng một `AuditLogs` chung, phân vùng logic bằng `domain` và truy vấn theo `entityType/entityId`; `expiresAt` cho phép retention khác nhau mà không cần nhiều collection.
+- Ghi nhật ký cho hành động quản trị, duyệt bác sĩ, khóa/mở khóa, thay đổi gói, thanh toán/hoàn tiền, publish Program/rule, sửa chỉ số, patient-specific override, summary review, xác minh cơ sở và quyền người thân.
 - Không hard-delete dữ liệu audit quan trọng.
 
 ## 17. Observability và vận hành
