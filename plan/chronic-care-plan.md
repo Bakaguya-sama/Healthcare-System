@@ -515,8 +515,8 @@ Giả định hai thành viên, ưu tiên một vertical slice chạy được t
 | 29/09–12/10 | Risk, alert và reminder | Rule engine version hóa, Care Evaluation, Care Alert lifecycle, notification/outbox, reminder, audit và test boundary. |
 | 13/10–26/10 | Doctor workflow và consultation | Priority Inbox, deterministic report 7/30 ngày, authorization, scheduled/on-demand link, follow-up và queue/check-in cần thiết. |
 | 27/10–09/11 | Chương trình tiểu đường và AI | Dùng lại Program Engine cho tiểu đường; chuẩn hóa/tổng hợp HealthMetrics, SummaryInput snapshot, structured output, numerical grounding/safety guard, RAG citation, fallback và evaluation dataset. |
-| 10/11–23/11 | Subscription và VNPAY | Free/Plus/Care entitlement, AI question limit, consultation limit/reservation, VNPAY Sandbox payment/cancel, outbox grant và reconciliation; không dùng Saga framework. |
-| 24/11–07/12 | Tích hợp và bằng chứng | KPI dashboard, hợp đồng giao diện lập trình/thời gian thực, kiểm thử từ đầu đến cuối, truy cập đồng thời, hiệu năng, bảo mật, chuyển đổi/đối soát dữ liệu và dữ liệu trình diễn. Chỉ khi P0 ổn định mới nhận P1 theo thứ tự: tìm cơ sở y tế cơ bản, sau đó Người thân đồng hành. |
+| 10/11–23/11 | Subscription và VNPAY | Free/Plus/Care entitlement, AI token quota, consultation limit/reservation, VNPAY Sandbox payment/cancel, outbox grant và reconciliation; không dùng Saga framework. |
+| 24/11–07/12 | Tích hợp và bằng chứng | KPI dashboard, hợp đồng giao diện lập trình/thời gian thực, kiểm thử từ đầu đến cuối, truy cập đồng thời, hiệu năng, bảo mật, chuyển đổi/đối soát dữ liệu và dữ liệu trình diễn. Chỉ khi P0 ổn định mới nhận P1 theo thứ tự: Người thân đồng hành trước; chỉ nhận tìm cơ sở y tế cơ bản nếu tính năng người thân đã đạt tiêu chí hoàn thành và vẫn còn thời gian trước feature freeze. |
 | 08/12–13/12 | Feature freeze và UAT | Chỉ hoàn thiện P0, kiểm thử người dùng kịch bản, sửa lỗi ưu tiên cao và chốt báo cáo. |
 | 14/12–23/12 | Release candidate | Full regression, load/security test, demo rehearsal, video/kịch bản trình bày và sửa lỗi release blocker. |
 | 24/12–31/12 | Buffer | Chỉ xử lý blocker, bảo mật và lỗi demo; không thêm feature mới. |
@@ -527,8 +527,8 @@ Giả định hai thành viên, ưu tiên một vertical slice chạy được t
 - NF-2/NF-3/NF-4 chỉ triển khai phần cần cho hành trình Chronic Care: đặt lịch/tư vấn, reminder và notification.
 - AI quota và VNPAY Sandbox payment/cancel là P0; full refund vẫn là P1 có cut-line riêng, policy quản lý qua Plan/Admin UI còn ENV chỉ giữ feature flag và giới hạn kỹ thuật.
 - Medication adherence là P1, không được làm chậm Care Program, risk, inbox và summary.
-- Người thân đồng hành là P1: chỉ thực hiện sau khi P0 ổn định; số liên kết theo `familyLinkLimit`, nhắc bỏ lỡ nhiệm vụ và không chia sẻ chỉ số chi tiết.
-- Tìm cơ sở y tế là P1: chỉ thực hiện sau khi P0 ổn định; hoàn thành danh mục đã kiểm duyệt, tìm theo chuyên khoa/khoảng cách và liên kết chỉ đường trước. Tích hợp lịch trống/đặt lịch bệnh viện để sau DA2.
+- Người thân đồng hành là P1 ưu tiên đầu tiên sau P0: số liên kết theo `familyLinkLimit`, nhắc bỏ lỡ nhiệm vụ và không chia sẻ chỉ số chi tiết.
+- Tìm cơ sở y tế là P1 sau Người thân đồng hành và chỉ nhận nếu còn thời gian trước feature freeze: hoàn thành danh mục đã kiểm duyệt, tìm theo chuyên khoa/khoảng cách và liên kết chỉ đường trước. Tích hợp lịch trống/đặt lịch bệnh viện để sau DA2.
 
 ## 11. KPI và bằng chứng giá trị
 

@@ -1518,13 +1518,13 @@ PaymentOrder pending
 
 ### CC-8 — Người thân đồng hành
 
-Ưu tiên: **P1, chỉ sau P0 ổn định**.
+Ưu tiên: **P1, ưu tiên đầu tiên sau khi P0 ổn định**.
 
 Số người thân active lấy từ `familyLinkLimit`. Người thân phải có tài khoản Patient bình thường, đăng nhập rồi xác nhận liên kết; không tạo role `family` hoặc `FamilyGroups` trong DA2. Invite/accept/consent/revoke ghi vào `AuditLogs` với `domain = care`. Patient luôn được nhắc trước; người thân chỉ nhận thông báo chung khi task missed sau grace period, không mặc định xem HealthMetrics, Care Alert, AI hoặc consultation. `urgent` không biến người thân thành kênh cấp cứu.
 
 ### CC-9 — Tìm cơ sở y tế
 
-Ưu tiên: **P1, ưu tiên đầu tiên sau P0**.
+Ưu tiên: **P1, chỉ sau khi CC-8 Người thân đồng hành hoàn thành và vẫn còn thời gian trước feature freeze**.
 
 Admin quản lý `MedicalFacilities` đã xác minh và `DiseaseSpecialties`; truy vấn lọc chuyên khoa/khu vực rồi sắp xếp xác định theo mức khớp chuyên khoa và khoảng cách. Khi danh mục nội bộ chưa đủ, backend gọi API bản đồ; Admin chọn kết quả để tạo bản nháp, kiểm tra nguồn chính thức rồi mới đánh dấu đã xác minh. AI chỉ chuẩn hóa truy vấn thành bộ lọc/giải thích, không suy luận bệnh hoặc xếp hạng chất lượng cơ sở. Tích hợp lịch trống bệnh viện để sau DA2.
 
@@ -1938,7 +1938,7 @@ Phần refactor RF-0 đến RF-13 được giữ nguyên và đã hoàn tất th
 | 13/10-26/10 | Doctor workflow và consultation link | Priority Inbox, deterministic report 7/30 ngày, authorization, scheduled/on-demand slice, follow-up và queue/check-in cần thiết. |
 | 27/10-09/11 | Diabetes và AI summary | Program tiểu đường dùng chung engine; MetricNormalizer, report aggregator, SummaryInput snapshot, structured AI output, guard, RAG citation, fallback và evaluation dataset. |
 | 10/11-23/11 | Subscription, consultation limit và VNPAY | Free/Plus/Care entitlement, AI quota, consultation reservation ledger, VNPAY Sandbox payment/cancel, outbox grant và reconciliation; không dùng Saga framework. |
-| 24/11-07/12 | Tích hợp và bằng chứng | KPI, contract, E2E, concurrency, performance, security, migration/reconciliation và demo data. Chỉ khi P0 ổn định mới lấy P1 theo thứ tự: tìm cơ sở y tế, Người thân đồng hành. |
+| 24/11-07/12 | Tích hợp và bằng chứng | KPI, contract, E2E, concurrency, performance, security, migration/reconciliation và demo data. Chỉ khi P0 ổn định mới lấy P1 theo thứ tự: Người thân đồng hành trước; tìm cơ sở y tế chỉ được nhận nếu CC-8 đã hoàn thành và vẫn còn thời gian trước feature freeze. |
 | 08/12-13/12 | Đóng băng tính năng và kiểm thử người dùng | Chỉ hoàn thiện P0/P1 đã nhận, sửa lỗi ưu tiên cao, chốt báo cáo và contract. |
 | 14/12-23/12 | Bản ứng viên phát hành | Full regression, load/security, backup/restore, demo rehearsal và tài liệu bàn giao. |
 | 24/12-31/12 | Dự phòng | Chỉ blocker, security và lỗi demo; không thêm feature. |
@@ -1950,7 +1950,7 @@ Quy tắc cut-line:
 - VNPAY Sandbox payment/subscription và cancel unpaid order là P0 theo overview hiện tại; full refund vẫn P1.
 - Nếu payment được giữ, refund chỉ làm khi payment basic pass trước 29/11.
 - FCM và campaign không được làm chậm in-app notification/reminder P0.
-- P1 tìm cơ sở y tế/Người thân đồng hành chỉ được nhận khi hai Program, alert, report/AI fallback, entitlement và payment đã qua critical E2E.
+- P1 Người thân đồng hành chỉ được nhận khi hai Program, alert, report/AI fallback, entitlement và payment đã qua critical E2E. Tìm cơ sở y tế chỉ được nhận tiếp sau khi Người thân đồng hành đạt gate và lịch vẫn còn buffer trước feature freeze.
 
 ## 14. Ước lượng backend
 
@@ -1987,8 +1987,8 @@ Cache là P1 có thể cắt mà không ảnh hưởng tính đúng đắn. Nế
 | Free/Plus/Care + consultation ledger | 6-9 | P0 |
 | VNPAY payment/cancel/outbox grant/reconciliation | 10-15 | P0 |
 | Product/clinic metrics + release evidence | 4-6 | P0 |
-| Tìm cơ sở y tế cơ bản | 4-7 | P1 |
 | Người thân đồng hành cơ bản | 5-8 | P1 |
+| Tìm cơ sở y tế cơ bản | 4-7 | P1 sau Người thân; cắt nếu thiếu thời gian |
 
 Các ước lượng này giả định tái sử dụng refactor foundation và capability NF hiện có; không cộng lại cùng một phần việc ở hai bảng.
 
@@ -2190,7 +2190,7 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
 | Task/reminder gửi sai giờ hoặc gửi lặp                 | Cao        | Timezone snapshot, rolling window, idempotency, quiet hours/frequency cap                      |
 | Payment đã thu nhưng chưa cấp quyền                    | Cao        | Transactional outbox, idempotent grant worker, paid-without-grant metric và reconciliation    |
 | Dữ liệu cơ sở y tế lỗi thời/quảng cáo ảnh hưởng xếp hạng | Trung bình | Verified source/date, deterministic rank, source label; không trả phí để đổi clinical order   |
-| P1 người thân/cơ sở y tế làm trễ P0                    | Cao        | Chỉ nhận sau critical E2E; feature flag; thứ tự facility rồi contact; cut tại feature freeze  |
+| P1 người thân/cơ sở y tế làm trễ P0                    | Cao        | Chỉ nhận sau critical E2E; feature flag; làm Người thân trước, facility chỉ khi còn thời gian; cut tại feature freeze |
 | Dữ liệu sức khỏe lọt log                               | Cao        | Allowlist logging và redaction tests                                                         |
 | Frontend chưa chuyển khỏi legacy                       | Trung bình | Giữ adapter, theo dõi access log; không nhận implement frontend vào plan BE                  |
 
@@ -2241,7 +2241,7 @@ Thực hiện đúng thứ tự:
 21. [ ] Chốt rule source/version/simulation và test matrix normal/attention/urgent/missing/repeated trước `BE-CC-003`.
 22. [ ] Chốt `SummaryInputSnapshot`, phép tổng hợp, structured output, output guard, fallback và evaluation dataset trước khi nối AI provider (`BE-CC-006/007`).
 23. [ ] Tạo VNPAY state machine/outbox grant/reconciliation design; không thêm Saga framework (`BE-NF-050/051`, CC-7).
-24. [ ] Chỉ tạo task P1 facility/contact sau khi critical E2E của hai Program, alert, report/AI fallback, entitlement và payment xanh.
+24. [ ] Chỉ tạo task P1 Người thân đồng hành sau khi critical E2E của hai Program, alert, report/AI fallback, entitlement và payment xanh; chỉ tạo task cơ sở y tế khi Người thân đã đạt gate và còn thời gian trước feature freeze.
 
 ## 23. Tóm tắt quyết định
 
@@ -2259,7 +2259,7 @@ Thực hiện đúng thứ tự:
 12. Backend bàn giao OpenAPI, realtime schemas và `fe-integration.md`; không implement frontend.
 13. Feature freeze ngày 08/12; 24/12-31/12 chỉ dành cho buffer và blocker.
 14. Deadline 31/12 chỉ khả thi khi giữ `BE-CC-*` P0 và không nhận đồng thời toàn bộ OAuth, refund, moderation và WebRTC.
-15. P1 ưu tiên sau P0 là tìm cơ sở y tế cơ bản rồi Người thân đồng hành; cả hai phải có feature flag và không làm chậm release.
+15. P1 ưu tiên sau P0 là Người thân đồng hành; tìm cơ sở y tế cơ bản chỉ làm sau đó nếu còn thời gian. Cả hai phải có feature flag và không làm chậm release.
 16. Service dài/rải rác được refactor theo capability và ownership; không dùng LOC làm tiêu chí tách máy móc.
 17. Mọi list/history query phải bounded, có pagination chuẩn, projection, sort allowlist và index được xác minh bằng query catalog/explain.
 18. Giữ Swagger, Passport/JWT và ValidationPipe hiện có; chuẩn hóa thay vì thay framework.

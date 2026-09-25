@@ -21,7 +21,7 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Tích hợp hội viên Premium và thanh toán VNPAY Sandbox để quản lý quyền lợi cũng như định mức AI.
 - Kiểm soát lượt dùng AI, tối ưu realtime khi tải cao và tự động hóa kiểm thử/triển khai; WebRTC/Mobile đầy đủ là P1 sau Chronic Care P0.
 - Duy trì mô hình ba vai trò: Bệnh nhân, Bác sĩ và Quản trị viên.
-- Bổ sung ở mức P1 tính năng **Người thân đồng hành**: bệnh nhân tự mời và cấp quyền cho một người thân nhận nhắc nhở khi bệnh nhân bỏ lỡ hoạt động theo dõi; đây không phải là một vai trò y tế mới.
+- Bổ sung ở mức P1 tính năng **Người thân đồng hành**: bệnh nhân tự mời và cấp quyền cho một người thân nhận nhắc nhở khi bệnh nhân bỏ lỡ hoạt động theo dõi; đây không phải là một vai trò y tế mới. Đây là tính năng P1 được ưu tiên đầu tiên sau khi P0 ổn định.
 
 ### Phạm vi nền tảng
 
@@ -112,6 +112,8 @@ flowchart LR
 
 ### 3.4. Người thân đồng hành và nhắc nhở hỗ trợ (P1)
 
+Tính năng này là ưu tiên P1 đầu tiên sau P0. Chỉ khi hành trình cốt lõi của hai Care Program, cảnh báo, báo cáo/AI fallback, entitlement và payment đã vượt qua kiểm thử từ đầu đến cuối mới bắt đầu triển khai.
+
 1. Người thân đăng ký tài khoản Patient bình thường. Bệnh nhân chủ động chọn/mời tài khoản đó; liên kết chỉ có hiệu lực sau khi người thân đăng nhập và xác nhận. Hệ thống không tạo vai trò `family` riêng.
 2. Bệnh nhân chọn phạm vi chia sẻ tối thiểu: chỉ nhận lời nhắc chung khi bỏ lỡ nhiệm vụ theo dõi. Việc cho phép xem tiến độ tổng quát là tùy chọn riêng; quyền xem chỉ số chi tiết, lịch sử tư vấn và nội dung AI mặc định bị tắt.
 3. Hệ thống luôn nhắc bệnh nhân trước. Chỉ khi nhiệm vụ quá hạn theo khoảng thời gian cấu hình và bệnh nhân chưa hoàn thành, hệ thống mới gửi cho người thân lời nhắc không chứa dữ liệu sức khỏe nhạy cảm.
@@ -119,6 +121,8 @@ flowchart LR
 5. Bệnh nhân có thể tạm dừng, sửa hoặc thu hồi quyền ngay lập tức. Mọi lời mời, xác nhận, thay đổi quyền và thông báo đã gửi đều được lưu vết.
 
 ### 3.5. Tìm cơ sở y tế theo nhu cầu theo dõi (P1)
+
+Tính năng này chỉ được nhận sau khi Người thân đồng hành đã đạt tiêu chí hoàn thành và dự án vẫn còn thời gian trước thời điểm đóng băng tính năng. Nếu không đủ thời gian, giữ thiết kế/dữ liệu mẫu cho roadmap sau DA2 và không làm chậm P0 hoặc bản phát hành.
 
 1. Bệnh nhân chọn chương trình đang theo dõi hoặc chuyên khoa, đồng thời chọn tỉnh/thành, quận/huyện hoặc cho phép dùng vị trí hiện tại. Hệ thống chuyển chương trình sang chuyên khoa đã được quản trị viên duyệt, ví dụ tăng huyết áp sang Tim mạch hoặc Nội tổng quát; đây là gợi ý tìm nơi khám, không phải chẩn đoán.
 2. Danh mục cơ sở y tế do quản trị viên kiểm duyệt là nguồn kết quả chính. Mỗi cơ sở có tên, địa chỉ, tọa độ, thông tin liên hệ, chuyên khoa/dịch vụ, nguồn xác thực và ngày cập nhật.
