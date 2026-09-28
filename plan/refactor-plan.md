@@ -1857,6 +1857,8 @@ Backlog Chronic Care dưới đây là phạm vi điều khiển release; `plan/
 
 | ID | Feature | Ưu tiên | Phụ thuộc | Done khi |
 |---|---|---:|---|---|
+| BE-CC-000A | Chronic Care ADR + command contract | P0 | RF-11/RF-12 public-boundary foundation | ADR/permission/state/error/idempotency/public-port review accepted |
+| BE-CC-000B | Chronic Care persistence foundation | P0 | BE-CC-000A, DatabaseModule | Migration/verify/seed/index validator + module-boundary checks pass |
 | BE-CC-001 | Care Program + Enrollment + consent | P0 | Identity, Doctor capability | State/version/authorization E2E pass |
 | BE-CC-002 | Monitoring schedule/tasks | P0 | BE-CC-001, Health | Timezone/idempotent generation pass |
 | BE-CC-003 | Versioned rule engine/evaluation | P0 | BE-CC-001, Health | Boundary/repeat/missing-data tests pass |
@@ -2241,11 +2243,12 @@ Thực hiện đúng thứ tự:
 17. [x] Hoàn thành RF-11 (`BE-RF-080` đến `BE-RF-086`) ngày `2026-09-21`; bounded-context topology, ownership, cleanup, boundary và contract exit gate đều pass.
 18. [x] Hoàn thành RF-12 (`BE-RF-090` đến `BE-RF-093`) ngày `2026-09-21`: public API, cross-context enforcement và AI/Health service decomposition; staging evidence RF-9/RF-10 vẫn là release gate riêng.
 19. [x] Hoàn thành RF-13 (`BE-RF-094` đến `BE-RF-095`) ngày `2026-09-21`: chuẩn hóa Doctor/Patient capability, xóa patient CRUD trùng và chốt `/patients/me`.
-20. [ ] Hoàn thành `BE-CC-000A/B`: ADR, permission/state/error contract, module/ports, migration/verifier và seed harness; sau đó mới nhận `BE-CC-001`, `BE-CC-002`, `BE-CC-014` theo thứ tự ở `plan/chronic-care-plan.md` mục 9.1.
-21. [ ] Chốt rule version/operator allowlist và test matrix normal/attention/urgent/missing/repeated trước `BE-CC-003`; source/reviewer không là activation gate.
-22. [ ] Chốt `SummaryInputSnapshot`, phép tổng hợp, structured output, output guard, fallback và evaluation dataset trước khi nối AI provider (`BE-CC-006/007`).
-23. [ ] Tạo VNPAY state machine/outbox grant/reconciliation design; không thêm Saga framework (`BE-NF-050/051`, CC-7).
-24. [ ] Chỉ tạo task P1 Người thân đồng hành sau khi critical E2E của hai Program, alert, report/AI fallback, entitlement và payment xanh; chỉ tạo task cơ sở y tế khi Người thân đã đạt gate và còn thời gian trước feature freeze.
+20. [ ] Review và accept `BE-CC-000A`: ADR, permission/state/error contract và public ports; sau đó mới nhận command/controller của `BE-CC-001`, `BE-CC-002`, `BE-CC-014` theo thứ tự ở `plan/chronic-care-plan.md` mục 9.1.
+21. [x] Hoàn thành `BE-CC-000B`: module/ports foundation, migration/verifier, validator/index và draft-only seed harness; migration trên DB test còn cần `MONGODB_URI`.
+22. [ ] Chốt rule version/operator allowlist và test matrix normal/attention/urgent/missing/repeated trước `BE-CC-003`; source/reviewer không là activation gate.
+23. [ ] Chốt `SummaryInputSnapshot`, phép tổng hợp, structured output, output guard, fallback và evaluation dataset trước khi nối AI provider (`BE-CC-006/007`).
+24. [ ] Tạo VNPAY state machine/outbox grant/reconciliation design; không thêm Saga framework (`BE-NF-050/051`, CC-7).
+25. [ ] Chỉ tạo task P1 Người thân đồng hành sau khi critical E2E của hai Program, alert, report/AI fallback, entitlement và payment xanh; chỉ tạo task cơ sở y tế khi Người thân đã đạt gate và còn thời gian trước feature freeze.
 
 ## 23. Tóm tắt quyết định
 
