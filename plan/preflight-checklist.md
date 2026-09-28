@@ -2,7 +2,9 @@
 
 > Mục đích: chốt các lựa chọn cần thiết trước khi bắt đầu `BE-RF-001` trong `plan/refactor-plan.md`.
 >
-> Deadline hiện tại: **31/12/2026**. Feature freeze đề xuất: **14/12/2026**.
+> **Trạng thái 28/09/2026:** tài liệu này là decision record lịch sử cho refactor RF-0..RF-13 đã hoàn tất, không phải checklist bắt đầu Chronic Care. Các lựa chọn Payment/OAuth/package version bên dưới phản ánh thời điểm 15/09 và có thể đã bị decision log mới thay thế. Gate feature hiện hành nằm ở `plan/chronic-care-plan.md` mục 9.1/9.2; feature freeze hiện hành là **08/12/2026**.
+>
+> Deadline hiện tại: **31/12/2026**.
 
 ## 1. Cách sử dụng
 
@@ -472,6 +474,8 @@ Mọi thay đổi sau khi trạng thái là `APPROVED` phải thêm một dòng,
 | Ngày         | Decision ID | Thay đổi                          | Lý do/evidence | Ảnh hưởng scope/thời gian | Người duyệt |
 | ------------ | ----------- | --------------------------------- | -------------- | ------------------------- | ----------- |
 | `YYYY-MM-DD` | `PRE-001`   | _Ví dụ: đưa Payment từ P1 lên P0_ | _Yêu cầu demo_ | _Cắt OAuth và FCM_        | _Tên_       |
+| `2026-09-23` | `PRE-002` | Đưa Chronic Care hai Program và VNPAY Sandbox payment/cancel lên P0; OAuth/refund/WebRTC/Mobile xuống P1/cut-line | Quyết định sản phẩm DA2, `plan/chronic-care-plan.md` | Không nhận đồng thời toàn bộ NF; ưu tiên safety, entitlement và critical journey | Huy |
+| `2026-09-28` | `PRE-003` | Rebaseline feature từ 29/09; thêm `BE-CC-000` và feature gate riêng | Source chưa có module/migration Chronic Care/Billing | Carry-over foundation; feature freeze 08/12; P1 mặc định không committed | Huy |
 
 ## 17. Thứ tự sau khi GO
 
@@ -487,3 +491,12 @@ BE-RF-001 audit
 ```
 
 Không bắt đầu bằng việc đổi tên/di chuyển hàng loạt, cài toàn bộ dependency P1 hoặc xóa legacy collection. Mỗi thay đổi chỉ được thực hiện khi task owner, dependency và rollback/verification tương ứng đã rõ.
+
+## 18. Handoff sang feature development
+
+Refactor preflight đã hoàn thành nhiệm vụ và không được dùng để kết luận rằng feature DA2 đã sẵn sàng. Trước PR Chronic Care đầu tiên:
+
+- dùng `plan/chronic-care-plan.md` mục 9.1 làm execution order;
+- điền owner/reviewer/capacity và xác nhận Mongo replica set + Redis cho `BE-CC-000B`;
+- khóa metric/unit/timezone trước `BE-CC-002`, nguồn/rule reviewer trước `BE-CC-003`, SummaryInput/evaluation dataset trước `BE-CC-007`, VNPAY sandbox trước `CC-7`;
+- lấy version package thực tế từ lockfile/package manifest tại thời điểm code; bảng version trong tài liệu này chỉ là snapshot preflight 15/09.

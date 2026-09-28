@@ -1,5 +1,9 @@
 # HealthAI Chronic Care — Kế hoạch sản phẩm DA2
 
+> **Trạng thái rà soát: 28/09/2026 — READY WITH GATES.** Refactor RF-0..RF-13 đã hoàn tất trong source hiện tại, nhưng chưa có module/migration Chronic Care hoặc Billing. Mốc 15/09–28/09 cũ vì vậy được xem là baseline đã trễ, không phải phần việc đã hoàn thành. Kế hoạch thực thi được rebaseline từ 29/09 tại mục 10; thứ tự bắt đầu code nằm tại mục 9.1.
+>
+> **Thứ tự nguồn chuẩn khi có xung đột:** `docs/BUSINESS_RULES.md` → `docs/db-template-v8.dbml` → tài liệu này → `plan/refactor-plan.md` Phần B/C → `docs/fe-integration.md`. `docs/current-state/*` chỉ là bằng chứng refactor/lịch sử, không phải contract feature DA2.
+
 ## 1. Quyết định sản phẩm
 
 HealthAI DA2 được định vị là nền tảng **theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa**. MVP bắt buộc có hai Care Program cho người trưởng thành: **tăng huyết áp** và **tiểu đường**; cả hai dùng chung Program engine, chỉ khác metric context, rule set và nội dung đã duyệt.
@@ -398,8 +402,9 @@ Một hành trình demo đạt yêu cầu:
 - Medication schedule và medication adherence; không tự chỉnh liều hoặc khuyến nghị ngừng thuốc.
 - PDF report chia sẻ do Patient chủ động xuất.
 - Cohort analytics nâng cao cho Admin; dashboard B2B Clinic để sau DA2 khi có mô hình Clinic/tenant.
-- Entitlement đầy đủ cho Free/Plus/Care; trong MVP có thể dùng seed subscription trước khi VNPAY sẵn sàng.
 - FCM/mobile critical flow nếu web + in-app notification đã hoàn chỉnh.
+
+Entitlement Free/Plus/Care và VNPAY Sandbox **không thuộc P1**: đây là P0 thương mại theo mục 5.3. Seed subscription chỉ được dùng để phát triển/test các slice Chronic Care trước khi tích hợp provider; không thay thế acceptance E2E payment của MVP.
 
 ### 5.3 P0 thương mại — VNPAY Sandbox
 
@@ -489,7 +494,8 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 
 | ID | Feature | Ưu tiên | Phụ thuộc | Done khi |
 |---|---|---:|---|---|
-| BE-CC-001 | Care Program + Enrollment + consent | P0 | Identity, Doctor capability | State/authorization E2E pass |
+| BE-CC-000 | Contract + migration foundation | P0 | RF-0..RF-13, DB v8 review | ADR/permission matrix/error codes, migration + verifier, public ports và seed harness pass |
+| BE-CC-001 | Care Program + Enrollment + consent | P0 | BE-CC-000, Identity, Doctor capability | State/authorization E2E pass |
 | BE-CC-002 | Monitoring schedule/tasks | P0 | BE-CC-001, Health Tracking | Timezone/idempotent generation pass |
 | BE-CC-003 | Versioned rule engine/evaluation | P0 | BE-CC-001, Health Tracking | Boundary/repeat/missing-data tests pass |
 | BE-CC-004 | Care Alert lifecycle | P0 | BE-CC-003, Outbox | Dedupe/audit/retry tests pass |
@@ -508,19 +514,54 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 | BE-CC-017 | Người thân đồng hành | P1 | BE-CC-001/002, Notification | Invite/consent/revoke/privacy/deduplication tests pass |
 | BE-CC-018 | Tìm cơ sở y tế | P1 | Care Program, vị trí, Admin | Verified directory/map/ranking/privacy/fallback tests pass |
 
+### 9.1 Thứ tự bắt đầu code theo vertical slice
+
+Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request phải tạo được một lát chạy/test được, cập nhật migration/verifier/contract cùng code và không inject Mongoose model xuyên module.
+
+| PR/Slice | Phạm vi bắt buộc | Không làm trong slice | Exit gate |
+|---|---|---|---|
+| `CC-000A` | ADR Care Program/rule versioning; permission matrix Admin/Doctor/Patient; enum/state transition; error code; feature flags; public ports giữa `chronic-care`, `users`, `health-tracking`, `notifications`, `consultations` | Controller nghiệp vụ, AI, payment | ADR được duyệt; không còn quyết định schema/state/authorization mở cho CC-001 |
+| `CC-000B` | Module skeleton; Mongoose schema tối thiểu cho `CarePrograms`, `CareRules`, `PatientCarePrograms`, `AuditLogs`; migration additive, indexes/validators; schema manifest + `database:verify` | CareTasks/report/summary/payment schema | DB rỗng migrate + verify pass; migrate lần hai no-op; module boundary check pass |
+| `CC-001A` | Tạo/sửa draft Program, publish version bất biến, retire; seed hai draft/published Program và Rule có provenance | Program Builder UI, LLM sinh rule | Unit + integration test version conflict, permission, immutable published version; OpenAPI cập nhật |
+| `CC-001B` | Tạo enrollment `pending`, Doctor assignment, consent/baseline snapshot, activation guards, pause/resume/complete/cancel + audit | Task scheduler, alert, AI | E2E state/authorization pass; concurrent activation idempotent; không sửa DB tay |
+| `CC-014` | Baseline/check-in schema allowlist, response validation/version/privacy | Free-text workflow builder | Contract + invalid/partial/old-version tests pass |
+| `CC-002` | CareTask rolling-window materialization, timezone, metric completion port, missed/cancelled, adherence và reminder outbox | Medication/journal | Duplicate/retry/DST-late-input/correction tests pass |
+| `CC-003..005` | Rule engine → evaluation → alert → Doctor inbox theo từng PR nhỏ | AI severity, unbounded dashboard | Boundary/dedupe/concurrency/auth/query-plan E2E pass |
+| `CC-006..007` | Deterministic report/snapshot trước; provider adapter/guard/fallback sau | Gửi raw history cho LLM | Fixed dataset và numerical grounding/safety/fallback pass |
+| `CC-011` | Seed/chạy lại engine cho tiểu đường | Fork service theo bệnh | E2E hai Program dùng chung use case/repository/rule interpreter |
+| `CC-012..013` | Plan/Subscription snapshot, quota + consultation ledger | VNPAY trước khi entitlement thuần pass | Downgrade/expiry/reserve-count-release/race tests pass |
+| `CC-7` | VNPAY order/IPN/outbox grant/reconciliation | Refund/Saga | Sandbox happy/duplicate/late-IPN/paid-without-grant E2E pass |
+
+Quy tắc chia việc cho hai thành viên:
+
+- Một người là owner slice, người còn lại review migration/state/security; không chia “một người làm schema, một người làm controller” trên cùng slice.
+- Có thể song song `CC-014` với `CC-001A` sau `CC-000B`; có thể chuẩn bị fixed evaluation dataset/rule fixtures song song nhưng không nối provider trước `CC-006`.
+- `NF-2/NF-3` chỉ mở khi `CC-001B` đã có enrollment/authorization ổn định; `CC-012/013` có thể phát triển song song `CC-006/007` sau khi snapshot contract đã chốt.
+- Trước khi nhận PR đầu tiên phải điền owner/reviewer và xác nhận sandbox/credential cho Mongo/Redis; VNPAY/GenAI credential chỉ là gate của phase tương ứng, không chặn `CC-000A..CC-006`.
+
+### 9.2 Gate còn mở trước từng phase
+
+| Gate | Hạn chót | Chặn | Bằng chứng cần có |
+|---|---|---|---|
+| Nguồn/người duyệt rule tăng huyết áp và tiểu đường | Trước `CC-003` | Publish rule và alert demo | Provenance, reviewer, boundary/repeat/missing matrix, simulation fixture |
+| Metric/unit/timezone contract | Trước `CC-002` | Task completion/report | Allowlist metric + unit conversion policy + UTC/timezone/DST cases |
+| SummaryInput v1 + dataset đánh giá | Trước `CC-007` | Kết nối GenAI | JSON schema, forbidden claims, expected facts/citations/fallback |
+| VNPAY sandbox merchant/secret/callback | Trước `CC-7` | Payment E2E | Secret store, callback allowlist, test order/IPN/reconciliation |
+| Owner/reviewer và capacity thực | Trước `CC-000B` | Merge migration đầu tiên | Tên owner/reviewer, giờ/tuần và cut-line khi trễ |
+
 ## 10. Lịch thực hiện đến 31/12/2026
 
-Giả định hai thành viên, ưu tiên một vertical slice chạy được trên Web. Feature freeze ngày 08/12; từ thời điểm này không nhận feature mới.
+Giả định hai thành viên, ưu tiên một vertical slice chạy được trên Web. Feature freeze ngày 08/12; từ thời điểm này không nhận feature mới. Trạng thái source ngày 28/09: RF-0..RF-13 đã có evidence; Chronic Care/Billing chưa có code, vì vậy kế hoạch dưới đây là **rebaseline thực thi**, không ghi nhận hai tuần 15/09–28/09 là đã hoàn thành.
 
 | Thời gian | Mục tiêu | Đầu ra review/demo |
 |---|---|---|
-| 01/09–14/09 | Khảo sát và nền tảng | Audit DA1, chốt Chronic Care scope, business rules, wireflow, database/API draft, refactor/hardening nền tảng và seed scenario. |
-| 15/09–28/09 | Care Program foundation | Program Template/version, Doctor assignment bắt buộc, consent, baseline/check-in schema, monitoring tasks và chương trình tăng huyết áp. |
-| 29/09–12/10 | Risk, alert và reminder | Rule engine version hóa, Care Evaluation, Care Alert lifecycle, notification/outbox, reminder, audit và test boundary. |
-| 13/10–26/10 | Doctor workflow và consultation | Priority Inbox, deterministic report 7/30 ngày, authorization, scheduled/on-demand link, follow-up và queue/check-in cần thiết. |
-| 27/10–09/11 | Chương trình tiểu đường và AI | Dùng lại Program Engine cho tiểu đường; chuẩn hóa/tổng hợp HealthMetrics, SummaryInput snapshot, structured output, numerical grounding/safety guard, RAG citation, fallback và evaluation dataset. |
-| 10/11–23/11 | Subscription và VNPAY | Free/Plus/Care entitlement, AI token quota, consultation limit/reservation, VNPAY Sandbox payment/cancel, outbox grant và reconciliation; không dùng Saga framework. |
-| 24/11–07/12 | Tích hợp và bằng chứng | KPI dashboard, hợp đồng giao diện lập trình/thời gian thực, kiểm thử từ đầu đến cuối, truy cập đồng thời, hiệu năng, bảo mật, chuyển đổi/đối soát dữ liệu và dữ liệu trình diễn. Chỉ khi P0 ổn định mới nhận P1 theo thứ tự: Người thân đồng hành trước; chỉ nhận tìm cơ sở y tế cơ bản nếu tính năng người thân đã đạt tiêu chí hoàn thành và vẫn còn thời gian trước feature freeze. |
+| 01/09–28/09 | Đã hoàn thành: audit/refactor/design | RF-0..RF-13, business rules, DB v8 review và plan. Chronic Care foundation chưa có trong source và được carry-over. |
+| 29/09–05/10 | Slice 0 — contract/database foundation | `CC-000A/B`: ADR, permission/state/error contract, module/ports, migration/verifier và seed harness. |
+| 06/10–19/10 | Program/enrollment/task foundation | `CC-001A/B`, `CC-014`, `CC-002`; chương trình tăng huyết áp chạy đến task/adherence, không cần sửa DB tay. |
+| 20/10–02/11 | Risk, alert và Doctor workflow | `CC-003..005`: rule/evaluation, alert lifecycle, outbox/reminder, Priority Inbox, audit/query evidence. |
+| 03/11–16/11 | Report, AI guard và tiểu đường | `CC-006/007/011`: deterministic report, SummaryInput, structured output/guard/fallback và E2E reuse cho tiểu đường. |
+| 17/11–30/11 | Consultation slice + entitlement/payment | Phần NF-2/NF-3 cần cho critical journey, `CC-008`, `CC-012/013`, VNPAY Sandbox/IPN/outbox grant/reconciliation. Nếu trễ, cắt WebRTC/OAuth/refund/P1, không cắt safety/entitlement correctness. |
+| 01/12–07/12 | Tích hợp và bằng chứng | `CC-009`, OpenAPI/realtime/FE contract, E2E/concurrency/performance/security, migration rehearsal và demo data. Chỉ nhận P1 nếu toàn bộ P0 xanh và còn buffer. |
 | 08/12–13/12 | Feature freeze và UAT | Chỉ hoàn thiện P0, kiểm thử người dùng kịch bản, sửa lỗi ưu tiên cao và chốt báo cáo. |
 | 14/12–23/12 | Release candidate | Full regression, load/security test, demo rehearsal, video/kịch bản trình bày và sửa lỗi release blocker. |
 | 24/12–31/12 | Buffer | Chỉ xử lý blocker, bảo mật và lỗi demo; không thêm feature mới. |
@@ -559,6 +600,9 @@ Mọi dashboard phải phân biệt dữ liệu seed/demo với dữ liệu ngư
 - Report 7/30 ngày đúng timezone, không N+1, có pagination/index/query evidence.
 - AI summary không có quyền quyết định severity; có grounding, provenance và fallback khi provider lỗi.
 - OpenAPI, realtime events, business rules, seed data và frontend integration docs khớp implementation.
+- Database rỗng bootstrap được bằng migration + verifier; chạy migration lần hai no-op; rollback/restore rehearsal và reconciliation có evidence.
+- Mọi command retry-sensitive có idempotency/conditional transition và test race tương ứng; worker/outbox có retry/dead-letter/kill-switch quan sát được.
+- Feature flag tắt provider AI vẫn giữ deterministic report/safety; tắt VNPAY chỉ chặn order mới, vẫn xử lý IPN/order đã tạo.
 - Demo có ít nhất ba kịch bản: bình thường, cần chú ý và khẩn cấp/escalation.
 - Không log raw health payload, prompt chứa dữ liệu nhạy cảm hoặc thông tin truy cập ngoài quyền.
 
@@ -569,3 +613,5 @@ Mọi dashboard phải phân biệt dữ liệu seed/demo với dữ liệu ngư
 3. Doctor assignment là bắt buộc cho mọi enrollment trước khi kích hoạt.
 4. VNPAY Sandbox payment/subscription và cancel unpaid order là tiêu chí bắt buộc của MVP/demo; full refund không tự động trở thành P0.
 5. Admin quản lý bộ rule/ngưỡng và version. Rule/ngưỡng phải có nguồn/căn cứ được duyệt, audit trail và simulation/test trước khi publish; Admin không được dùng AI để tự sinh rồi tự động phát hành rule lâm sàng.
+6. Entitlement Free/Plus/Care và VNPAY Sandbox payment/cancel là P0; seed subscription chỉ phục vụ phát triển/test sớm, không thay acceptance payment E2E.
+7. Kế hoạch được rebaseline ngày 28/09/2026 vì source chưa có Chronic Care/Billing; bắt đầu bằng `BE-CC-000`, không giả định milestone 15/09–28/09 đã hoàn thành.
