@@ -1,5 +1,9 @@
 import type { Db, Document } from 'mongodb';
 import { RF2D_QUERY_INDEXES } from './migrations/202609162200-rf2d-query-indexes';
+import {
+  CC000_FOUNDATION_COLLECTIONS,
+  CC000_FOUNDATION_INDEXES,
+} from './migrations/202609281000-cc000-chronic-care-foundation';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -41,6 +45,11 @@ export const INFRASTRUCTURE_COLLECTIONS: ReadonlyArray<{
     },
   },
 ];
+
+export const EXPECTED_DATABASE_COLLECTIONS = [
+  ...INFRASTRUCTURE_COLLECTIONS,
+  ...CC000_FOUNDATION_COLLECTIONS,
+] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
   {
@@ -194,6 +203,7 @@ export const MANAGED_DATABASE_INDEXES = [
     unique: true,
     sparse: true,
   },
+  ...CC000_FOUNDATION_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { MongoClient, type Db } from 'mongodb';
 import { DATABASE_MIGRATIONS } from './migrations/migration-registry';
 import {
-  INFRASTRUCTURE_COLLECTIONS,
+  EXPECTED_DATABASE_COLLECTIONS,
   MANAGED_DATABASE_INDEXES,
   SCHEMA_MIGRATIONS_COLLECTION,
 } from './schema-manifest';
@@ -18,6 +18,7 @@ type ManagedIndexInfo = {
   key: Record<string, unknown>;
   unique?: boolean;
   expireAfterSeconds?: number;
+  partialFilterExpression?: Record<string, unknown>;
 };
 
 export async function verifyDatabase(
@@ -30,7 +31,7 @@ export async function verifyDatabase(
     collectionInfo.map((collection) => [collection.name, collection]),
   );
 
-  for (const expected of INFRASTRUCTURE_COLLECTIONS) {
+  for (const expected of EXPECTED_DATABASE_COLLECTIONS) {
     const actual = collections.get(expected.name);
     if (!actual) {
       errors.push(`missing collection ${expected.name}`);
@@ -69,6 +70,17 @@ export async function verifyDatabase(
       actual.expireAfterSeconds !== expected.expireAfterSeconds
     ) {
       errors.push(`index TTL drift on ${expected.collection}.${expected.name}`);
+    }
+    if (
+      'partialFilterExpression' in expected &&
+      !isDeepStrictEqual(
+        actual.partialFilterExpression,
+        expected.partialFilterExpression,
+      )
+    ) {
+      errors.push(
+        `index partial filter drift on ${expected.collection}.${expected.name}`,
+      );
     }
   }
 

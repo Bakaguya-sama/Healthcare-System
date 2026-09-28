@@ -592,11 +592,12 @@ Table CareRules {
   version int [not null]
   status varchar [not null, note: "draft, active, retired"]
   rules json [not null, note: "Allowlisted declarative operators only; no arbitrary code"]
-  dataSources json [not null]
+  dataSources json [note: "Optional reference metadata; activation does not require source, review, or simulation approval"]
   testResults json [note: "Dataset/version/result summary used before activation"]
   createdBy ObjectID [not null]
-  approvedBy ObjectID
+  activatedBy ObjectID
   activatedAt datetime
+  retiredBy ObjectID
   retiredAt datetime
   createdAt datetime
   updatedAt datetime
@@ -1210,7 +1211,8 @@ Ref: CarePrograms.publishedBy > Users.id
 Ref: CarePrograms.retiredBy > Users.id
 Ref: CareRules.careProgramId > CarePrograms.id
 Ref: CareRules.createdBy > Users.id
-Ref: CareRules.approvedBy > Users.id
+Ref: CareRules.activatedBy > Users.id
+Ref: CareRules.retiredBy > Users.id
 Ref: PatientCarePrograms.patientId > Users.id
 Ref: PatientCarePrograms.doctorId > Users.id
 Ref: PatientCarePrograms.careProgramId > CarePrograms.id

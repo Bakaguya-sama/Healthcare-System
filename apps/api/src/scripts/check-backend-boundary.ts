@@ -63,9 +63,11 @@ const allowedBoundedContexts = new Set([
   'authentication',
   'billing',
   'consultations',
+  'chronic-care',
   'health-tracking',
   'moderation',
   'notifications',
+  'platform-audit',
   'users',
 ]);
 const allowedContextModuleFiles = new Set([
@@ -74,9 +76,11 @@ const allowedContextModuleFiles = new Set([
   'authentication/authentication.module.ts',
   'billing/billing.module.ts',
   'consultations/consultations.module.ts',
+  'chronic-care/chronic-care.module.ts',
   'health-tracking/health-tracking.module.ts',
   'moderation/moderation.module.ts',
   'notifications/notifications.module.ts',
+  'platform-audit/platform-audit.module.ts',
   'users/users.module.ts',
 ]);
 

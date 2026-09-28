@@ -11,11 +11,11 @@ This document turns ADR-0002 into reviewable implementation rules. It intentiona
 
 | Command                      | Admin                                      | Assigned Doctor (`active + approved`)                 | Other Doctor                 | Enrolled Patient                                    | System worker                                            |
 | ---------------------------- | ------------------------------------------ | ----------------------------------------------------- | ---------------------------- | --------------------------------------------------- | -------------------------------------------------------- |
-| Create/edit Program draft    | Allowed with template-authoring permission | Allowed with template-authoring permission            | Forbidden                    | Forbidden                                           | Forbidden                                                |
+| Create/edit Program draft    | Allowed with program-management permission | Forbidden                                             | Forbidden                    | Forbidden                                           | Forbidden                                                |
 | Publish/retire Program       | Allowed with program-management permission | Forbidden                                             | Forbidden                    | Forbidden                                           | Forbidden                                                |
-| Create/edit Rule draft       | Allowed with rule-management permission    | Allowed with explicit rule-management permission      | Forbidden                    | Forbidden                                           | Forbidden                                                |
+| Create/edit Rule draft       | Allowed with rule-management permission    | Forbidden                                             | Forbidden                    | Forbidden                                           | Forbidden                                                |
 | Activate Rule                | Allowed                                    | Allowed for every active + approved Doctor            | Allowed if active + approved | Forbidden                                           | Forbidden                                                |
-| Retire Rule                  | Allowed with rule-management permission    | Allowed with explicit rule-management permission      | Forbidden                    | Forbidden                                           | Forbidden                                                |
+| Retire Rule                  | Allowed with rule-management permission    | Forbidden                                             | Forbidden                    | Forbidden                                           | Forbidden                                                |
 | Create Enrollment `pending`  | Forbidden                                  | Allowed                                               | Forbidden                    | Forbidden                                           | Forbidden                                                |
 | Submit consent               | Read/audit only                            | Read only                                             | Forbidden                    | Allowed for self                                    | Forbidden                                                |
 | Submit baseline              | Read/audit only                            | Read only                                             | Forbidden                    | Allowed for self                                    | Forbidden                                                |
@@ -38,10 +38,10 @@ No transition returns to `draft`. To amend a published Program, create a new dra
 
 ### Rule
 
-| From     | To        | Actor                                                      | Required condition                                                                                                             |
-| -------- | --------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `draft`  | `active`  | Admin or any active + approved Doctor                      | Parent Program published; declarative schema/operator allowlist passes; activation atomically retires the previous active Rule |
-| `active` | `retired` | Authorized Admin or Doctor with rule-management permission | Reason + audit                                                                                                                 |
+| From     | To        | Actor                                 | Required condition                                                                                                             |
+| -------- | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `draft`  | `active`  | Admin or any active + approved Doctor | Parent Program published; declarative schema/operator allowlist passes; activation atomically retires the previous active Rule |
+| `active` | `retired` | Authorized Admin                      | Reason + audit                                                                                                                 |
 
 No transition returns to `draft`. A new Rule version is required for any semantic change.
 
