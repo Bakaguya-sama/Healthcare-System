@@ -498,5 +498,5 @@ Refactor preflight đã hoàn thành nhiệm vụ và không được dùng đ�
 
 - dùng `plan/chronic-care-plan.md` mục 9.1 làm execution order;
 - điền owner/reviewer/capacity và xác nhận Mongo replica set + Redis cho `BE-CC-000B`;
-- khóa metric/unit/timezone trước `BE-CC-002`, nguồn/rule reviewer trước `BE-CC-003`, SummaryInput/evaluation dataset trước `BE-CC-007`, VNPAY sandbox trước `CC-7`;
+- khóa metric/unit/timezone trước `BE-CC-002`, rule operator allowlist/test matrix trước `BE-CC-003`, SummaryInput/evaluation dataset trước `BE-CC-007`, VNPAY sandbox trước `CC-7`;
 - lấy version package thực tế từ lockfile/package manifest tại thời điểm code; bảng version trong tài liệu này chỉ là snapshot preflight 15/09.

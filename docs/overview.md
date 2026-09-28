@@ -104,7 +104,7 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Xem PaymentOrders, PaymentTransactions và trạng thái đối soát.
 - Review/approve/reject PaymentRefunds; provider call do worker thực hiện.
 - Quản lý tài liệu RAG và blacklist keywords.
-- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin quản lý lifecycle, nguồn, version và publish/retire rule/ngưỡng.
+- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin publish/retire Program, mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng.
 - Xử lý ViolationReports theo workflow bốn trạng thái.
 - Tạo và theo dõi NotificationCampaigns nếu còn trong release cut-line.
 

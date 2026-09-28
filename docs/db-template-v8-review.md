@@ -120,8 +120,8 @@ Dùng một `AuditLogs` cho auth, user, health, consultation, care, AI, billing,
 ### 13. Cơ chế tạo Care Program và dữ liệu liên quan
 
 1. Admin/Doctor tạo `CarePrograms.status = draft`; `taskTemplates` vẫn nhúng trong version này. Tạo/sửa `CareRules.status = draft` tham chiếu đúng `careProgramId`.
-2. Admin duyệt nguồn/test, publish Program và active Rule. Việc publish không tạo `CareTasks` hay dữ liệu Patient.
-3. Khi Doctor gán chương trình cho Patient, hệ thống tạo một `PatientCarePrograms.status = pending`, tham chiếu Program/Rule đã duyệt và lưu snapshot cấu hình, baseline, consent, timezone, Doctor.
+2. Admin publish Program. Mọi Doctor `active + approved` có thể activate Rule sau server validation; không có bước human approval/source/test gate riêng. Activate tự retire Rule active cũ của cùng Program version. Việc publish/activate không tạo `CareTasks` hay dữ liệu Patient.
+3. Khi Doctor gán chương trình cho Patient, hệ thống tạo một `PatientCarePrograms.status = pending`, tham chiếu Program published/Rule active và lưu snapshot cấu hình, baseline, consent, timezone, Doctor.
 4. Sau khi consent/baseline/Doctor hợp lệ, bản ghi chuyển `active`; worker đọc `taskTemplates` snapshot để tạo `CareTasks` trong rolling window.
 5. HealthMetric/check-in hoàn thành task. Rule engine tạo `HealthEvaluations`; chỉ kết quả cần chú ý mới tạo `CareAlerts`.
 6. Job báo cáo tạo `CareReports` bằng phép tính backend, sau đó mới tạo `CareSummaries` nếu gói cho phép AI. Consultation chỉ liên kết khi Patient/Doctor chủ động tạo hoặc xử lý alert.

@@ -133,7 +133,7 @@ Giá và giới hạn số lượng là dữ liệu cấu hình của `Plans`, k
 
 - Bệnh nhân trưởng thành đã được nhân viên y tế hướng dẫn theo dõi huyết áp tại nhà.
 - Bác sĩ đã được hệ thống xác minh và có bệnh nhân tham gia Care Program.
-- Doctor và Admin có quyền tạo/chỉnh draft Program Template theo permission. Admin quản lý lifecycle publish/retire, version rule/ngưỡng, gói dịch vụ và nội dung RAG đã duyệt.
+- Doctor và Admin có quyền tạo/chỉnh draft Program Template theo permission. Admin publish/retire Program; mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng. Tạo/sửa draft và retire Rule vẫn theo rule-management permission. Admin vẫn quản lý gói dịch vụ và nội dung RAG đã duyệt.
 
 ### Phạm vi bệnh trong MVP
 
@@ -221,7 +221,7 @@ Admin có thể:
 
 - Tạo/chỉnh draft bằng **Program Builder Lite** theo các khối cấu hình có sẵn; DA2 không cần drag-and-drop workflow builder tổng quát.
 - Preview lịch/task/rule trên dữ liệu giả lập trước khi publish.
-- Là owner quản trị rule/ngưỡng: kiểm tra nguồn/căn cứ đã duyệt, publish/retire version và lưu audit. Admin không tự đặt claim lâm sàng thiếu nguồn.
+- Doctor `active + approved` có thể activate Rule; tạo/sửa draft và retire Rule cần rule-management permission. Backend bắt buộc kiểm tra schema/operator allowlist/Program version, atomically retire Rule active cũ và lưu audit. Nguồn, simulation và test là metadata tùy chọn, không chặn activation trong DA2.
 - Quản lý nội dung RAG, entitlement và người có quyền tạo/chỉnh/sử dụng template.
 - Xem cohort KPI không lộ dữ liệu ngoài scope: enrollment, adherence, alert acknowledgment và follow-up conversion.
 - Audit thay đổi template, rule, consent, assignment và entitlement.
@@ -237,7 +237,7 @@ AI được dùng ở những vị trí tạo giá trị nhưng có fallback rõ
 | Doctor pre-review | Timeline được authorize | Draft điểm cần Doctor kiểm tra | Doctor quyết định, không auto-resolve |
 | Education selection | Program stage + approved content metadata | Gợi ý nội dung phù hợp | Chỉ chọn tài liệu active/approved |
 | Reminder wording | Task, locale, lịch sử gửi không nhạy cảm | Câu nhắc thân thiện | Template/policy giới hạn nội dung |
-| Program draft assistant | Yêu cầu của Admin/Doctor + schema Program | Draft template/rule description | Admin duyệt nguồn, version và publish |
+| Program draft assistant | Yêu cầu của Admin/Doctor + schema Program | Draft template/rule description | Actor có quyền quyết định activate; backend validate schema/version |
 | Consultation note draft | Consultation context được authorize | Bản nháp tóm tắt | Doctor sửa/xác nhận trước lưu chính thức |
 
 LLM không được quyết định eligibility, thay đổi threshold, tạo severity, enroll/loại Patient, cấp entitlement hoặc publish Program. Các thao tác đó dùng rule/permission/state transition xác định.
@@ -303,7 +303,7 @@ Mở rộng theo module và mức tái sử dụng, không fork toàn bộ code 
 Điều kiện nhận một Program mới:
 
 1. Ít nhất 80% luồng dùng lại Program engine hiện có; không tạo bounded context riêng chỉ vì khác bệnh.
-2. Có owner chịu trách nhiệm rule/content và nguồn duyệt.
+2. Có owner chịu trách nhiệm rule/content và audit thay đổi.
 3. Có ít nhất một KPI sản phẩm và một hành trình demo/test.
 4. Không thêm Program thứ ba trước khi cả tăng huyết áp và tiểu đường pass E2E, authorization, rule boundary và AI fallback.
 5. Program mới phải tắt được bằng feature flag/template status mà không ảnh hưởng enrollment khác.
@@ -319,7 +319,7 @@ Có thể tận dụng AI hỗ trợ lập trình để nhận thêm các phần
 - Simulation endpoint/test harness chạy template trên dữ liệu giả để xem task/alert dự kiến.
 - Structured-output AI summary và program draft assistant có schema validation.
 
-AI hỗ trợ code làm giảm thời gian tạo boilerplate/test/data mapping, nhưng không thay thế việc duyệt rule y khoa, threat model, race condition, authorization và usability. Vì vậy các phần thiết bị thật, mạng lưới nhiều phòng khám và tác tử AI tự vận hành vẫn để sau DA2. Người thân đồng hành chỉ nhận ở mức P1, số lượng theo `familyLinkLimit`, chủ yếu nhắc bỏ lỡ nhiệm vụ; quyền xem dữ liệu chi tiết để sau DA2. Tìm cơ sở y tế P1 chỉ dùng danh mục kiểm duyệt và bản đồ bổ sung, không tích hợp lịch trống/đặt lịch trực tiếp của bệnh viện.
+AI hỗ trợ code làm giảm thời gian tạo boilerplate/test/data mapping, nhưng không thay thế server validation của Rule, threat model, race condition, authorization và usability. Vì vậy các phần thiết bị thật, mạng lưới nhiều phòng khám và tác tử AI tự vận hành vẫn để sau DA2. Người thân đồng hành chỉ nhận ở mức P1, số lượng theo `familyLinkLimit`, chủ yếu nhắc bỏ lỡ nhiệm vụ; quyền xem dữ liệu chi tiết để sau DA2. Tìm cơ sở y tế P1 chỉ dùng danh mục kiểm duyệt và bản đồ bổ sung, không tích hợp lịch trống/đặt lịch trực tiếp của bệnh viện.
 
 ## 4. Vòng lặp chăm sóc cốt lõi
 
@@ -353,7 +353,7 @@ Một hành trình demo đạt yêu cầu:
 
 #### CC-1. Care Program
 
-- Admin/Doctor tạo hoặc chỉnh draft template theo permission; Admin quản lý publish/retire và rule/ngưỡng theo version.
+- Admin/Doctor tạo hoặc chỉnh draft template theo permission; Admin publish/retire Program; mọi Doctor `active + approved` có thể activate Rule version sau server validation. Retire Rule cần rule-management permission.
 - Doctor `active + approved` enroll Patient vào chương trình có thời gian bắt đầu/kết thúc; enrollment không được active nếu chưa có Doctor assignment.
 - Một enrollment có trạng thái `pending`, `active`, `paused`, `completed`, `cancelled`.
 - Enrollment chỉ `active` sau khi Doctor/Program/Rule/entitlement hợp lệ, Patient consent đúng version và hoàn thành baseline bắt buộc. Doctor pause/resume/complete; Patient có thể yêu cầu pause hoặc rút consent để cancel; completed/cancelled không reopen.
@@ -374,7 +374,7 @@ Một hành trình demo đạt yêu cầu:
 - Kết quả gồm `normal`, `attention`, `urgent` cùng `reasonCodes`; không trả về tên bệnh hay chẩn đoán.
 - Mỗi kết quả lưu `ruleSetVersion`, dữ liệu đầu vào tham chiếu và thời điểm đánh giá để audit.
 - `urgent` hiển thị hướng dẫn liên hệ cơ sở y tế/cấp cứu phù hợp; không chờ AI sinh nội dung hành động.
-- Ngưỡng lâm sàng không hard-code rải rác; phải nằm trong rule set được duyệt và version hóa.
+- Ngưỡng lâm sàng không hard-code rải rác; phải nằm trong rule set có version, server validation và audit.
 
 #### CC-4. Care Alert và Doctor Priority Inbox
 
@@ -518,6 +518,8 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 
 Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request phải tạo được một lát chạy/test được, cập nhật migration/verifier/contract cùng code và không inject Mongoose model xuyên module.
 
+**Tiến độ hiện tại:** `CC-000A` đã có ADR và contract ở trạng thái **Proposed — awaiting review** tại `docs/adr/0002-chronic-care-program-rule-enrollment.md` và `docs/chronic-care-contract-v1.md`. Chưa được mở `CC-000B` cho tới khi review checklist trong contract được chấp thuận.
+
 | PR/Slice | Phạm vi bắt buộc | Không làm trong slice | Exit gate |
 |---|---|---|---|
 | `CC-000A` | ADR Care Program/rule versioning; permission matrix Admin/Doctor/Patient; enum/state transition; error code; feature flags; public ports giữa `chronic-care`, `users`, `health-tracking`, `notifications`, `consultations` | Controller nghiệp vụ, AI, payment | ADR được duyệt; không còn quyết định schema/state/authorization mở cho CC-001 |
@@ -543,7 +545,7 @@ Quy tắc chia việc cho hai thành viên:
 
 | Gate | Hạn chót | Chặn | Bằng chứng cần có |
 |---|---|---|---|
-| Nguồn/người duyệt rule tăng huyết áp và tiểu đường | Trước `CC-003` | Publish rule và alert demo | Provenance, reviewer, boundary/repeat/missing matrix, simulation fixture |
+| Rule syntax/operator allowlist và test fixture tăng huyết áp/tiểu đường | Trước `CC-003` | Activate rule và alert demo | Schema validation, boundary/repeat/missing matrix, simulation fixture nếu có |
 | Metric/unit/timezone contract | Trước `CC-002` | Task completion/report | Allowlist metric + unit conversion policy + UTC/timezone/DST cases |
 | SummaryInput v1 + dataset đánh giá | Trước `CC-007` | Kết nối GenAI | JSON schema, forbidden claims, expected facts/citations/fallback |
 | VNPAY sandbox merchant/secret/callback | Trước `CC-7` | Payment E2E | Secret store, callback allowlist, test order/IPN/reconciliation |
@@ -612,6 +614,6 @@ Mọi dashboard phải phân biệt dữ liệu seed/demo với dữ liệu ngư
 2. Admin và Doctor đều được tạo/chỉnh draft Program Template theo permission. Admin chịu trách nhiệm quản lý lifecycle, nguồn, version và publish/retire rule/ngưỡng.
 3. Doctor assignment là bắt buộc cho mọi enrollment trước khi kích hoạt.
 4. VNPAY Sandbox payment/subscription và cancel unpaid order là tiêu chí bắt buộc của MVP/demo; full refund không tự động trở thành P0.
-5. Admin quản lý bộ rule/ngưỡng và version. Rule/ngưỡng phải có nguồn/căn cứ được duyệt, audit trail và simulation/test trước khi publish; Admin không được dùng AI để tự sinh rồi tự động phát hành rule lâm sàng.
+5. Rule/ngưỡng có version và audit. Mọi Doctor `active + approved` được activate Rule sau server validation; tạo/sửa draft và retire Rule cần rule-management permission. Không có bước duyệt riêng; AI không được tự phát hành Rule khi không có actor chịu trách nhiệm.
 6. Entitlement Free/Plus/Care và VNPAY Sandbox payment/cancel là P0; seed subscription chỉ phục vụ phát triển/test sớm, không thay acceptance payment E2E.
 7. Kế hoạch được rebaseline ngày 28/09/2026 vì source chưa có Chronic Care/Billing; bắt đầu bằng `BE-CC-000`, không giả định milestone 15/09–28/09 đã hoàn thành.

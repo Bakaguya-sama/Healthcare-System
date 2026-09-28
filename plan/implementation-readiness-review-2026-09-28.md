@@ -77,6 +77,8 @@ Integration/E2E/database bootstrap không được chạy trong lượt rà soá
 
 ## Việc bắt đầu ngay
 
+Status update 28/09: `BE-CC-000A` is now prepared for review. Its ADR and contract are proposed only; no application schema, migration, API route or worker has been added.
+
 1. Tạo branch/issue `BE-CC-000A`.
 2. Viết ADR cho Program/rule versioning, enrollment activation và module ownership.
 3. Chốt permission matrix, state transition, error code và command idempotency cho Program/Rule/Enrollment.

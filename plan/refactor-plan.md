@@ -1404,7 +1404,7 @@ Quy tắc bổ sung cho AI/Health: feature chỉ được code sau khi chốt me
 Ưu tiên: **P0**.
 
 1. Tạo `CarePrograms`, giữ `taskTemplates` nhúng theo từng phiên bản; phiên bản bất biến sau publish và có trạng thái `draft|published|retired`.
-2. Admin và Doctor được tạo/chỉnh draft theo quyền; chỉ Admin quản lý nguồn, publish/retire rule/ngưỡng.
+2. Admin và Doctor được tạo/chỉnh draft theo quyền; Admin publish/retire Program, mọi Doctor `active + approved` có thể activate Rule sau server validation, còn create/edit draft/retire Rule cần rule-management permission; không có bước duyệt riêng.
 3. Tạo `PatientCarePrograms` với snapshot Program version, consent, timezone, baseline và Doctor `active + approved` bắt buộc trước khi active.
 4. Trạng thái enrollment: `pending|active|paused|completed|cancelled`; chỉ active sinh task/evaluation mới. `pending -> active` cần Doctor/Program/Rule/entitlement/consent/baseline hợp lệ; completed/cancelled là terminal.
 5. MVP có hai template dùng chung engine: tăng huyết áp và tiểu đường; không fork luồng theo từng bệnh.
@@ -1429,7 +1429,7 @@ Done khi timezone, retry, duplicate generation, source edit/delete và adherence
 
 Ưu tiên: **P0**.
 
-1. Rule set version hóa, allowlist operator và chỉ chạy version active đã duyệt.
+1. Rule set version hóa, allowlist operator và chỉ chạy version active. Mọi Doctor `active + approved` có thể activate Rule sau server validation, không có bước duyệt riêng.
 2. Evaluation xác định trả `normal|attention|urgent`, `reasonCodes`, input references và rule version; AI không tham gia severity.
 3. Alert có deduplication key và vòng đời `open|acknowledged|resolved|dismissed`; resolve/dismiss lưu actor/reason.
 4. `urgent` dùng safety template đã duyệt, không chờ AI hoặc cam kết Doctor phản hồi tức thời.
@@ -2190,7 +2190,7 @@ Không dùng `continue-on-error` cho lint, typecheck, build hoặc critical test
 | AI quota/cost                                          | Trung bình | Redis reserve + daily reconciliation                                                         |
 | AI tóm tắt sai số hoặc thêm dữ kiện                    | Cao        | Backend tính số; SummaryInput snapshot; schema/numerical grounding/safety guard; fallback     |
 | AI làm thay đổi severity/chẩn đoán                     | Cao        | Rule engine là nguồn duy nhất; forbidden-claim tests; provider kill switch không tắt safety   |
-| Rule/ngưỡng thiếu nguồn hoặc đổi lịch sử               | Cao        | Admin publish, version bất biến, simulation/evidence/audit và enrollment snapshot             |
+| Rule/ngưỡng đổi lịch sử hoặc sai cấu trúc              | Cao        | Version bất biến, operator/schema validation, audit, test fixture và enrollment snapshot       |
 | Task/reminder gửi sai giờ hoặc gửi lặp                 | Cao        | Timezone snapshot, rolling window, idempotency, quiet hours/frequency cap                      |
 | Payment đã thu nhưng chưa cấp quyền                    | Cao        | Transactional outbox, idempotent grant worker, paid-without-grant metric và reconciliation    |
 | Dữ liệu cơ sở y tế lỗi thời/quảng cáo ảnh hưởng xếp hạng | Trung bình | Verified source/date, deterministic rank, source label; không trả phí để đổi clinical order   |
@@ -2242,7 +2242,7 @@ Thực hiện đúng thứ tự:
 18. [x] Hoàn thành RF-12 (`BE-RF-090` đến `BE-RF-093`) ngày `2026-09-21`: public API, cross-context enforcement và AI/Health service decomposition; staging evidence RF-9/RF-10 vẫn là release gate riêng.
 19. [x] Hoàn thành RF-13 (`BE-RF-094` đến `BE-RF-095`) ngày `2026-09-21`: chuẩn hóa Doctor/Patient capability, xóa patient CRUD trùng và chốt `/patients/me`.
 20. [ ] Hoàn thành `BE-CC-000A/B`: ADR, permission/state/error contract, module/ports, migration/verifier và seed harness; sau đó mới nhận `BE-CC-001`, `BE-CC-002`, `BE-CC-014` theo thứ tự ở `plan/chronic-care-plan.md` mục 9.1.
-21. [ ] Chốt rule source/version/simulation và test matrix normal/attention/urgent/missing/repeated trước `BE-CC-003`.
+21. [ ] Chốt rule version/operator allowlist và test matrix normal/attention/urgent/missing/repeated trước `BE-CC-003`; source/reviewer không là activation gate.
 22. [ ] Chốt `SummaryInputSnapshot`, phép tổng hợp, structured output, output guard, fallback và evaluation dataset trước khi nối AI provider (`BE-CC-006/007`).
 23. [ ] Tạo VNPAY state machine/outbox grant/reconciliation design; không thêm Saga framework (`BE-NF-050/051`, CC-7).
 24. [ ] Chỉ tạo task P1 Người thân đồng hành sau khi critical E2E của hai Program, alert, report/AI fallback, entitlement và payment xanh; chỉ tạo task cơ sở y tế khi Người thân đã đạt gate và còn thời gian trước feature freeze.
