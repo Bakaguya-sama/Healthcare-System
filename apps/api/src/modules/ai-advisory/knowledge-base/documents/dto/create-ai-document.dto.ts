@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEnum, IsIn } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsIn,
+  IsDateString,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { DocumentStatus } from '../entities/ai-document.entity';
 import { IsCloudinaryUrl } from '../../../../../core/validators/is-cloudinary-url.validator';
@@ -13,6 +19,14 @@ export class CreateAiDocumentDto {
   @IsOptional()
   @IsString()
   title?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Optional UTC cutoff after which RAG must not retrieve it',
+  })
+  @IsOptional()
+  @IsDateString()
+  validUntil?: string | null;
 }
 
 export class UpdateAiDocumentDto {
@@ -41,6 +55,11 @@ export class UpdateAiDocumentDto {
   @IsOptional()
   @IsEnum(DocumentStatus)
   status?: DocumentStatus;
+
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsDateString()
+  validUntil?: string | null;
 }
 
 export class QueryAiDocumentDto extends PageSortQueryDto {

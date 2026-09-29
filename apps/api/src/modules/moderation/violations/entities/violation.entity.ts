@@ -14,7 +14,16 @@ export enum ReportType {
 
 export enum ViolationStatus {
   PENDING = 'pending',
+  PROCESSING = 'processing',
   RESOLVED = 'resolved',
+  DISMISSED = 'dismissed',
+}
+
+export enum ViolationActionTaken {
+  WARNING = 'warning',
+  SUSPEND = 'suspend',
+  BAN = 'ban',
+  NONE = 'none',
 }
 
 @Schema({ timestamps: true })
@@ -37,6 +46,18 @@ export class Violation extends Document {
     default: ViolationStatus.PENDING,
   })
   status: ViolationStatus;
+
+  @Prop({ type: String, maxlength: 1000 })
+  resolutionNote?: string;
+
+  @Prop({ type: String, enum: ViolationActionTaken })
+  actionTaken?: ViolationActionTaken;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  resolvedBy?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  resolvedAt?: Date;
 }
 
 export const ViolationSchema = SchemaFactory.createForClass(Violation);

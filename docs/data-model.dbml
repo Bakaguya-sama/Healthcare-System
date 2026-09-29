@@ -11,7 +11,7 @@
 Table Users {
   id ObjectID [pk]
   fullName varchar [not null]
-  email varchar [not null, unique, note: "Normalize to lowercase before persistence"]
+  email varchar [note: "Nullable for OAuth-only accounts; normalize to lowercase before persistence; partial unique index where email is a string"]
   passwordHash varchar [note: "Nullable for OAuth-only accounts; select:false; never return publicly"]
   emailVerifiedAt datetime
   gender varchar
@@ -30,7 +30,7 @@ Table Users {
   updatedAt datetime
 
   Indexes {
-    email [unique]
+    email [unique, note: "Partial unique where email is a string"]
     (role, accountStatus)
     "doctorProfile.specialty"
     "doctorProfile.verificationStatus"
@@ -149,7 +149,6 @@ Table Consultations {
   calledAt datetime
   estimatedWaitMinutes int
   sessionStartedAt datetime
-  lastHeartbeatAt datetime
   overtimeStartedAt datetime [note: "Set when the session passes its expected end; does not mean completed"]
   interruptedAt datetime
   interruptionReason varchar [note: "heartbeat_timeout, network_lost, doctor_disconnected, system_recovery"]
@@ -224,15 +223,14 @@ Table Reviews {
 Table AiConversations {
   id ObjectID [pk]
   patientId ObjectID [not null]
-  status varchar [not null, note: "active, completed, archived"]
   feedbacks json [note: "[{ content, createdAt }]"]
   startedAt datetime
-  endedAt datetime
+  archivedAt datetime [note: "Null means the ChatGPT-style conversation remains active and can receive more messages"]
   createdAt datetime
   updatedAt datetime
 
   Indexes {
-    (patientId, status, createdAt)
+    (patientId, archivedAt, createdAt)
   }
 }
 
@@ -315,13 +313,13 @@ Table AiDocuments {
   guidelineVersion varchar
   sourceUrl varchar
   publishedAt datetime
-  effectiveUntil datetime
+  validUntil datetime [note: "Nullable; approved documents are retrievable while this is null or in the future"]
   specialties json
   language varchar [not null, default: "vi"]
   audiences json [note: "patient, doctor, admin"]
   uploadedBy ObjectID [not null]
-  reviewedBy ObjectID
-  reviewedAt datetime
+  approvedBy ObjectID
+  approvedAt datetime
   rejectionReason varchar
   createdAt datetime
   updatedAt datetime
@@ -330,7 +328,7 @@ Table AiDocuments {
     checksum [unique]
     uploadedBy
     (processingStatus, reviewStatus, updatedAt)
-    (reviewStatus, effectiveUntil)
+    (reviewStatus, validUntil)
   }
 }
 
@@ -346,7 +344,7 @@ Table AiDocumentChunks {
   guidelineVersion varchar
   sourceUrl varchar
   publishedAt datetime
-  effectiveUntil datetime
+  validUntil datetime [note: "Denormalized from AiDocuments for Atlas Vector Search filtering"]
   specialties json [note: "Admin-approved specialty allowlist"]
   language varchar [not null, default: "vi"]
   audiences json [note: "patient, doctor, admin"]
@@ -369,7 +367,7 @@ Table AiDocumentChunks {
     (documentId, contentHash) [unique]
     parentChunkId
     (reviewStatus, isActive, language)
-    (isActive, effectiveUntil)
+    (isActive, validUntil)
   }
 }
 
@@ -389,7 +387,6 @@ Table Plans {
   code varchar [not null, note: "Stable code such as FREE, PLUS, CARE; display name may change"]
   version int [not null]
   name varchar [not null]
-  tier varchar [not null, note: "free, plus, care; behavior is read from entitlement values, not hard-coded by tier"]
   description text
   price bigint [not null, note: "VND integer; never floating point"]
   currency varchar [not null, default: "VND"]
@@ -415,7 +412,7 @@ Table Plans {
   Indexes {
     (code, version) [unique]
     (code, status) [unique, note: "Partial unique where status=published; only one sellable version per code"]
-    (tier, status, effectiveFrom)
+    (code, status, effectiveFrom)
   }
 }
 
@@ -932,15 +929,12 @@ Table FamilyReminders {
   familyLinkId ObjectID [not null]
   permissionId ObjectID [not null]
   reminderType varchar [not null, note: "due, overdue, missed_task, urgent_opt_in"]
-  channel varchar [not null, note: "in_app, email, push"]
   uniqueKey varchar [not null, unique, note: "Prevents duplicate reminder for the same task/family member/type"]
-  status varchar [not null, note: "scheduled, sent, delivered, failed, skipped"]
+  status varchar [not null, note: "scheduled, dispatched, skipped; transport delivery state belongs to Notifications/OutboxEvents"]
   scheduledAt datetime [not null]
-  sentAt datetime
-  providerMessageId varchar
+  notificationId ObjectID [note: "Per-recipient notification created after the domain reminder is dispatched"]
+  dispatchedAt datetime
   skipReason varchar
-  attemptCount int [not null, default: 0]
-  lastError varchar
   createdAt datetime
   updatedAt datetime
 
@@ -957,7 +951,7 @@ Table MedicalFacilities {
   name varchar [not null]
   normalizedName varchar [not null]
   facilityType varchar [not null, note: "hospital, general_hospital, medical_center, clinic"]
-  status varchar [not null, note: "draft, verified, stale, retired"]
+  status varchar [not null, note: "draft, verified, retired; freshness is derived from lastCheckedAt and the configured threshold"]
   specialties json [not null]
   services json
   address json [not null, note: "{ street, ward, district, province, country, postalCode }"]
@@ -1041,7 +1035,8 @@ Table NotificationCampaigns {
   type varchar [not null, note: "info, success, warning, critical"]
   targetType varchar [not null, note: "individual, segment, all"]
   targetFilter json [not null, note: "Snapshot such as { userIds[] } or { roles[], planCodes[], careProgramId, province }; all uses an empty filter"]
-  audienceSnapshotAt datetime [not null, note: "Only matching users existing at or before this time are included"]
+  audienceSnapshotAt datetime [not null, note: "Time at which the exact audience is materialized into NotificationCampaignRecipients"]
+  audienceMaterializedAt datetime
   status varchar [not null, note: "draft, scheduled, processing, completed, cancelled"]
   scheduledAt datetime
   sentAt datetime
@@ -1058,6 +1053,28 @@ Table NotificationCampaigns {
     createdBy
     (status, scheduledAt)
     (targetType, createdAt)
+  }
+}
+
+Table NotificationCampaignRecipients {
+  id ObjectID [pk]
+  campaignId ObjectID [not null]
+  userId ObjectID [not null]
+  status varchar [not null, note: "pending, materialized, failed, skipped"]
+  uniqueKey varchar [not null, unique, note: "Stable campaign/user key used for retry-safe audience materialization"]
+  notificationId ObjectID [note: "Set after the per-user Notifications record is created"]
+  selectedAt datetime [not null]
+  processedAt datetime
+  failureCode varchar [note: "Stable safe code only; transport retry details belong to OutboxEvents"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (campaignId, userId) [unique]
+    uniqueKey [unique]
+    (campaignId, status, id)
+    (userId, createdAt)
+    notificationId [unique, note: "Sparse unique MongoDB index"]
   }
 }
 
@@ -1123,9 +1140,11 @@ Table ViolationReports {
   severity varchar [not null, note: "low, medium, high"]
   source json [note: "{ consultationId, consultationMessageIds[], aiConversationId, aiMessageIds[] }"]
   evidences json [note: "[{ type, url, publicId, uploadedAt }]"]
-  aiClassification json [note: "{ category, severity, confidence, rationale, analyzedAt }"]
   assignedTo ObjectID
-  resolution json [note: "{ note, action: warning|suspend|ban|none, handledBy, handledAt }"]
+  resolutionNote text
+  actionTaken varchar [note: "warning, suspend, ban, none"]
+  resolvedBy ObjectID
+  resolvedAt datetime
   createdAt datetime
   updatedAt datetime
 
@@ -1190,7 +1209,7 @@ Ref: AiConversations.patientId > Users.id
 Ref: AiMessages.aiConversationId > AiConversations.id
 Ref: AiUsageDaily.userId > Users.id
 Ref: AiDocuments.uploadedBy > Users.id
-Ref: AiDocuments.reviewedBy > Users.id
+Ref: AiDocuments.approvedBy > Users.id
 Ref: AiDocumentChunks.documentId > AiDocuments.id
 Ref: AiDocumentChunks.parentChunkId > AiDocumentChunks.id
 Ref: AiDocumentChunks.excludedBy > Users.id
@@ -1214,11 +1233,15 @@ Ref: PaymentRefunds.userId > Users.id
 Ref: PaymentRefunds.requestedBy > Users.id
 Ref: PaymentRefunds.reviewedBy > Users.id
 Ref: NotificationCampaigns.createdBy > Users.id
+Ref: NotificationCampaignRecipients.campaignId > NotificationCampaigns.id
+Ref: NotificationCampaignRecipients.userId > Users.id
+Ref: NotificationCampaignRecipients.notificationId > Notifications.id
 Ref: Notifications.userId > Users.id
 Ref: Notifications.campaignId > NotificationCampaigns.id
 Ref: ViolationReports.reporterId > Users.id
 Ref: ViolationReports.reportedUserId > Users.id
 Ref: ViolationReports.assignedTo > Users.id
+Ref: ViolationReports.resolvedBy > Users.id
 
 Ref: Consultations.patientCareProgramId > PatientCarePrograms.id
 Ref: Consultations.careAlertId > CareAlerts.id
@@ -1288,6 +1311,7 @@ Ref: FamilyReminders.careTaskId > CareTasks.id
 Ref: FamilyReminders.patientId > Users.id
 Ref: FamilyReminders.familyLinkId > FamilyLinks.id
 Ref: FamilyReminders.permissionId > FamilyPermissions.id
+Ref: FamilyReminders.notificationId > Notifications.id
 Ref: MedicalFacilities.verifiedBy > Users.id
 Ref: MedicalFacilities.createdBy > Users.id
 Ref: DiseaseSpecialties.createdBy > Users.id

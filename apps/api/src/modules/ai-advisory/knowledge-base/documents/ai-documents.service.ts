@@ -11,6 +11,7 @@ import { Model, Types } from 'mongoose';
 import {
   AiDocument,
   AiDocumentDocument,
+  DocumentReviewStatus,
   DocumentStatus,
 } from './entities/ai-document.entity';
 import {
@@ -25,7 +26,7 @@ import {
 import { CloudinaryService } from '../../../../infrastructure/files/cloudinary.service';
 
 const AI_DOCUMENT_READ_PROJECTION =
-  '_id title fileUrl fileType status uploadedBy createdAt updatedAt';
+  '_id title fileUrl fileType status reviewStatus validUntil uploadedBy approvedBy approvedAt createdAt updatedAt';
 import type { UploadableFile } from '../../../../infrastructure/files/cloudinary.service';
 import { RagIngestionService } from '../../retrieval/services/rag-ingestion.service';
 
@@ -74,6 +75,9 @@ export class AiDocumentsService {
         publicId: uploadResult.publicId,
         uploadedBy: new Types.ObjectId(userId),
         status: DocumentStatus.PROCESSING,
+        validUntil: createDto.validUntil
+          ? new Date(createDto.validUntil)
+          : undefined,
       });
 
       await document.save();
@@ -98,7 +102,19 @@ export class AiDocumentsService {
         });
 
         document.status = DocumentStatus.ACTIVE;
+        document.reviewStatus = DocumentReviewStatus.APPROVED;
+        document.approvedBy = new Types.ObjectId(userId);
+        document.approvedAt = new Date();
         await document.save();
+        await this.aiDocumentChunkModel.updateMany(
+          { documentId: document._id },
+          {
+            $set: {
+              reviewStatus: DocumentReviewStatus.APPROVED,
+              validUntil: document.validUntil,
+            },
+          },
+        );
 
         this.logger.log(
           `RAG ingestion completed: id=${document._id.toString()}, status=${document.status}`,

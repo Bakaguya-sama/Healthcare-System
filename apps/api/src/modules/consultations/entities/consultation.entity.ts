@@ -64,6 +64,10 @@ export class Consultation {
   @Prop() declinedReason?: string;
   @Prop() scheduledStartAt?: Date;
   @Prop() scheduledEndAt?: Date;
+  @Prop({ type: Number, required: true, default: 30, min: 1 })
+  expectedDurationMinutes!: number;
+  @Prop({ type: Number, min: 0 }) estimatedWaitMinutes?: number;
+  @Prop() overtimeStartedAt?: Date;
   @Prop() patientNotes?: string;
   @Prop() doctorNotes?: string;
   @Prop() sessionStartedAt?: Date;

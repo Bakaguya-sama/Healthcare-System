@@ -100,9 +100,6 @@ export class UpdateConversationDto {
   @IsArray()
   tags?: string[];
 
-  @ApiProperty({ example: 'active', required: false })
-  @IsOptional()
-  status?: 'draft' | 'active' | 'completed' | 'archived';
 }
 
 export class QueryConversationDto extends PageSortQueryDto {
@@ -117,10 +114,6 @@ export class QueryConversationDto extends PageSortQueryDto {
   @IsOptional()
   @IsEnum(ConversationType)
   type?: ConversationType;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  status?: 'draft' | 'active' | 'completed' | 'archived';
 
   @ApiProperty({ example: false, required: false })
   @IsOptional()

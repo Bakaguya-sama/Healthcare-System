@@ -1,13 +1,18 @@
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import {
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
+  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { ConsultationHeartbeatService } from './consultation-heartbeat.service';
 
 export type ConsultationChangedAction =
   | 'created'
@@ -28,7 +33,10 @@ export class ConsultationsGateway
 {
   private readonly logger = new Logger(ConsultationsGateway.name);
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly heartbeats: ConsultationHeartbeatService,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
@@ -61,6 +69,24 @@ export class ConsultationsGateway
 
   handleDisconnect(client: AuthSocket) {
     if (client.userId) client.leave(`user_${client.userId}_consultations`);
+  }
+
+  @SubscribeMessage('consultation_heartbeat')
+  async recordHeartbeat(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() payload: { consultationId?: string },
+  ) {
+    if (!client.userId) throw new WsException('Unauthenticated socket');
+    if (!payload?.consultationId) {
+      throw new WsException('consultationId is required');
+    }
+    try {
+      return await this.heartbeats.record(payload.consultationId, client.userId);
+    } catch (error: unknown) {
+      throw new WsException(
+        error instanceof Error ? error.message : 'Heartbeat rejected',
+      );
+    }
   }
 
   emitConsultationChanged(payload: {

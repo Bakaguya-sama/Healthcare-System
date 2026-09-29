@@ -8,6 +8,12 @@ import {
   CC001A_COLLECTIONS,
   CC001A_INDEXES,
 } from './migrations/202609291000-cc001a-care-catalog';
+import {
+  NOTIFICATION_CAMPAIGN_RECIPIENT_INDEXES,
+  NOTIFICATION_CAMPAIGN_RECIPIENT_VALIDATOR,
+  RETIRED_AI_CONVERSATION_INDEX_NAMES,
+} from './migrations/202609291200-schema-simplification';
+import { CC001B_CARE_COMMAND_IDEMPOTENCY_VALIDATOR } from './migrations/202609291100-cc001b-enrollment';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -53,7 +59,17 @@ export const INFRASTRUCTURE_COLLECTIONS: ReadonlyArray<{
 export const EXPECTED_DATABASE_COLLECTIONS = [
   ...INFRASTRUCTURE_COLLECTIONS,
   ...CC000_FOUNDATION_COLLECTIONS,
-  ...CC001A_COLLECTIONS,
+  ...CC001A_COLLECTIONS.filter(
+    (collection) => collection.name !== 'carecommandidempotencies',
+  ),
+  {
+    name: 'carecommandidempotencies',
+    validator: CC001B_CARE_COMMAND_IDEMPOTENCY_VALIDATOR,
+  },
+  {
+    name: 'notificationcampaignrecipients',
+    validator: NOTIFICATION_CAMPAIGN_RECIPIENT_VALIDATOR,
+  },
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
@@ -76,13 +92,18 @@ export const MANAGED_DATABASE_INDEXES = [
     expireAfterSeconds: 0,
   },
   ...RF2D_QUERY_INDEXES.filter(
-    (index) => !['sessions', 'messages'].includes(index.collection),
+    (index) =>
+      !['sessions', 'messages'].includes(index.collection) &&
+      !RETIRED_AI_CONVERSATION_INDEX_NAMES.includes(
+        index.name as (typeof RETIRED_AI_CONVERSATION_INDEX_NAMES)[number],
+      ),
   ),
   {
     collection: 'users',
     name: 'email_1',
     key: { email: 1 },
     unique: true,
+    partialFilterExpression: { email: { $type: 'string' } },
   },
   {
     collection: 'users',
@@ -170,10 +191,11 @@ export const MANAGED_DATABASE_INDEXES = [
     name: 'userId_1_lastMessageAt_-1__id_-1',
     key: { userId: 1, lastMessageAt: -1, _id: -1 },
   },
+  ...NOTIFICATION_CAMPAIGN_RECIPIENT_INDEXES,
   {
     collection: 'aiconversations',
-    name: 'userId_1_status_1_lastMessageAt_-1__id_-1',
-    key: { userId: 1, status: 1, lastMessageAt: -1, _id: -1 },
+    name: 'userId_1_archivedAt_1_createdAt_-1__id_-1',
+    key: { userId: 1, archivedAt: 1, createdAt: -1, _id: -1 },
   },
   {
     collection: 'aiconversationmessages',

@@ -26,7 +26,7 @@ import {
 } from './entities/ai-conversation-message.entity';
 
 const AI_CONVERSATION_LIST_PROJECTION =
-  '_id userId type topic summary followUpAction totalTokens totalMessages lastMessageAt isArchived archivedAt isFavorite rating status completedAt tags createdAt updatedAt';
+  '_id userId type topic summary followUpAction totalTokens totalMessages lastMessageAt archivedAt isFavorite rating tags createdAt updatedAt';
 const AI_CONVERSATION_DETAIL_PROJECTION = `${AI_CONVERSATION_LIST_PROJECTION} ratingComment`;
 const AI_MESSAGE_READ_PROJECTION =
   '_id conversationId role content timestamp attachments sentiment tokens createdAt updatedAt';
@@ -53,16 +53,14 @@ export class AiConversationQueryService {
       filter.type = query.type;
     }
 
-    if (query.status) {
-      filter.status = query.status;
-    }
-
     if (query.isFavorite !== undefined) {
       filter.isFavorite = query.isFavorite;
     }
 
     if (query.isArchived !== undefined) {
-      filter.isArchived = query.isArchived;
+      filter.archivedAt = query.isArchived
+        ? { $type: 'date' }
+        : { $not: { $type: 'date' } };
     }
 
     if (query.startDate || query.endDate) {
@@ -313,7 +311,9 @@ export class AiConversationQueryService {
             $sum: { $cond: [{ $eq: ['$isFavorite', true] }, 1, 0] },
           },
           archivedCount: {
-            $sum: { $cond: [{ $eq: ['$isArchived', true] }, 1, 0] },
+            $sum: {
+              $cond: [{ $eq: [{ $type: '$archivedAt' }, 'date'] }, 1, 0],
+            },
           },
           totalMessages: { $sum: '$messageCount' },
           totalTokensUsed: { $sum: '$totalTokensUsed' },

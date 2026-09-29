@@ -72,7 +72,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 6. `pending -> active` chỉ khi đúng người được mời accept trước `invitationExpiresAt`; người được mời có thể chuyển `pending -> declined`, worker chuyển invitation quá hạn sang `expired`, Patient có thể hủy invitation thành `revoked`.
 7. Patient được chuyển `active -> paused` và `paused -> active`. Patient hoặc người thân có thể chuyển `active|paused -> revoked`; revoke có hiệu lực ngay cho notification/query mới nhưng không đăng xuất hay vô hiệu hóa tài khoản Patient độc lập của người thân.
 8. Khi mời lại cùng cặp Patient–người thân ở trạng thái `revoked|declined|expired`, hệ thống tái sử dụng `FamilyLinks`, tăng `invitationVersion`, reset dữ liệu vòng mời hiện tại và chuyển về `pending`. Mọi FamilyPermission cũ vẫn revoked; khi accept phải tạo permission/consent version mới. Lịch sử các lần mời nằm trong `AuditLogs`.
-9. Invitation, acceptance/decline/expiry, consent version, pause/resume, thay đổi scope, reminder event, delivery result, revoke và actor phải được ghi trong `AuditLogs` với `domain = care` và các bản ghi `FamilyReminders` liên quan. Người thân không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được liên kết.
+9. Invitation, acceptance/decline/expiry, consent version, pause/resume, thay đổi scope, reminder decision, revoke và actor phải được ghi trong `AuditLogs` với `domain = care` và các bản ghi `FamilyReminders` liên quan. `FamilyReminders` chỉ giữ quyết định domain `scheduled|dispatched|skipped`, `notificationId` và skip reason; channel, provider message, retry và delivery result thuộc `Notifications`/`OutboxEvents`. Người thân không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được liên kết.
 10. Reminder cho contact tuân thủ quiet hours, frequency cap và deduplication độc lập với notification của Patient. Không gửi reminder nếu task đã hoàn thành, bị hủy hoặc enrollment không còn active.
 11. `FamilyLinks` đã biểu diễn quan hệ nhiều-nhiều giữa các tài khoản nên DA2 không tạo `FamilyGroups`. Chỉ thêm group khi có nghiệp vụ thật sự như hộ gia đình dùng chung, vai trò trưởng nhóm hoặc hội thoại nhóm.
 
@@ -103,6 +103,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 7. AI chỉ được chuẩn hóa văn bản tự nhiên thành bộ lọc condition/specialty/location trong allowlist và giải thích kết quả dựa trên dữ liệu đã trả về. AI không suy luận bệnh, xếp hạng chất lượng cơ sở, chẩn đoán hoặc xử lý tình huống `urgent`.
 8. Trong luồng `urgent`, safety template luôn hiển thị trước. Tìm cơ sở y tế/chỉ đường là tác vụ bổ trợ và không được trì hoãn hướng dẫn liên hệ cấp cứu/cơ sở y tế phù hợp.
 9. Liên kết đặt lịch chỉ xuất hiện khi cơ sở có tích hợp chính thức hoặc đường dẫn đã được Admin xác thực. Không mô phỏng còn chỗ, giá hoặc xác nhận lịch từ dữ liệu bản đồ.
+10. `MedicalFacilities.status` chỉ gồm `draft|verified|retired`. Freshness không là status lưu trữ; backend suy ra từ `lastCheckedAt` và ngưỡng cấu hình để loại hoặc gắn nhãn kết quả cần kiểm tra lại.
 
 ## Doctor Priority Inbox và follow-up
 
@@ -136,8 +137,12 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 18. Retrieval chỉ dùng chunk `isActive = true`, `reviewStatus = approved`, chưa hết hiệu lực và khớp phạm vi. `citation` phải trỏ đúng document, version, page/section và source URL; backend kiểm tra chunk/citation trước khi trả lời.
 19. `contentHash` chống chunk trùng trong cùng document; `ingestionVersion` xác định parser/chunker/embedding version để re-ingestion. `parentChunkId` chỉ dùng lấy section cha đủ ngữ cảnh, không bỏ qua metadata filter của child hoặc parent.
 20. Chunk lỗi hoặc không phù hợp được loại riêng bằng `isActive = false`, `excludedBy`, `excludedAt`, `exclusionReason`; thao tác này không thay đổi trạng thái duyệt của toàn document. Document version mới phải được duyệt trước khi thay thế version cũ đang active.
+21. `AiDocuments.validUntil` là cutoff tùy chọn; `approvedBy/approvedAt` ghi actor và thời điểm chịu trách nhiệm duyệt, kể cả khi người upload đồng thời là người duyệt. `AiDocumentChunks.validUntil` là bản sao để Atlas Vector Search lọc trước retrieval, không phải nguồn chuẩn độc lập.
+22. `AiConversations` là thread hỏi đáp có thể tiếp tục như ChatGPT, không có trạng thái `completed` hoặc `endedAt`. `archivedAt` nullable là nguồn chuẩn duy nhất: không có giá trị nghĩa là conversation vẫn mở, có giá trị nghĩa là đã archive và có thể unarchive bằng cách xóa giá trị.
 
 ## Quy tắc tài khoản và bác sĩ
+
+`Users.email` được phép null đối với OAuth-only account; đăng ký local vẫn bắt buộc email. Định danh OAuth chuẩn là `(provider, providerAccountId)`, không phải email; email chỉ unique khi tồn tại và `providerEmail` không được dùng để tự gộp tài khoản.
 
 1. Chỉ tài khoản active được tư vấn, đặt lịch hoặc thanh toán.
 2. Chỉ user có role doctor và hồ sơ được approved mới được mở slot, nhận yêu cầu hoặc tư vấn.
@@ -220,8 +225,8 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 
 1. `scheduledEndAt` hoặc thời lượng dự kiến chỉ dùng cho lịch, cảnh báo và ETA; hệ thống không tự chuyển Consultation sang `completed` khi hết giờ.
 2. Doctor chủ động kết thúc cuộc gọi (`callEndedAt`) và xác nhận hoàn tất Consultation (`completedAt`, `completedBy`). Hai mốc có thể khác nhau để Doctor hoàn thiện note.
-3. Trước giờ dự kiến kết thúc, hệ thống có thể cảnh báo. Khi quá giờ, ghi `overtimeStartedAt`; không tự đóng chat/call hoặc đánh dấu đã hoàn thành.
-4. Nếu phiên `in_consultation` mất heartbeat quá giới hạn kỹ thuật, worker chuyển sang `interrupted` bằng conditional update, ghi lý do và giải phóng khóa một phiên đang chạy. Worker không được ghi `completed` thay Doctor.
+3. Trước giờ dự kiến kết thúc, hệ thống có thể cảnh báo. Khi quá giờ, ghi `overtimeStartedAt`; không tự đóng chat/call hoặc đánh dấu đã hoàn thành. `expectedDurationMinutes`, `estimatedWaitMinutes` và `overtimeStartedAt` được giữ trong Consultation.
+4. Heartbeat realtime của từng participant được lưu trong Redis với TTL, không ghi `lastHeartbeatAt` liên tục vào MongoDB. Nếu phiên `in_consultation` mất heartbeat quá giới hạn kỹ thuật, worker chuyển sang `interrupted` bằng conditional update, ghi lý do và giải phóng khóa một phiên đang chạy. Worker không được ghi `completed` thay Doctor.
 5. Doctor có thể resume phiên interrupted nếu không có phiên khác đang chạy, hoặc hoàn tất với ghi chú/lý do. Mọi interrupt/resume/complete ghi `AuditLogs` với `domain = consultation`.
 
 ## Chat, video và quyền truy cập
@@ -249,7 +254,7 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 4. IPN lặp phải idempotent: cùng transaction reference không được tạo transaction, outbox event hoặc Subscription grant hai lần.
 5. Redis kiểm quota AI realtime theo ngày; AiUsageDaily là dữ liệu bền vững cho thống kê và đối soát.
 6. Khi subscription hết hạn, API AI áp dụng quota Free ở request tiếp theo. Worker chỉ hỗ trợ thông báo hết hạn.
-7. Hệ thống có ba tier sản phẩm: `free`, `plus`, `care`; giá và giới hạn cụ thể nằm trong Plan/Subscription snapshot, không hard-code theo tên tier.
+7. Hệ thống có ba mã Plan ổn định `FREE`, `PLUS`, `CARE`; `Plans.code` là định danh nhóm xuyên suốt các version và không lưu thêm field `tier` trùng lặp. Giá, giới hạn và hành vi nằm trong Plan/Subscription snapshot, không hard-code theo code.
 8. Free luôn có quyền nhập/xem HealthMetrics của chính Patient, biểu đồ cơ bản, một Care Program cơ bản, in-app notification, quota AI cơ bản và safety alert thiết yếu.
 9. Plus bao gồm Free và có thể cấp nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder/quiet hours, medication reminder, PDF/CSV và quota AI cao hơn theo Plan.
 10. Care bao gồm Plus và có thể cấp Doctor-assigned Program, Doctor review theo cadence, Priority Inbox, follow-up, nhắc tái khám và ưu đãi giá consultation theo Plan snapshot.
@@ -261,7 +266,7 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 15. Downgrade/hết hạn không xóa HealthMetrics, Care Alerts hoặc báo cáo lịch sử. Quyền lợi trả phí mới dừng theo `paidThroughAt` và grace policy đã snapshot.
 16. Giới hạn lưu lịch sử theo tier chỉ được áp dụng sau privacy/retention review; không được làm mất quyền truy cập/xuất dữ liệu tối thiểu của chính Patient.
 17. `ConsultationUsages` dùng một bản ghi cho mỗi Consultation trong một chu kỳ và cập nhật nguyên tử theo vòng đời `reserved → counted|released|expired`; khóa chống xử lý trùng bảo đảm retry không đếm một Consultation nhiều lần. Mỗi lần đổi trạng thái phải ghi bản ghi bất biến trong `AuditLogs` với `domain = billing`; DA2 không xây event sourcing riêng.
-18. Entitlement được kiểm tra phía backend. Client không được tự khai tier, AI quota, consultation limit, Doctor review hoặc quyền Care Program.
+18. Quyền truy cập chương trình được kiểm tra phía backend. Client không được tự khai `planCode`, AI quota, consultation limit, Doctor review hoặc quyền Care Program.
 19. Plan trả phí không được thay đổi Care Evaluation severity, thứ tự ưu tiên lâm sàng hoặc quyền được nhận safety escalation.
 20. Khi VNPAY chưa nằm trong cut-line, seed/demo subscription có thể dùng để kiểm thử entitlement nhưng phải được đánh dấu rõ, không ghi nhận là doanh thu thật.
 21. Trong DA2, VNPAY Sandbox payment/subscription và cancel unpaid order là P0 bắt buộc; seed subscription không thay thế acceptance demo giao dịch Sandbox.
@@ -321,9 +326,14 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 3. Worker claim OutboxEvents theo status pending và available at, gửi theo channel phù hợp, sau đó đánh dấu completed, retry failed hoặc dead khi hết số lần thử.
 4. BullMQ dùng Redis cho delayed jobs: nhắc lịch 24 giờ và 15 phút trước cuộc hẹn, gửi campaign theo batch và retry tác vụ ngoài hệ thống.
 5. Broadcast campaign phải được worker fan-out theo batch; không tạo toàn bộ notification trong HTTP request của admin.
-6. Gửi cho một user: tạo trực tiếp một `Notifications` và một OutboxEvent trong cùng transaction. Gửi cho danh sách/nhóm/tất cả: tạo `NotificationCampaigns` với `targetType = individual|segment|all`, đóng băng `targetFilter` và `audienceSnapshotAt`, sau đó worker tạo một `Notifications` cho từng người nhận theo batch.
+6. Gửi cho một user: tạo trực tiếp một `Notifications` và một OutboxEvent trong cùng transaction. Gửi cho danh sách/nhóm/tất cả: tạo `NotificationCampaigns` với `targetType = individual|segment|all`, đóng băng `targetFilter`, rồi worker materialize chính xác từng user tại `audienceSnapshotAt` vào `NotificationCampaignRecipients`. Worker tiếp tục tạo một `Notifications` và OutboxEvent cho mỗi recipient theo batch; unique campaign/user và unique key bảo đảm retry không nhân đôi người nhận.
 7. `Notifications` là trạng thái inbox riêng của từng user, vì vậy đọc/xóa của người này không ảnh hưởng người khác. `uniqueKey` chống tạo trùng khi worker retry; `delivery` lưu trạng thái từng kênh in-app/push/email.
 8. `segment` chỉ dùng bộ lọc allowlist như role, Plan, Care Program hoặc khu vực. Không nhận Mongo filter thô từ client; mọi campaign cần hard cap/batch/cursor và quyền Admin phù hợp.
+
+## Kiểm duyệt Violation Report
+
+1. `ViolationReports` không lưu `aiClassification` trong DA2; AI moderation vẫn là P1 và nếu triển khai sau chỉ được đưa ra gợi ý, không quyết định outcome.
+2. Outcome hiện hành được lưu bằng `resolutionNote`, `actionTaken`, `resolvedBy`, `resolvedAt`; status `resolved|dismissed` phải có actor/time. `AuditLogs` giữ lịch sử transition, không thay thế projection outcome hiện hành.
 
 ## Quy tắc vận hành và dữ liệu
 
@@ -448,6 +458,8 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 ## 5. Nghiệp vụ cốt lõi
 
 ### 5.1 Identity và OAuth
+
+`Users.email` là email chuẩn tùy chọn của tài khoản OAuth-only. Local login vẫn bắt buộc email; OAuth không có email phải bổ sung email trước khi dùng chức năng cần kênh liên hệ.
 
 1. Một tài khoản nằm trong `Users`; doctor/admin profile chỉ là dữ liệu theo vai trò.
 2. Tài khoản OAuth được ánh xạ qua `OAuthAccounts`; tài khoản OAuth-only có thể không có `passwordHash`.
@@ -636,7 +648,7 @@ Backend sử dụng Modular Monolith, chia theo capability:
 | care-directory | MedicalFacilities, DiseaseSpecialties |
 | ai-advisory | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords |
 | billing | Plans, PaymentOrders, PaymentTransactions, Subscriptions, SubscriptionAddOns, ConsultationUsages, PaymentRefunds |
-| notifications | NotificationCampaigns, Notifications, OutboxEvents |
+| notifications | NotificationCampaigns, NotificationCampaignRecipients, Notifications, OutboxEvents |
 | moderation | ViolationReports |
 | platform-audit | AuditLogs dùng chung, phân biệt bằng `domain` |
 

@@ -19,6 +19,7 @@ import { Message, MessageSchema } from './messaging/entities/message.entity';
 import { ReviewsController } from './reviews/reviews.controller';
 import { ReviewsService } from './reviews/reviews.service';
 import { Review, ReviewSchema } from './reviews/entities/review.entity';
+import { ConsultationHeartbeatService } from './consultation-heartbeat.service';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { Review, ReviewSchema } from './reviews/entities/review.entity';
   providers: [
     ConsultationsService,
     ConsultationsGateway,
+    ConsultationHeartbeatService,
     ChatService,
     ChatGateway,
     ReviewsService,

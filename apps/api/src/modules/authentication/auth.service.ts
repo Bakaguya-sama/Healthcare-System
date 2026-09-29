@@ -225,10 +225,13 @@ export class AuthService {
       : userQuery);
     if (!user) throw new UnauthorizedException('Email does not exist.');
 
-    const isMatch = await bcrypt.compare(
-      dto.password,
-      user.passwordHash ?? user.password,
-    );
+    const passwordHash = user.passwordHash ?? user.password;
+    if (!passwordHash) {
+      throw new UnauthorizedException(
+        'This account uses an external identity provider',
+      );
+    }
+    const isMatch = await bcrypt.compare(dto.password, passwordHash);
     if (!isMatch) {
       await this.recordEvent(AuthEventType.LOGIN_FAILED, user._id, user.email);
       throw new UnauthorizedException('Password is not correct');

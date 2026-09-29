@@ -29,6 +29,7 @@ Các collection được mở rộng:
 - `AiDocumentChunks`: metadata lọc nguồn, vị trí trang/section, parent chunk, version ingestion và citation snapshot theo `rag-upgrade-blueprint.md`.
 - `HealthMetrics`: provenance, validation, timezone và append-only correction.
 - `Plans`/`Subscriptions`: entitlement và chu kỳ sử dụng rõ ràng.
+- `Plans.code` là định danh ổn định `FREE|PLUS|CARE` xuyên version; không lưu thêm `tier` trùng lặp và không hard-code quyền lợi theo code.
 - `PaymentOrders`: thêm trạng thái `processing`.
 - `Notifications`/`OutboxEvents`: bổ sung resource/event Chronic Care và subscription grant.
 
@@ -81,12 +82,14 @@ Quyết định: cập nhật nguyên tử một record theo lifecycle; mọi ch
 - Người thân đăng nhập bằng cơ chế xác thực sẵn có rồi xác nhận liên kết.
 - Cấu trúc hiện tại hỗ trợ nhiều người thân cho một Patient; số liên kết active do `familyLinkLimit` quyết định. Không cần `FamilyGroups` trong DA2.
 - `FamilyPermissions` chỉ gồm `missed_task_reminder` và tùy chọn `weekly_progress`; dữ liệu sức khỏe/AI/consultation chi tiết nằm ngoài P1.
+- `FamilyReminders` chỉ giữ quyết định domain `scheduled|dispatched|skipped`, liên kết permission/task và `notificationId`; channel/provider/retry/delivery nằm tại `Notifications` và `OutboxEvents`.
 - Bệnh nhân có thể thu hồi quyền ngay lập tức; liên kết và quyền cũ vẫn được giữ để kiểm tra lịch sử.
 
 ### 7. Tìm cơ sở y tế
 
 - Backend gọi API bản đồ khi danh mục nội bộ chưa đủ kết quả.
 - Admin chọn một kết quả bản đồ để tạo `MedicalFacilities.status = draft`, kiểm tra nguồn chính thức rồi chuyển sang `verified`.
+- `MedicalFacilities.status` chỉ có `draft|verified|retired`; fresh/stale được suy ra từ `lastCheckedAt` và policy, không lưu thành status thứ tư.
 - `DiseaseSpecialties` do Admin duyệt và version hóa.
 - `externalPlaceId` chỉ cho biết nguồn bản đồ, không đồng nghĩa cơ sở đã được kiểm duyệt.
 - Geo index `2dsphere` và unique/partial index phải được tạo bằng migration, không dựa vào DBML.
@@ -114,7 +117,9 @@ Dùng một `AuditLogs` cho auth, user, health, consultation, care, AI, billing,
 ### 12. Notification cho một người, nhóm và tất cả
 
 - Một người: tạo trực tiếp một `Notifications` cùng OutboxEvent.
-- Nhóm/tất cả: `NotificationCampaigns` giữ `targetType`, `targetFilter`, `audienceSnapshotAt`; worker fan-out theo batch thành một Notification cho mỗi user.
+- Nhóm/tất cả: `NotificationCampaigns` giữ `targetType`, `targetFilter`, `audienceSnapshotAt`; worker materialize chính xác audience vào `NotificationCampaignRecipients`, rồi fan-out theo batch thành một Notification cho mỗi user. Unique campaign/user giúp retry không tạo trùng recipient.
+
+`ViolationReports` không lưu AI classification trong DA2. Outcome được flatten thành `resolutionNote`, `actionTaken`, `resolvedBy`, `resolvedAt` để query trực tiếp; lịch sử transition vẫn thuộc `AuditLogs`.
 - `uniqueKey` chống trùng; `delivery` lưu trạng thái từng kênh. Mỗi người có `isRead/readAt` riêng.
 
 ### 13. Cơ chế tạo Care Program và dữ liệu liên quan
@@ -135,11 +140,11 @@ Dùng một `AuditLogs` cho auth, user, health, consultation, care, AI, billing,
 
 ### 15. Metadata và citation cho RAG chunk
 
-Theo `plan/rag-upgrade-blueprint.md`, chunk lưu metadata đủ cho ba việc: lọc nguồn trước retrieval, lấy parent context và dựng citation. `AiDocuments.reviewStatus` là nguồn duyệt chuẩn; Admin/Doctor được cấp quyền duyệt một document, worker bulk-update trạng thái sao chép trên chunks để Atlas filter, không duyệt từng chunk. Các field lọc thường xuyên được để riêng (`reviewStatus`, `language`, `specialties`, `effectiveUntil`, `isActive`); `citation` là snapshot hiển thị ổn định. Chunk lỗi được exclude riêng. Chỉ chunk active, approved, chưa hết hạn mới được đưa vào context.
+Theo `plan/rag-upgrade-blueprint.md`, chunk lưu metadata đủ cho ba việc: lọc nguồn trước retrieval, lấy parent context và dựng citation. `AiDocuments.reviewStatus` là nguồn duyệt chuẩn; Admin/Doctor được cấp quyền duyệt một document, worker bulk-update trạng thái sao chép trên chunks để Atlas filter, không duyệt từng chunk. Các field lọc thường xuyên được để riêng (`reviewStatus`, `language`, `specialties`, `validUntil`, `isActive`); `citation` là snapshot hiển thị ổn định. `approvedBy/approvedAt` ghi actor/thời điểm duyệt ở document; chunk chỉ sao chép `validUntil` để lọc. Chunk lỗi được exclude riêng. Chỉ chunk active, approved, chưa hết hạn mới được đưa vào context.
 
 ### 16. Kết thúc Consultation và xử lý chồng chéo
 
-- `scheduledEndAt`/`expectedDurationMinutes` là mốc vận hành, không tự chuyển `completed`. Doctor kết thúc cuộc gọi và xác nhận hoàn tất; worker chỉ chuyển phiên mất heartbeat sang `interrupted`.
+- `scheduledEndAt`/`expectedDurationMinutes` là mốc vận hành, không tự chuyển `completed`. `estimatedWaitMinutes` và `overtimeStartedAt` vẫn được lưu; heartbeat participant nằm trong Redis TTL thay vì `Consultations.lastHeartbeatAt`. Doctor kết thúc cuộc gọi và xác nhận hoàn tất; worker chỉ chuyển phiên mất heartbeat sang `interrupted`.
 - Scheduled và on-demand dùng chung hàng đợi theo Doctor. Scheduled quá giờ/đã tới giờ ưu tiên hơn on-demand; on-demand chỉ chen vào khoảng trống nếu đủ `expectedDurationMinutes + bufferMinutes` trước lịch kế tiếp.
 - Một Doctor chỉ có một `in_consultation`, bảo vệ bằng conditional update và partial unique index. Phiên quá giờ tạo `overtimeStartedAt` và ETA mới, không bị ngắt tự động.
 

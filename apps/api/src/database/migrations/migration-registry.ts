@@ -72,6 +72,12 @@ import {
   CC001A_CARE_CATALOG_VERSION,
 } from './202609291000-cc001a-care-catalog';
 import { applyCc001bEnrollment, CC001B_ENROLLMENT_CHECKSUM, CC001B_ENROLLMENT_NAME, CC001B_ENROLLMENT_VERSION } from './202609291100-cc001b-enrollment';
+import {
+  applySchemaSimplification,
+  SCHEMA_SIMPLIFICATION_CHECKSUM,
+  SCHEMA_SIMPLIFICATION_NAME,
+  SCHEMA_SIMPLIFICATION_VERSION,
+} from './202609291200-schema-simplification';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -147,6 +153,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     up: applyCc001aCareCatalog,
   },
   { version: CC001B_ENROLLMENT_VERSION, name: CC001B_ENROLLMENT_NAME, checksum: CC001B_ENROLLMENT_CHECKSUM, up: applyCc001bEnrollment },
+  {
+    version: SCHEMA_SIMPLIFICATION_VERSION,
+    name: SCHEMA_SIMPLIFICATION_NAME,
+    checksum: SCHEMA_SIMPLIFICATION_CHECKSUM,
+    up: applySchemaSimplification,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = Math.max(

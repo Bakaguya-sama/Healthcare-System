@@ -19,12 +19,12 @@ export class User {
   @Prop({ required: true, trim: true })
   fullName: string;
 
-  @Prop({ required: true, lowercase: true, trim: true })
-  email: string;
+  @Prop({ lowercase: true, trim: true })
+  email?: string;
 
   // select: false -> mặc định KHÔNG trả về passwordHash khi query, phải .select('+passwordHash') khi cần (vd lúc login)
-  @Prop({ required: true, select: false })
-  passwordHash: string;
+  @Prop({ select: false })
+  passwordHash?: string;
 
   @Prop() gender: string;
 
@@ -60,7 +60,13 @@ export class User {
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
-UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { email: { $type: 'string' } },
+  },
+);
 UserSchema.index({ role: 1, accountStatus: 1 });
 UserSchema.index({ 'doctorProfile.specialty': 1 });
 UserSchema.index({ 'doctorProfile.verificationStatus': 1 });

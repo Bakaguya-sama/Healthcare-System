@@ -348,7 +348,6 @@ export class AiMessageOrchestrationService {
       messageCount: 1,
       lastMessageAt: timestamp,
       tags: dto.tags || [],
-      status: 'active',
     });
     await this.aiConversationMessageModel.create({
       conversationId: conversation._id,

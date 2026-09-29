@@ -157,7 +157,7 @@ interface DoctorProfileDto {
 interface UserDto {
   id: Id;
   fullName: string;
-  email: string;
+  email?: string; // absent for OAuth-only accounts until contact email is added
   role: UserRole;
   accountStatus: AccountStatus;
   emailVerifiedAt?: IsoDateTime;
@@ -253,7 +253,6 @@ interface ConsultationDto {
   estimatedWaitMinutes?: number;
   calledAt?: IsoDateTime;
   sessionStartedAt?: IsoDateTime;
-  lastHeartbeatAt?: IsoDateTime;
   overtimeStartedAt?: IsoDateTime;
   interruptedAt?: IsoDateTime;
   interruptionReason?: string;
@@ -354,10 +353,9 @@ interface HealthMetricDto {
 interface AiConversationDto {
   id: Id;
   patientId: Id;
-  status: "active" | "completed" | "archived";
   displayTitle?: string; // projection từ nội dung đầu tiên, không phải field persistence
   startedAt?: IsoDateTime;
-  endedAt?: IsoDateTime;
+  archivedAt?: IsoDateTime; // absent means the conversation remains open
   lastMessage?: AiMessageDto;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
@@ -595,7 +593,6 @@ interface PlanDto {
   code: "FREE" | "PLUS" | "CARE" | string;
   version: number;
   name: string;
-  tier: "free" | "plus" | "care";
   description?: string;
   price: MoneyVnd;
   currency: "VND";
@@ -649,7 +646,7 @@ interface SubscriptionDto {
   id: Id;
   sourceOrderId?: Id;
   source: "payment" | "free_grant" | "admin_demo";
-  plan: Pick<PlanDto, "id" | "code" | "version" | "name" | "tier">;
+  plan: Pick<PlanDto, "id" | "code" | "version" | "name">;
   planSnapshot: {
     aiRequestLimit: number;
     aiTokenLimit: number;
@@ -735,6 +732,17 @@ interface NotificationDto {
   createdAt: IsoDateTime;
 }
 
+interface NotificationCampaignRecipientDto {
+  id: Id;
+  campaignId: Id;
+  userId: Id;
+  status: "pending" | "materialized" | "failed" | "skipped";
+  notificationId?: Id;
+  selectedAt: IsoDateTime;
+  processedAt?: IsoDateTime;
+  failureCode?: string;
+}
+
 interface ViolationReportDto {
   id: Id;
   reporter?: Pick<UserDto, "id" | "fullName" | "role">;
@@ -745,8 +753,10 @@ interface ViolationReportDto {
   severity: "low" | "medium" | "high";
   source?: Record<string, unknown>;
   evidences: FileDto[];
-  aiClassification?: { category: string; severity: string; confidence: number; rationale?: string };
-  resolution?: { note?: string; action: "warning" | "suspend" | "ban" | "none"; handledAt?: IsoDateTime };
+  resolutionNote?: string;
+  actionTaken?: "warning" | "suspend" | "ban" | "none";
+  resolvedBy?: Pick<UserDto, "id" | "fullName">;
+  resolvedAt?: IsoDateTime;
   assignedTo?: Pick<UserDto, "id" | "fullName">;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
@@ -760,7 +770,7 @@ interface AiDocumentAdminDto {
   sourceOrganization: string;
   sourceUrl?: string;
   publishedAt?: IsoDateTime;
-  effectiveUntil?: IsoDateTime;
+  validUntil?: IsoDateTime;
   language: string;
   specialties: string[];
   audiences: Array<"patient" | "doctor" | "admin">;
@@ -769,8 +779,8 @@ interface AiDocumentAdminDto {
   processingError?: string;
   chunkCount: number;
   uploadedBy: Pick<UserDto, "id" | "fullName">;
-  reviewedBy?: Pick<UserDto, "id" | "fullName">;
-  reviewedAt?: IsoDateTime;
+  approvedBy?: Pick<UserDto, "id" | "fullName">;
+  approvedAt?: IsoDateTime;
   rejectionReason?: string;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
@@ -954,7 +964,7 @@ interface AdminDashboardDto {
 | FAC-06 | `GET /admin/medical-facilities` | Admin | status/source/search/area/page | facility page | Target P1 sau Family |
 | FAC-07 | `GET /admin/disease-specialties` | Admin | status/programCode/page | mapping versions | Target P1 sau Family |
 | FAC-08 | `PATCH /admin/medical-facilities/:id` | Admin | draft metadata/sources + version | updated draft facility | Target P1; draft only |
-| FAC-09 | `POST /admin/medical-facilities/:id/actions/:action` | Admin | `mark_stale|retire`, reason + idempotency | updated facility | Target P1 |
+| FAC-09 | `POST /admin/medical-facilities/:id/actions/retire` | Admin | reason + idempotency | retired facility | Target P1; stale/fresh is derived from lastCheckedAt |
 | FAC-10 | `POST /admin/disease-specialties` | Admin | draft mapping + sources + idempotency | draft mapping | Target P1 |
 | FAC-11 | `PATCH /admin/disease-specialties/:id` | Admin | draft mapping changes + version | updated draft mapping | Target P1; draft only |
 
@@ -997,7 +1007,7 @@ IPN và refund provider callbacks không được gọi bằng browser client. `
 | MOD-01 | `POST /violations` | Authenticated | type/reason/source/evidence | report | Current/normalize |
 | MOD-02 | `GET /admin/violations` | Admin | status/severity/assignee/page | violation page + totals | Target P0; legacy `/violations` |
 | MOD-03 | `GET /admin/violations/:id` | Admin | none | violation detail | Target P0 |
-| MOD-04 | `PATCH /admin/violations/:id` | Admin | status/severity/assignment/resolution | violation | Target P0 |
+| MOD-04 | `PATCH /admin/violations/:id` | Admin | status/severity/assignment/resolutionNote/actionTaken | violation | Target P0 |
 | ADM-01 | `GET /admin/dashboard` | Admin | date range | aggregated cards/charts | Target P0 |
 | ADM-02 | `GET /admin/users` | Admin | role/status/search/page | user page + totals | Target P0; replaces browser merge |
 | ADM-03 | `POST /admin/users/:id/lock` | Admin | reason | user | Current |
@@ -1192,10 +1202,10 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | FAC-03 | Admin chọn một kết quả map provider để tạo draft, chụp provider/placeId/source; candidate không tự trở thành verified. |
 | FAC-04 | Admin verify draft sau khi bổ sung nguồn chính thức và checklist; ghi reviewer/time/audit trước khi cho Patient tìm thấy như verified. |
 | FAC-05 | Publish một DiseaseSpecialty mapping version đã duyệt để search dùng deterministic specialty allowlist. |
-| FAC-06 | Liệt kê facility draft/verified/stale/retired theo nguồn, khu vực và search để Admin vận hành danh mục. |
+| FAC-06 | Liệt kê facility draft/verified/retired theo nguồn, khu vực và search; freshness được tính từ `lastCheckedAt` theo policy. |
 | FAC-07 | Liệt kê các version ánh xạ disease/program–specialty cùng lifecycle và nguồn phê duyệt. |
 | FAC-08 | Sửa metadata/source của facility còn draft với version check; verified record phải qua lifecycle thay vì sửa ngầm dữ liệu đã công bố. |
-| FAC-09 | Đánh dấu facility stale hoặc retired với reason; kết quả không còn được xem như verified active và cache search phải invalidate. |
+| FAC-09 | Retire facility với reason; facility verified quá ngưỡng freshness tự bị loại/gắn nhãn theo `lastCheckedAt`, không chuyển sang status riêng. |
 | FAC-10 | Tạo draft DiseaseSpecialty mapping mới từ danh sách chuyên khoa và nguồn do Admin kiểm soát. |
 | FAC-11 | Sửa mapping còn draft với optimistic version check; active/retired mapping là bất biến. |
 
@@ -1234,7 +1244,7 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | MOD-01 | Tạo ViolationReport từ source/evidence được authorize, validate upload và đưa vào hàng đợi kiểm duyệt; AI chưa phải kết luận. |
 | MOD-02 | Liệt kê report cho Admin theo status/severity/assignee với totals và phân trang để triage. |
 | MOD-03 | Trả report detail, evidence và source context được phép cho Admin; không mở rộng sang dữ liệu ngoài phạm vi báo cáo. |
-| MOD-04 | Cập nhật assignment/severity/workflow/resolution theo transition hợp lệ; action cảnh cáo/khóa tài khoản dùng command tương ứng và ghi audit. |
+| MOD-04 | Cập nhật assignment/severity/workflow và outcome phẳng `resolutionNote/actionTaken/resolvedBy/resolvedAt`; action cảnh cáo/khóa tài khoản dùng command tương ứng và ghi audit. |
 
 #### Web Admin
 
@@ -1296,6 +1306,7 @@ Frontend không tự join room theo ID bất kỳ. Server xác minh participant/
 | `presence.v1.changed` | server → client | `{ userId, state, lastOnlineAt }` | Doctor list, consultation header |
 | `consultation.v1.join` | client → server | `{ consultationId }` | Consultation room |
 | `consultation.v1.updated` | server → client | `ConsultationDto` hoặc patch + version | Lists, detail, queue |
+| `consultation_heartbeat` | participant client → server | `{ consultationId }`; server lưu heartbeat theo actor trong Redis TTL và trả `{ recordedAt, expiresAt }` | Active consultation room |
 | `message.v1.send` | client → server | `{ consultationId, clientMessageId, content, attachments }` | Chat room |
 | `message.v1.created` | server → client | `ConsultationMessageDto` | Chat, list preview |
 | `message.v1.failed` | server → client | `{ clientMessageId, code, message }` | Chat retry state |
@@ -1475,7 +1486,7 @@ Doctor route guard phải phân biệt:
 | Care Program editor `/admin/care-programs/:id` | New | Program draft, rule versions, sources, simulation | CARE-03/04, CARE-18..21, CARE-23/24/27/30 | tabs cấu hình/baseline/tasks/rules/source/preview; publish/activate theo validation/audit, không có review-evidence gate |
 | Care operations `/admin/care-operations` | New | bounded aggregate/alert audit | CARE-22, ADM-24/25 | audit/operational metrics; không đóng vai assigned Doctor |
 | Family audit `/admin/family-links` | New P1 | scoped FamilyLinkDto/audit | FAM-06, ADM-24 | read/audit để hỗ trợ tranh chấp; không tự mở quyền hoặc xem dữ liệu sức khỏe |
-| Medical facilities `/admin/medical-facilities` | New P1 sau Family | drafts, verified facilities, disease mappings | FAC-02..11 | chọn map candidate, sửa draft, xác minh nguồn chính thức, stale/retire, publish mapping |
+| Medical facilities `/admin/medical-facilities` | New P1 sau Family | drafts, verified facilities, derived freshness, disease mappings | FAC-02..11 | chọn map candidate, sửa draft, xác minh nguồn chính thức, retire, publish mapping |
 | AI knowledge `/admin/ai/knowledge` | `/ai-knowledge-base` | documents + processing status | ADM-10..13 | upload progress; processing polling/event; deactivate instead of unsafe hard delete |
 | AI document detail `/admin/ai/knowledge/:id` | New | AiDocumentAdminDto + processing/chunk summary | ADM-18..20, ADM-27 | approve/reject ở document level; preview citation metadata; exclude chunk lỗi; re-ingest P1 |
 | AI blacklist `/admin/ai/blacklist` | tab hiện tại | keyword page | ADM-14..17 | normalized keyword conflicts; mutation invalidation |
@@ -1485,7 +1496,7 @@ Doctor route guard phải phân biệt:
 | Payment detail `/admin/billing/orders/:id` | New | order, safe transaction, subscription grant, refund | BILL-12/19 | timeline trạng thái/IPN/grant; reconcile theo server capability; không sửa paid thủ công |
 | Refund queue `/admin/billing/refunds` | New P1 | PaymentRefundDto page/totals | BILL-13..16 | show captured/final usage and reason codes; approve re-evaluates server-side; override requires reason; `refund.v1.updated`; processing action disabled |
 | Violation list `/admin/violations` | `/violation-reports` | report page/totals | MOD-02 | filter status/severity/assignee |
-| Violation detail `/admin/violations/:id` | modal/page hiện tại | full report/evidence/AI draft | MOD-03/04 | transition validation; admin decision required; ban action through user API |
+| Violation detail `/admin/violations/:id` | modal/page hiện tại | full report/evidence/outcome | MOD-03/04 | transition validation; admin decision required; ban action through user API |
 | Notification campaigns `/admin/notifications/campaigns` | P2/Deferred | campaign page/status | contract chỉ bổ sung nếu feature vào cut-line sau DA2 | worker fan-out status; không gửi hàng loạt trong HTTP request |
 | Audit logs `/admin/audit-logs` | New | AuditLogDto page/detail | ADM-24/25 | filter domain/actor/entity/time; read-only; deep-link tới entity nếu được phép |
 | Admin profile `/admin/profile` | `/profile` | UserDto | USER-01/02/03/04, AUTH-10 | admin role readonly trừ super-admin workflow |
@@ -1778,9 +1789,9 @@ Route `/admin/billing/orders/:id` và `/admin/billing/refunds` là deep-link/tab
 #### A-09. Trang Kiểm duyệt — `/admin/violations` — P0
 
 - **Trang làm gì:** tiếp nhận, phân công, kiểm tra bằng chứng và kết luận báo cáo vi phạm.
-- **Component:** `ViolationTotals`, `ViolationFilterBar`, `ViolationTable`, `ViolationDetailDrawer`, `ReporterAndTargetSummary`, `EvidenceViewer`, `SourceContextPanel`, `ViolationTimeline`, `AiClassificationDraft`, `AssignmentControl`, `ResolutionDialog`, `UserActionDialog`.
+- **Component:** `ViolationTotals`, `ViolationFilterBar`, `ViolationTable`, `ViolationDetailDrawer`, `ReporterAndTargetSummary`, `EvidenceViewer`, `SourceContextPanel`, `ViolationTimeline`, `AssignmentControl`, `ResolutionDialog`, `UserActionDialog`.
 - **Hành động chính:** assign/triage; chuyển processing; resolve/dismiss; warning/suspend/ban qua command người dùng.
-- **Trạng thái bắt buộc:** AI classification chỉ là gợi ý; Admin chịu trách nhiệm quyết định; evidence có kiểm tra quyền; không mở context ngoài source đã báo cáo.
+- **Trạng thái bắt buộc:** DA2 không lưu AI classification; Admin chịu trách nhiệm toàn bộ outcome; evidence có kiểm tra quyền; không mở context ngoài source đã báo cáo.
 
 Route `/admin/violations/:id` là deep-link mở `ViolationDetailDrawer`.
 
@@ -1801,8 +1812,8 @@ Route `/admin/violations/:id` là deep-link mở `ViolationDetailDrawer`.
 #### A-12. Trang Danh mục cơ sở y tế — `/admin/medical-facilities` — P1 sau Family
 
 - **Trang làm gì:** đưa candidate từ map API vào danh mục nội bộ, đối chiếu nguồn chính thức và quản lý ánh xạ bệnh/chuyên khoa.
-- **Component:** `FacilityStatusTabs`, `FacilityTable`, `MapCandidateSearch`, `MapCandidatePreview`, `FacilityEditor`, `OfficialSourceEditor`, `FacilityMapPreview`, `VerificationChecklist`, `VerifyFacilityDialog`, `StaleOrRetireDialog`, `DiseaseSpecialtyMappingEditor`, `MappingVersionTable`, `PublishMappingDialog`.
-- **Hành động chính:** chọn candidate thành draft; chỉnh; verify/stale/retire; tạo và publish mapping.
+- **Component:** `FacilityStatusTabs`, `FacilityTable`, `MapCandidateSearch`, `MapCandidatePreview`, `FacilityEditor`, `OfficialSourceEditor`, `FacilityMapPreview`, `VerificationChecklist`, `VerifyFacilityDialog`, `RetireFacilityDialog`, `DiseaseSpecialtyMappingEditor`, `MappingVersionTable`, `PublishMappingDialog`.
+- **Hành động chính:** chọn candidate thành draft; chỉnh; verify/retire; hiển thị freshness suy ra từ `lastCheckedAt`; tạo và publish mapping.
 - **Trạng thái bắt buộc:** map result không tự verified; lưu provider/placeId/source; mapping có version/lifecycle; không bổ sung Clinic actor vào scope.
 
 #### A-13. Trang Notification Campaign — `/admin/notifications/campaigns` — P2/Deferred
@@ -1810,7 +1821,7 @@ Route `/admin/violations/:id` là deep-link mở `ViolationDetailDrawer`.
 - **Trang làm gì:** soạn và theo dõi thông báo individual/segment/all nếu feature qua cut-line.
 - **Component:** `CampaignList`, `CampaignEditor`, `AudienceBuilder`, `AudienceEstimate`, `ChannelSelector`, `CampaignPreview`, `ScheduleControl`, `DeliveryAggregate`.
 - **Hành động chính:** draft, preview, schedule/cancel và xem kết quả.
-- **Trạng thái bắt buộc:** worker fan-out sau khi snapshot audience; không gửi hàng loạt ngay trong HTTP request; không xuất hiện trong navigation DA2 khi flag tắt.
+- **Trạng thái bắt buộc:** worker materialize audience chính xác vào `NotificationCampaignRecipients`, sau đó fan-out theo batch; unique campaign/user chống trùng; không gửi hàng loạt ngay trong HTTP request; không xuất hiện trong navigation DA2 khi flag tắt.
 
 ### 12.6 Modal, drawer và component nghiệp vụ bắt buộc
 

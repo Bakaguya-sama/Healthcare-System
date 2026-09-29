@@ -77,9 +77,6 @@ export class AiConversation {
   @Prop({ type: Date })
   lastMessageAt: Date;
 
-  @Prop({ type: Boolean, default: false })
-  isArchived: boolean;
-
   @Prop({ type: Date })
   archivedAt?: Date;
 
@@ -91,16 +88,6 @@ export class AiConversation {
 
   @Prop({ type: String, maxlength: 500 })
   ratingComment?: string;
-
-  @Prop({
-    type: String,
-    enum: ['draft', 'active', 'completed', 'archived'],
-    default: 'active',
-  })
-  status: 'draft' | 'active' | 'completed' | 'archived';
-
-  @Prop({ type: Date })
-  completedAt?: Date;
 
   @Prop({ type: [String], default: [] })
   tags: string[];
@@ -127,18 +114,10 @@ AiConversationSchema.index(
   { name: 'userId_1_lastMessageAt_-1__id_-1' },
 );
 AiConversationSchema.index(
-  { userId: 1, status: 1, lastMessageAt: -1, _id: -1 },
-  { name: 'userId_1_status_1_lastMessageAt_-1__id_-1' },
-);
-AiConversationSchema.index(
   { userId: 1, type: 1, createdAt: -1, _id: -1 },
   { name: 'userId_1_type_1_createdAt_-1__id_-1' },
 );
 AiConversationSchema.index(
-  { userId: 1, status: 1, createdAt: -1, _id: -1 },
-  { name: 'userId_1_status_1_createdAt_-1__id_-1' },
-);
-AiConversationSchema.index(
-  { userId: 1, isArchived: 1, createdAt: -1, _id: -1 },
-  { name: 'userId_1_isArchived_1_createdAt_-1__id_-1' },
+  { userId: 1, archivedAt: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_archivedAt_1_createdAt_-1__id_-1' },
 );

@@ -30,6 +30,20 @@ export class AiDocumentChunk extends Document {
   @Prop({ default: true })
   @ApiProperty({ description: 'Whether chunk is active' })
   isActive: boolean;
+
+  @Prop({
+    type: String,
+    enum: ['pending_review', 'approved', 'rejected', 'archived'],
+    default: 'pending_review',
+  })
+  reviewStatus: 'pending_review' | 'approved' | 'rejected' | 'archived';
+
+  @Prop({ type: Date })
+  @ApiProperty({
+    description: 'Document validity cutoff copied for vector filtering',
+    required: false,
+  })
+  validUntil?: Date;
 }
 
 export const AiDocumentChunkSchema =
@@ -41,3 +55,5 @@ export type AiDocumentChunkDocument = AiDocumentChunk & Document;
 AiDocumentChunkSchema.index({ documentId: 1, chunkIndex: 1 });
 AiDocumentChunkSchema.index({ content: 'text' });
 AiDocumentChunkSchema.index({ documentId: 1, isActive: 1 });
+AiDocumentChunkSchema.index({ isActive: 1, validUntil: 1 });
+AiDocumentChunkSchema.index({ reviewStatus: 1, isActive: 1 });

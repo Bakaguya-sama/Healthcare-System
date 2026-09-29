@@ -8,6 +8,13 @@ export enum DocumentStatus {
   INACTIVE = 'inactive',
 }
 
+export enum DocumentReviewStatus {
+  PENDING_REVIEW = 'pending_review',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  ARCHIVED = 'archived',
+}
+
 @Schema({ timestamps: true })
 export class AiDocument extends Document {
   declare _id: Types.ObjectId;
@@ -33,6 +40,22 @@ export class AiDocument extends Document {
 
   @Prop({ required: true, type: Types.ObjectId })
   uploadedBy: Types.ObjectId;
+
+  @Prop({ type: Date })
+  validUntil?: Date;
+
+  @Prop({
+    type: String,
+    enum: Object.values(DocumentReviewStatus),
+    default: DocumentReviewStatus.PENDING_REVIEW,
+  })
+  reviewStatus: DocumentReviewStatus;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  approvedBy?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  approvedAt?: Date;
 }
 
 export const AiDocumentSchema = SchemaFactory.createForClass(AiDocument);
@@ -43,3 +66,4 @@ export type AiDocumentDocument = AiDocument & Document;
 AiDocumentSchema.index({ title: 'text' });
 AiDocumentSchema.index({ status: 1 });
 AiDocumentSchema.index({ uploadedBy: 1, createdAt: -1 });
+AiDocumentSchema.index({ reviewStatus: 1, validUntil: 1 });

@@ -116,7 +116,7 @@ Giá và giới hạn số lượng là dữ liệu cấu hình của `Plans`, k
 - Upgrade có hiệu lực sau khi payment/IPN hợp lệ; quyền lợi được đọc từ Subscription grant đã snapshot.
 - Downgrade/hết hạn không xóa HealthMetrics, report lịch sử hoặc Care Alert đã phát sinh.
 - Khi Care hết hạn, hệ thống dừng tạo quyền lợi Doctor review mới sau paid-through/grace policy, nhưng vẫn giữ safety alert và quyền Patient xem dữ liệu cơ bản.
-- Giới hạn mặc định Free/Plus/Care là `1/3/6` consultations mỗi cycle; field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot, không gọi là AI quota và không hard-code theo tên tier.
+- Giới hạn mặc định theo Plan code `FREE/PLUS/CARE` là `1/3/6` consultations mỗi cycle; field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot, không gọi là AI quota và không hard-code theo code.
 - Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription; Free cũng có bản ghi Subscription với `source = free_grant`, chu kỳ 30 ngày neo tại thời điểm kích hoạt và được chuyển sang chu kỳ kế tiếp trên cùng bản ghi, không reset đồng loạt bằng cron toàn hệ thống.
 - `consultationsUsed` đếm số phiên đã sử dụng trong cycle và `consultationsRemaining = consultationLimitPerCycle - consultationsUsed - activeReservations`.
 - Giới hạn consultation không đồng nghĩa phiên miễn phí hoặc bảo đảm Doctor còn lịch. Chi phí/ưu đãi của từng phiên là chính sách giá riêng.
@@ -518,7 +518,7 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 
 Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request phải tạo được một lát chạy/test được, cập nhật migration/verifier/contract cùng code và không inject Mongoose model xuyên module.
 
-**Tiến độ hiện tại (29/09/2026):** `CC-000A/B` và `CC-001A` đã có implementation. `CC-001B` đã có service/controller/migration, migration `202609291100` và migration no-op đã pass; exit gate vẫn mở vì chưa có E2E Chronic Care cho authorization, state matrix và concurrency/idempotency. Việc kế tiếp là hoàn thiện evidence `CC-001B`, sau đó nhận `CC-014`; chưa mở `CC-002`.
+**Tiến độ hiện tại (29/09/2026):** `CC-000A/B` và `CC-001A` đã có implementation. `CC-001B` đã có service/controller/migration, migration `202609291100` và migration no-op đã pass; exit gate vẫn mở vì chưa có E2E Chronic Care cho authorization, state matrix và concurrency/idempotency. Schema simplification `202609291200` đã áp dụng/verify/no-op pass, gồm OAuth email nullable, Redis consultation heartbeat, AI archive/document metadata, Plan code, reminder delivery boundary, facility freshness, campaign recipients và moderation outcome. Việc kế tiếp là hoàn thiện evidence `CC-001B`, sau đó nhận `CC-014`; chưa mở `CC-002`.
 
 ### 9.1.0 Phase map — đọc trước khi code
 
@@ -793,7 +793,7 @@ Entry gate: Plan/Subscription schema và policy snapshot chốt; core safety flo
 Các bước:
 
 1. Implement Billing public port cho `CareProgramAccessPort`; Chronic Care không inject Billing model.
-2. Quyết định access theo subscription status, effective window, benefit snapshot và active-program limit; không tin tier/client payload.
+2. Quyết định access theo subscription status, effective window, benefit snapshot và active-program limit; không tin `planCode`/client payload.
 3. Free grant có lifecycle riêng, không tạo PaymentOrder; downgrade/expiry không xóa dữ liệu hoặc tắt safety alert.
 4. Recheck access khi activate/resume/create paid action; audit reason code không lộ dữ liệu billing nhạy cảm.
 5. Thay `NoEntitlementAdapter` trong production composition; adapter deny-by-default chỉ còn fallback/test failure path.

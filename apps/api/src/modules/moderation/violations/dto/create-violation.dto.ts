@@ -7,7 +7,11 @@ import {
   MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ReportType, ViolationStatus } from '../entities/violation.entity';
+import {
+  ReportType,
+  ViolationActionTaken,
+  ViolationStatus,
+} from '../entities/violation.entity';
 import { PageQueryDto } from '../../../../common/pagination';
 
 export class CreateViolationDto {
@@ -55,6 +59,14 @@ export class UpdateViolationDto {
   @IsString()
   @MaxLength(1000)
   resolution_note?: string;
+
+  @ApiPropertyOptional({
+    enum: ViolationActionTaken,
+    description: 'Administrative action recorded for a terminal outcome',
+  })
+  @IsOptional()
+  @IsEnum(ViolationActionTaken)
+  action_taken?: ViolationActionTaken;
 
   @ApiPropertyOptional({
     enum: ViolationStatus,

@@ -9,7 +9,7 @@ import { AccountStatus } from '../../../core/domain/user.enums';
 
 export interface JwtPayload {
   sub: string;
-  email: string;
+  email?: string;
   role: string;
 }
 

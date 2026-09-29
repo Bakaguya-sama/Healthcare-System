@@ -23,7 +23,7 @@ import {
 import { UsersService } from '../users/public-api';
 
 const CONSULTATION_PROJECTION =
-  '_id patientId doctorId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt patientNotes doctorNotes sessionStartedAt completedAt cancelledAt cancellationReason lastMessageAt lastMessageId createdAt updatedAt';
+  '_id patientId doctorId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes sessionStartedAt completedAt cancelledAt cancellationReason lastMessageAt lastMessageId createdAt updatedAt';
 
 @Injectable()
 export class ConsultationsService {
@@ -50,6 +50,7 @@ export class ConsultationsService {
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
       requestedAt: new Date(),
       scheduledStartAt,
+      expectedDurationMinutes: dto.expectedDurationMinutes ?? 30,
       patientNotes: dto.patientNotes,
     });
     const patient = await this.users.findById(patientId);

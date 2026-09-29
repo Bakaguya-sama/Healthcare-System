@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsMongoId, IsOptional, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsMongoId,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class CreateConsultationDto {
   @ApiProperty({ example: '65e456def789abc012345678' })
@@ -10,6 +18,13 @@ export class CreateConsultationDto {
   @IsOptional()
   @IsDateString()
   scheduledStartAt?: string;
+
+  @ApiProperty({ required: false, default: 30, minimum: 5, maximum: 180 })
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  @Max(180)
+  expectedDurationMinutes?: number;
 
   @ApiProperty({
     required: false,

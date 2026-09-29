@@ -5613,7 +5613,9 @@
               "type": "string",
               "enum": [
                 "pending",
-                "resolved"
+                "processing",
+                "resolved",
+                "dismissed"
               ]
             }
           },
@@ -6082,7 +6084,9 @@
               "type": "string",
               "enum": [
                 "pending",
-                "resolved"
+                "processing",
+                "resolved",
+                "dismissed"
               ]
             }
           },
@@ -6205,6 +6209,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateViolationDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Violation resolved",
@@ -11853,14 +11867,6 @@
             }
           },
           {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "isFavorite",
             "required": false,
             "in": "query",
@@ -12930,14 +12936,6 @@
           },
           {
             "name": "type",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
             "required": false,
             "in": "query",
             "schema": {
@@ -19014,11 +19012,23 @@
             "description": "Resolution note",
             "maxLength": 1000
           },
+          "action_taken": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "suspend",
+              "ban",
+              "none"
+            ],
+            "description": "Administrative action recorded for a terminal outcome"
+          },
           "status": {
             "type": "string",
             "enum": [
               "pending",
-              "resolved"
+              "processing",
+              "resolved",
+              "dismissed"
             ],
             "description": "Violation status"
           }
@@ -19096,6 +19106,12 @@
           "scheduledStartAt": {
             "type": "string",
             "example": "2026-10-20T10:00:00Z"
+          },
+          "expectedDurationMinutes": {
+            "type": "number",
+            "default": 30,
+            "minimum": 5,
+            "maximum": 180
           },
           "patientNotes": {
             "type": "string",
@@ -19278,10 +19294,6 @@
             "items": {
               "type": "string"
             }
-          },
-          "status": {
-            "type": "string",
-            "example": "active"
           }
         }
       },
@@ -19339,6 +19351,10 @@
           },
           "status": {
             "type": "string"
+          },
+          "validUntil": {
+            "type": "object",
+            "nullable": true
           }
         }
       },

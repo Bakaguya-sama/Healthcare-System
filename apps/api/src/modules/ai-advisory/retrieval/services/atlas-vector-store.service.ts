@@ -103,7 +103,15 @@ export class AtlasVectorStoreService implements IVectorStoreService {
           queryVector,
           numCandidates: Math.max(50, normalizedLimit * 20),
           limit: normalizedLimit,
-          filter: { isActive: true },
+          filter: {
+            isActive: true,
+            reviewStatus: 'approved',
+            $or: [
+              { validUntil: { $exists: false } },
+              { validUntil: null },
+              { validUntil: { $gt: new Date() } },
+            ],
+          },
         },
       },
       {

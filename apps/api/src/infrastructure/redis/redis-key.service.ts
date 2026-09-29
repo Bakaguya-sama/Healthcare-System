@@ -5,6 +5,7 @@ export type RedisDataClass =
   | 'otp'
   | 'throttle'
   | 'presence'
+  | 'consultation'
   | 'quota'
   | 'cache'
   | 'queue';

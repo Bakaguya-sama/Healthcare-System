@@ -107,10 +107,11 @@ export class ViolationsController {
     type: Violation,
   })
   async update(
+    @CurrentUser('sub') actorId: string,
     @Param('id') id: string,
     @Body() dto: UpdateViolationDto,
   ): Promise<Violation> {
-    return this.violationsService.update(id, dto);
+    return this.violationsService.update(id, dto, actorId);
   }
 
   /**
@@ -126,10 +127,16 @@ export class ViolationsController {
     type: Violation,
   })
   async resolve(
+    @CurrentUser('sub') actorId: string,
     @Param('id') id: string,
-    @Body('resolution_note') resolution_note: string,
+    @Body() dto: UpdateViolationDto,
   ): Promise<Violation> {
-    return this.violationsService.resolve(id, resolution_note);
+    return this.violationsService.resolve(
+      id,
+      dto.resolution_note ?? '',
+      actorId,
+      dto.action_taken,
+    );
   }
 
   /**

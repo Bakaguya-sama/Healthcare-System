@@ -48,7 +48,7 @@ export type DoctorReviewMetrics = {
 export type UserProfileResponse = {
   id: string;
   full_name: string;
-  email: string;
+  email?: string;
   phone_number: string;
   date_of_birth: string;
   gender: string;
@@ -198,7 +198,7 @@ export class UsersService {
     }
 
     return {
-      email: user.email,
+      email: user.email ?? email,
       phoneNumber: user.phoneNumber ?? '',
       fullName: user.fullName,
       specialty: doctorProfile.specialty,

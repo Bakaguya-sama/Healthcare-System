@@ -38,7 +38,9 @@ export class AdminService {
       adminId,
       DoctorVerificationStatus.APPROVED,
     );
-    await this.email.sendApproveEmail(doctor.userId.email);
+    if (doctor.userId.email) {
+      await this.email.sendApproveEmail(doctor.userId.email);
+    }
     return doctor;
   }
 
@@ -53,7 +55,9 @@ export class AdminService {
       DoctorVerificationStatus.REJECTED,
       dto.reason,
     );
-    await this.email.sendRejectEmail(doctor.userId.email, dto.reason);
+    if (doctor.userId.email) {
+      await this.email.sendRejectEmail(doctor.userId.email, dto.reason);
+    }
     return doctor;
   }
 
@@ -65,7 +69,7 @@ export class AdminService {
       dto.reason,
     );
     this.notifications.sendToUser(userId, 'account_banned', null);
-    await this.email.sendBanEmail(user.email, dto.reason);
+    if (user.email) await this.email.sendBanEmail(user.email, dto.reason);
     return user.toObject({ versionKey: false });
   }
 
@@ -75,7 +79,7 @@ export class AdminService {
       adminId,
       AccountStatus.ACTIVE,
     );
-    await this.email.sendUnbanEmail(user.email);
+    if (user.email) await this.email.sendUnbanEmail(user.email);
     return user.toObject({ versionKey: false });
   }
 

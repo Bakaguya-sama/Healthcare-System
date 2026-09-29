@@ -81,13 +81,10 @@ export class AiConversationManagementService {
       );
     }
 
-    conversation.isArchived = dto.isArchived;
     if (dto.isArchived) {
       conversation.archivedAt = new Date();
-      conversation.status = 'archived';
     } else {
       conversation.archivedAt = undefined;
-      conversation.status = 'active';
     }
 
     await conversation.save();
@@ -97,7 +94,7 @@ export class AiConversationManagementService {
       message: dto.isArchived
         ? 'Conversation archived successfully'
         : 'Conversation unarchived successfully',
-      data: { isArchived: conversation.isArchived },
+      data: { archivedAt: conversation.archivedAt ?? null },
     };
   }
 
@@ -162,7 +159,6 @@ export class AiConversationManagementService {
     );
     if (!conversation) throw new NotFoundException('Conversation not found');
     if (dto.topic) conversation.topic = dto.topic;
-    if (dto.status) conversation.status = dto.status;
     await conversation.save();
     return { statusCode: 200, message: 'Success', data: conversation };
   }

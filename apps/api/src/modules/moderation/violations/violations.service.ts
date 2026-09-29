@@ -4,8 +4,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Violation, ViolationStatus } from './entities/violation.entity';
+import { Model, Types } from 'mongoose';
+import {
+  Violation,
+  ViolationActionTaken,
+  ViolationStatus,
+} from './entities/violation.entity';
 import {
   CreateViolationDto,
   UpdateViolationDto,
@@ -13,7 +17,7 @@ import {
 } from './dto/create-violation.dto';
 
 const VIOLATION_READ_PROJECTION =
-  '_id reporterId reportedUserId reportType reason status resolutionNote resolvedAt createdAt updatedAt';
+  '_id reporterId reportedUserId reportType reason status resolutionNote actionTaken resolvedBy resolvedAt createdAt updatedAt';
 
 @Injectable()
 export class ViolationsService {
@@ -150,16 +154,34 @@ export class ViolationsService {
   /**
    * Update violation (add note, resolve)
    */
-  async update(id: string, dto: UpdateViolationDto): Promise<Violation> {
+  async update(
+    id: string,
+    dto: UpdateViolationDto,
+    actorId: string,
+  ): Promise<Violation> {
+    const terminal =
+      dto.status === ViolationStatus.RESOLVED ||
+      dto.status === ViolationStatus.DISMISSED;
+    const update: Record<string, unknown> = {
+      ...(dto.resolution_note !== undefined
+        ? { resolutionNote: dto.resolution_note }
+        : {}),
+      ...(dto.action_taken !== undefined
+        ? { actionTaken: dto.action_taken }
+        : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(terminal
+        ? {
+            resolvedAt: new Date(),
+            resolvedBy: new Types.ObjectId(actorId),
+            actionTaken: dto.action_taken ?? ViolationActionTaken.NONE,
+          }
+        : {}),
+    };
     const violation = await this.violationModel
       .findByIdAndUpdate(
         id,
-        {
-          resolutionNote: dto.resolution_note,
-          status: dto.status,
-          resolvedAt:
-            dto.status === ViolationStatus.RESOLVED ? new Date() : null,
-        },
+        { $set: update },
         { new: true },
       )
       .populate('reporterId', 'email fullName')
@@ -175,11 +197,21 @@ export class ViolationsService {
   /**
    * Resolve violation
    */
-  async resolve(id: string, resolution_note: string): Promise<Violation> {
-    return this.update(id, {
-      status: ViolationStatus.RESOLVED,
-      resolution_note,
-    });
+  async resolve(
+    id: string,
+    resolution_note: string,
+    actorId: string,
+    actionTaken = ViolationActionTaken.NONE,
+  ): Promise<Violation> {
+    return this.update(
+      id,
+      {
+        status: ViolationStatus.RESOLVED,
+        resolution_note,
+        action_taken: actionTaken,
+      },
+      actorId,
+    );
   }
 
   /**

@@ -217,6 +217,13 @@ export function validateEnvironment(
       100,
       60_000,
     ),
+    CONSULTATION_HEARTBEAT_TTL_SECONDS: integer(
+      config,
+      'CONSULTATION_HEARTBEAT_TTL_SECONDS',
+      90,
+      15,
+      600,
+    ),
     MONGO_SERVER_SELECTION_TIMEOUT_MS: integer(
       config,
       'MONGO_SERVER_SELECTION_TIMEOUT_MS',
