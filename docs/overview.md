@@ -104,7 +104,7 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Xem PaymentOrders, PaymentTransactions và trạng thái đối soát.
 - Review/approve/reject PaymentRefunds; provider call do worker thực hiện.
 - Quản lý tài liệu RAG và blacklist keywords.
-- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin quản lý lifecycle, nguồn, version và publish/retire rule/ngưỡng.
+- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin publish/retire Program, mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng.
 - Xử lý ViolationReports theo workflow bốn trạng thái.
 - Tạo và theo dõi NotificationCampaigns nếu còn trong release cut-line.
 
@@ -344,7 +344,7 @@ Nguyên tắc:
 
 ## 10. Hiện trạng và chuyển đổi
 
-| Hiện trạng DA1/code hiện tại | Đích DA2 |
+| Baseline DA1 trước RF-0 | Đích DA2 |
 |---|---|
 | Session API cũ đã bị xóa ở RF-10B | `/consultations` với requestStatus và sessionStatus tách biệt |
 | Patient gửi thời gian tùy ý | Scheduled booking chỉ từ AvailabilitySlot |
@@ -365,14 +365,12 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 ### P0 phải hoàn thành
 
 - Build/test/CI xanh.
-- Identity, OAuth/session security và doctor verification.
+- Identity/session security và doctor verification; OAuth là P1 feature-gated.
 - AvailabilitySlot, scheduled/on-demand Consultation, check-in, queue và chat.
 - Notification/outbox/worker.
 - AI quota/RAG cốt lõi.
 - Chronic Care cho tăng huyết áp và tiểu đường: Doctor-assigned enrollment/consent, monitoring tasks, rule engine, Care Alert, Priority Inbox, báo cáo 7/30 ngày và AI summary có fallback.
 - Liên kết Care Alert với scheduled/on-demand consultation và follow-up.
-- P1 (chỉ bật nếu P0 ổn định): Người thân đồng hành với số liên kết theo `familyLinkLimit`, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không cần FamilyGroup trong DA2.
-- P1 (chỉ bật nếu P0 ổn định): Tìm cơ sở y tế với danh mục quản trị, ánh xạ Program/specialty, tìm kiếm theo khoảng cách, giải thích kết quả và liên kết chỉ đường; dịch vụ bản đồ bên ngoài chỉ là fallback.
 - VNPAY Sandbox payment/subscription và cancel unpaid order.
 - Web critical journeys và test race/idempotency.
 
@@ -383,6 +381,8 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - WebRTC foreground call.
 - AI hỗ trợ moderation.
 - Medication adherence sau khi hai chương trình P0 đạt gate.
+- Người thân đồng hành với số liên kết theo `familyLinkLimit`, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không cần FamilyGroup trong DA2.
+- Tìm cơ sở y tế chỉ sau Người thân đồng hành và khi còn buffer trước feature freeze; dịch vụ bản đồ bên ngoài chỉ là fallback.
 
 ### Ngoài phạm vi DA2
 
@@ -390,10 +390,10 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - Admin mobile đầy đủ và CallKeep production-grade.
 - AI chẩn đoán hoặc tự quyết định chế tài.
 - AI tạo severity, kê/đổi thuốc hoặc thay thế phản ứng cấp cứu.
-- IoT/Bluetooth medical device, caregiver sharing và tích hợp nhà thuốc/bảo hiểm.
+- IoT/Bluetooth medical device, chia sẻ dữ liệu sức khỏe chi tiết cho người thân và tích hợp nhà thuốc/bảo hiểm.
 - Microservices, Kafka, Kubernetes và scale claim chưa được đo.
 
-Nếu muốn giữ full refund trong release, payment cơ bản phải ổn trước 22/11 và refund phải đạt gate trước 29/11; nếu không, tắt `VNPAY_REFUND_ENABLED` và ưu tiên P0.
+Full refund mặc định không thuộc committed scope. Chỉ nhận trước feature freeze khi payment/cancel/IPN/reconciliation P0 đã xanh và còn capacity đã xác nhận; nếu không, giữ `VNPAY_REFUND_ENABLED=false`.
 
 ## 12. Tiêu chí hoàn thành
 

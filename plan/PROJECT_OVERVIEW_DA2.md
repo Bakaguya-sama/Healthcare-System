@@ -63,7 +63,7 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Theo dõi dashboard: người dùng, bác sĩ, phiên tư vấn, tài liệu AI, hoạt động/doanh thu liên quan.
 - Quản lý tài khoản; khóa/mở khóa khi cần và kiểm duyệt hồ sơ, bằng cấp của bác sĩ.
 - Quản lý kho tri thức RAG: tải lên/xóa tài liệu, theo dõi xử lý tài liệu; quản lý từ khóa cấm để lọc đầu vào AI.
-- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin quản lý lifecycle, nguồn, version và publish/retire Care Rule Set/ngưỡng.
+- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin publish/retire Program, mọi Doctor `active + approved` có thể activate Care Rule version sau server validation, không có bước duyệt riêng.
 - Quản lý version và quyền lợi các gói Free/Plus/Care, theo dõi giao dịch VNPAY.
 - Quản lý báo cáo vi phạm: xem bằng chứng ảnh/đoạn chat, phân loại mức độ `Low`/`Medium`/`High`, cập nhật trạng thái `Pending` → `Processing` → `Resolved` hoặc `Dismissed`, áp dụng biện pháp xử lý khi cần.
 - Định hướng dùng AI để hỗ trợ phân loại báo cáo, nhưng quyết định xử lý thuộc về quản trị viên.

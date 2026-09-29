@@ -59,6 +59,12 @@ import {
   RF10C_PHYSICAL_CLEANUP_NAME,
   RF10C_PHYSICAL_CLEANUP_VERSION,
 } from './202609202100-rf10c-physical-cleanup';
+import {
+  applyCc000ChronicCareFoundation,
+  CC000_CHRONIC_CARE_FOUNDATION_CHECKSUM,
+  CC000_CHRONIC_CARE_FOUNDATION_NAME,
+  CC000_CHRONIC_CARE_FOUNDATION_VERSION,
+} from './202609281000-cc000-chronic-care-foundation';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -120,6 +126,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: RF10C_PHYSICAL_CLEANUP_NAME,
     checksum: RF10C_PHYSICAL_CLEANUP_CHECKSUM,
     up: applyRf10cPhysicalCleanup,
+  },
+  {
+    version: CC000_CHRONIC_CARE_FOUNDATION_VERSION,
+    name: CC000_CHRONIC_CARE_FOUNDATION_NAME,
+    checksum: CC000_CHRONIC_CARE_FOUNDATION_CHECKSUM,
+    up: applyCc000ChronicCareFoundation,
   },
 ];
 

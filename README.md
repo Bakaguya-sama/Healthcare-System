@@ -1,154 +1,62 @@
-# HealthAI - AI-Integrated Healthcare System
+# HealthAI Chronic Care
 
-![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)
-![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white)
-![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
-![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+HealthAI là nền tảng theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa, kết hợp Care Program, theo dõi chỉ số, tư vấn trực tuyến và AI/RAG có kiểm soát. Hệ thống không khám bệnh, không chẩn đoán, không kê đơn và không thay thế bác sĩ hoặc dịch vụ cấp cứu.
 
-## Description
+Repository hiện là Turborepo gồm:
 
-**HealthAI** is a modern healthcare web platform designed to seamlessly connect patients and doctors while integrating Artificial Intelligence (AI) to assist in preliminary diagnosis and continuous health monitoring.
+- `apps/api`: NestJS modular monolith và worker;
+- `apps/client`: Web cho Patient/Doctor;
+- `apps/admin`: Web Admin;
+- `packages/*`: UI, shared types và cấu hình dùng chung.
 
-The project is built as a Monorepo utilizing Turborepo, featuring a robust NestJS Backend and two distinct ReactJS Frontends (Client App & Admin Dashboard).
+Refactor backend RF-0..RF-13 đã hoàn tất. Chronic Care/Billing là phase feature tiếp theo và chưa được xem là đã triển khai chỉ vì schema DB v8 đã được duyệt.
 
-### ✨ Features
+## Nguồn tài liệu chuẩn
 
-- **🤖 AI Medical Assistant (RAG & Gemini):** A virtual medical assistant capable of conducting preliminary triage, asking symptom-related questions, and providing accurate medical information based on an internal knowledge base (Retrieval-Augmented Generation).
-- **📊 Health Metrics Tracking:** Patients can log and track vital signs (heart rate, blood pressure, weight, etc.). The system automatically triggers alerts if abnormal metrics are detected.
-- **💬 Real-time Consultation:** Seamless, real-time messaging between doctors and patients powered by WebSockets (Socket.IO).
-- **📁 Secure File Management:** Support for uploading and sharing medical images, test results, and prescriptions via Cloudinary integration.
-- **🛡️ Admin Dashboard:** A dedicated management module for administrators to verify doctor accounts, moderate AI content (blacklist keywords), and handle violation reports.
-- **🔐 Authentication & Security:** Secure JWT authentication, Email OTP verification (Nodemailer), and strict Role-Based Access Control (Patient, Doctor, Admin).
+Đọc theo thứ tự sau trước khi code feature DA2:
 
-## Installation
+1. [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) — quy tắc nghiệp vụ chuẩn;
+2. [`docs/db-template-v8.dbml`](docs/db-template-v8.dbml) — target schema đã duyệt;
+3. [`plan/chronic-care-plan.md`](plan/chronic-care-plan.md) — scope, dependency, execution order và gate;
+4. [`docs/overview.md`](docs/overview.md) — tổng quan kiến trúc/sản phẩm;
+5. [`docs/fe-integration.md`](docs/fe-integration.md) — contract tích hợp giao diện.
 
-Backend setup cho refactor được chuẩn hóa tại [`docs/local-development.md`](docs/local-development.md), gồm MongoDB replica set, Redis, environment và quality commands.
+`docs/current-state/*` là bằng chứng lịch sử của refactor. Contract runtime hiện hành nằm ở `apps/api/openapi/openapi.json` và `apps/api/contracts/realtime-events.json`.
 
-This project uses **pnpm** as the package manager within a **Turborepo** workspace.
+## Yêu cầu local
 
-### Requirements
+- Node.js `24.9.0` (khóa trong `.nvmrc`/`package.json#engines`);
+- pnpm `9.0.0`;
+- Docker Engine để chạy MongoDB replica set và Redis;
+- credential provider chỉ cần cho flow thực sự gọi Cloudinary/Email/GenAI/VNPAY.
 
-- Node.js (v18.x or newer)
-- [pnpm](https://pnpm.io/installation) (Install globally via `npm install -g pnpm`)
-- MongoDB Instance (Local or MongoDB Atlas)
-- Cloudinary Account (for file storage)
-- Google Gemini API Key (for the AI Assistant)
+Hướng dẫn đầy đủ: [`docs/local-development.md`](docs/local-development.md).
 
-### Setup Steps
+```bash
+pnpm install --frozen-lockfile
+docker compose up -d
+pnpm --filter api database:bootstrap
+pnpm --filter api start:dev
+```
 
-1. **Clone the repository:**
+## Quality gate backend
 
-   # HealthAI - AI-Integrated Healthcare System
+```bash
+pnpm --filter api lint
+pnpm --filter api typecheck
+pnpm --filter api test:unit
+pnpm --filter api test:integration
+pnpm --filter api test:e2e
+pnpm --filter api openapi:check
+pnpm --filter api realtime:check
+pnpm --filter api boundary:check
+pnpm --filter api build
+```
 
-   ![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white) ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB) ![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)
+Migration phải chạy được trên database rỗng, `database:verify` phải pass và lần chạy migration thứ hai phải no-op. Không dùng `autoIndex`/`syncIndexes()` thay migration.
 
-   ![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white) ![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white) ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+## Phạm vi DA2
 
-   ## Description
+P0 gồm hai Care Program (tăng huyết áp, tiểu đường) dùng chung engine; enrollment/consent/baseline; monitoring task; rule/evaluation/alert; Doctor Priority Inbox; báo cáo xác định và AI summary có guard/fallback; consultation link; entitlement Free/Plus/Care; VNPAY Sandbox payment/cancel và reconciliation.
 
-   HealthAI is a modern healthcare web platform that connects patients and doctors, augmented with AI to assist in preliminary diagnosis and continuous health monitoring.
-
-   The repository is organized as a Turborepo monorepo and includes:
-   - A NestJS backend (`apps/api`)
-   - Two React frontends: patient/doctor client and admin dashboard (`apps/client`, `apps/admin`)
-
-   ### Features
-   - **AI Medical Assistant (RAG & Gemini):** Conducts preliminary triage, asks follow-up symptom questions, and provides information using a Retrieval-Augmented Generation pipeline.
-   - **Health Metrics Tracking:** Log and track vitals (heart rate, blood pressure, weight, etc.) with automated alerts for abnormal values.
-   - **Real-time Consultation:** Chat between doctors and patients powered by Socket.IO.
-   - **Secure File Management:** Upload and share medical images, test results, and prescriptions via Cloudinary.
-   - **Admin Dashboard:** Verify doctor accounts, moderate AI content, and manage reports.
-   - **Authentication & Security:** JWT auth, email OTP (Nodemailer), and role-based access control (Patient, Doctor, Admin).
-
-   ## Requirements
-   - Node.js v18+ (recommended)
-   - pnpm (install with `npm install -g pnpm`)
-   - MongoDB (local or Atlas)
-   - Cloudinary account (for file storage)
-   - Google Gemini API key (for AI assistant)
-
-   ## Setup
-
-   Clone the repository and install dependencies from the repository root:
-
-   ```bash
-   git clone <your-repo-url>
-   cd healthcare-monorepo
-   pnpm install
-   ```
-
-   ### Environment variables
-
-   Create `.env` files for each app (use provided `.env.example` files when available). Example for the API service (`apps/api/.env`):
-
-   ```env
-   PORT=3000
-   MONGODB_URI=mongodb://localhost:27017/healthcare
-   JWT_SECRET=your_jwt_secret
-   CLOUDINARY_CLOUD_NAME=your_name
-   CLOUDINARY_API_KEY=your_key
-   CLOUDINARY_API_SECRET=your_secret
-   GEMINI_API_KEY=your_gemini_key
-   EMAIL_USER=your_email@gmail.com
-   EMAIL_PASS=your_app_password
-   ```
-
-   Adjust variables per environment (development, staging, production).
-
-   ### Optional: Seed database
-
-   To populate the API with sample data (admins, demo users), run:
-
-   ```bash
-   pnpm run seed --filter=api
-   ```
-
-   ## Development
-
-   Start all apps (root of the monorepo):
-
-   ```bash
-   pnpm dev
-   ```
-
-   Default local URLs:
-   - Backend API: `http://localhost:3000`
-   - Client (patient/doctor): `http://localhost:5173`
-   - Admin dashboard: `http://localhost:5174`
-
-   ### Useful commands
-   - Install dependencies: `pnpm install`
-   - Run dev servers: `pnpm dev`
-   - Run API seeds: `pnpm run seed --filter=api`
-   - Lint the codebase: `pnpm run lint`
-
-   ## Example workflow
-   1. Open the client at `http://localhost:5173` and register as a Patient.
-   2. Log health metrics on the dashboard to begin tracking.
-   3. Use the AI Chat to upload an image or describe symptoms for a preliminary analysis.
-   4. Book a consultation and chat in real-time with a verified doctor.
-
-   ## Support
-
-   If you run into issues:
-   - Open an issue on this repository.
-   - Contact the development team: 23520657@gm.uit.edu.vn or 23520682@gm.uit.edu.vn
-
-   ## Roadmap
-   - [ ] Video call (WebRTC) integration for consultations
-   - [ ] Improved AI image pre-processing (Gemini Vision)
-   - [ ] Cross-platform mobile app (React Native)
-
-   ## Authors & Acknowledgments
-
-   Course Project (SE121.Q21) — Faculty of Software Engineering, University of Information Technology (UIT), VNU-HCM
-   - Vu Quoc Huy (Student ID: 23520657) — Fullstack Developer
-   - Do Dinh Khang (Student ID: 23520682) — Fullstack Developer
-
-   Special thanks to our instructor, MSc. Tran Anh Dung.
-
-   ## License
-
-   This project is licensed under the MIT License.
+OAuth, full refund, Mobile/FCM, WebRTC production-grade, người thân đồng hành, tìm cơ sở y tế và medication adherence là P1/cut-line theo kế hoạch. Chi tiết và thứ tự PR bắt đầu tại [`plan/chronic-care-plan.md`](plan/chronic-care-plan.md#91-thứ-tự-bắt-đầu-code-theo-vertical-slice).

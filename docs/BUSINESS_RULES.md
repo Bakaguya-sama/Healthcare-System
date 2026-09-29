@@ -12,7 +12,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 - Scheduled là bệnh nhân chủ động chọn slot bác sĩ đã mở.
 - Request status thể hiện kết quả xử lý yêu cầu hoặc quyền truy cập tư vấn.
 - Session status thể hiện trạng thái thực tế của phiên tư vấn.
-- Care Program là chương trình theo dõi có thời hạn, loại chỉ số, lịch đo và bộ rule đã được duyệt.
+- Care Program là chương trình theo dõi có thời hạn, loại chỉ số, lịch đo và bộ rule có version.
 - Care Enrollment là quan hệ Patient tham gia Care Program và Doctor được phân công theo dõi.
 - Monitoring Task là nhiệm vụ đo chỉ số theo lịch; completion/adherence chỉ phản ánh hoạt động theo dõi.
 - Care Evaluation là kết quả deterministic của rule engine; Care Alert là item cần Patient/Doctor chú ý và xử lý.
@@ -30,8 +30,8 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 9. Program version đã publish là bất biến; chỉnh sửa tạo draft/version mới. Chỉ version published/active mới được dùng cho enrollment mới.
 10. Baseline, eligibility, consent, task templates, reminder, rule set, review policy, content journey và completion criteria phải được snapshot hoặc tham chiếu version ổn định khi enrollment kích hoạt. Trong DA2, `taskTemplates` được nhúng trong từng phiên bản `CarePrograms`; nhiệm vụ đã sinh được lưu riêng trong `CareTasks`.
 11. Doctor chỉ được tùy chỉnh các field được Program Template allowlist. Thay đổi patient-specific threshold hoặc review cadence phải có quyền, lý do và audit.
-12. Admin là owner quản lý lifecycle, version, publish/retire của Program Template và Care Rule Set. Doctor được tạo/chỉnh draft nhưng không tự publish rule/ngưỡng ngoài policy của Admin.
-13. Admin phải lưu nguồn/căn cứ, người duyệt, simulation/test evidence và audit cho mỗi rule/ngưỡng trước publish; AI không được tự tạo rồi tự động phát hành rule lâm sàng.
+12. Admin quản lý lifecycle/version/publish/retire của Program Template. Tạo/sửa draft và retire Rule cần rule-management permission; mọi Doctor `active + approved` có thể activate Rule mà không cần permission/approval riêng. Activate tự retire Rule active cũ của cùng Program version trong một thao tác audit.
+13. Rule activation bắt buộc qua server validation cho declarative schema, operator allowlist, Program version và audit. Nguồn/căn cứ, simulation/test evidence là metadata tùy chọn trong DA2, không phải activation gate; AI vẫn không được tự phát hành Rule khi không có Admin/Doctor actor.
 14. Doctor assignment bắt buộc ở mọi tier để xác định ownership và authorization; không mặc định tạo nghĩa vụ review định kỳ, SLA hoặc chat 24/7. Các quyền đó chỉ có khi Plan/Enrollment snapshot ghi rõ.
 15. `pending -> active` chỉ xảy ra tự động khi đồng thời có Doctor `active + approved`, Program `published`, Care Rule `active`, entitlement hợp lệ, Patient đã chấp nhận đúng consent version và hoàn thành toàn bộ baseline bắt buộc. Thiếu một điều kiện thì enrollment vẫn `pending` và không sinh task/evaluation.
 16. Assigned Doctor được chuyển `active -> paused` và `paused -> active` với lý do. Patient có thể gửi yêu cầu pause; Doctor phải xử lý yêu cầu trước khi resume. Resume phải kiểm tra lại Doctor, Program/Rule, consent và entitlement.
@@ -72,7 +72,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 
 ## Care rule, evaluation và alert
 
-1. Rule set có lifecycle `draft`, `active`, `retired`; chỉ version active đã được duyệt mới áp dụng cho dữ liệu mới.
+1. Rule set có lifecycle `draft`, `active`, `retired`; chỉ version active áp dụng cho dữ liệu mới. Mọi Doctor `active + approved` có thể activate sau server validation; không có bước human approval riêng. Activate tự retire version active cũ của cùng Program version.
 2. Rule engine phải deterministic và trả về `normal`, `attention` hoặc `urgent` cùng `reasonCodes`, `ruleSetVersion` và input references.
 3. Rule có thể dùng giá trị hiện tại, số lần lặp, xu hướng ngắn hạn hoặc dữ liệu bị thiếu; không được trả về chẩn đoán/tên bệnh mới.
 4. Ngưỡng và nội dung hành động không hard-code rải rác trong service. Mọi thay đổi phải có actor, lý do, version và audit log.
@@ -289,7 +289,7 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 1. ENV chỉ chứa secret/hạ tầng và hard ceiling kỹ thuật, ví dụ database URL, provider key, request timeout, batch size tối đa, token tối đa/request, số consultation/family link tối đa hệ thống. Không lưu giá hoặc quota từng gói trong ENV.
 2. Admin UI quản lý chính sách kinh doanh có version trong database: Plan price/duration, AI token/request limit, consultation limit, Care Program limit, family link limit và feature benefits.
 3. Doctor chỉ sửa `bookingSettings` của mình trong min/max do hệ thống quy định. Admin có thể thay default/range vận hành nhưng không sửa lịch đã booked vì Consultation giữ snapshot.
-4. Clinical thresholds, Care Rules và safety templates nằm trong database có version/approval; không là ENV và không cho Admin sửa trực tiếp trên bản published.
+4. Clinical thresholds, Care Rules và safety templates nằm trong database có version và audit; không là ENV và không cho bất kỳ actor nào sửa trực tiếp bản active/published.
 5. State transition, authorization, công thức quota và quy tắc một active Subscription/một `in_consultation` là invariant trong code/database constraint, không phải cấu hình Admin.
 6. Mọi thay đổi cấu hình qua Admin phải validate hard ceiling, có `effectiveFrom`, actor/reason và `AuditLogs`; thay đổi chỉ áp dụng cho dữ liệu/chu kỳ mới trừ khi có migration được duyệt rõ ràng.
 
