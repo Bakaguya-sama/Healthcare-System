@@ -2,7 +2,7 @@
 
 > **Trạng thái rà soát: 28/09/2026 — READY WITH GATES.** Refactor RF-0..RF-13 đã hoàn tất trong source hiện tại, nhưng chưa có module/migration Chronic Care hoặc Billing. Mốc 15/09–28/09 cũ vì vậy được xem là baseline đã trễ, không phải phần việc đã hoàn thành. Kế hoạch thực thi được rebaseline từ 29/09 tại mục 10; thứ tự bắt đầu code nằm tại mục 9.1.
 >
-> **Thứ tự nguồn chuẩn khi có xung đột:** ADR-0002 (quyết định và command contract) → `docs/BUSINESS_RULES.md` (ràng buộc sản phẩm/safety) → `docs/db-template-v8.dbml` (schema target) → tài liệu này (roadmap/exit gate) → `plan/refactor-plan.md` (dependency/tóm tắt) → `docs/fe-integration.md` (consumer contract). `docs/current-state/*` chỉ là bằng chứng refactor/lịch sử, không phải contract feature DA2.
+> **Thứ tự nguồn chuẩn khi có xung đột:** `docs/chronic-care-spec.md` (quyết định và command contract) → `docs/product-spec.md` (ràng buộc sản phẩm/safety) → `docs/data-model.dbml` (schema target) → tài liệu này (roadmap/exit gate) → `plan/archive/refactor-history.md` (dependency/tóm tắt) → `docs/integration-contract.md` (consumer contract). `docs/current-state/*` chỉ là bằng chứng refactor/lịch sử, không phải contract feature DA2.
 
 ## 1. Quyết định sản phẩm
 
@@ -519,6 +519,31 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request phải tạo được một lát chạy/test được, cập nhật migration/verifier/contract cùng code và không inject Mongoose model xuyên module.
 
 **Tiến độ hiện tại:** `CC-000A` đã được chốt trong ADR-0002 (gồm command contract). Nền persistence của `CC-000B` đã được triển khai trên branch hiện tại; `CC-001` có thể mở theo roadmap dưới đây.
+
+### 9.1.0 Phase map — đọc trước khi code
+
+```text
+Phase 0                 Phase 1                    Phase 2
+Foundation              Program + Enrollment        Monitoring
+CC-000A / CC-000B  ->  CC-001A / CC-001B / CC-014 -> CC-002
+contract + DB           lifecycle + consent         task + reminder
+
+Phase 3                 Phase 4                    Phase 5
+Clinical workflow       Report + reuse              Commercial + release
+CC-003 / 004 / 005  ->  CC-006 / 007 / 011       -> CC-008 / 009 / 012 / 013 / CC-7
+rule + alert + inbox    deterministic facts + AI    entitlement + payment + evidence
+```
+
+| Phase | Mục tiêu demo được | Làm khi | Không được mở trước |
+| --- | --- | --- | --- |
+| 0 — Foundation | Có contract, persistence và database verification | Đã hoàn thành code; migrate/verify DB test là evidence còn lại | Controller/use case nghiệp vụ |
+| 1 — Program + Enrollment | Admin version Program/Rule; Doctor activate Rule; Patient consent/baseline; enrollment active đúng guard | Bắt đầu từ `CC-001A`, sau đó `CC-001B` | Task, alert, AI, payment |
+| 2 — Monitoring | Enrollment active sinh task trong timezone, reminder không lặp | `CC-001B` và metric/timezone contract pass | Rule severity/alert workflow |
+| 3 — Clinical workflow | Metric được evaluate, alert xuất hiện và Assigned Doctor xử lý trong inbox | Operator allowlist + fixtures pass | AI quyết severity hoặc dashboard không giới hạn |
+| 4 — Report + reuse | Report deterministic trước, AI có guard/fallback, diabetes dùng chung engine | Task/alert facts có snapshot | Gửi raw history vào model hoặc fork engine theo bệnh |
+| 5 — Commercial + release | Entitlement/payment chính xác, consultation link, E2E/demo/release evidence | Core clinical flow xanh | Refund/P1/WebRTC/OAuth nếu chưa còn buffer |
+
+**Bạn đang ở Phase 1.** Chỉ mở `CC-001A` trước: Program/Rule catalog và lifecycle. Khi exit gate của `CC-001A` xanh mới nhận `CC-001B`.
 
 | PR/Slice      | Phạm vi bắt buộc                                                                                                                                                                                                           | Không làm trong slice                                                  | Exit gate                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
