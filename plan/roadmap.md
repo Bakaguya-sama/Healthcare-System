@@ -8,7 +8,7 @@
 
 HealthAI DA2 được định vị là nền tảng **theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa**. MVP bắt buộc có hai Care Program cho người trưởng thành: **tăng huyết áp** và **tiểu đường**; cả hai dùng chung Program engine, chỉ khác metric context, rule set và nội dung đã duyệt.
 
-Thiết kế dữ liệu đã được duyệt nằm tại `docs/db-template-v8.dbml` và là target schema của DA2. Việc được duyệt không đồng nghĩa các collection/index đã tồn tại; triển khai vẫn phải đi qua migration có version và `database:verify`.
+Thiết kế dữ liệu đã được duyệt nằm tại `docs/data-model.dbml` và là target schema của DA2. Việc được duyệt không đồng nghĩa các collection/index đã tồn tại; triển khai vẫn phải đi qua migration có version và `database:verify`.
 
 Sản phẩm không khám bệnh, không chẩn đoán, không kê đơn và không thay thế bác sĩ hoặc cơ sở y tế. Hệ thống giúp bệnh nhân duy trì việc theo dõi giữa hai lần khám, giúp bác sĩ nhận biết bệnh nhân cần chú ý và hỗ trợ hai bên kết nối đúng thời điểm.
 
@@ -518,7 +518,7 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 
 Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request phải tạo được một lát chạy/test được, cập nhật migration/verifier/contract cùng code và không inject Mongoose model xuyên module.
 
-**Tiến độ hiện tại:** `CC-000A` đã được chốt trong ADR-0002 (gồm command contract). Nền persistence của `CC-000B` đã được triển khai trên branch hiện tại; `CC-001` có thể mở theo roadmap dưới đây.
+**Tiến độ hiện tại (29/09/2026):** `CC-000A/B` và `CC-001A` đã có implementation. `CC-001B` đã có service/controller/migration, migration `202609291100` và migration no-op đã pass; exit gate vẫn mở vì chưa có E2E Chronic Care cho authorization, state matrix và concurrency/idempotency. Việc kế tiếp là hoàn thiện evidence `CC-001B`, sau đó nhận `CC-014`; chưa mở `CC-002`.
 
 ### 9.1.0 Phase map — đọc trước khi code
 
@@ -543,7 +543,7 @@ rule + alert + inbox    deterministic facts + AI    entitlement + payment + evid
 | 4 — Report + reuse | Report deterministic trước, AI có guard/fallback, diabetes dùng chung engine | Task/alert facts có snapshot | Gửi raw history vào model hoặc fork engine theo bệnh |
 | 5 — Commercial + release | Entitlement/payment chính xác, consultation link, E2E/demo/release evidence | Core clinical flow xanh | Refund/P1/WebRTC/OAuth nếu chưa còn buffer |
 
-**Bạn đang ở Phase 1.** Chỉ mở `CC-001A` trước: Program/Rule catalog và lifecycle. Khi exit gate của `CC-001A` xanh mới nhận `CC-001B`.
+**Bạn đang ở Phase 1, bước đóng gate `CC-001B`.** Không nhận thêm persistence/feature mới trước khi E2E authorization, state matrix và concurrent idempotency xanh. Sau đó thực hiện `CC-014`; chỉ mở `CC-002` khi schema baseline và metric/unit/timezone contract đã chốt.
 
 | PR/Slice      | Phạm vi bắt buộc                                                                                                                                                                                                           | Không làm trong slice                                                  | Exit gate                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -564,11 +564,11 @@ rule + alert + inbox    deterministic facts + AI    entitlement + payment + evid
 Backlog chỉ trả lời thứ tự ưu tiên; không đủ để quyết định hành vi code. Mỗi slice phải mở và bám theo đúng bốn nguồn sau:
 
 1. **ADR-0002** — authority, lifecycle, transaction, audit, idempotency và public-port boundary. Đây là command contract chuẩn.
-2. **`docs/BUSINESS_RULES.md`** — safety/product invariant. Nếu khác ADR-0002, dừng implementation và sửa tài liệu để đồng bộ; không tự chọn một cách diễn giải khác.
-3. **`docs/db-template-v8.dbml` cùng migration/schema đã có** — persistence contract; mọi field/index mới phải đi kèm migration, manifest và verifier.
+2. **`docs/product-spec.md`** — safety/product invariant. Nếu khác ADR-0002, dừng implementation và sửa tài liệu để đồng bộ; không tự chọn một cách diễn giải khác.
+3. **`docs/data-model.dbml` cùng migration/schema đã có** — persistence contract; mọi field/index mới phải đi kèm migration, manifest và verifier.
 4. **Mục slice trong tài liệu này** — scope, thứ tự, không-làm và exit gate.
 
-`plan/refactor-plan.md` chỉ được dùng để tra dependency nền tảng/refactor và cut-line toàn dự án; không dùng nó để quyết định permission, state transition, request DTO hay endpoint. `docs/current-state/*` chỉ là evidence lịch sử.
+`plan/archive/refactor-history.md` chỉ được dùng để tham khảo cấu trúc phase, dependency nền tảng/refactor và cut-line toàn dự án; không dùng nó để quyết định permission, state transition, request DTO hay endpoint. `docs/current-state/*` chỉ là evidence lịch sử.
 
 ### 9.1.2 Roadmap implementation chi tiết cho slice kế tiếp
 
@@ -587,6 +587,305 @@ Backlog chỉ trả lời thứ tự ưu tiên; không đủ để quyết đị
 2. Activation guard dùng public ports để kiểm tra Patient active, Doctor active+approved, Program published, Rule active, entitlement, consent version và baseline hoàn chỉnh.
 3. Doctor assigned pause/resume/complete/cancel; Admin chỉ audit, không thay quyền quyết định lâm sàng.
 4. Transaction ghi enrollment + audit; side effect chỉ qua outbox. Không materialize Task trước `CC-002`.
+
+**Exit-gate checklist (không đánh dấu hoàn tất chỉ vì controller/service đã tồn tại):**
+
+1. Migration chạy trên MongoDB rỗng, `database:verify` pass và chạy migration lần hai là no-op.
+2. E2E authorization chứng minh: chỉ Doctor active+approved tạo enrollment; Patient chỉ thao tác enrollment của mình; chỉ assigned Doctor transition; Admin chỉ read/audit.
+3. E2E state matrix chứng minh `pending → active` chỉ sau consent + baseline + toàn bộ guard; pause/resume/complete/cancel/withdraw-consent đúng state và reason/audit.
+4. Test concurrency/idempotency chứng minh cùng key/cùng payload replay một enrollment, key khác payload trả `CARE_IDEMPOTENCY_CONFLICT`, và hai activate/resume đồng thời chỉ ghi một transition/audit.
+5. Test port contract dùng adapter test cho `CareProgramAccessPort` để có cả case eligible và denied; production adapter từ Billing chỉ thay thế sau `CC-012`, không được bypass guard.
+6. OpenAPI artifact, boundary check và test suite xanh; không sinh CareTask/Alert/Evaluation/Outbox trong slice này.
+
+**Trạng thái thực thi hiện tại:** migration `202609291100` đã apply và lần chạy `--expect-noop` đã pass trên Mongo cấu hình ngày 29/09/2026. Gate vẫn **OPEN** vì suite E2E hiện tại chỉ có platform smoke tests; chưa có authorization/state/concurrency tests riêng cho Chronic Care.
+
+Việc phải làm ngay để đóng gate:
+
+1. Tạo `care-enrollment.e2e-spec.ts` với fixture Admin, Patient, assigned Doctor, other Doctor, published Program và active Rule.
+2. Override `CareProgramAccessPort` bằng test adapter có cả `eligible=true` và `eligible=false`; tuyệt đối không đổi production adapter thành fail-open.
+3. Test đầy đủ create pending, consent/baseline activation, ownership, pause/resume/complete/cancel/withdraw và terminal-state rejection.
+4. Dùng hai request đồng thời để test revision/idempotency/audit uniqueness; kiểm tra collection trực tiếp chỉ trong test evidence.
+5. Chạy `database:verify`, `test:integration`, `test:e2e`, `boundary:check`, `openapi:check`; lưu kết quả dưới mục Evidence rồi mới đổi trạng thái sang `DONE`.
+
+#### `CC-014` — Baseline/check-in schema engine
+
+Mục tiêu: biến baseline/check-in từ JSON tự do thành contract version hóa, validate được và không lộ dữ liệu ngoài audience.
+
+Entry gate: `CC-001B` authorization/state E2E xanh; Program snapshot contract ổn định.
+
+1. Chốt JSON schema v1 theo từng Program version: field key/type/unit/range/required/visibility; cấm arbitrary executable expression và free-text workflow builder.
+2. Snapshot schema version vào enrollment; validation luôn dùng snapshot, không dùng Program draft/version mới.
+3. Validate required/type/range/unknown-field; trả reason code an toàn, không log raw answer hoặc consent payload.
+4. Tạo fixture hypertension/diabetes cho valid, missing, boundary, old-version và privacy projection.
+5. Exit gate: contract, invalid/partial/old-version tests và audit redaction pass.
+
+Deliverables: schema types/validator, versioned fixtures, Program snapshot integration, DTO/OpenAPI và privacy tests.
+
+Không thuộc slice: drag-and-drop/free-text workflow builder, task scheduling, rule severity.
+
+Ước lượng: **3-5 person-days**.
+
+#### `CC-002` — CareTask materialization và adherence
+
+Mục tiêu: tạo task theo rolling window/timezone một lần duy nhất và tính adherence từ facts xác định.
+
+Entry gate: `CC-001B`, `CC-014` xanh; metric/unit/timezone contract ở mục 9.2 đã chốt.
+
+1. Chỉ đọc enrollment `active` snapshot; materialize rolling window với unique key deterministic, timezone IANA và UTC persistence.
+2. Dùng Health Tracking public port để match metric completion; không query/inject `HealthMetric` model trực tiếp.
+3. Xử lý due/completed/missed/cancelled, late input và correction; tính adherence từ task facts đã materialize.
+4. Queue reminder qua outbox idempotent sau transaction; không gọi Notification provider trong transaction.
+5. Exit gate: duplicate/retry, DST, late-input/correction, authorization và query/index evidence pass.
+
+Deliverables: CareTask migration/schema, materializer worker, Health Tracking/Notification public ports, adherence query và realtime/OpenAPI contract.
+
+Không thuộc slice: medication/journal P1, risk severity, AI summary.
+
+Ước lượng: **5-7 person-days**.
+
+### 9.1.3 Implementation chi tiết cho các phase còn lại
+
+Mỗi slice dưới đây dùng cùng cấu trúc như các phase RF: chỉ chuyển trạng thái `DONE` khi deliverables tồn tại và exit gate có evidence chạy thật. Việc có schema/controller không đồng nghĩa hoàn tất.
+
+#### `CC-003` — Rule interpreter và HealthEvaluation
+
+Mục tiêu: diễn giải Rule declarative một cách xác định từ metric đã chuẩn hóa; AI không được quyết định severity.
+
+Entry gate:
+
+- `CC-001B`, `CC-014`, `CC-002` xanh.
+- Operator allowlist, metric/unit contract và fixture tăng huyết áp/tiểu đường đã được duyệt.
+
+Các bước:
+
+1. Chốt Rule AST/version và allowlist operator; cấm JavaScript, expression string và function do người dùng cung cấp.
+2. Tạo pure interpreter nhận Rule snapshot + normalized facts, trả severity, reason codes và input references.
+3. Persist `HealthEvaluations` bằng unique key deterministic; correction tạo evaluation mới và liên kết bản bị thay thế.
+4. Worker/job phải idempotent, retry-safe và không đọc Rule active hiện tại thay cho enrollment snapshot.
+5. Redact log; raw health values chỉ tồn tại trong authorized persistence/input, không vào audit/error.
+
+Deliverables:
+
+- Rule schema/validator, interpreter, evaluation repository/use case.
+- Migration/manifest/verifier và fixed fixtures cho hai bệnh.
+- Unit matrix cho boundary, missing, repeated, unit mismatch và correction.
+
+Không thuộc slice: CareAlert, Doctor Inbox, AI explanation.
+
+Exit gate: deterministic fixture pass; duplicate/retry/correction không tạo evaluation sai; boundary check và authorization integration pass.
+
+Ước lượng: **4-6 person-days**.
+
+#### `CC-004` — CareAlert lifecycle và notification outbox
+
+Mục tiêu: chuyển evaluation cần chú ý/khẩn cấp thành alert duy nhất, audit được và gửi side effect an toàn.
+
+Entry gate: `CC-003` xanh; severity/reason-code contract ổn định.
+
+Các bước:
+
+1. Tạo alert dedupe key từ enrollment/evaluation/rule/window; không dựa vào message text.
+2. Implement lifecycle `open → acknowledged → resolved|dismissed`; direct resolve ghi implicit acknowledge theo contract.
+3. Chỉ assigned Doctor acknowledge/resolve/dismiss; Patient chỉ đọc projection an toàn; Admin chỉ audit.
+4. Ghi alert + audit + outbox trong transaction; provider notification chạy ngoài transaction.
+5. Urgent dùng safety template đã duyệt và chỉ dẫn cấp cứu phù hợp; không chờ AI.
+
+Deliverables: schema/migration, commands, outbox event contract, notification adapter và realtime contract.
+
+Không thuộc slice: Priority Inbox aggregate, AI severity, consultation booking.
+
+Exit gate: dedupe, retry, race transition, authorization, outbox replay/dead-letter và safety-template E2E pass.
+
+Ước lượng: **4-6 person-days**.
+
+#### `CC-005` — Doctor Priority Inbox
+
+Mục tiêu: cung cấp danh sách alert bounded, ổn định và đúng scope cho Doctor phụ trách.
+
+Entry gate: `CC-004` xanh; alert indexes và authorization policy đã có.
+
+Các bước:
+
+1. Thiết kế query/projection theo assigned Doctor, status, severity, detectedAt và `_id` stable sort.
+2. Thêm cursor pagination, hard limit, projection và `lean()`; không hydrate toàn aggregate cho list.
+3. Trả action allowlist theo state/actor; detail mới tải bounded evaluation/timeline context.
+4. Cập nhật OpenAPI và realtime invalidation; client luôn refetch sau conflict.
+5. Chạy explain trên representative dataset và lưu query evidence.
+
+Deliverables: inbox/detail query handlers, indexes, OpenAPI/realtime schemas và performance fixture.
+
+Không thuộc slice: cohort dashboard không giới hạn, cross-Doctor access, AI prioritization.
+
+Exit gate: auth/pagination/sort/query-plan E2E pass; critical query không COLLSCAN ngoài ngoại lệ được ghi nhận.
+
+Ước lượng: **3-5 person-days**.
+
+#### `CC-006` — Deterministic CareReport và SummaryInput v1
+
+Mục tiêu: tạo facts/report 7/30 ngày đúng trước khi nối bất kỳ LLM nào.
+
+Entry gate: `CC-002` và `CC-004` xanh; metric normalization/timezone policy chốt.
+
+Các bước:
+
+1. Chốt report window theo enrollment timezone và UTC cutoff; xử lý DST, late input và correction.
+2. Aggregate expected/completed, adherence, min/max/average/median, delta/trend, missing windows và alert/follow-up references.
+3. Persist immutable report version bằng input hash; dữ liệu thay đổi tạo version mới, không ghi đè.
+4. Tạo `SummaryInput v1` chỉ gồm facts/source refs đã authorize và provenance đầy đủ.
+5. Tách Patient/Doctor projection; cùng facts nhưng khác presentation policy.
+
+Deliverables: report schema/migration, aggregator, SummaryInput JSON schema, fixtures và export-safe projection.
+
+Không thuộc slice: lời văn AI, provider SDK, AI quota.
+
+Exit gate: fixed dataset numerical/timezone/provenance/idempotency tests pass; report vẫn hoạt động khi AI tắt.
+
+Ước lượng: **5-7 person-days**.
+
+#### `CC-007` — AI narrative, output guard và fallback
+
+Mục tiêu: diễn đạt `SummaryInput v1` an toàn; không tính lại facts hoặc thay severity.
+
+Entry gate: `CC-006` xanh; structured output, forbidden claims và evaluation dataset được duyệt.
+
+Các bước:
+
+1. Định nghĩa provider port và structured output schema; gửi input tối thiểu đã authorize.
+2. Guard schema, numerical grounding, citations, unsupported claims và medical safety.
+3. Cấm diagnosis, prescription/dose change/stop-medication và severity override.
+4. Provider/guard/evidence fail phải trả deterministic fallback; report facts luôn còn dùng được.
+5. Lưu model/prompt/rule version, input hash, validation, token/latency và review status; không log prompt chứa PHI.
+6. Thêm kill switch/feature flag; tắt AI không tắt report/safety.
+
+Deliverables: provider adapter, guard, fallback renderer, `CareSummaries` migration và evaluation report.
+
+Không thuộc slice: AI quyết định lâm sàng, gửi raw history, autonomous publishing.
+
+Exit gate: numerical grounding/safety/privacy/fallback/idempotency pass trên fixed dataset.
+
+Ước lượng: **5-8 person-days**.
+
+#### `CC-011` — Diabetes reuse proof
+
+Mục tiêu: chứng minh chương trình tiểu đường dùng chung Program/Task/Rule/Report engine.
+
+Entry gate: `CC-003`, `CC-006` và các schema contract liên quan xanh.
+
+Các bước:
+
+1. Seed Program/Rule/content fixture tiểu đường bằng cùng schema và lifecycle command.
+2. Chạy enrollment → task → evaluation → alert → report trên cùng use case/repository/interpreter.
+3. Chỉ cấu hình disease-specific data; không thêm `if diabetes` trong core service.
+4. So sánh migration/query/auth behavior với hypertension fixture.
+
+Deliverables: seed idempotent, E2E fixture và reuse evidence.
+
+Exit gate: E2E hai Program pass, không có disease-specific fork của core flow.
+
+Ước lượng: **2-3 person-days**.
+
+#### `CC-012` — Free/Plus/Care Program access
+
+Mục tiêu: thay adapter deny-by-default bằng quyết định quyền dựa trên Plan/Subscription snapshot phía backend.
+
+Entry gate: Plan/Subscription schema và policy snapshot chốt; core safety flow đã ổn định.
+
+Các bước:
+
+1. Implement Billing public port cho `CareProgramAccessPort`; Chronic Care không inject Billing model.
+2. Quyết định access theo subscription status, effective window, benefit snapshot và active-program limit; không tin tier/client payload.
+3. Free grant có lifecycle riêng, không tạo PaymentOrder; downgrade/expiry không xóa dữ liệu hoặc tắt safety alert.
+4. Recheck access khi activate/resume/create paid action; audit reason code không lộ dữ liệu billing nhạy cảm.
+5. Thay `NoEntitlementAdapter` trong production composition; adapter deny-by-default chỉ còn fallback/test failure path.
+
+Deliverables: Billing adapter/port contract, Plan/Subscription migrations, access policy tests và operational metrics.
+
+Không thuộc slice: VNPAY order/IPN, refund, consultation usage ledger.
+
+Exit gate: grant/expiry/downgrade/limit/race/safety tests pass; không có fail-open.
+
+Ước lượng: **5-7 person-days**.
+
+#### `CC-013` — Consultation usage reservation ledger
+
+Mục tiêu: reserve/count/release consultation quota chính xác cho scheduled và on-demand.
+
+Entry gate: `CC-012` và Consultation state contract xanh.
+
+Các bước:
+
+1. Tạo `ConsultationUsages` lifecycle `reserved → counted|released|expired` với unique request key.
+2. Reserve atomic khi booking xác nhận; không vượt limit dưới concurrent requests.
+3. Count khi `in_consultation`; xử lý no-show/cancel/release theo policy snapshot.
+4. Retry/event duplicate không count/release hai lần; reconciliation sửa trạng thái treo.
+5. Audit mọi transition billing bằng safe metadata.
+
+Deliverables: migration, ledger service, Consultation public integration events và reconciliation command.
+
+Exit gate: limit/reserve/count/release/no-show/race/idempotency tests pass.
+
+Ước lượng: **4-6 person-days**.
+
+#### `CC-008` — Consultation link và follow-up
+
+Mục tiêu: nối authorized alert/enrollment với Consultation mà không làm Consultation phụ thuộc persistence Chronic Care.
+
+Entry gate: `CC-004`; phần NF-2/NF-3 cần cho journey đã xanh.
+
+Các bước:
+
+1. Dùng public ports để verify/link consultation theo opaque ID.
+2. Cho assigned Doctor tạo/link scheduled hoặc on-demand consultation từ alert.
+3. Ghi follow-up reference/note/task policy; không mở chat 24/7 ngoài consultation.
+4. Transaction chỉ ghi domain/outbox; không cross-model query hoặc dual-write âm thầm.
+
+Deliverables: link commands, public events, authorization E2E và OpenAPI/realtime contract.
+
+Exit gate: alert → consultation → follow-up critical journey E2E pass.
+
+Ước lượng: **3-5 person-days**.
+
+#### `CC-7` — VNPAY Sandbox và subscription grant
+
+Mục tiêu: payment state machine đúng, IPN xác minh được và cấp subscription qua outbox/reconciliation.
+
+Entry gate: `CC-012`; VNPAY sandbox credentials/callback allowlist sẵn sàng.
+
+Các bước:
+
+1. Tạo PaymentOrder từ server-side Plan snapshot; client không gửi amount/benefit.
+2. Implement redirect/IPN verification, idempotency và conditional state transition.
+3. Trong Mongo transaction: upsert transaction, order `paid`, đúng một grant-request outbox event.
+4. Worker cấp Subscription idempotent; timeout/unknown dùng reconciliation, không tự kết luận failed.
+5. Cancel chỉ cho unpaid order hợp lệ; giữ xử lý IPN của order đã tạo khi feature flag tắt order mới.
+
+Deliverables: migration, provider adapter, callback endpoints, outbox worker, reconciliation và sandbox evidence.
+
+Không thuộc slice: Saga framework, automatic full refund.
+
+Exit gate: sandbox happy path, duplicate/late IPN, invalid signature, paid-without-grant và reconciliation E2E pass.
+
+Ước lượng: **6-9 person-days**.
+
+#### `CC-009` — Product/operations metrics và release evidence
+
+Mục tiêu: đo vận hành MVP bằng aggregate bounded, không trình bày demo data như kết quả lâm sàng.
+
+Entry gate: các P0 journey tương ứng đã xanh và có seed/demo marker.
+
+Các bước:
+
+1. Chốt KPI query: adherence, acknowledgment time, follow-up conversion, review effort, summary acceptance và conversion/usage.
+2. Tách seed/demo khỏi real data; không expose raw HealthMetrics trong operations dashboard.
+3. Dùng bounded range/filter/pagination, projection và index; lưu explain evidence.
+4. Chạy full critical journey, migration rehearsal, backup/restore/reconciliation và feature-flag matrix.
+5. Cập nhật OpenAPI/realtime/FE handoff, demo script và release runbook.
+
+Deliverables: metrics queries, query catalog, E2E evidence, runbook và release checklist.
+
+Exit gate: KPI queries bounded/verified; full regression, security/privacy, migration rehearsal và demo scenarios pass.
+
+Ước lượng: **4-6 person-days**.
 
 Quy tắc chia việc cho hai thành viên:
 
@@ -621,7 +920,7 @@ Giả định hai thành viên, ưu tiên một vertical slice chạy được t
 | 14/12–23/12 | Release candidate                        | Full regression, load/security test, demo rehearsal, video/kịch bản trình bày và sửa lỗi release blocker.                                                                                      |
 | 24/12–31/12 | Buffer                                   | Chỉ xử lý blocker, bảo mật và lỗi demo; không thêm feature mới.                                                                                                                                |
 
-Điều chỉnh so với `refactor-plan.md`:
+Điều chỉnh so với lịch sử refactor tại `plan/archive/refactor-history.md`:
 
 - Chronic Care P0 thay cho việc nhận đồng thời toàn bộ Payment, Refund, WebRTC, OAuth và Mobile.
 - NF-2/NF-3/NF-4 chỉ triển khai phần cần cho hành trình Chronic Care: đặt lịch/tư vấn, reminder và notification.
