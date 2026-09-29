@@ -6,456 +6,455 @@
 
 # Healthcare Business Rules
 
-## Má»¥c Ä‘Ã­ch vÃ  pháº¡m vi
+## Mục đích và phạm vi
 
-TÃ i liá»‡u nÃ y mÃ´ táº£ cÃ¡c quy táº¯c nghiá»‡p vá»¥ cÃ³ thá»ƒ Ä‘iá»u chá»‰nh trong quÃ¡ trÃ¬nh phÃ¡t triá»ƒn. Há»‡ thá»‘ng phá»¥c vá»¥ theo dÃµi vÃ  há»— trá»£ chÄƒm sÃ³c bá»‡nh máº¡n tá»« xa káº¿t há»£p tÆ° váº¥n trá»±c tuyáº¿n; AI chá»‰ há»— trá»£ thÃ´ng tin, tÃ³m táº¯t hoáº·c truy xuáº¥t tÃ i liá»‡u, khÃ´ng Ä‘Æ°a ra cháº©n Ä‘oÃ¡n.
+Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh trong quá trình phát triển. Hệ thống phục vụ theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa kết hợp tư vấn trực tuyến; AI chỉ hỗ trợ thông tin, tóm tắt hoặc truy xuất tài liệu, không đưa ra chẩn đoán.
 
-## KhÃ¡i niá»‡m chÃ­nh
+## Khái niệm chính
 
-- AvailabilitySlot lÃ  khoáº£ng thá»i gian bÃ¡c sÄ© má»Ÿ cho bá»‡nh nhÃ¢n Ä‘áº·t lá»‹ch.
-- Consultation lÃ  má»™t yÃªu cáº§u hoáº·c má»™t lá»‹ch tÆ° váº¥n giá»¯a bá»‡nh nhÃ¢n vÃ  bÃ¡c sÄ©.
-- On-demand lÃ  bá»‡nh nhÃ¢n gá»­i yÃªu cáº§u tÆ° váº¥n nhanh; bÃ¡c sÄ© quyáº¿t Ä‘á»‹nh cháº¥p nháº­n hoáº·c tá»« chá»‘i.
-- Scheduled lÃ  bá»‡nh nhÃ¢n chá»§ Ä‘á»™ng chá»n slot bÃ¡c sÄ© Ä‘Ã£ má»Ÿ.
-- Request status thá»ƒ hiá»‡n káº¿t quáº£ xá»­ lÃ½ yÃªu cáº§u hoáº·c quyá»n truy cáº­p tÆ° váº¥n.
-- Session status thá»ƒ hiá»‡n tráº¡ng thÃ¡i thá»±c táº¿ cá»§a phiÃªn tÆ° váº¥n.
-- Care Program lÃ  chÆ°Æ¡ng trÃ¬nh theo dÃµi cÃ³ thá»i háº¡n, loáº¡i chá»‰ sá»‘, lá»‹ch Ä‘o vÃ  bá»™ rule cÃ³ version.
-- Care Enrollment lÃ  quan há»‡ Patient tham gia Care Program vÃ  Doctor Ä‘Æ°á»£c phÃ¢n cÃ´ng theo dÃµi.
-- Monitoring Task lÃ  nhiá»‡m vá»¥ Ä‘o chá»‰ sá»‘ theo lá»‹ch; completion/adherence chá»‰ pháº£n Ã¡nh hoáº¡t Ä‘á»™ng theo dÃµi.
-- Care Evaluation lÃ  káº¿t quáº£ deterministic cá»§a rule engine; Care Alert lÃ  item cáº§n Patient/Doctor chÃº Ã½ vÃ  xá»­ lÃ½.
+- AvailabilitySlot là khoảng thời gian bác sĩ mở cho bệnh nhân đặt lịch.
+- Consultation là một yêu cầu hoặc một lịch tư vấn giữa bệnh nhân và bác sĩ.
+- On-demand là bệnh nhân gửi yêu cầu tư vấn nhanh; bác sĩ quyết định chấp nhận hoặc từ chối.
+- Scheduled là bệnh nhân chủ động chọn slot bác sĩ đã mở.
+- Request status thể hiện kết quả xử lý yêu cầu hoặc quyền truy cập tư vấn.
+- Session status thể hiện trạng thái thực tế của phiên tư vấn.
+- Care Program là chương trình theo dõi có thời hạn, loại chỉ số, lịch đo và bộ rule có version.
+- Care Enrollment là quan hệ Patient tham gia Care Program và Doctor được phân công theo dõi.
+- Monitoring Task là nhiệm vụ đo chỉ số theo lịch; completion/adherence chỉ phản ánh hoạt động theo dõi.
+- Care Evaluation là kết quả deterministic của rule engine; Care Alert là item cần Patient/Doctor chú ý và xử lý.
 
-## Care Program vÃ  enrollment
+## Care Program và enrollment
 
-1. MVP cam káº¿t cáº£ Care Program tÄƒng huyáº¿t Ã¡p vÃ  tiá»ƒu Ä‘Æ°á»ng; hai chÆ°Æ¡ng trÃ¬nh pháº£i dÃ¹ng chung domain model/rule engine.
-2. Chá»‰ Patient active má»›i Ä‘Æ°á»£c enroll. Chá»‰ Admin cÃ³ `program-management permission` Ä‘Æ°á»£c táº¡o/chá»‰nh draft Program Template; chá»‰ Doctor `active + approved` Ä‘Æ°á»£c khá»Ÿi táº¡o enrollment cho Patient.
-3. Patient pháº£i xÃ¡c nháº­n consent vÃ  má»¥c Ä‘Ã­ch sá»­ dá»¥ng dá»¯ liá»‡u trÆ°á»›c khi enrollment chuyá»ƒn `active`; consent lÆ°u version vÃ  timestamp.
-4. Enrollment cÃ³ tráº¡ng thÃ¡i `pending`, `active`, `paused`, `completed`, `cancelled`. Chá»‰ enrollment `active` sinh Monitoring Task vÃ  Care Evaluation má»›i.
-5. Má»—i enrollment pháº£i tham chiáº¿u Ä‘Ãºng má»™t Care Program version vÃ  báº¯t buá»™c cÃ³ má»™t Doctor `active + approved` phá»¥ trÃ¡ch trÆ°á»›c khi chuyá»ƒn active.
-6. Cáº­p nháº­t template/rule set khÃ´ng Ä‘Æ°á»£c Ã¢m tháº§m Ä‘á»•i lá»‹ch sá»­. Enrollment Ä‘ang cháº¡y chá»‰ chuyá»ƒn version theo thao tÃ¡c cÃ³ audit vÃ  effective time rÃµ rÃ ng.
-7. Patient cÃ³ thá»ƒ yÃªu cáº§u dá»«ng chÆ°Æ¡ng trÃ¬nh; dá»¯ liá»‡u lá»‹ch sá»­ Ä‘Æ°á»£c giá»¯ theo chÃ­nh sÃ¡ch retention/audit, khÃ´ng xÃ³a cá»©ng cÃ¹ng enrollment.
-8. Care Program khÃ´ng táº¡o quan há»‡ cáº¥p cá»©u 24/7 vÃ  giao diá»‡n pháº£i nÃªu rÃµ thá»i gian/pháº¡m vi pháº£n há»“i cá»§a Doctor.
-9. Program version Ä‘Ã£ publish lÃ  báº¥t biáº¿n; chá»‰nh sá»­a táº¡o draft/version má»›i. Chá»‰ version published/active má»›i Ä‘Æ°á»£c dÃ¹ng cho enrollment má»›i.
-10. Baseline, eligibility, consent, task templates, reminder, rule set, review policy, content journey vÃ  completion criteria pháº£i Ä‘Æ°á»£c snapshot hoáº·c tham chiáº¿u version á»•n Ä‘á»‹nh khi enrollment kÃ­ch hoáº¡t. Trong DA2, `taskTemplates` Ä‘Æ°á»£c nhÃºng trong tá»«ng phiÃªn báº£n `CarePrograms`; nhiá»‡m vá»¥ Ä‘Ã£ sinh Ä‘Æ°á»£c lÆ°u riÃªng trong `CareTasks`.
-11. Doctor chá»‰ Ä‘Æ°á»£c tÃ¹y chá»‰nh cÃ¡c field Ä‘Æ°á»£c Program Template allowlist. Thay Ä‘á»•i patient-specific threshold hoáº·c review cadence pháº£i cÃ³ quyá»n, lÃ½ do vÃ  audit.
-12. Admin quáº£n lÃ½ lifecycle/version/publish/retire cá»§a Program Template vÃ  táº¡o/sá»­a/retire Rule draft qua `rule-management permission`; má»i Doctor `active + approved` cÃ³ thá»ƒ activate Rule mÃ  khÃ´ng cáº§n permission/approval riÃªng. Activate tá»± retire Rule active cÅ© cá»§a cÃ¹ng Program version trong má»™t thao tÃ¡c audit.
-13. Rule activation báº¯t buá»™c qua server validation cho declarative schema, operator allowlist, Program version vÃ  audit. Nguá»“n/cÄƒn cá»©, simulation/test evidence lÃ  metadata tÃ¹y chá»n trong DA2, khÃ´ng pháº£i activation gate; AI váº«n khÃ´ng Ä‘Æ°á»£c tá»± phÃ¡t hÃ nh Rule khi khÃ´ng cÃ³ Admin/Doctor actor.
-14. Doctor assignment báº¯t buá»™c á»Ÿ má»i tier Ä‘á»ƒ xÃ¡c Ä‘á»‹nh ownership vÃ  authorization; khÃ´ng máº·c Ä‘á»‹nh táº¡o nghÄ©a vá»¥ review Ä‘á»‹nh ká»³, SLA hoáº·c chat 24/7. CÃ¡c quyá»n Ä‘Ã³ chá»‰ cÃ³ khi Plan/Enrollment snapshot ghi rÃµ.
-15. `pending -> active` chá»‰ xáº£y ra tá»± Ä‘á»™ng khi Ä‘á»“ng thá»i cÃ³ Doctor `active + approved`, Program `published`, Care Rule `active`, entitlement há»£p lá»‡, Patient Ä‘Ã£ cháº¥p nháº­n Ä‘Ãºng consent version vÃ  hoÃ n thÃ nh toÃ n bá»™ baseline báº¯t buá»™c. Thiáº¿u má»™t Ä‘iá»u kiá»‡n thÃ¬ enrollment váº«n `pending` vÃ  khÃ´ng sinh task/evaluation.
-16. Assigned Doctor Ä‘Æ°á»£c chuyá»ƒn `active -> paused` vÃ  `paused -> active` vá»›i lÃ½ do. Patient cÃ³ thá»ƒ gá»­i yÃªu cáº§u pause; Doctor pháº£i xá»­ lÃ½ yÃªu cáº§u trÆ°á»›c khi resume. Resume pháº£i kiá»ƒm tra láº¡i Doctor, Program/Rule, consent vÃ  entitlement.
-17. Assigned Doctor hoáº·c worker completion Ä‘Æ°á»£c duyá»‡t cÃ³ thá»ƒ chuyá»ƒn `active|paused -> completed` khi Ä‘áº¡t completion criteria; pháº£i lÆ°u actor/reason. Patient rÃºt consent lÃ m enrollment chÆ°a káº¿t thÃºc chuyá»ƒn `cancelled` ngay; chá»‰ Assigned Doctor Ä‘Æ°á»£c cancel vá»›i lÃ½ do.
-18. `completed` vÃ  `cancelled` lÃ  tráº¡ng thÃ¡i cuá»‘i, khÃ´ng reopen. Náº¿u Patient tiáº¿p tá»¥c chÆ°Æ¡ng trÃ¬nh, Doctor táº¡o enrollment má»›i Ä‘á»ƒ giá»¯ nguyÃªn lá»‹ch sá»­ vÃ  snapshot cÅ©.
+1. MVP cam kết cả Care Program tăng huyết áp và tiểu đường; hai chương trình phải dùng chung domain model/rule engine.
+2. Chỉ Patient active mới được enroll. Chỉ Admin có `program-management permission` được tạo/chỉnh draft Program Template; chỉ Doctor `active + approved` được khởi tạo enrollment cho Patient.
+3. Patient phải xác nhận consent và mục đích sử dụng dữ liệu trước khi enrollment chuyển `active`; consent lưu version và timestamp.
+4. Enrollment có trạng thái `pending`, `active`, `paused`, `completed`, `cancelled`. Chỉ enrollment `active` sinh Monitoring Task và Care Evaluation mới.
+5. Mỗi enrollment phải tham chiếu đúng một Care Program version và bắt buộc có một Doctor `active + approved` phụ trách trước khi chuyển active.
+6. Cập nhật template/rule set không được âm thầm đổi lịch sử. Enrollment đang chạy chỉ chuyển version theo thao tác có audit và effective time rõ ràng.
+7. Patient có thể yêu cầu dừng chương trình; dữ liệu lịch sử được giữ theo chính sách retention/audit, không xóa cứng cùng enrollment.
+8. Care Program không tạo quan hệ cấp cứu 24/7 và giao diện phải nêu rõ thời gian/phạm vi phản hồi của Doctor.
+9. Program version đã publish là bất biến; chỉnh sửa tạo draft/version mới. Chỉ version published/active mới được dùng cho enrollment mới.
+10. Baseline, eligibility, consent, task templates, reminder, rule set, review policy, content journey và completion criteria phải được snapshot hoặc tham chiếu version ổn định khi enrollment kích hoạt. Trong DA2, `taskTemplates` được nhúng trong từng phiên bản `CarePrograms`; nhiệm vụ đã sinh được lưu riêng trong `CareTasks`.
+11. Doctor chỉ được tùy chỉnh các field được Program Template allowlist. Thay đổi patient-specific threshold hoặc review cadence phải có quyền, lý do và audit.
+12. Admin quản lý lifecycle/version/publish/retire của Program Template và tạo/sửa/retire Rule draft qua `rule-management permission`; mọi Doctor `active + approved` có thể activate Rule mà không cần permission/approval riêng. Activate tự retire Rule active cũ của cùng Program version trong một thao tác audit.
+13. Rule activation bắt buộc qua server validation cho declarative schema, operator allowlist, Program version và audit. Nguồn/căn cứ, simulation/test evidence là metadata tùy chọn trong DA2, không phải activation gate; AI vẫn không được tự phát hành Rule khi không có Admin/Doctor actor.
+14. Doctor assignment bắt buộc ở mọi tier để xác định ownership và authorization; không mặc định tạo nghĩa vụ review định kỳ, SLA hoặc chat 24/7. Các quyền đó chỉ có khi Plan/Enrollment snapshot ghi rõ.
+15. `pending -> active` chỉ xảy ra tự động khi đồng thời có Doctor `active + approved`, Program `published`, Care Rule `active`, entitlement hợp lệ, Patient đã chấp nhận đúng consent version và hoàn thành toàn bộ baseline bắt buộc. Thiếu một điều kiện thì enrollment vẫn `pending` và không sinh task/evaluation.
+16. Assigned Doctor được chuyển `active -> paused` và `paused -> active` với lý do. Patient có thể gửi yêu cầu pause; Doctor phải xử lý yêu cầu trước khi resume. Resume phải kiểm tra lại Doctor, Program/Rule, consent và entitlement.
+17. Assigned Doctor hoặc worker completion được duyệt có thể chuyển `active|paused -> completed` khi đạt completion criteria; phải lưu actor/reason. Patient rút consent làm enrollment chưa kết thúc chuyển `cancelled` ngay; chỉ Assigned Doctor được cancel với lý do.
+18. `completed` và `cancelled` là trạng thái cuối, không reopen. Nếu Patient tiếp tục chương trình, Doctor tạo enrollment mới để giữ nguyên lịch sử và snapshot cũ.
 
-## Monitoring Task vÃ  má»©c Ä‘á»™ hoÃ n thÃ nh
+## Monitoring Task và mức độ hoàn thành
 
-1. Monitoring Task Ä‘Æ°á»£c sinh tá»« schedule, timezone vÃ  version cá»§a Care Program; worker táº¡o task pháº£i idempotent.
-2. Task type P0 gá»“m `metric`, `check_in`, `education`, `appointment`, `doctor_review`; `medication` vÃ  `journal` chá»‰ báº­t khi feature tÆ°Æ¡ng á»©ng hoÃ n táº¥t.
-3. Má»—i task template pháº£i cÃ³ type, schedule, time window, completion rule, reminder policy, required/optional vÃ  version. LLM khÃ´ng Ä‘Æ°á»£c tá»± Ä‘Ã¡nh dáº¥u task hoÃ n thÃ nh.
-4. Vá»›i task `metric`, HealthMetrics lÃ  source of truth; task chá»‰ tham chiáº¿u metric dÃ¹ng Ä‘á»ƒ hoÃ n thÃ nh, khÃ´ng nhÃ¢n báº£n raw health value.
-5. Má»™t HealthMetric chá»‰ hoÃ n thÃ nh task `metric` khi Ä‘Ãºng Patient, metric type vÃ  cá»­a sá»• thá»i gian cho phÃ©p. Task type khÃ¡c dÃ¹ng response/progress/Consultation/DoctorReview canonical tÆ°Æ¡ng á»©ng.
-6. Task cÃ³ tráº¡ng thÃ¡i `scheduled`, `due`, `completed`, `missed`, `cancelled`; task cá»§a enrollment paused/cancelled khÃ´ng tiáº¿p tá»¥c nháº¯c.
-7. Monitoring adherence báº±ng sá»‘ task Patient-required Ä‘Ã£ completed chia sá»‘ task Patient-required Ä‘áº¿n háº¡n há»£p lá»‡; `doctor_review` khÃ´ng tÃ­nh vÃ o adherence cá»§a Patient.
-8. Adherence chá»‰ pháº£n Ã¡nh hoáº¡t Ä‘á»™ng theo dÃµi, khÃ´ng Ä‘Æ°á»£c mÃ´ táº£ lÃ  tuÃ¢n thá»§ Ä‘iá»u trá»‹ hoáº·c uá»‘ng thuá»‘c trá»« khi medication module Ä‘Æ°á»£c Ä‘á»‹nh nghÄ©a riÃªng.
-9. Sá»­a/xÃ³a dá»¯ liá»‡u nguá»“n pháº£i táº¡o báº£n ghi HealthMetric thay tháº¿ hoáº·c chuyá»ƒn báº£n ghi cÅ© sang `voided`, ghi `AuditLogs` vá»›i `domain = health`, sau Ä‘Ã³ kÃ­ch hoáº¡t Ä‘Ã¡nh giÃ¡ láº¡i vÃ  táº¡o phiÃªn báº£n task/report/summary liÃªn quan; khÃ´ng ghi Ä‘Ã¨ Ã¢m tháº§m giÃ¡ trá»‹ Ä‘Ã£ Ä‘o.
-10. Má»i thá»i gian lÆ°u UTC; viá»‡c xÃ¡c Ä‘á»‹nh ngÃ y vÃ  cá»­a sá»• task dÃ¹ng timezone snapshot cá»§a enrollment.
-11. Worker chá»‰ materialize task trong rolling window cáº¥u hÃ¬nh; khÃ´ng táº¡o toÃ n bá»™ task dÃ i háº¡n ngay khi enroll náº¿u gÃ¢y write amplification.
-12. Quiet hours, giá»›i háº¡n táº§n suáº¥t vÃ  tráº¡ng thÃ¡i hoÃ n thÃ nh pháº£i Ä‘Æ°á»£c kiá»ƒm tra trÆ°á»›c khi gá»­i reminder Ä‘á»ƒ trÃ¡nh notification fatigue.
-13. Worker chuyá»ƒn `scheduled -> due` táº¡i `windowStart`; nguá»“n hoÃ n thÃ nh há»£p lá»‡ chuyá»ƒn `scheduled|due -> completed`; quÃ¡ `windowEnd` chuyá»ƒn `due -> missed`. Enrollment bá»‹ pause/cancel hoáº·c task khÃ´ng cÃ²n Ã¡p dá»¥ng cÃ³ thá»ƒ chuyá»ƒn `scheduled|due -> cancelled` vá»›i reason.
-14. `completed`, `missed`, `cancelled` lÃ  tráº¡ng thÃ¡i cuá»‘i trong DA2. Dá»¯ liá»‡u nháº­p sau háº¡n váº«n Ä‘Æ°á»£c lÆ°u, hiá»ƒn thá»‹ trong biá»ƒu Ä‘á»“ vÃ  cÃ³ thá»ƒ táº¡o evaluation má»›i nhÆ°ng khÃ´ng Ä‘á»•i task `missed` thÃ nh completed vÃ  khÃ´ng há»“i tá»‘ adherence cá»§a cá»­a sá»• cÅ©.
-15. HealthMetric correction dÃ¹ng append-only replacement/void. Náº¿u cÃ³ metric thay tháº¿ há»£p lá»‡, task Ä‘Ã£ completed cÃ³ thá»ƒ Ä‘á»•i `completionSourceId` trong transaction vÃ  ghi audit; khÃ´ng Ä‘áº£o ngÆ°á»£c tráº¡ng thÃ¡i task. Evaluation/report/summary bá»‹ áº£nh hÆ°á»Ÿng pháº£i Ä‘Æ°á»£c táº¡o version thay tháº¿, khÃ´ng ghi Ä‘Ã¨ lá»‹ch sá»­.
+1. Monitoring Task được sinh từ schedule, timezone và version của Care Program; worker tạo task phải idempotent.
+2. Task type P0 gồm `metric`, `check_in`, `education`, `appointment`, `doctor_review`; `medication` và `journal` chỉ bật khi feature tương ứng hoàn tất.
+3. Mỗi task template phải có type, schedule, time window, completion rule, reminder policy, required/optional và version. LLM không được tự đánh dấu task hoàn thành.
+4. Với task `metric`, HealthMetrics là source of truth; task chỉ tham chiếu metric dùng để hoàn thành, không nhân bản raw health value.
+5. Một HealthMetric chỉ hoàn thành task `metric` khi đúng Patient, metric type và cửa sổ thời gian cho phép. Task type khác dùng response/progress/Consultation/DoctorReview canonical tương ứng.
+6. Task có trạng thái `scheduled`, `due`, `completed`, `missed`, `cancelled`; task của enrollment paused/cancelled không tiếp tục nhắc.
+7. Monitoring adherence bằng số task Patient-required đã completed chia số task Patient-required đến hạn hợp lệ; `doctor_review` không tính vào adherence của Patient.
+8. Adherence chỉ phản ánh hoạt động theo dõi, không được mô tả là tuân thủ điều trị hoặc uống thuốc trừ khi medication module được định nghĩa riêng.
+9. Sửa/xóa dữ liệu nguồn phải tạo bản ghi HealthMetric thay thế hoặc chuyển bản ghi cũ sang `voided`, ghi `AuditLogs` với `domain = health`, sau đó kích hoạt đánh giá lại và tạo phiên bản task/report/summary liên quan; không ghi đè âm thầm giá trị đã đo.
+10. Mọi thời gian lưu UTC; việc xác định ngày và cửa sổ task dùng timezone snapshot của enrollment.
+11. Worker chỉ materialize task trong rolling window cấu hình; không tạo toàn bộ task dài hạn ngay khi enroll nếu gây write amplification.
+12. Quiet hours, giới hạn tần suất và trạng thái hoàn thành phải được kiểm tra trước khi gửi reminder để tránh notification fatigue.
+13. Worker chuyển `scheduled -> due` tại `windowStart`; nguồn hoàn thành hợp lệ chuyển `scheduled|due -> completed`; quá `windowEnd` chuyển `due -> missed`. Enrollment bị pause/cancel hoặc task không còn áp dụng có thể chuyển `scheduled|due -> cancelled` với reason.
+14. `completed`, `missed`, `cancelled` là trạng thái cuối trong DA2. Dữ liệu nhập sau hạn vẫn được lưu, hiển thị trong biểu đồ và có thể tạo evaluation mới nhưng không đổi task `missed` thành completed và không hồi tố adherence của cửa sổ cũ.
+15. HealthMetric correction dùng append-only replacement/void. Nếu có metric thay thế hợp lệ, task đã completed có thể đổi `completionSourceId` trong transaction và ghi audit; không đảo ngược trạng thái task. Evaluation/report/summary bị ảnh hưởng phải được tạo version thay thế, không ghi đè lịch sử.
 
-## NgÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh vÃ  nháº¯c nhá»Ÿ há»— trá»£ (P1)
+## Người thân đồng hành và nhắc nhở hỗ trợ (P1)
 
-1. NgÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh pháº£i Ä‘Äƒng kÃ½ tÃ i khoáº£n cÃ³ role `Patient` bÃ¬nh thÆ°á»ng vÃ  dÃ¹ng cÆ¡ cháº¿ Ä‘Äƒng nháº­p sáºµn cÃ³; há»‡ thá»‘ng khÃ´ng táº¡o role `family`. Viá»‡c lÃ  ngÆ°á»i thÃ¢n khÃ´ng cáº¥p quyá»n y táº¿ hoáº·c quyá»n xem dá»¯ liá»‡u cá»§a Patient khÃ¡c.
-2. Má»™t Patient cÃ³ thá»ƒ má»i nhiá»u ngÆ°á»i thÃ¢n nhÆ°ng sá»‘ liÃªn káº¿t `active` khÃ´ng Ä‘Æ°á»£c vÆ°á»£t `familyLinkLimit` trong Plan/Subscription snapshot. Patient chá»‰ Ä‘Æ°á»£c má»i tÃ i khoáº£n active khÃ¡c chÃ­nh mÃ¬nh; ngÆ°á»i thÃ¢n pháº£i Ä‘Äƒng nháº­p vÃ  xÃ¡c nháº­n liÃªn káº¿t trÆ°á»›c khi nháº­n notification.
-3. Consent pháº£i tÃ¡ch báº¡ch tá»‘i thiá»ƒu hai quyá»n: `missed_task_reminder` vÃ  `weekly_progress`. CÃ¡c quyá»n xem HealthMetrics chi tiáº¿t, Care Alert, AI conversation, consultation, há»“ sÆ¡ hoáº·c dá»¯ liá»‡u y táº¿ nháº¡y cáº£m Ä‘á»u máº·c Ä‘á»‹nh `false` vÃ  ngoÃ i P1.
-4. Patient luÃ´n nháº­n reminder trÆ°á»›c. Contact chá»‰ nháº­n reminder khi task Patient-required Ä‘Ã£ `missed`, enrollment cÃ²n `active`, contact Ä‘Ã£ consent vÃ  qua má»™t grace period cáº¥u hÃ¬nh. Notification chá»‰ nÃ³i Patient cÃ³ má»™t hoáº¡t Ä‘á»™ng theo dÃµi chÆ°a hoÃ n thÃ nh; khÃ´ng chá»©a metric, severity, diagnosis, Doctor name, AI content hay lÃ½ do alert.
-5. `urgent` khÃ´ng tá»± gá»­i cho contact vÃ  khÃ´ng biáº¿n contact thÃ nh emergency contact. Patient chá»‰ cÃ³ thá»ƒ báº­t má»™t consent riÃªng cho notification `urgent` sau khi Ä‘á»c cáº£nh bÃ¡o; ná»™i dung gá»­i váº«n khÃ´ng nÃªu chi tiáº¿t y khoa vÃ  pháº£i theo safety policy Ä‘Ã£ duyá»‡t.
-6. `pending -> active` chá»‰ khi Ä‘Ãºng ngÆ°á»i Ä‘Æ°á»£c má»i accept trÆ°á»›c `invitationExpiresAt`; ngÆ°á»i Ä‘Æ°á»£c má»i cÃ³ thá»ƒ chuyá»ƒn `pending -> declined`, worker chuyá»ƒn invitation quÃ¡ háº¡n sang `expired`, Patient cÃ³ thá»ƒ há»§y invitation thÃ nh `revoked`.
-7. Patient Ä‘Æ°á»£c chuyá»ƒn `active -> paused` vÃ  `paused -> active`. Patient hoáº·c ngÆ°á»i thÃ¢n cÃ³ thá»ƒ chuyá»ƒn `active|paused -> revoked`; revoke cÃ³ hiá»‡u lá»±c ngay cho notification/query má»›i nhÆ°ng khÃ´ng Ä‘Äƒng xuáº¥t hay vÃ´ hiá»‡u hÃ³a tÃ i khoáº£n Patient Ä‘á»™c láº­p cá»§a ngÆ°á»i thÃ¢n.
-8. Khi má»i láº¡i cÃ¹ng cáº·p Patientâ€“ngÆ°á»i thÃ¢n á»Ÿ tráº¡ng thÃ¡i `revoked|declined|expired`, há»‡ thá»‘ng tÃ¡i sá»­ dá»¥ng `FamilyLinks`, tÄƒng `invitationVersion`, reset dá»¯ liá»‡u vÃ²ng má»i hiá»‡n táº¡i vÃ  chuyá»ƒn vá» `pending`. Má»i FamilyPermission cÅ© váº«n revoked; khi accept pháº£i táº¡o permission/consent version má»›i. Lá»‹ch sá»­ cÃ¡c láº§n má»i náº±m trong `AuditLogs`.
-9. Invitation, acceptance/decline/expiry, consent version, pause/resume, thay Ä‘á»•i scope, reminder event, delivery result, revoke vÃ  actor pháº£i Ä‘Æ°á»£c ghi trong `AuditLogs` vá»›i `domain = care` vÃ  cÃ¡c báº£n ghi `FamilyReminders` liÃªn quan. NgÆ°á»i thÃ¢n khÃ´ng Ä‘Æ°á»£c xem danh sÃ¡ch Doctor hoáº·c lá»‹ch sá»­ alert chá»‰ vÃ¬ Ä‘Æ°á»£c liÃªn káº¿t.
-10. Reminder cho contact tuÃ¢n thá»§ quiet hours, frequency cap vÃ  deduplication Ä‘á»™c láº­p vá»›i notification cá»§a Patient. KhÃ´ng gá»­i reminder náº¿u task Ä‘Ã£ hoÃ n thÃ nh, bá»‹ há»§y hoáº·c enrollment khÃ´ng cÃ²n active.
-11. `FamilyLinks` Ä‘Ã£ biá»ƒu diá»…n quan há»‡ nhiá»u-nhiá»u giá»¯a cÃ¡c tÃ i khoáº£n nÃªn DA2 khÃ´ng táº¡o `FamilyGroups`. Chá»‰ thÃªm group khi cÃ³ nghiá»‡p vá»¥ tháº­t sá»± nhÆ° há»™ gia Ä‘Ã¬nh dÃ¹ng chung, vai trÃ² trÆ°á»Ÿng nhÃ³m hoáº·c há»™i thoáº¡i nhÃ³m.
+1. Người thân đồng hành phải đăng ký tài khoản có role `Patient` bình thường và dùng cơ chế đăng nhập sẵn có; hệ thống không tạo role `family`. Việc là người thân không cấp quyền y tế hoặc quyền xem dữ liệu của Patient khác.
+2. Một Patient có thể mời nhiều người thân nhưng số liên kết `active` không được vượt `familyLinkLimit` trong Plan/Subscription snapshot. Patient chỉ được mời tài khoản active khác chính mình; người thân phải đăng nhập và xác nhận liên kết trước khi nhận notification.
+3. Consent phải tách bạch tối thiểu hai quyền: `missed_task_reminder` và `weekly_progress`. Các quyền xem HealthMetrics chi tiết, Care Alert, AI conversation, consultation, hồ sơ hoặc dữ liệu y tế nhạy cảm đều mặc định `false` và ngoài P1.
+4. Patient luôn nhận reminder trước. Contact chỉ nhận reminder khi task Patient-required đã `missed`, enrollment còn `active`, contact đã consent và qua một grace period cấu hình. Notification chỉ nói Patient có một hoạt động theo dõi chưa hoàn thành; không chứa metric, severity, diagnosis, Doctor name, AI content hay lý do alert.
+5. `urgent` không tự gửi cho contact và không biến contact thành emergency contact. Patient chỉ có thể bật một consent riêng cho notification `urgent` sau khi đọc cảnh báo; nội dung gửi vẫn không nêu chi tiết y khoa và phải theo safety policy đã duyệt.
+6. `pending -> active` chỉ khi đúng người được mời accept trước `invitationExpiresAt`; người được mời có thể chuyển `pending -> declined`, worker chuyển invitation quá hạn sang `expired`, Patient có thể hủy invitation thành `revoked`.
+7. Patient được chuyển `active -> paused` và `paused -> active`. Patient hoặc người thân có thể chuyển `active|paused -> revoked`; revoke có hiệu lực ngay cho notification/query mới nhưng không đăng xuất hay vô hiệu hóa tài khoản Patient độc lập của người thân.
+8. Khi mời lại cùng cặp Patient–người thân ở trạng thái `revoked|declined|expired`, hệ thống tái sử dụng `FamilyLinks`, tăng `invitationVersion`, reset dữ liệu vòng mời hiện tại và chuyển về `pending`. Mọi FamilyPermission cũ vẫn revoked; khi accept phải tạo permission/consent version mới. Lịch sử các lần mời nằm trong `AuditLogs`.
+9. Invitation, acceptance/decline/expiry, consent version, pause/resume, thay đổi scope, reminder event, delivery result, revoke và actor phải được ghi trong `AuditLogs` với `domain = care` và các bản ghi `FamilyReminders` liên quan. Người thân không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được liên kết.
+10. Reminder cho contact tuân thủ quiet hours, frequency cap và deduplication độc lập với notification của Patient. Không gửi reminder nếu task đã hoàn thành, bị hủy hoặc enrollment không còn active.
+11. `FamilyLinks` đã biểu diễn quan hệ nhiều-nhiều giữa các tài khoản nên DA2 không tạo `FamilyGroups`. Chỉ thêm group khi có nghiệp vụ thật sự như hộ gia đình dùng chung, vai trò trưởng nhóm hoặc hội thoại nhóm.
 
-## Care rule, evaluation vÃ  alert
+## Care rule, evaluation và alert
 
-1. Rule set cÃ³ lifecycle `draft`, `active`, `retired`; chá»‰ version active Ã¡p dá»¥ng cho dá»¯ liá»‡u má»›i. Má»i Doctor `active + approved` cÃ³ thá»ƒ activate sau server validation; khÃ´ng cÃ³ bÆ°á»›c human approval riÃªng. Activate tá»± retire version active cÅ© cá»§a cÃ¹ng Program version.
-2. Rule engine pháº£i deterministic vÃ  tráº£ vá» `normal`, `attention` hoáº·c `urgent` cÃ¹ng `reasonCodes`, `ruleSetVersion` vÃ  input references.
-3. Rule cÃ³ thá»ƒ dÃ¹ng giÃ¡ trá»‹ hiá»‡n táº¡i, sá»‘ láº§n láº·p, xu hÆ°á»›ng ngáº¯n háº¡n hoáº·c dá»¯ liá»‡u bá»‹ thiáº¿u; khÃ´ng Ä‘Æ°á»£c tráº£ vá» cháº©n Ä‘oÃ¡n/tÃªn bá»‡nh má»›i.
-4. NgÆ°á»¡ng vÃ  ná»™i dung hÃ nh Ä‘á»™ng khÃ´ng hard-code ráº£i rÃ¡c trong service. Má»i thay Ä‘á»•i pháº£i cÃ³ actor, lÃ½ do, version vÃ  audit log.
-5. AI/LLM khÃ´ng Ä‘Æ°á»£c táº¡o, nÃ¢ng/háº¡ severity hoáº·c ghi Ä‘Ã¨ káº¿t quáº£ Care Evaluation.
-6. Evaluation `urgent` dÃ¹ng safety template Ä‘Ã£ duyá»‡t Ä‘á»ƒ hÆ°á»›ng Patient liÃªn há»‡ cÆ¡ sá»Ÿ y táº¿/cáº¥p cá»©u phÃ¹ há»£p; khÃ´ng chá» AI vÃ  khÃ´ng cam káº¿t Doctor pháº£n há»“i tá»©c thá»i.
-7. Care Alert pháº£i cÃ³ deduplication key theo enrollment, rule vÃ  evaluation window Ä‘á»ƒ retry khÃ´ng táº¡o cáº£nh bÃ¡o trÃ¹ng.
-8. Alert cÃ³ tráº¡ng thÃ¡i `open`, `acknowledged`, `resolved`, `dismissed`; acknowledge khÃ´ng Ä‘á»“ng nghÄ©a Ä‘Ã£ giáº£i quyáº¿t hoáº·c Ä‘Ã£ liÃªn há»‡ Patient.
-9. Chá»‰ Doctor Ä‘Æ°á»£c phÃ¢n cÃ´ng, Patient sá»Ÿ há»¯u dá»¯ liá»‡u vÃ  Admin cÃ³ quyá»n audit má»›i xem alert theo pháº¡m vi tÆ°Æ¡ng á»©ng.
-10. Resolve/dismiss pháº£i lÆ°u actor, timestamp vÃ  lÃ½ do; alert quan trá»ng khÃ´ng Ä‘Æ°á»£c hard-delete.
-11. Assigned Doctor cÃ³ thá»ƒ chuyá»ƒn `open -> acknowledged -> resolved` hoáº·c `open -> resolved`. Khi resolve trá»±c tiáº¿p tá»« `open`, backend pháº£i ghi acknowledge vÃ  resolve cÃ¹ng actor/time trong má»™t transaction Ä‘á»ƒ khÃ´ng máº¥t dáº¥u Ä‘Ã£ tiáº¿p nháº­n.
-12. Assigned Doctor Ä‘Æ°á»£c chuyá»ƒn `open|acknowledged -> dismissed` chá»‰ vá»›i reason code Ä‘Æ°á»£c phÃ©p nhÆ° `duplicate`, `invalid_metric`, `rule_false_positive`. Admin cÃ³ quyá»n audit nhÆ°ng khÃ´ng thay Doctor Ä‘Æ°a ra clinical disposition.
-13. `resolved` vÃ  `dismissed` lÃ  tráº¡ng thÃ¡i cuá»‘i, khÃ´ng reopen. Evaluation trong cÃ¹ng deduplication window pháº£i dÃ¹ng láº¡i alert `open|acknowledged`; evaluation á»Ÿ window má»›i hoáº·c sau khi alert cÅ© káº¿t thÃºc táº¡o alert má»›i.
+1. Rule set có lifecycle `draft`, `active`, `retired`; chỉ version active áp dụng cho dữ liệu mới. Mọi Doctor `active + approved` có thể activate sau server validation; không có bước human approval riêng. Activate tự retire version active cũ của cùng Program version.
+2. Rule engine phải deterministic và trả về `normal`, `attention` hoặc `urgent` cùng `reasonCodes`, `ruleSetVersion` và input references.
+3. Rule có thể dùng giá trị hiện tại, số lần lặp, xu hướng ngắn hạn hoặc dữ liệu bị thiếu; không được trả về chẩn đoán/tên bệnh mới.
+4. Ngưỡng và nội dung hành động không hard-code rải rác trong service. Mọi thay đổi phải có actor, lý do, version và audit log.
+5. AI/LLM không được tạo, nâng/hạ severity hoặc ghi đè kết quả Care Evaluation.
+6. Evaluation `urgent` dùng safety template đã duyệt để hướng Patient liên hệ cơ sở y tế/cấp cứu phù hợp; không chờ AI và không cam kết Doctor phản hồi tức thời.
+7. Care Alert phải có deduplication key theo enrollment, rule và evaluation window để retry không tạo cảnh báo trùng.
+8. Alert có trạng thái `open`, `acknowledged`, `resolved`, `dismissed`; acknowledge không đồng nghĩa đã giải quyết hoặc đã liên hệ Patient.
+9. Chỉ Doctor được phân công, Patient sở hữu dữ liệu và Admin có quyền audit mới xem alert theo phạm vi tương ứng.
+10. Resolve/dismiss phải lưu actor, timestamp và lý do; alert quan trọng không được hard-delete.
+11. Assigned Doctor có thể chuyển `open -> acknowledged -> resolved` hoặc `open -> resolved`. Khi resolve trực tiếp từ `open`, backend phải ghi acknowledge và resolve cùng actor/time trong một transaction để không mất dấu đã tiếp nhận.
+12. Assigned Doctor được chuyển `open|acknowledged -> dismissed` chỉ với reason code được phép như `duplicate`, `invalid_metric`, `rule_false_positive`. Admin có quyền audit nhưng không thay Doctor đưa ra clinical disposition.
+13. `resolved` và `dismissed` là trạng thái cuối, không reopen. Evaluation trong cùng deduplication window phải dùng lại alert `open|acknowledged`; evaluation ở window mới hoặc sau khi alert cũ kết thúc tạo alert mới.
 
-## TÃ¬m cÆ¡ sá»Ÿ y táº¿ theo nhu cáº§u theo dÃµi (P1)
+## Tìm cơ sở y tế theo nhu cầu theo dõi (P1)
 
-1. `MedicalFacilities` lÃ  danh má»¥c cÆ¡ sá»Ÿ y táº¿ do Admin quáº£n lÃ½. Má»—i báº£n ghi cÃ³ `status = verified` pháº£i cÃ³ tá»‘i thiá»ƒu tÃªn, loáº¡i cÆ¡ sá»Ÿ, Ä‘á»‹a chá»‰, tá»a Ä‘á»™, tá»‰nh/thÃ nh, kÃªnh liÃªn há»‡, danh sÃ¡ch chuyÃªn khoa/dá»‹ch vá»¥, nguá»“n xÃ¡c minh, `verifiedAt` hoáº·c `updatedAt` vÃ  nháº­t kÃ½ trong `AuditLogs` vá»›i `domain = facility`.
-2. `DiseaseSpecialties` Ã¡nh xáº¡ bá»‡nh/Care Program sang má»™t hoáº·c nhiá»u chuyÃªn khoa. Chá»‰ Admin cÃ³ quyá»n táº¡o, duyá»‡t, sá»­a hoáº·c ngá»«ng dÃ¹ng Ã¡nh xáº¡; má»i thay Ä‘á»•i pháº£i cÃ³ phiÃªn báº£n/nháº­t kÃ½ vÃ  khÃ´ng Ä‘Æ°á»£c coi lÃ  cháº©n Ä‘oÃ¡n hoáº·c hÆ°á»›ng dáº«n lÃ¢m sÃ ng.
-3. TÃ¬m kiáº¿m cáº§n condition/Program Ä‘Ã£ chá»n rÃµ rÃ ng hoáº·c specialty Ä‘Ã£ duyá»‡t, cÃ¹ng khu vá»±c hoáº·c vá»‹ trÃ­ do Patient chá»§ Ä‘á»™ng cung cáº¥p. Vá»‹ trÃ­ chÃ­nh xÃ¡c lÃ  dá»¯ liá»‡u nháº¡y cáº£m: chá»‰ dÃ¹ng cho truy váº¥n hiá»‡n táº¡i khi Patient cho phÃ©p, khÃ´ng lÆ°u lá»‹ch sá»­ máº·c Ä‘á»‹nh.
-4. Káº¿t quáº£ ná»™i bá»™ chá»‰ láº¥y `MedicalFacilities` Ä‘Ã£ xÃ¡c minh, lá»c chuyÃªn khoa/khu vá»±c rá»“i sáº¯p xáº¿p xÃ¡c Ä‘á»‹nh theo má»©c khá»›p chuyÃªn khoa vÃ  khoáº£ng cÃ¡ch. KhÃ´ng dÃ¹ng AI score, Ä‘Ã¡nh giÃ¡ sao, doanh thu hay phÃ­ quáº£ng cÃ¡o Ä‘á»ƒ thay Ä‘á»•i thá»© tá»± phÃ¹ há»£p y khoa.
-5. Má»—i káº¿t quáº£ pháº£i hiá»ƒn thá»‹ source, ngÃ y cáº­p nháº­t, specialty khá»›p vÃ  reason code dá»… hiá»ƒu. Há»‡ thá»‘ng khÃ´ng tuyÃªn bá»‘ â€œtá»‘t nháº¥tâ€, â€œphÃ¹ há»£p Ä‘iá»u trá»‹ nháº¥tâ€ hoáº·c báº£o Ä‘áº£m kháº£ nÄƒng tiáº¿p nháº­n/Ä‘áº·t lá»‹ch náº¿u khÃ´ng cÃ³ xÃ¡c nháº­n chÃ­nh thá»©c cá»§a cÆ¡ sá»Ÿ.
-6. Dá»‹ch vá»¥ báº£n Ä‘á»“ bÃªn ngoÃ i chá»‰ Ä‘Æ°á»£c gá»i khi danh má»¥c ná»™i bá»™ thiáº¿u káº¿t quáº£ hoáº·c Patient chá»§ Ä‘á»™ng má»Ÿ rá»™ng tÃ¬m kiáº¿m. Káº¿t quáº£ pháº£i gáº¯n nhÃ£n nguá»“n bÃªn ngoÃ i vÃ  tuÃ¢n thá»§ Ä‘iá»u khoáº£n ghi nguá»“n/lÆ°u dá»¯ liá»‡u cá»§a nhÃ  cung cáº¥p. Khi cáº§n bá»• sung danh má»¥c, Admin chá»n má»™t káº¿t quáº£ báº£n Ä‘á»“ Ä‘á»ƒ táº¡o `MedicalFacilities.status = draft`, kiá»ƒm tra nguá»“n chÃ­nh thá»©c rá»“i má»›i chuyá»ƒn sang `verified`; káº¿t quáº£ API khÃ´ng bao giá» tá»± Ä‘Æ°á»£c xÃ¡c minh.
-7. AI chá»‰ Ä‘Æ°á»£c chuáº©n hÃ³a vÄƒn báº£n tá»± nhiÃªn thÃ nh bá»™ lá»c condition/specialty/location trong allowlist vÃ  giáº£i thÃ­ch káº¿t quáº£ dá»±a trÃªn dá»¯ liá»‡u Ä‘Ã£ tráº£ vá». AI khÃ´ng suy luáº­n bá»‡nh, xáº¿p háº¡ng cháº¥t lÆ°á»£ng cÆ¡ sá»Ÿ, cháº©n Ä‘oÃ¡n hoáº·c xá»­ lÃ½ tÃ¬nh huá»‘ng `urgent`.
-8. Trong luá»“ng `urgent`, safety template luÃ´n hiá»ƒn thá»‹ trÆ°á»›c. TÃ¬m cÆ¡ sá»Ÿ y táº¿/chá»‰ Ä‘Æ°á»ng lÃ  tÃ¡c vá»¥ bá»• trá»£ vÃ  khÃ´ng Ä‘Æ°á»£c trÃ¬ hoÃ£n hÆ°á»›ng dáº«n liÃªn há»‡ cáº¥p cá»©u/cÆ¡ sá»Ÿ y táº¿ phÃ¹ há»£p.
-9. LiÃªn káº¿t Ä‘áº·t lá»‹ch chá»‰ xuáº¥t hiá»‡n khi cÆ¡ sá»Ÿ cÃ³ tÃ­ch há»£p chÃ­nh thá»©c hoáº·c Ä‘Æ°á»ng dáº«n Ä‘Ã£ Ä‘Æ°á»£c Admin xÃ¡c thá»±c. KhÃ´ng mÃ´ phá»ng cÃ²n chá»—, giÃ¡ hoáº·c xÃ¡c nháº­n lá»‹ch tá»« dá»¯ liá»‡u báº£n Ä‘á»“.
+1. `MedicalFacilities` là danh mục cơ sở y tế do Admin quản lý. Mỗi bản ghi có `status = verified` phải có tối thiểu tên, loại cơ sở, địa chỉ, tọa độ, tỉnh/thành, kênh liên hệ, danh sách chuyên khoa/dịch vụ, nguồn xác minh, `verifiedAt` hoặc `updatedAt` và nhật ký trong `AuditLogs` với `domain = facility`.
+2. `DiseaseSpecialties` ánh xạ bệnh/Care Program sang một hoặc nhiều chuyên khoa. Chỉ Admin có quyền tạo, duyệt, sửa hoặc ngừng dùng ánh xạ; mọi thay đổi phải có phiên bản/nhật ký và không được coi là chẩn đoán hoặc hướng dẫn lâm sàng.
+3. Tìm kiếm cần condition/Program đã chọn rõ ràng hoặc specialty đã duyệt, cùng khu vực hoặc vị trí do Patient chủ động cung cấp. Vị trí chính xác là dữ liệu nhạy cảm: chỉ dùng cho truy vấn hiện tại khi Patient cho phép, không lưu lịch sử mặc định.
+4. Kết quả nội bộ chỉ lấy `MedicalFacilities` đã xác minh, lọc chuyên khoa/khu vực rồi sắp xếp xác định theo mức khớp chuyên khoa và khoảng cách. Không dùng AI score, đánh giá sao, doanh thu hay phí quảng cáo để thay đổi thứ tự phù hợp y khoa.
+5. Mỗi kết quả phải hiển thị source, ngày cập nhật, specialty khớp và reason code dễ hiểu. Hệ thống không tuyên bố “tốt nhất”, “phù hợp điều trị nhất” hoặc bảo đảm khả năng tiếp nhận/đặt lịch nếu không có xác nhận chính thức của cơ sở.
+6. Dịch vụ bản đồ bên ngoài chỉ được gọi khi danh mục nội bộ thiếu kết quả hoặc Patient chủ động mở rộng tìm kiếm. Kết quả phải gắn nhãn nguồn bên ngoài và tuân thủ điều khoản ghi nguồn/lưu dữ liệu của nhà cung cấp. Khi cần bổ sung danh mục, Admin chọn một kết quả bản đồ để tạo `MedicalFacilities.status = draft`, kiểm tra nguồn chính thức rồi mới chuyển sang `verified`; kết quả API không bao giờ tự được xác minh.
+7. AI chỉ được chuẩn hóa văn bản tự nhiên thành bộ lọc condition/specialty/location trong allowlist và giải thích kết quả dựa trên dữ liệu đã trả về. AI không suy luận bệnh, xếp hạng chất lượng cơ sở, chẩn đoán hoặc xử lý tình huống `urgent`.
+8. Trong luồng `urgent`, safety template luôn hiển thị trước. Tìm cơ sở y tế/chỉ đường là tác vụ bổ trợ và không được trì hoãn hướng dẫn liên hệ cấp cứu/cơ sở y tế phù hợp.
+9. Liên kết đặt lịch chỉ xuất hiện khi cơ sở có tích hợp chính thức hoặc đường dẫn đã được Admin xác thực. Không mô phỏng còn chỗ, giá hoặc xác nhận lịch từ dữ liệu bản đồ.
 
-## Doctor Priority Inbox vÃ  follow-up
+## Doctor Priority Inbox và follow-up
 
-1. Priority Inbox lÃ  projection/query tá»« Care Alerts vÃ  enrollments, khÃ´ng pháº£i nguá»“n dá»¯ liá»‡u lÃ¢m sÃ ng má»›i.
-2. Thá»© tá»± máº·c Ä‘á»‹nh: severity, detectedAt vÃ  `_id` tie-breaker; AI score khÃ´ng tham gia quyáº¿t Ä‘á»‹nh thá»© tá»± P0.
-3. Má»i list pháº£i pagination, projection vÃ  hard limit; Doctor khÃ´ng Ä‘Æ°á»£c truy váº¥n Patient ngoÃ i assignment há»£p lá»‡.
-4. Doctor cÃ³ thá»ƒ acknowledge, ghi chÃº liÃªn há»‡, táº¡o/liÃªn káº¿t Consultation vÃ  resolve alert.
-5. Consultation liÃªn káº¿t alert váº«n pháº£i tuÃ¢n thá»§ Ä‘áº§y Ä‘á»§ booking, participant authorization vÃ  session state hiá»‡n cÃ³.
-6. Sau consultation, Doctor cÃ³ thá»ƒ ghi follow-up note hoáº·c thay Ä‘á»•i chÆ°Æ¡ng trÃ¬nh trong pháº¡m vi Ä‘Æ°á»£c cáº¥p quyá»n; há»‡ thá»‘ng pháº£i lÆ°u audit.
+1. Priority Inbox là projection/query từ Care Alerts và enrollments, không phải nguồn dữ liệu lâm sàng mới.
+2. Thứ tự mặc định: severity, detectedAt và `_id` tie-breaker; AI score không tham gia quyết định thứ tự P0.
+3. Mọi list phải pagination, projection và hard limit; Doctor không được truy vấn Patient ngoài assignment hợp lệ.
+4. Doctor có thể acknowledge, ghi chú liên hệ, tạo/liên kết Consultation và resolve alert.
+5. Consultation liên kết alert vẫn phải tuân thủ đầy đủ booking, participant authorization và session state hiện có.
+6. Sau consultation, Doctor có thể ghi follow-up note hoặc thay đổi chương trình trong phạm vi được cấp quyền; hệ thống phải lưu audit.
 
-## BÃ¡o cÃ¡o vÃ  AI summary Chronic Care
+## Báo cáo và AI summary Chronic Care
 
-1. BÃ¡o cÃ¡o 7/30 ngÃ y Ä‘Æ°á»£c tÃ­nh xÃ¡c Ä‘á»‹nh tá»« HealthMetrics, Monitoring Tasks, Care Alerts vÃ  Consultations trong pháº¡m vi Ä‘Æ°á»£c authorize.
-2. Backend tÃ­nh thá»‘ng kÃª, trend vÃ  adherence; LLM chá»‰ diá»…n Ä‘áº¡t tá»« payload chuáº©n hÃ³a, khÃ´ng tá»± tÃ­nh láº¡i hoáº·c bá»• sung dá»¯ kiá»‡n.
-3. Summary pháº£i lÆ°u window, data cutoff, model/prompt version, nguá»“n dá»¯ liá»‡u/provenance vÃ  tráº¡ng thÃ¡i generation.
-4. Náº¿u AI timeout, lá»—i hoáº·c evidence khÃ´ng Ä‘á»§, há»‡ thá»‘ng váº«n tráº£ bÃ¡o cÃ¡o sá»‘ liá»‡u vÃ  reason codes; narrative chuyá»ƒn `unavailable`.
-5. Patient summary dÃ¹ng ngÃ´n ngá»¯ tham kháº£o, khÃ´ng cháº©n Ä‘oÃ¡n. Doctor summary pháº£i phÃ¢n biá»‡t dá»¯ kiá»‡n, dá»¯ liá»‡u thiáº¿u vÃ  ná»™i dung AI sinh.
-6. RAG chá»‰ sá»­ dá»¥ng document/chunk active, approved, chÆ°a háº¿t háº¡n; citation tráº£ vá» pháº£i Ä‘Æ°á»£c backend kiá»ƒm tra tá»“n táº¡i.
-7. Dá»¯ liá»‡u Patient chá»‰ Ä‘Æ°á»£c Ä‘Æ°a vÃ o summary trong Ä‘Ãºng authorization scope; khÃ´ng dÃ¹ng raw health payload Ä‘á»ƒ huáº¥n luyá»‡n hoáº·c gá»i provider ngoÃ i policy.
-8. TrÆ°á»›c khi táº¡o summary, backend pháº£i chuáº©n hÃ³a metric type, unit, timezone, source vÃ  report window; báº£n ghi khÃ´ng há»£p lá»‡ Ä‘Æ°á»£c loáº¡i báº±ng reason code, khÃ´ng Ä‘Æ°á»£c tá»± sá»­a hoáº·c bá» qua Ã¢m tháº§m.
-9. Backend, khÃ´ng pháº£i LLM, tÃ­nh expected/completed measurements, adherence, min/max/average/median, period delta, trend, missing windows, alert counts vÃ  consultation/follow-up references.
-10. Má»—i láº§n sinh ná»™i dung dÃ¹ng má»™t `SummaryInputSnapshot` báº¥t biáº¿n gá»“m data cutoff, statistics, missing data, Care Evaluations vÃ  source references. Snapshot pháº£i cÃ³ hash/version Ä‘á»ƒ audit vÃ  tÃ¡i táº¡o káº¿t quáº£.
-11. Structured output tá»‘i thiá»ƒu tÃ¡ch `overview`, `observations`, `missingData`, `alertsToMention`, `questionsForDoctor` vÃ  `disclaimer`; Patient vÃ  Doctor dÃ¹ng hai presentation policy khÃ¡c nhau trÃªn cÃ¹ng facts.
-12. Output pháº£i qua schema validation vÃ  grounding validation. Má»i con sá»‘, xu hÆ°á»›ng, alert hoáº·c nháº­n xÃ©t sá»± kiá»‡n pháº£i Ã¡nh xáº¡ Ä‘Æ°á»£c vá» snapshot/source reference; ná»™i dung khÃ´ng cÃ³ nguá»“n bá»‹ loáº¡i.
-13. Guard cáº¥m diagnosis, prescription, dose change, stop-medication advice, thay Ä‘á»•i severity vÃ  tuyÃªn bá»‘ cháº¯c cháº¯n khÃ´ng Ä‘Æ°á»£c chá»©ng minh. Guard fail pháº£i dÃ¹ng deterministic fallback vÃ  ghi validation reason.
-14. Summary generation idempotent theo enrollment, report window, data cutoff vÃ  summary version. Dá»¯ liá»‡u nguá»“n thay Ä‘á»•i táº¡o summary version má»›i; khÃ´ng ghi Ä‘Ã¨ lá»‹ch sá»­ Ä‘Ã£ Ä‘Æ°á»£c Doctor review.
-15. Summary lÆ°u `generated|fallback|failed`, model/prompt version, rule set version, input hash/source refs, validation result, token/latency metadata khÃ´ng chá»©a raw health data vÃ  Doctor review status náº¿u cÃ³.
-16. RAG chá»‰ bá»• sung kiáº¿n thá»©c giÃ¡o dá»¥c tá»« tÃ i liá»‡u active/approved; RAG khÃ´ng tÃ­nh thá»‘ng kÃª, chá»n threshold, thay Ä‘á»•i rule result hoáº·c quyáº¿t Ä‘á»‹nh hÃ nh Ä‘á»™ng kháº©n.
-17. Admin/Doctor Ä‘Æ°á»£c cáº¥p quyá»n duyá»‡t á»Ÿ cáº¥p `AiDocuments`, khÃ´ng duyá»‡t thá»§ cÃ´ng tá»«ng chunk. `AiDocuments.reviewStatus` lÃ  nguá»“n chuáº©n; khi document Ä‘Æ°á»£c duyá»‡t/archived, worker dÃ¹ng bulk update Ä‘á»“ng bá»™ `AiDocumentChunks.reviewStatus/isActive`.
-17a. Má»—i `AiDocumentChunks` pháº£i káº¿ thá»«a metadata quáº£n trá»‹ tá»« document vÃ  metadata vá»‹ trÃ­ tá»« parser: nguá»“n/tá»• chá»©c, tráº¡ng thÃ¡i duyá»‡t, phiÃªn báº£n, ngÃ y hiá»‡u lá»±c, chuyÃªn khoa, ngÃ´n ngá»¯, Ä‘á»‘i tÆ°á»£ng Ä‘á»c, trang vÃ  Ä‘Æ°á»ng dáº«n section.
-18. Retrieval chá»‰ dÃ¹ng chunk `isActive = true`, `reviewStatus = approved`, chÆ°a háº¿t hiá»‡u lá»±c vÃ  khá»›p pháº¡m vi. `citation` pháº£i trá» Ä‘Ãºng document, version, page/section vÃ  source URL; backend kiá»ƒm tra chunk/citation trÆ°á»›c khi tráº£ lá»i.
-19. `contentHash` chá»‘ng chunk trÃ¹ng trong cÃ¹ng document; `ingestionVersion` xÃ¡c Ä‘á»‹nh parser/chunker/embedding version Ä‘á»ƒ re-ingestion. `parentChunkId` chá»‰ dÃ¹ng láº¥y section cha Ä‘á»§ ngá»¯ cáº£nh, khÃ´ng bá» qua metadata filter cá»§a child hoáº·c parent.
-20. Chunk lá»—i hoáº·c khÃ´ng phÃ¹ há»£p Ä‘Æ°á»£c loáº¡i riÃªng báº±ng `isActive = false`, `excludedBy`, `excludedAt`, `exclusionReason`; thao tÃ¡c nÃ y khÃ´ng thay Ä‘á»•i tráº¡ng thÃ¡i duyá»‡t cá»§a toÃ n document. Document version má»›i pháº£i Ä‘Æ°á»£c duyá»‡t trÆ°á»›c khi thay tháº¿ version cÅ© Ä‘ang active.
+1. Báo cáo 7/30 ngày được tính xác định từ HealthMetrics, Monitoring Tasks, Care Alerts và Consultations trong phạm vi được authorize.
+2. Backend tính thống kê, trend và adherence; LLM chỉ diễn đạt từ payload chuẩn hóa, không tự tính lại hoặc bổ sung dữ kiện.
+3. Summary phải lưu window, data cutoff, model/prompt version, nguồn dữ liệu/provenance và trạng thái generation.
+4. Nếu AI timeout, lỗi hoặc evidence không đủ, hệ thống vẫn trả báo cáo số liệu và reason codes; narrative chuyển `unavailable`.
+5. Patient summary dùng ngôn ngữ tham khảo, không chẩn đoán. Doctor summary phải phân biệt dữ kiện, dữ liệu thiếu và nội dung AI sinh.
+6. RAG chỉ sử dụng document/chunk active, approved, chưa hết hạn; citation trả về phải được backend kiểm tra tồn tại.
+7. Dữ liệu Patient chỉ được đưa vào summary trong đúng authorization scope; không dùng raw health payload để huấn luyện hoặc gọi provider ngoài policy.
+8. Trước khi tạo summary, backend phải chuẩn hóa metric type, unit, timezone, source và report window; bản ghi không hợp lệ được loại bằng reason code, không được tự sửa hoặc bỏ qua âm thầm.
+9. Backend, không phải LLM, tính expected/completed measurements, adherence, min/max/average/median, period delta, trend, missing windows, alert counts và consultation/follow-up references.
+10. Mỗi lần sinh nội dung dùng một `SummaryInputSnapshot` bất biến gồm data cutoff, statistics, missing data, Care Evaluations và source references. Snapshot phải có hash/version để audit và tái tạo kết quả.
+11. Structured output tối thiểu tách `overview`, `observations`, `missingData`, `alertsToMention`, `questionsForDoctor` và `disclaimer`; Patient và Doctor dùng hai presentation policy khác nhau trên cùng facts.
+12. Output phải qua schema validation và grounding validation. Mọi con số, xu hướng, alert hoặc nhận xét sự kiện phải ánh xạ được về snapshot/source reference; nội dung không có nguồn bị loại.
+13. Guard cấm diagnosis, prescription, dose change, stop-medication advice, thay đổi severity và tuyên bố chắc chắn không được chứng minh. Guard fail phải dùng deterministic fallback và ghi validation reason.
+14. Summary generation idempotent theo enrollment, report window, data cutoff và summary version. Dữ liệu nguồn thay đổi tạo summary version mới; không ghi đè lịch sử đã được Doctor review.
+15. Summary lưu `generated|fallback|failed`, model/prompt version, rule set version, input hash/source refs, validation result, token/latency metadata không chứa raw health data và Doctor review status nếu có.
+16. RAG chỉ bổ sung kiến thức giáo dục từ tài liệu active/approved; RAG không tính thống kê, chọn threshold, thay đổi rule result hoặc quyết định hành động khẩn.
+17. Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`, không duyệt thủ công từng chunk. `AiDocuments.reviewStatus` là nguồn chuẩn; khi document được duyệt/archived, worker dùng bulk update đồng bộ `AiDocumentChunks.reviewStatus/isActive`.
+17a. Mỗi `AiDocumentChunks` phải kế thừa metadata quản trị từ document và metadata vị trí từ parser: nguồn/tổ chức, trạng thái duyệt, phiên bản, ngày hiệu lực, chuyên khoa, ngôn ngữ, đối tượng đọc, trang và đường dẫn section.
+18. Retrieval chỉ dùng chunk `isActive = true`, `reviewStatus = approved`, chưa hết hiệu lực và khớp phạm vi. `citation` phải trỏ đúng document, version, page/section và source URL; backend kiểm tra chunk/citation trước khi trả lời.
+19. `contentHash` chống chunk trùng trong cùng document; `ingestionVersion` xác định parser/chunker/embedding version để re-ingestion. `parentChunkId` chỉ dùng lấy section cha đủ ngữ cảnh, không bỏ qua metadata filter của child hoặc parent.
+20. Chunk lỗi hoặc không phù hợp được loại riêng bằng `isActive = false`, `excludedBy`, `excludedAt`, `exclusionReason`; thao tác này không thay đổi trạng thái duyệt của toàn document. Document version mới phải được duyệt trước khi thay thế version cũ đang active.
 
-## Quy táº¯c tÃ i khoáº£n vÃ  bÃ¡c sÄ©
+## Quy tắc tài khoản và bác sĩ
 
-1. Chá»‰ tÃ i khoáº£n active Ä‘Æ°á»£c tÆ° váº¥n, Ä‘áº·t lá»‹ch hoáº·c thanh toÃ¡n.
-2. Chá»‰ user cÃ³ role doctor vÃ  há»“ sÆ¡ Ä‘Æ°á»£c approved má»›i Ä‘Æ°á»£c má»Ÿ slot, nháº­n yÃªu cáº§u hoáº·c tÆ° váº¥n.
-3. Presence online dÃ¹ng Redis vÃ  Socket.IO. `Users.lastOnlineAt` trong MongoDB chá»‰ lÃ  thá»i Ä‘iá»ƒm online gáº§n nháº¥t Ä‘Ã£ ghi bá»n vá»¯ng, Ä‘Æ°á»£c cáº­p nháº­t cÃ³ giá»›i háº¡n táº§n suáº¥t khi disconnect/heartbeat; khÃ´ng dÃ¹ng field nÃ y Ä‘á»ƒ káº¿t luáº­n user Ä‘ang online tá»©c thá»i.
-4. Má»™t OAuth account chá»‰ liÃªn káº¿t vá»›i má»™t user. Má»™t user chá»‰ cÃ³ má»™t account cho má»—i OAuth provider.
-5. Refresh token chá»‰ lÆ°u dáº¡ng hash trong `AuthSessions`, cÃ³ expiry vÃ  rotation. Token gá»­i cho client chá»©a `sessionId` vÃ  secret ngáº«u nhiÃªn; backend tÃ¬m session theo ID rá»“i so sÃ¡nh hash, khÃ´ng query báº±ng plaintext token. Má»—i láº§n rotation revoke báº£n ghi cÅ©, táº¡o báº£n ghi má»›i cÃ¹ng `familyId` vÃ  ná»‘i `rotatedFromSessionId/replacedBySessionId`; dÃ¹ng láº¡i token cÅ© sáº½ revoke cáº£ family. MongoDB lÃ  nguá»“n bá»n vá»¯ng cho logout-all vÃ  replay detection; Redis chá»‰ lÃ  cache/revocation fast-path. OTP chá»‰ tá»“n táº¡i trong Redis vá»›i TTL, giá»›i háº¡n sá»‘ láº§n thá»­ vÃ  rate limit gá»­i láº¡i.
+1. Chỉ tài khoản active được tư vấn, đặt lịch hoặc thanh toán.
+2. Chỉ user có role doctor và hồ sơ được approved mới được mở slot, nhận yêu cầu hoặc tư vấn.
+3. Presence online dùng Redis và Socket.IO. `Users.lastOnlineAt` trong MongoDB chỉ là thời điểm online gần nhất đã ghi bền vững, được cập nhật có giới hạn tần suất khi disconnect/heartbeat; không dùng field này để kết luận user đang online tức thời.
+4. Một OAuth account chỉ liên kết với một user. Một user chỉ có một account cho mỗi OAuth provider.
+5. Refresh token chỉ lưu dạng hash trong `AuthSessions`, có expiry và rotation. Token gửi cho client chứa `sessionId` và secret ngẫu nhiên; backend tìm session theo ID rồi so sánh hash, không query bằng plaintext token. Mỗi lần rotation revoke bản ghi cũ, tạo bản ghi mới cùng `familyId` và nối `rotatedFromSessionId/replacedBySessionId`; dùng lại token cũ sẽ revoke cả family. MongoDB là nguồn bền vững cho logout-all và replay detection; Redis chỉ là cache/revocation fast-path. OTP chỉ tồn tại trong Redis với TTL, giới hạn số lần thử và rate limit gửi lại.
 
-## Lá»‹ch trá»‘ng vÃ  Ä‘áº·t lá»‹ch chá»§ Ä‘á»™ng
+## Lịch trống và đặt lịch chủ động
 
-`doctorProfile.bookingSettings` lÃ  chÃ­nh sÃ¡ch máº·c Ä‘á»‹nh cá»§a tá»«ng Doctor. Khi booking thÃ nh cÃ´ng, backend snapshot cÃ¡c giÃ¡ trá»‹ Ã¡p dá»¥ng vÃ o Consultation Ä‘á»ƒ viá»‡c Doctor Ä‘á»•i cáº¥u hÃ¬nh sau Ä‘Ã³ khÃ´ng lÃ m thay Ä‘á»•i lá»‹ch Ä‘Ã£ Ä‘áº·t:
+`doctorProfile.bookingSettings` là chính sách mặc định của từng Doctor. Khi booking thành công, backend snapshot các giá trị áp dụng vào Consultation để việc Doctor đổi cấu hình sau đó không làm thay đổi lịch đã đặt:
 
-- `bookingPolicy`: `instant` xÃ¡c nháº­n ngay; `approval_required` táº¡o yÃªu cáº§u chá» Doctor duyá»‡t.
-- `minNoticeMinutes`: thá»i gian tá»‘i thiá»ƒu tá»« lÃºc Ä‘áº·t tá»›i giá» báº¯t Ä‘áº§u; cháº·n Ä‘áº·t quÃ¡ sÃ¡t giá».
-- `maxAdvanceDays`: sá»‘ ngÃ y xa nháº¥t Patient Ä‘Æ°á»£c phÃ©p Ä‘áº·t trÆ°á»›c.
-- `cancellationDeadlineMinutes`: má»‘c cuá»‘i Patient Ä‘Æ°á»£c há»§y Ä‘Ãºng háº¡n Ä‘á»ƒ hoÃ n lÆ°á»£t/má»Ÿ láº¡i slot theo policy.
-- `checkInEarlyMinutes`: sá»‘ phÃºt Patient Ä‘Æ°á»£c check-in trÆ°á»›c giá» háº¹n.
-- `noShowAfterMinutes`: sá»‘ phÃºt chá» sau giá» háº¹n trÆ°á»›c khi cÃ³ thá»ƒ Ä‘Ã¡nh dáº¥u `no_show`.
-- `defaultDurationMinutes`: thá»i lÆ°á»£ng dá»± kiáº¿n khi táº¡o slot/on-demand; khÃ´ng tá»± káº¿t thÃºc phiÃªn.
-- `bufferMinutes`: khoáº£ng Ä‘á»‡m tá»‘i thiá»ƒu giá»¯a cÃ¡c lá»‹ch booked Ä‘á»ƒ giáº£m chá»“ng chÃ©o.
+- `bookingPolicy`: `instant` xác nhận ngay; `approval_required` tạo yêu cầu chờ Doctor duyệt.
+- `minNoticeMinutes`: thời gian tối thiểu từ lúc đặt tới giờ bắt đầu; chặn đặt quá sát giờ.
+- `maxAdvanceDays`: số ngày xa nhất Patient được phép đặt trước.
+- `cancellationDeadlineMinutes`: mốc cuối Patient được hủy đúng hạn để hoàn lượt/mở lại slot theo policy.
+- `checkInEarlyMinutes`: số phút Patient được check-in trước giờ hẹn.
+- `noShowAfterMinutes`: số phút chờ sau giờ hẹn trước khi có thể đánh dấu `no_show`.
+- `defaultDurationMinutes`: thời lượng dự kiến khi tạo slot/on-demand; không tự kết thúc phiên.
+- `bufferMinutes`: khoảng đệm tối thiểu giữa các lịch booked để giảm chồng chéo.
 
-CÃ¡c giÃ¡ trá»‹ pháº£i cÃ³ giá»›i háº¡n há»‡ thá»‘ng do Admin cáº¥u hÃ¬nh; Doctor khÃ´ng Ä‘Æ°á»£c Ä‘áº·t sá»‘ Ã¢m hoáº·c vÆ°á»£t giá»›i háº¡n váº­n hÃ nh.
+Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Doctor không được đặt số âm hoặc vượt giới hạn vận hành.
 
-1. BÃ¡c sÄ© táº¡o AvailabilitySlots vá»›i start time, end time vÃ  timezone. Má»™t bÃ¡c sÄ© khÃ´ng Ä‘Æ°á»£c cÃ³ hai slot cÃ¹ng start time.
-2. Slot cÃ³ cÃ¡c tráº¡ng thÃ¡i available, booked, blocked hoáº·c expired.
-3. Máº·c Ä‘á»‹nh booking policy lÃ  instant: bá»‡nh nhÃ¢n Ä‘áº·t thÃ nh cÃ´ng thÃ¬ lá»‹ch Ä‘Æ°á»£c xÃ¡c nháº­n ngay, khÃ´ng cáº§n bÃ¡c sÄ© duyá»‡t láº¡i.
-4. PhiÃªn báº£n sau cÃ³ thá»ƒ há»— trá»£ approval required. Khi Ä‘Ã³ booking táº¡o consultation cÃ³ request status pending.
-5. Bá»‡nh nhÃ¢n chá»‰ tháº¥y slot available, chÆ°a qua giá» báº¯t Ä‘áº§u vÃ  thá»a min notice minutes cá»§a bÃ¡c sÄ©.
-6. Bá»‡nh nhÃ¢n chá»‰ Ä‘Æ°á»£c Ä‘áº·t trong max advance days tÃ­nh tá»« hiá»‡n táº¡i.
-7. Booking lÃ  thao tÃ¡c atomic: backend chá»‰ táº¡o Consultation khi Ä‘á»•i thÃ nh cÃ´ng slot tá»« available sang booked. Náº¿u táº¡o consultation lá»—i, slot pháº£i Ä‘Æ°á»£c tráº£ vá» available.
-8. Khi bá»‡nh nhÃ¢n há»§y Ä‘Ãºng háº¡n cancellation deadline, slot quay láº¡i available. Slot bá»‹ bÃ¡c sÄ© block hoáº·c Ä‘Ã£ háº¿t giá» khÃ´ng Ä‘Æ°á»£c má»Ÿ láº¡i.
-9. Slot qua giá» mÃ  khÃ´ng cÃ³ consultation há»£p lá»‡ chuyá»ƒn expired.
-10. Slot cá»§a cÃ¹ng Doctor khÃ´ng Ä‘Æ°á»£c overlap vÃ  pháº£i tÃ´n trá»ng `bufferMinutes`; viá»‡c kiá»ƒm tra dÃ¹ng transaction/conditional query, khÃ´ng chá»‰ dá»±a vÃ o unique start time.
+1. Bác sĩ tạo AvailabilitySlots với start time, end time và timezone. Một bác sĩ không được có hai slot cùng start time.
+2. Slot có các trạng thái available, booked, blocked hoặc expired.
+3. Mặc định booking policy là instant: bệnh nhân đặt thành công thì lịch được xác nhận ngay, không cần bác sĩ duyệt lại.
+4. Phiên bản sau có thể hỗ trợ approval required. Khi đó booking tạo consultation có request status pending.
+5. Bệnh nhân chỉ thấy slot available, chưa qua giờ bắt đầu và thỏa min notice minutes của bác sĩ.
+6. Bệnh nhân chỉ được đặt trong max advance days tính từ hiện tại.
+7. Booking là thao tác atomic: backend chỉ tạo Consultation khi đổi thành công slot từ available sang booked. Nếu tạo consultation lỗi, slot phải được trả về available.
+8. Khi bệnh nhân hủy đúng hạn cancellation deadline, slot quay lại available. Slot bị bác sĩ block hoặc đã hết giờ không được mở lại.
+9. Slot qua giờ mà không có consultation hợp lệ chuyển expired.
+10. Slot của cùng Doctor không được overlap và phải tôn trọng `bufferMinutes`; việc kiểm tra dùng transaction/conditional query, không chỉ dựa vào unique start time.
 
-## TÆ° váº¥n nhanh theo yÃªu cáº§u
+## Tư vấn nhanh theo yêu cầu
 
-1. Bá»‡nh nhÃ¢n táº¡o consultation on-demand vá»›i request status pending, session status not started vÃ  khÃ´ng cÃ³ availability slot.
-2. BÃ¡c sÄ© cÃ³ thá»ƒ accept hoáº·c decline yÃªu cáº§u; trÆ°á»ng declined reason lÃ  tÃ¹y chá»n.
-3. YÃªu cáº§u chÆ°a xá»­ lÃ½ chuyá»ƒn expired táº¡i request expires at. GiÃ¡ trá»‹ MVP Ä‘á» xuáº¥t lÃ  24 giá».
-4. Má»™t bá»‡nh nhÃ¢n chá»‰ cÃ³ tá»‘i Ä‘a má»™t yÃªu cáº§u pending tá»›i cÃ¹ng bÃ¡c sÄ© Ä‘á»ƒ háº¡n cháº¿ spam.
-5. Chá»‰ khi request Ä‘Æ°á»£c accepted, hai bÃªn má»›i truy cáº­p ConsultationMessages hoáº·c phÃ²ng tÆ° váº¥n.
-6. BÃ¡c sÄ© cÃ³ thá»ƒ accept nhiá»u yÃªu cáº§u nhÆ°ng chá»‰ Ä‘Æ°á»£c cÃ³ má»™t consultation in consultation táº¡i má»™t thá»i Ä‘iá»ƒm.
-7. Doctor khÃ´ng Ä‘Æ°á»£c accept on-demand nhÆ° má»™t cam káº¿t báº¯t Ä‘áº§u ngay náº¿u cÃ³ scheduled consultation sáº¯p tá»›i trong `expectedDurationMinutes + bufferMinutes`. Há»‡ thá»‘ng cÃ³ thá»ƒ cho request tiáº¿p tá»¥c pending hoáº·c accepted/waiting kÃ¨m ETA.
+1. Bệnh nhân tạo consultation on-demand với request status pending, session status not started và không có availability slot.
+2. Bác sĩ có thể accept hoặc decline yêu cầu; trường declined reason là tùy chọn.
+3. Yêu cầu chưa xử lý chuyển expired tại request expires at. Giá trị MVP đề xuất là 24 giờ.
+4. Một bệnh nhân chỉ có tối đa một yêu cầu pending tới cùng bác sĩ để hạn chế spam.
+5. Chỉ khi request được accepted, hai bên mới truy cập ConsultationMessages hoặc phòng tư vấn.
+6. Bác sĩ có thể accept nhiều yêu cầu nhưng chỉ được có một consultation in consultation tại một thời điểm.
+7. Doctor không được accept on-demand như một cam kết bắt đầu ngay nếu có scheduled consultation sắp tới trong `expectedDurationMinutes + bufferMinutes`. Hệ thống có thể cho request tiếp tục pending hoặc accepted/waiting kèm ETA.
 
-## Tráº¡ng thÃ¡i Consultation
+## Trạng thái Consultation
 
 ### Request status
 
-| Tráº¡ng thÃ¡i | Ã nghÄ©a |
+| Trạng thái | Ý nghĩa |
 |---|---|
-| pending | Chá» bÃ¡c sÄ© duyá»‡t. |
-| accepted | CÃ³ thá»ƒ báº¯t Ä‘áº§u hoáº·c chá» tá»›i giá» tÆ° váº¥n. |
-| declined | BÃ¡c sÄ© tá»« chá»‘i. |
-| cancelled | Bá»‡nh nhÃ¢n hoáº·c bÃ¡c sÄ© há»§y. |
-| expired | KhÃ´ng Ä‘Æ°á»£c xá»­ lÃ½ trÆ°á»›c háº¡n. |
+| pending | Chờ bác sĩ duyệt. |
+| accepted | Có thể bắt đầu hoặc chờ tới giờ tư vấn. |
+| declined | Bác sĩ từ chối. |
+| cancelled | Bệnh nhân hoặc bác sĩ hủy. |
+| expired | Không được xử lý trước hạn. |
 
 ### Session status
 
-| Tráº¡ng thÃ¡i | Ã nghÄ©a |
+| Trạng thái | Ý nghĩa |
 |---|---|
-| not started | ChÆ°a check-in hoáº·c chÆ°a báº¯t Ä‘áº§u. |
-| waiting | Bá»‡nh nhÃ¢n Ä‘Ã£ check-in vÃ  Ä‘ang chá». |
-| in consultation | BÃ¡c sÄ© Ä‘ang tÆ° váº¥n. |
-| interrupted | PhiÃªn bá»‹ giÃ¡n Ä‘oáº¡n do máº¥t heartbeat/káº¿t ná»‘i; cÃ³ thá»ƒ resume hoáº·c Ä‘Æ°á»£c Doctor hoÃ n táº¥t. |
-| completed | PhiÃªn tÆ° váº¥n Ä‘Ã£ káº¿t thÃºc. |
-| no show | Bá»‡nh nhÃ¢n khÃ´ng xuáº¥t hiá»‡n Ä‘Ãºng quy Ä‘á»‹nh. |
+| not started | Chưa check-in hoặc chưa bắt đầu. |
+| waiting | Bệnh nhân đã check-in và đang chờ. |
+| in consultation | Bác sĩ đang tư vấn. |
+| interrupted | Phiên bị gián đoạn do mất heartbeat/kết nối; có thể resume hoặc được Doctor hoàn tất. |
+| completed | Phiên tư vấn đã kết thúc. |
+| no show | Bệnh nhân không xuất hiện đúng quy định. |
 
-## Check-in vÃ  hÃ ng Ä‘á»£i
+## Check-in và hàng đợi
 
-1. HÃ ng Ä‘á»£i chá»‰ chá»©a consultation accepted cÃ³ session status waiting.
-2. Bá»‡nh nhÃ¢n cÃ³ lá»‹ch Ä‘Æ°á»£c check-in sá»›m tá»‘i Ä‘a check in early minutes; giÃ¡ trá»‹ MVP Ä‘á» xuáº¥t lÃ  15 phÃºt.
-3. HÃ ng Ä‘á»£i sáº¯p theo scheduled start time, sau Ä‘Ã³ theo queue joined time. Vá»‹ trÃ­ hiá»ƒn thá»‹ chá»‰ lÃ  snapshot, khÃ´ng pháº£i nguá»“n dá»¯ liá»‡u chuáº©n.
-4. Khi bÃ¡c sÄ© gá»i ngÆ°á»i tiáº¿p theo, backend atomically Ä‘á»•i má»™t consultation tá»« waiting sang in consultation.
-5. Náº¿u bá»‡nh nhÃ¢n khÃ´ng xuáº¥t hiá»‡n sau no show after minutes tÃ­nh tá»« giá» háº¹n, session chuyá»ƒn no show. GiÃ¡ trá»‹ MVP Ä‘á» xuáº¥t lÃ  10 phÃºt.
-6. Má»™t consultation on-demand Ä‘Ã£ accepted cÅ©ng cÃ³ thá»ƒ vÃ o waiting khi bÃ¡c sÄ© Ä‘ang tÆ° váº¥n cho ngÆ°á»i khÃ¡c.
-7. Scheduled vÃ  on-demand dÃ¹ng chung hÃ ng Ä‘á»£i theo Doctor. Thá»© tá»± máº·c Ä‘á»‹nh: scheduled Ä‘Ã£ quÃ¡ giá», scheduled Ä‘Ã£ Ä‘áº¿n cá»­a sá»• phá»¥c vá»¥, sau Ä‘Ã³ on-demand accepted theo `queueJoinedAt`. KhÃ´ng Ä‘Æ°á»£c ngáº¯t phiÃªn `in_consultation` Ä‘á»ƒ phá»¥c vá»¥ phiÃªn khÃ¡c.
-8. `call-next` pháº£i kiá»ƒm tra atomically Doctor chÆ°a cÃ³ phiÃªn `in_consultation`; partial unique index lÃ  lá»›p báº£o vá»‡ cuá»‘i cÃ¹ng chá»‘ng hai request Ä‘á»“ng thá»i.
-9. On-demand chá»‰ Ä‘Æ°á»£c gá»i trong khoáº£ng trá»‘ng khi `now + expectedDurationMinutes + bufferMinutes` khÃ´ng vÆ°á»£t giá» scheduled tiáº¿p theo. Náº¿u phiÃªn hiá»‡n táº¡i kÃ©o dÃ i, scheduled Patient nháº­n cáº­p nháº­t trá»…/ETA.
+1. Hàng đợi chỉ chứa consultation accepted có session status waiting.
+2. Bệnh nhân có lịch được check-in sớm tối đa check in early minutes; giá trị MVP đề xuất là 15 phút.
+3. Hàng đợi sắp theo scheduled start time, sau đó theo queue joined time. Vị trí hiển thị chỉ là snapshot, không phải nguồn dữ liệu chuẩn.
+4. Khi bác sĩ gọi người tiếp theo, backend atomically đổi một consultation từ waiting sang in consultation.
+5. Nếu bệnh nhân không xuất hiện sau no show after minutes tính từ giờ hẹn, session chuyển no show. Giá trị MVP đề xuất là 10 phút.
+6. Một consultation on-demand đã accepted cũng có thể vào waiting khi bác sĩ đang tư vấn cho người khác.
+7. Scheduled và on-demand dùng chung hàng đợi theo Doctor. Thứ tự mặc định: scheduled đã quá giờ, scheduled đã đến cửa sổ phục vụ, sau đó on-demand accepted theo `queueJoinedAt`. Không được ngắt phiên `in_consultation` để phục vụ phiên khác.
+8. `call-next` phải kiểm tra atomically Doctor chưa có phiên `in_consultation`; partial unique index là lớp bảo vệ cuối cùng chống hai request đồng thời.
+9. On-demand chỉ được gọi trong khoảng trống khi `now + expectedDurationMinutes + bufferMinutes` không vượt giờ scheduled tiếp theo. Nếu phiên hiện tại kéo dài, scheduled Patient nhận cập nhật trễ/ETA.
 
-## Káº¿t thÃºc vÃ  giÃ¡n Ä‘oáº¡n Consultation
+## Kết thúc và gián đoạn Consultation
 
-1. `scheduledEndAt` hoáº·c thá»i lÆ°á»£ng dá»± kiáº¿n chá»‰ dÃ¹ng cho lá»‹ch, cáº£nh bÃ¡o vÃ  ETA; há»‡ thá»‘ng khÃ´ng tá»± chuyá»ƒn Consultation sang `completed` khi háº¿t giá».
-2. Doctor chá»§ Ä‘á»™ng káº¿t thÃºc cuá»™c gá»i (`callEndedAt`) vÃ  xÃ¡c nháº­n hoÃ n táº¥t Consultation (`completedAt`, `completedBy`). Hai má»‘c cÃ³ thá»ƒ khÃ¡c nhau Ä‘á»ƒ Doctor hoÃ n thiá»‡n note.
-3. TrÆ°á»›c giá» dá»± kiáº¿n káº¿t thÃºc, há»‡ thá»‘ng cÃ³ thá»ƒ cáº£nh bÃ¡o. Khi quÃ¡ giá», ghi `overtimeStartedAt`; khÃ´ng tá»± Ä‘Ã³ng chat/call hoáº·c Ä‘Ã¡nh dáº¥u Ä‘Ã£ hoÃ n thÃ nh.
-4. Náº¿u phiÃªn `in_consultation` máº¥t heartbeat quÃ¡ giá»›i háº¡n ká»¹ thuáº­t, worker chuyá»ƒn sang `interrupted` báº±ng conditional update, ghi lÃ½ do vÃ  giáº£i phÃ³ng khÃ³a má»™t phiÃªn Ä‘ang cháº¡y. Worker khÃ´ng Ä‘Æ°á»£c ghi `completed` thay Doctor.
-5. Doctor cÃ³ thá»ƒ resume phiÃªn interrupted náº¿u khÃ´ng cÃ³ phiÃªn khÃ¡c Ä‘ang cháº¡y, hoáº·c hoÃ n táº¥t vá»›i ghi chÃº/lÃ½ do. Má»i interrupt/resume/complete ghi `AuditLogs` vá»›i `domain = consultation`.
+1. `scheduledEndAt` hoặc thời lượng dự kiến chỉ dùng cho lịch, cảnh báo và ETA; hệ thống không tự chuyển Consultation sang `completed` khi hết giờ.
+2. Doctor chủ động kết thúc cuộc gọi (`callEndedAt`) và xác nhận hoàn tất Consultation (`completedAt`, `completedBy`). Hai mốc có thể khác nhau để Doctor hoàn thiện note.
+3. Trước giờ dự kiến kết thúc, hệ thống có thể cảnh báo. Khi quá giờ, ghi `overtimeStartedAt`; không tự đóng chat/call hoặc đánh dấu đã hoàn thành.
+4. Nếu phiên `in_consultation` mất heartbeat quá giới hạn kỹ thuật, worker chuyển sang `interrupted` bằng conditional update, ghi lý do và giải phóng khóa một phiên đang chạy. Worker không được ghi `completed` thay Doctor.
+5. Doctor có thể resume phiên interrupted nếu không có phiên khác đang chạy, hoặc hoàn tất với ghi chú/lý do. Mọi interrupt/resume/complete ghi `AuditLogs` với `domain = consultation`.
 
-## Chat, video vÃ  quyá»n truy cáº­p
+## Chat, video và quyền truy cập
 
-1. ConsultationMessages thuá»™c Ä‘Ãºng má»™t consultation vÃ  chá»‰ patient hoáº·c doctor cá»§a consultation Ä‘Ã³ má»›i xem hoáº·c gá»­i message.
-2. Room ID chá»‰ táº¡o sau khi consultation Ä‘Æ°á»£c accepted vÃ  pháº£i unique.
-3. WebRTC signaling Ä‘i qua Socket.IO. KhÃ´ng lÆ°u signaling message vÃ o MongoDB.
-4. File Ä‘Ã­nh kÃ¨m lÆ°u trÃªn Cloudinary; database chá»‰ giá»¯ metadata, URL vÃ  public ID.
-5. Bá»‡nh nhÃ¢n pháº£i xÃ¡c nháº­n consent vá»›i phiÃªn báº£n chÃ­nh sÃ¡ch hiá»‡n hÃ nh trÆ°á»›c audio hoáº·c video consultation.
+1. ConsultationMessages thuộc đúng một consultation và chỉ patient hoặc doctor của consultation đó mới xem hoặc gửi message.
+2. Room ID chỉ tạo sau khi consultation được accepted và phải unique.
+3. WebRTC signaling đi qua Socket.IO. Không lưu signaling message vào MongoDB.
+4. File đính kèm lưu trên Cloudinary; database chỉ giữ metadata, URL và public ID.
+5. Bệnh nhân phải xác nhận consent với phiên bản chính sách hiện hành trước audio hoặc video consultation.
 
-## Review vÃ  vi pháº¡m
+## Review và vi phạm
 
-1. Má»™t consultation cÃ³ tá»‘i Ä‘a má»™t review, Ä‘Æ°á»£c báº£o vá»‡ báº±ng unique index cá»§a consultation ID.
-2. Chá»‰ patient thuá»™c consultation accepted vÃ  completed má»›i Ä‘Æ°á»£c review.
-3. Khi táº¡o, sá»­a, áº©n hoáº·c xÃ³a review, cáº­p nháº­t rating sum, review count vÃ  average rating cá»§a doctor profile trong cÃ¹ng transaction.
-4. Admin khÃ´ng xÃ³a cá»©ng review vi pháº¡m; chuyá»ƒn status sang hidden hoáº·c removed Ä‘á»ƒ giá»¯ audit.
-5. Violation report cÃ³ bá»‘n tráº¡ng thÃ¡i pending, processing, resolved, dismissed; severity gá»“m low, medium, high.
-6. Evidence pháº£i tham chiáº¿u message, consultation hoáº·c file Cloudinary. AI classification chá»‰ há»— trá»£ phÃ¢n loáº¡i, khÃ´ng tá»± Ä‘á»™ng khÃ³a tÃ i khoáº£n.
+1. Một consultation có tối đa một review, được bảo vệ bằng unique index của consultation ID.
+2. Chỉ patient thuộc consultation accepted và completed mới được review.
+3. Khi tạo, sửa, ẩn hoặc xóa review, cập nhật rating sum, review count và average rating của doctor profile trong cùng transaction.
+4. Admin không xóa cứng review vi phạm; chuyển status sang hidden hoặc removed để giữ audit.
+5. Violation report có bốn trạng thái pending, processing, resolved, dismissed; severity gồm low, medium, high.
+6. Evidence phải tham chiếu message, consultation hoặc file Cloudinary. AI classification chỉ hỗ trợ phân loại, không tự động khóa tài khoản.
 
-## GÃ³i dá»‹ch vá»¥, quota AI vÃ  VNPAY
+## Gói dịch vụ, quota AI và VNPAY
 
-1. GiÃ¡, quyá»n lá»£i vÃ  quota táº¡i lÃºc mua pháº£i Ä‘Æ°á»£c snapshot trong PaymentOrders vÃ  Subscriptions.
-2. Tiá»n VND lÆ°u dÆ°á»›i dáº¡ng integer, khÃ´ng dÃ¹ng sá»‘ thá»±c.
-3. Return URL chá»‰ hiá»ƒn thá»‹ káº¿t quáº£. Chá»‰ IPN cÃ³ chá»¯ kÃ½ há»£p lá»‡ má»›i chuyá»ƒn payment order sang paid vÃ  ghi yÃªu cáº§u cáº¥p Subscription vÃ o transactional outbox.
-4. IPN láº·p pháº£i idempotent: cÃ¹ng transaction reference khÃ´ng Ä‘Æ°á»£c táº¡o transaction, outbox event hoáº·c Subscription grant hai láº§n.
-5. Redis kiá»ƒm quota AI realtime theo ngÃ y; AiUsageDaily lÃ  dá»¯ liá»‡u bá»n vá»¯ng cho thá»‘ng kÃª vÃ  Ä‘á»‘i soÃ¡t.
-6. Khi subscription háº¿t háº¡n, API AI Ã¡p dá»¥ng quota Free á»Ÿ request tiáº¿p theo. Worker chá»‰ há»— trá»£ thÃ´ng bÃ¡o háº¿t háº¡n.
-7. Há»‡ thá»‘ng cÃ³ ba tier sáº£n pháº©m: `free`, `plus`, `care`; giÃ¡ vÃ  giá»›i háº¡n cá»¥ thá»ƒ náº±m trong Plan/Subscription snapshot, khÃ´ng hard-code theo tÃªn tier.
-8. Free luÃ´n cÃ³ quyá»n nháº­p/xem HealthMetrics cá»§a chÃ­nh Patient, biá»ƒu Ä‘á»“ cÆ¡ báº£n, má»™t Care Program cÆ¡ báº£n, in-app notification, quota AI cÆ¡ báº£n vÃ  safety alert thiáº¿t yáº¿u.
-9. Plus bao gá»“m Free vÃ  cÃ³ thá»ƒ cáº¥p nhiá»u Care Program, bÃ¡o cÃ¡o 7/30/90 ngÃ y, weekly AI summary, smart reminder/quiet hours, medication reminder, PDF/CSV vÃ  quota AI cao hÆ¡n theo Plan.
-10. Care bao gá»“m Plus vÃ  cÃ³ thá»ƒ cáº¥p Doctor-assigned Program, Doctor review theo cadence, Priority Inbox, follow-up, nháº¯c tÃ¡i khÃ¡m vÃ  Æ°u Ä‘Ã£i giÃ¡ consultation theo Plan snapshot.
-10a. Khi tÃ­nh nÄƒng NgÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh P1 Ä‘Æ°á»£c báº­t, sá»‘ ngÆ°á»i thÃ¢n active láº¥y tá»« `familyLinkLimit` trong Plan snapshot; Care cÃ³ thá»ƒ máº·c Ä‘á»‹nh má»™t hoáº·c nhiá»u ngÆ°á»i, Plus cÃ³ thá»ƒ mua add-on. Entitlement chá»‰ cáº¥p sá»‘ lÆ°á»£ng liÃªn káº¿t, khÃ´ng ghi Ä‘Ã¨ consent hoáº·c má»Ÿ quyá»n xem dá»¯ liá»‡u chi tiáº¿t.
-11. Doctor-reviewed/confirmed report chá»‰ xÃ¡c nháº­n Doctor Ä‘Ã£ xem bÃ¡o cÃ¡o; khÃ´ng Ä‘Æ°á»£c trÃ¬nh bÃ y thÃ nh cháº©n Ä‘oÃ¡n, Ä‘Æ¡n thuá»‘c hoáº·c báº£o Ä‘áº£m káº¿t quáº£ Ä‘iá»u trá»‹.
-12. Nháº¯n tin Doctor chá»‰ tá»“n táº¡i trong Consultation Ä‘Æ°á»£c authorize. KhÃ´ng tier nÃ o máº·c Ä‘á»‹nh táº¡o chat 24/7 hoáº·c cam káº¿t pháº£n há»“i cáº¥p cá»©u.
-13. DA2 chÆ°a cÃ³ Clinic/Clinic Admin vÃ  khÃ´ng quáº£ng bÃ¡ SLA pháº£n há»“i. Giao diá»‡n pháº£i nÃªu rÃµ Doctor khÃ´ng theo dÃµi realtime; SLA theo tá»• chá»©c chá»‰ Ä‘Æ°á»£c xem xÃ©t sau DA2 khi cÃ³ mÃ´ hÃ¬nh Clinic, giá» phá»¥c vá»¥, nhÃ¢n sá»±, escalation vÃ  cÆ¡ cháº¿ Ä‘o lÆ°á»ng.
-14. Cáº£nh bÃ¡o `urgent`, safety template vÃ  quyá»n truy cáº­p dá»¯ liá»‡u cÆ¡ báº£n cá»§a Patient khÃ´ng Ä‘Æ°á»£c táº¯t khi háº¿t háº¡n, downgrade hoáº·c vÆ°á»£t quota AI.
-15. Downgrade/háº¿t háº¡n khÃ´ng xÃ³a HealthMetrics, Care Alerts hoáº·c bÃ¡o cÃ¡o lá»‹ch sá»­. Quyá»n lá»£i tráº£ phÃ­ má»›i dá»«ng theo `paidThroughAt` vÃ  grace policy Ä‘Ã£ snapshot.
-16. Giá»›i háº¡n lÆ°u lá»‹ch sá»­ theo tier chá»‰ Ä‘Æ°á»£c Ã¡p dá»¥ng sau privacy/retention review; khÃ´ng Ä‘Æ°á»£c lÃ m máº¥t quyá»n truy cáº­p/xuáº¥t dá»¯ liá»‡u tá»‘i thiá»ƒu cá»§a chÃ­nh Patient.
-17. `ConsultationUsages` dÃ¹ng má»™t báº£n ghi cho má»—i Consultation trong má»™t chu ká»³ vÃ  cáº­p nháº­t nguyÃªn tá»­ theo vÃ²ng Ä‘á»i `reserved â†’ counted|released|expired`; khÃ³a chá»‘ng xá»­ lÃ½ trÃ¹ng báº£o Ä‘áº£m retry khÃ´ng Ä‘áº¿m má»™t Consultation nhiá»u láº§n. Má»—i láº§n Ä‘á»•i tráº¡ng thÃ¡i pháº£i ghi báº£n ghi báº¥t biáº¿n trong `AuditLogs` vá»›i `domain = billing`; DA2 khÃ´ng xÃ¢y event sourcing riÃªng.
-18. Entitlement Ä‘Æ°á»£c kiá»ƒm tra phÃ­a backend. Client khÃ´ng Ä‘Æ°á»£c tá»± khai tier, AI quota, consultation limit, Doctor review hoáº·c quyá»n Care Program.
-19. Plan tráº£ phÃ­ khÃ´ng Ä‘Æ°á»£c thay Ä‘á»•i Care Evaluation severity, thá»© tá»± Æ°u tiÃªn lÃ¢m sÃ ng hoáº·c quyá»n Ä‘Æ°á»£c nháº­n safety escalation.
-20. Khi VNPAY chÆ°a náº±m trong cut-line, seed/demo subscription cÃ³ thá»ƒ dÃ¹ng Ä‘á»ƒ kiá»ƒm thá»­ entitlement nhÆ°ng pháº£i Ä‘Æ°á»£c Ä‘Ã¡nh dáº¥u rÃµ, khÃ´ng ghi nháº­n lÃ  doanh thu tháº­t.
-21. Trong DA2, VNPAY Sandbox payment/subscription vÃ  cancel unpaid order lÃ  P0 báº¯t buá»™c; seed subscription khÃ´ng thay tháº¿ acceptance demo giao dá»‹ch Sandbox.
-22. Full refund váº«n lÃ  P1 vÃ  chá»‰ Ä‘Æ°á»£c báº­t khi payment, IPN, cancel, entitlement vÃ  reconciliation Ä‘Ã£ Ä‘áº¡t release gate.
-23. Sá»‘ consultation tá»‘i Ä‘a má»—i cycle máº·c Ä‘á»‹nh lÃ  Free `1`, Plus `3`, Care `6`. Field chuáº©n lÃ  `consultationLimitPerCycle` trong Plan/Subscription snapshot; Ä‘Ã¢y khÃ´ng pháº£i AI quota.
-24. Plus/Care dÃ¹ng `currentPeriodStart/currentPeriodEnd` cá»§a Subscription. Free cÅ©ng táº¡o báº£n ghi `Subscriptions` vá»›i `source = free_grant` vÃ  chu ká»³ 30 ngÃ y neo táº¡i thá»i Ä‘iá»ƒm kÃ­ch hoáº¡t; khÃ´ng táº¡o PaymentOrder cho Free vÃ  khÃ´ng táº¡o Subscription má»›i má»—i chu ká»³. `ConsultationUsages` pháº£i gáº¯n chu ká»³ cá»¥ thá»ƒ, khÃ´ng reset toÃ n bá»™ ngÆ°á»i dÃ¹ng báº±ng má»™t cron chung.
-25. `consultationsUsed` Ä‘áº¿m trá»±c tiáº¿p sá»‘ Consultation Ä‘Ã£ sá»­ dá»¥ng; sá»‘ cÃ²n láº¡i báº±ng limit trá»« sá»‘ Ä‘Ã£ dÃ¹ng vÃ  reservation Ä‘ang hoáº¡t Ä‘á»™ng.
-26. Giá»›i háº¡n consultation khÃ´ng Ä‘á»“ng nghÄ©a phiÃªn miá»…n phÃ­ vÃ  khÃ´ng báº£o Ä‘áº£m Doctor cÃ²n slot. Chi phÃ­/Æ°u Ä‘Ã£i cá»§a tá»«ng phiÃªn lÃ  chÃ­nh sÃ¡ch giÃ¡ Ä‘á»™c láº­p trong Plan.
-27. Add-on cÃ³ thá»ƒ tÄƒng consultation limit hiá»‡u dá»¥ng; add-on pháº£i cÃ³ source order, expiry, sá»‘ lÆ°á»£t bá»• sung vÃ  ledger idempotent.
-28. Cáº£ scheduled vÃ  on-demand consultation dÃ¹ng chung má»™t limit. Pending on-demand request chÆ°a táº¡o reservation; reservation Ä‘Æ°á»£c táº¡o atomically khi Doctor accept.
-29. Scheduled consultation táº¡o reservation khi booking Ä‘Æ°á»£c xÃ¡c nháº­n. Reservation pháº£i chá»‘ng race Ä‘á»ƒ hai request Ä‘á»“ng thá»i khÃ´ng vÆ°á»£t sá»‘ lÆ°á»£t cÃ²n láº¡i.
-30. Consultation Ä‘Æ°á»£c count khi chuyá»ƒn `in_consultation`; Patient `no_show` cÅ©ng Ä‘Æ°á»£c count theo no-show policy. Doctor/system cancel hoáº·c Patient cancel Ä‘Ãºng háº¡n pháº£i há»§y reservation.
-31. Retry, duplicate event hoáº·c reconnect khÃ´ng Ä‘Æ°á»£c count/há»§y reservation hai láº§n; ledger entry pháº£i gáº¯n `consultationId` vÃ  idempotency key.
-32. Khi háº¿t sá»‘ lÆ°á»£t, Patient cÃ³ thá»ƒ chá» cycle má»›i, nÃ¢ng gÃ³i hoáº·c mua add-on. Safety alert váº«n hoáº¡t Ä‘á»™ng vÃ  tÃ¬nh huá»‘ng kháº©n cáº¥p pháº£i hÆ°á»›ng tá»›i cÆ¡ sá»Ÿ y táº¿/cáº¥p cá»©u.
-33. AI chat dÃ¹ng `aiTokenLimit` lÃ m quota chÃ­nh, tÃ­nh trÃªn tá»•ng input + output token Ä‘Ã£ commit trong ká»³. `aiRequestLimit` lÃ  giá»›i háº¡n phá»¥ chá»‘ng spam vÃ  trÆ°á»ng há»£p request ráº¥t nhá»; summary job cÃ³ ngÃ¢n sÃ¡ch token riÃªng. CÃ¡c giá»›i háº¡n nÃ y khÃ´ng dÃ¹ng chung vá»›i consultation limit.
-33a. TrÆ°á»›c khi gá»i model, Redis reserve `estimatedInputTokens + maxOutputTokens`; khi provider tráº£ káº¿t quáº£ thÃ¬ commit token thá»±c táº¿ vÃ o `AiUsageDaily` vÃ  release pháº§n dÆ°. Request lá»—i/timeout pháº£i release reservation; retry dÃ¹ng idempotency key Ä‘á»ƒ khÃ´ng trá»« token hai láº§n.
-34. PaymentOrder dÃ¹ng state machine `created|pending|processing|paid|failed|expired|cancelled|refund_pending|refunded`; má»i transition lÃ  conditional, cÃ³ actor/source/time vÃ  audit. Timeout/unknown khÃ´ng Ä‘Æ°á»£c tá»± chuyá»ƒn thÃ nh failed náº¿u chÆ°a Ä‘á»‘i soÃ¡t provider.
-35. Trong má»™t Mongo transaction, IPN há»£p lá»‡ upsert PaymentTransaction, chuyá»ƒn order sang paid vÃ  ghi Ä‘Ãºng má»™t `SubscriptionGrantRequested` OutboxEvent. KhÃ´ng gá»i VNPAY hoáº·c dá»‹ch vá»¥ ngoÃ i trong transaction.
-36. Worker cáº¥p Subscription idempotent theo `sourceOrderId`/grant key. Lá»—i worker Ä‘Æ°á»£c retry; khÃ´ng táº¡o payment má»›i vÃ  khÃ´ng chuyá»ƒn order paid vá» pending.
-37. Reconciliation pháº£i phÃ¡t hiá»‡n order processing quÃ¡ lÃ¢u, paid-without-grant, duplicate/mismatch provider reference vÃ  xÃ¡c minh láº¡i trÆ°á»›c thao tÃ¡c sá»­a tráº¡ng thÃ¡i.
-38. DA2 khÃ´ng dÃ¹ng Saga framework vÃ¬ Payment, Subscription vÃ  Outbox náº±m trong má»™t modular monolith/MongoDB. Chá»‰ xem xÃ©t Saga khi cÃ¡c bÆ°á»›c thuá»™c service/database Ä‘á»™c láº­p vÃ  cáº§n compensation liÃªn dá»‹ch vá»¥.
-39. Má»—i user chá»‰ cÃ³ má»™t Subscription `active`, Ä‘Æ°á»£c báº£o vá»‡ báº±ng partial unique index. KhÃ´ng Ä‘Æ°á»£c táº¡o hai gÃ³i active song song rá»“i cá»™ng quyá»n lá»£i.
-40. Náº¿u Ä‘Ã£ cÃ³ PaymentOrder `created|pending|processing` cho cÃ¹ng user vÃ  cÃ¹ng thao tÃ¡c Ä‘á»•i gÃ³i, request láº·p pháº£i tráº£ láº¡i order hiá»‡n cÃ³; khÃ´ng táº¡o order má»›i.
-41. Náº¿u user Ä‘ang dÃ¹ng Free, gÃ³i tráº£ phÃ­ Ä‘Ã£ thanh toÃ¡n Ä‘Æ°á»£c kÃ­ch hoáº¡t ngay trong transaction cáº¥p quyá»n vÃ  thay tháº¿ Free. Náº¿u Ä‘ang dÃ¹ng Plus/Care, mua cÃ¹ng gÃ³i hoáº·c Ä‘á»•i gÃ³i Ä‘Æ°á»£c lÃªn lá»‹ch cho chu ká»³ káº¿ tiáº¿p báº±ng `nextPlanId`, `nextPlanSnapshot`, `nextPlanOrderId`, `nextPlanStartsAt`; táº¡i má»™t thá»i Ä‘iá»ƒm chá»‰ cÃ³ má»™t thay Ä‘á»•i káº¿ tiáº¿p.
-42. Khi Ä‘Ã£ cÃ³ thay Ä‘á»•i gÃ³i káº¿ tiáº¿p, láº§n mua má»›i bá»‹ tá»« chá»‘i cho tá»›i khi thay Ä‘á»•i cÅ© Ä‘Æ°á»£c há»§y theo policy hoáº·c Ä‘Ã£ cÃ³ hiá»‡u lá»±c. DA2 khÃ´ng prorate, khÃ´ng cá»™ng dá»“n hai Plan vÃ  khÃ´ng nÃ¢ng cáº¥p giá»¯a chu ká»³; chÃ­nh sÃ¡ch nÃ y pháº£i hiá»ƒn thá»‹ trÆ°á»›c thanh toÃ¡n.
-43. Worker chuyá»ƒn chu ká»³ báº±ng conditional update: kiá»ƒm tra active subscription vÃ  `nextPlanStartsAt`, tÄƒng `cycleNumber`, Ã¡p dá»¥ng snapshot má»›i, xÃ³a cÃ¡c field `nextPlan*` vÃ  ghi `AuditLogs`. Retry khÃ´ng Ä‘Æ°á»£c chuyá»ƒn chu ká»³ hai láº§n.
-44. `Plans` Ä‘Æ°á»£c version hÃ³a. Admin chá»‰ sá»­a version `draft`; publish táº¡o version bÃ¡n Ä‘Æ°á»£c vá»›i `effectiveFrom/effectiveUntil`. PaymentOrder vÃ  Subscription luÃ´n snapshot Plan Ä‘Ã£ publish, nÃªn sá»­a Plan má»›i khÃ´ng Ã¢m tháº§m Ä‘á»•i quyá»n lá»£i Ä‘Ã£ mua.
+1. Giá, quyền lợi và quota tại lúc mua phải được snapshot trong PaymentOrders và Subscriptions.
+2. Tiền VND lưu dưới dạng integer, không dùng số thực.
+3. Return URL chỉ hiển thị kết quả. Chỉ IPN có chữ ký hợp lệ mới chuyển payment order sang paid và ghi yêu cầu cấp Subscription vào transactional outbox.
+4. IPN lặp phải idempotent: cùng transaction reference không được tạo transaction, outbox event hoặc Subscription grant hai lần.
+5. Redis kiểm quota AI realtime theo ngày; AiUsageDaily là dữ liệu bền vững cho thống kê và đối soát.
+6. Khi subscription hết hạn, API AI áp dụng quota Free ở request tiếp theo. Worker chỉ hỗ trợ thông báo hết hạn.
+7. Hệ thống có ba tier sản phẩm: `free`, `plus`, `care`; giá và giới hạn cụ thể nằm trong Plan/Subscription snapshot, không hard-code theo tên tier.
+8. Free luôn có quyền nhập/xem HealthMetrics của chính Patient, biểu đồ cơ bản, một Care Program cơ bản, in-app notification, quota AI cơ bản và safety alert thiết yếu.
+9. Plus bao gồm Free và có thể cấp nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder/quiet hours, medication reminder, PDF/CSV và quota AI cao hơn theo Plan.
+10. Care bao gồm Plus và có thể cấp Doctor-assigned Program, Doctor review theo cadence, Priority Inbox, follow-up, nhắc tái khám và ưu đãi giá consultation theo Plan snapshot.
+10a. Khi tính năng Người thân đồng hành P1 được bật, số người thân active lấy từ `familyLinkLimit` trong Plan snapshot; Care có thể mặc định một hoặc nhiều người, Plus có thể mua add-on. Entitlement chỉ cấp số lượng liên kết, không ghi đè consent hoặc mở quyền xem dữ liệu chi tiết.
+11. Doctor-reviewed/confirmed report chỉ xác nhận Doctor đã xem báo cáo; không được trình bày thành chẩn đoán, đơn thuốc hoặc bảo đảm kết quả điều trị.
+12. Nhắn tin Doctor chỉ tồn tại trong Consultation được authorize. Không tier nào mặc định tạo chat 24/7 hoặc cam kết phản hồi cấp cứu.
+13. DA2 chưa có Clinic/Clinic Admin và không quảng bá SLA phản hồi. Giao diện phải nêu rõ Doctor không theo dõi realtime; SLA theo tổ chức chỉ được xem xét sau DA2 khi có mô hình Clinic, giờ phục vụ, nhân sự, escalation và cơ chế đo lường.
+14. Cảnh báo `urgent`, safety template và quyền truy cập dữ liệu cơ bản của Patient không được tắt khi hết hạn, downgrade hoặc vượt quota AI.
+15. Downgrade/hết hạn không xóa HealthMetrics, Care Alerts hoặc báo cáo lịch sử. Quyền lợi trả phí mới dừng theo `paidThroughAt` và grace policy đã snapshot.
+16. Giới hạn lưu lịch sử theo tier chỉ được áp dụng sau privacy/retention review; không được làm mất quyền truy cập/xuất dữ liệu tối thiểu của chính Patient.
+17. `ConsultationUsages` dùng một bản ghi cho mỗi Consultation trong một chu kỳ và cập nhật nguyên tử theo vòng đời `reserved → counted|released|expired`; khóa chống xử lý trùng bảo đảm retry không đếm một Consultation nhiều lần. Mỗi lần đổi trạng thái phải ghi bản ghi bất biến trong `AuditLogs` với `domain = billing`; DA2 không xây event sourcing riêng.
+18. Entitlement được kiểm tra phía backend. Client không được tự khai tier, AI quota, consultation limit, Doctor review hoặc quyền Care Program.
+19. Plan trả phí không được thay đổi Care Evaluation severity, thứ tự ưu tiên lâm sàng hoặc quyền được nhận safety escalation.
+20. Khi VNPAY chưa nằm trong cut-line, seed/demo subscription có thể dùng để kiểm thử entitlement nhưng phải được đánh dấu rõ, không ghi nhận là doanh thu thật.
+21. Trong DA2, VNPAY Sandbox payment/subscription và cancel unpaid order là P0 bắt buộc; seed subscription không thay thế acceptance demo giao dịch Sandbox.
+22. Full refund vẫn là P1 và chỉ được bật khi payment, IPN, cancel, entitlement và reconciliation đã đạt release gate.
+23. Số consultation tối đa mỗi cycle mặc định là Free `1`, Plus `3`, Care `6`. Field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot; đây không phải AI quota.
+24. Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription. Free cũng tạo bản ghi `Subscriptions` với `source = free_grant` và chu kỳ 30 ngày neo tại thời điểm kích hoạt; không tạo PaymentOrder cho Free và không tạo Subscription mới mỗi chu kỳ. `ConsultationUsages` phải gắn chu kỳ cụ thể, không reset toàn bộ người dùng bằng một cron chung.
+25. `consultationsUsed` đếm trực tiếp số Consultation đã sử dụng; số còn lại bằng limit trừ số đã dùng và reservation đang hoạt động.
+26. Giới hạn consultation không đồng nghĩa phiên miễn phí và không bảo đảm Doctor còn slot. Chi phí/ưu đãi của từng phiên là chính sách giá độc lập trong Plan.
+27. Add-on có thể tăng consultation limit hiệu dụng; add-on phải có source order, expiry, số lượt bổ sung và ledger idempotent.
+28. Cả scheduled và on-demand consultation dùng chung một limit. Pending on-demand request chưa tạo reservation; reservation được tạo atomically khi Doctor accept.
+29. Scheduled consultation tạo reservation khi booking được xác nhận. Reservation phải chống race để hai request đồng thời không vượt số lượt còn lại.
+30. Consultation được count khi chuyển `in_consultation`; Patient `no_show` cũng được count theo no-show policy. Doctor/system cancel hoặc Patient cancel đúng hạn phải hủy reservation.
+31. Retry, duplicate event hoặc reconnect không được count/hủy reservation hai lần; ledger entry phải gắn `consultationId` và idempotency key.
+32. Khi hết số lượt, Patient có thể chờ cycle mới, nâng gói hoặc mua add-on. Safety alert vẫn hoạt động và tình huống khẩn cấp phải hướng tới cơ sở y tế/cấp cứu.
+33. AI chat dùng `aiTokenLimit` làm quota chính, tính trên tổng input + output token đã commit trong kỳ. `aiRequestLimit` là giới hạn phụ chống spam và trường hợp request rất nhỏ; summary job có ngân sách token riêng. Các giới hạn này không dùng chung với consultation limit.
+33a. Trước khi gọi model, Redis reserve `estimatedInputTokens + maxOutputTokens`; khi provider trả kết quả thì commit token thực tế vào `AiUsageDaily` và release phần dư. Request lỗi/timeout phải release reservation; retry dùng idempotency key để không trừ token hai lần.
+34. PaymentOrder dùng state machine `created|pending|processing|paid|failed|expired|cancelled|refund_pending|refunded`; mọi transition là conditional, có actor/source/time và audit. Timeout/unknown không được tự chuyển thành failed nếu chưa đối soát provider.
+35. Trong một Mongo transaction, IPN hợp lệ upsert PaymentTransaction, chuyển order sang paid và ghi đúng một `SubscriptionGrantRequested` OutboxEvent. Không gọi VNPAY hoặc dịch vụ ngoài trong transaction.
+36. Worker cấp Subscription idempotent theo `sourceOrderId`/grant key. Lỗi worker được retry; không tạo payment mới và không chuyển order paid về pending.
+37. Reconciliation phải phát hiện order processing quá lâu, paid-without-grant, duplicate/mismatch provider reference và xác minh lại trước thao tác sửa trạng thái.
+38. DA2 không dùng Saga framework vì Payment, Subscription và Outbox nằm trong một modular monolith/MongoDB. Chỉ xem xét Saga khi các bước thuộc service/database độc lập và cần compensation liên dịch vụ.
+39. Mỗi user chỉ có một Subscription `active`, được bảo vệ bằng partial unique index. Không được tạo hai gói active song song rồi cộng quyền lợi.
+40. Nếu đã có PaymentOrder `created|pending|processing` cho cùng user và cùng thao tác đổi gói, request lặp phải trả lại order hiện có; không tạo order mới.
+41. Nếu user đang dùng Free, gói trả phí đã thanh toán được kích hoạt ngay trong transaction cấp quyền và thay thế Free. Nếu đang dùng Plus/Care, mua cùng gói hoặc đổi gói được lên lịch cho chu kỳ kế tiếp bằng `nextPlanId`, `nextPlanSnapshot`, `nextPlanOrderId`, `nextPlanStartsAt`; tại một thời điểm chỉ có một thay đổi kế tiếp.
+42. Khi đã có thay đổi gói kế tiếp, lần mua mới bị từ chối cho tới khi thay đổi cũ được hủy theo policy hoặc đã có hiệu lực. DA2 không prorate, không cộng dồn hai Plan và không nâng cấp giữa chu kỳ; chính sách này phải hiển thị trước thanh toán.
+43. Worker chuyển chu kỳ bằng conditional update: kiểm tra active subscription và `nextPlanStartsAt`, tăng `cycleNumber`, áp dụng snapshot mới, xóa các field `nextPlan*` và ghi `AuditLogs`. Retry không được chuyển chu kỳ hai lần.
+44. `Plans` được version hóa. Admin chỉ sửa version `draft`; publish tạo version bán được với `effectiveFrom/effectiveUntil`. PaymentOrder và Subscription luôn snapshot Plan đã publish, nên sửa Plan mới không âm thầm đổi quyền lợi đã mua.
 
-## Quáº£n lÃ½ cáº¥u hÃ¬nh há»‡ thá»‘ng vÃ  cáº¥u hÃ¬nh kinh doanh
+## Quản lý cấu hình hệ thống và cấu hình kinh doanh
 
-1. ENV chá»‰ chá»©a secret/háº¡ táº§ng vÃ  hard ceiling ká»¹ thuáº­t, vÃ­ dá»¥ database URL, provider key, request timeout, batch size tá»‘i Ä‘a, token tá»‘i Ä‘a/request, sá»‘ consultation/family link tá»‘i Ä‘a há»‡ thá»‘ng. KhÃ´ng lÆ°u giÃ¡ hoáº·c quota tá»«ng gÃ³i trong ENV.
-2. Admin UI quáº£n lÃ½ chÃ­nh sÃ¡ch kinh doanh cÃ³ version trong database: Plan price/duration, AI token/request limit, consultation limit, Care Program limit, family link limit vÃ  feature benefits.
-3. Doctor chá»‰ sá»­a `bookingSettings` cá»§a mÃ¬nh trong min/max do há»‡ thá»‘ng quy Ä‘á»‹nh. Admin cÃ³ thá»ƒ thay default/range váº­n hÃ nh nhÆ°ng khÃ´ng sá»­a lá»‹ch Ä‘Ã£ booked vÃ¬ Consultation giá»¯ snapshot.
-4. Clinical thresholds, Care Rules vÃ  safety templates náº±m trong database cÃ³ version vÃ  audit; khÃ´ng lÃ  ENV vÃ  khÃ´ng cho báº¥t ká»³ actor nÃ o sá»­a trá»±c tiáº¿p báº£n active/published.
-5. State transition, authorization, cÃ´ng thá»©c quota vÃ  quy táº¯c má»™t active Subscription/má»™t `in_consultation` lÃ  invariant trong code/database constraint, khÃ´ng pháº£i cáº¥u hÃ¬nh Admin.
-6. Má»i thay Ä‘á»•i cáº¥u hÃ¬nh qua Admin pháº£i validate hard ceiling, cÃ³ `effectiveFrom`, actor/reason vÃ  `AuditLogs`; thay Ä‘á»•i chá»‰ Ã¡p dá»¥ng cho dá»¯ liá»‡u/chu ká»³ má»›i trá»« khi cÃ³ migration Ä‘Æ°á»£c duyá»‡t rÃµ rÃ ng.
+1. ENV chỉ chứa secret/hạ tầng và hard ceiling kỹ thuật, ví dụ database URL, provider key, request timeout, batch size tối đa, token tối đa/request, số consultation/family link tối đa hệ thống. Không lưu giá hoặc quota từng gói trong ENV.
+2. Admin UI quản lý chính sách kinh doanh có version trong database: Plan price/duration, AI token/request limit, consultation limit, Care Program limit, family link limit và feature benefits.
+3. Doctor chỉ sửa `bookingSettings` của mình trong min/max do hệ thống quy định. Admin có thể thay default/range vận hành nhưng không sửa lịch đã booked vì Consultation giữ snapshot.
+4. Clinical thresholds, Care Rules và safety templates nằm trong database có version và audit; không là ENV và không cho bất kỳ actor nào sửa trực tiếp bản active/published.
+5. State transition, authorization, công thức quota và quy tắc một active Subscription/một `in_consultation` là invariant trong code/database constraint, không phải cấu hình Admin.
+6. Mọi thay đổi cấu hình qua Admin phải validate hard ceiling, có `effectiveFrom`, actor/reason và `AuditLogs`; thay đổi chỉ áp dụng cho dữ liệu/chu kỳ mới trừ khi có migration được duyệt rõ ràng.
 
-## ChÃ­nh sÃ¡ch hoÃ n tiá»n toÃ n pháº§n (P1)
+## Chính sách hoàn tiền toàn phần (P1)
 
-1. DA2 chá»‰ há»— trá»£ hoÃ n toÃ n bá»™ tiá»n Ä‘Ãºng má»™t láº§n cho má»™t `PaymentOrder` Ä‘Ã£ thu tiá»n. KhÃ´ng há»— trá»£ hoÃ n má»™t pháº§n, nhiá»u láº§n, chargeback hoáº·c tá»± Ä‘á»™ng hoÃ n khi há»§y consultation.
-2. Äiá»u kiá»‡n hoÃ n tiá»n khÃ´ng dÃ¹ng má»™t tá»· lá»‡ sá»­ dá»¥ng chung. Há»‡ thá»‘ng Ä‘Ã¡nh giÃ¡ riÃªng tá»«ng quyá»n lá»£i tráº£ phÃ­ theo `refundPolicy` cá»§a phiÃªn báº£n Plan Ä‘Ã£ Ä‘Æ°á»£c snapshot trong `PaymentOrders.orderSnapshot`.
-3. YÃªu cáº§u thÃ´ng thÆ°á»ng chá»‰ há»£p lá»‡ khi ngÆ°á»i yÃªu cáº§u lÃ  chá»§ order, order Ä‘ang `paid`, cÃ²n trong `refundWindowHours` vÃ  chÆ°a cÃ³ refund lifecycle trÆ°á»›c Ä‘Ã³. Lá»—i thanh toÃ¡n/há»‡ thá»‘ng nhÆ° thu trÃ¹ng, Ä‘Ã£ thu nhÆ°ng khÃ´ng cáº¥p quyá»n hoáº·c cáº¥p sai quyá»n Ä‘Æ°á»£c Ä‘Æ°a vÃ o `review_required` thay vÃ¬ tá»± Ä‘á»™ng tá»« chá»‘i.
-4. Khi nháº­n yÃªu cáº§u, há»‡ thá»‘ng chá»¥p `usageSnapshot` gá»“m AI token Ä‘Ã£ dÃ¹ng, consultation Ä‘ang giá»¯ chá»—/Ä‘Ã£ tÃ­nh lÆ°á»£t, Doctor review Ä‘Ã£ hoÃ n thÃ nh, bÃ¡o cÃ¡o tráº£ phÃ­ Ä‘Ã£ táº¡o vÃ  nhiá»‡m vá»¥ Care tráº£ phÃ­ Ä‘Ã£ hoÃ n thÃ nh. Quyá»n lá»£i Free vÃ  cáº£nh bÃ¡o an toÃ n khÃ´ng Ä‘Æ°á»£c tÃ­nh Ä‘á»ƒ cháº·n hoÃ n tiá»n.
-5. Consultation má»›i chá»‰ `reserved` pháº£i Ä‘Æ°á»£c há»§y/giáº£i phÃ³ng reservation theo chÃ­nh sÃ¡ch consultation trÆ°á»›c khi xÃ©t hoÃ n tiá»n. Consultation Ä‘Ã£ `counted` hoáº·c `no_show`, Doctor review Ä‘Ã£ hoÃ n thÃ nh vÃ  Ä‘áº§u ra tráº£ phÃ­ Ä‘Ã£ phÃ¡t sinh Ä‘Æ°á»£c so vá»›i tá»«ng ngÆ°á»¡ng trong policy; khÃ´ng quy Ä‘á»•i táº¥t cáº£ thÃ nh má»™t pháº§n trÄƒm mÆ¡ há»“.
-6. Transaction táº¡o request pháº£i chuyá»ƒn order `paid -> refund_pending`, táº¡o `PaymentRefunds`, lÆ°u policy/usage snapshot vÃ  táº¡m dá»«ng viá»‡c táº¡o hÃ nh Ä‘á»™ng tráº£ phÃ­ má»›i. Patient váº«n truy cáº­p dá»¯ liá»‡u cá»§a mÃ¬nh, quyá»n Free vÃ  safety alert.
-7. Ngay trÆ°á»›c khi Admin duyá»‡t, backend pháº£i chá»¥p `finalUsageSnapshot` vÃ  Ä‘Ã¡nh giÃ¡ láº¡i Ä‘á»ƒ ngÄƒn race giá»¯a sá»­ dá»¥ng dá»‹ch vá»¥ vÃ  duyá»‡t refund. Náº¿u khÃ´ng cÃ²n Ä‘á»§ Ä‘iá»u kiá»‡n thÃ¬ khÃ´ng gá»i provider; request bá»‹ reject hoáº·c chuyá»ƒn `review_required` theo reason code.
-8. Má»i refund cáº§n Admin duyá»‡t. Admin chá»‰ Ä‘Æ°á»£c override ngÆ°á»¡ng sá»­ dá»¥ng cho trÆ°á»ng há»£p ngoáº¡i lá»‡ cÃ³ lÃ½ do; khÃ´ng Ä‘Æ°á»£c bá» qua invariant sá»‘ tiá»n khÃ´ng vÆ°á»£t khoáº£n Ä‘Ã£ thu, Ä‘Ãºng giao dá»‹ch provider, má»™t refund lifecycle/order vÃ  idempotency. Quyáº¿t Ä‘á»‹nh/override pháº£i vÃ o `AuditLogs` vá»›i `domain = billing`.
-9. Worker gá»i VNPAY ngoÃ i MongoDB transaction vÃ  giá»¯ nguyÃªn `providerRequestId` khi retry. Timeout/káº¿t quáº£ khÃ´ng xÃ¡c Ä‘á»‹nh chuyá»ƒn `manual_review`; pháº£i query/reconcile provider trÆ°á»›c láº§n gá»i tiáº¿p theo.
-10. Chá»‰ khi provider xÃ¡c nháº­n thÃ nh cÃ´ng má»›i chuyá»ƒn refund sang `succeeded`, order sang `refunded` vÃ  há»§y Ä‘Ãºng Subscription grant. Khi reject hoáº·c provider failure Ä‘Ã£ cÃ³ káº¿t luáº­n, order trá»Ÿ vá» `paid` vÃ  quyá»n lá»£i tráº£ phÃ­ Ä‘Æ°á»£c má»Ÿ láº¡i.
-11. `refundPolicy` lÃ  cáº¥u hÃ¬nh nghiá»‡p vá»¥ cÃ³ version do Admin quáº£n lÃ½ trong Plan draft rá»“i publish; sá»­a Plan khÃ´ng há»“i tá»‘ order cÅ©. ENV chá»‰ giá»¯ feature flag/kill switch, provider timeout, sá»‘ láº§n retry vÃ  hard ceiling ká»¹ thuáº­t.
-12. GiÃ¡ trá»‹ seed khuyáº¿n nghá»‹ Ä‘á»ƒ review sáº£n pháº©m lÃ  `refundType = full_only`, `refundWindowHours = 168`, má»i ngÆ°á»¡ng sá»­ dá»¥ng tráº£ phÃ­ báº±ng `0`, `requireAdminApproval = true`. ÄÃ¢y lÃ  máº·c Ä‘á»‹nh ká»¹ thuáº­t, pháº£i Ä‘Æ°á»£c chá»§ sáº£n pháº©m rÃ  soÃ¡t trÆ°á»›c khi phÃ¡t hÃ nh vÃ  khÃ´ng thay tháº¿ Ä‘iá»u khoáº£n phÃ¡p lÃ½.
+1. DA2 chỉ hỗ trợ hoàn toàn bộ tiền đúng một lần cho một `PaymentOrder` đã thu tiền. Không hỗ trợ hoàn một phần, nhiều lần, chargeback hoặc tự động hoàn khi hủy consultation.
+2. Điều kiện hoàn tiền không dùng một tỷ lệ sử dụng chung. Hệ thống đánh giá riêng từng quyền lợi trả phí theo `refundPolicy` của phiên bản Plan đã được snapshot trong `PaymentOrders.orderSnapshot`.
+3. Yêu cầu thông thường chỉ hợp lệ khi người yêu cầu là chủ order, order đang `paid`, còn trong `refundWindowHours` và chưa có refund lifecycle trước đó. Lỗi thanh toán/hệ thống như thu trùng, đã thu nhưng không cấp quyền hoặc cấp sai quyền được đưa vào `review_required` thay vì tự động từ chối.
+4. Khi nhận yêu cầu, hệ thống chụp `usageSnapshot` gồm AI token đã dùng, consultation đang giữ chỗ/đã tính lượt, Doctor review đã hoàn thành, báo cáo trả phí đã tạo và nhiệm vụ Care trả phí đã hoàn thành. Quyền lợi Free và cảnh báo an toàn không được tính để chặn hoàn tiền.
+5. Consultation mới chỉ `reserved` phải được hủy/giải phóng reservation theo chính sách consultation trước khi xét hoàn tiền. Consultation đã `counted` hoặc `no_show`, Doctor review đã hoàn thành và đầu ra trả phí đã phát sinh được so với từng ngưỡng trong policy; không quy đổi tất cả thành một phần trăm mơ hồ.
+6. Transaction tạo request phải chuyển order `paid -> refund_pending`, tạo `PaymentRefunds`, lưu policy/usage snapshot và tạm dừng việc tạo hành động trả phí mới. Patient vẫn truy cập dữ liệu của mình, quyền Free và safety alert.
+7. Ngay trước khi Admin duyệt, backend phải chụp `finalUsageSnapshot` và đánh giá lại để ngăn race giữa sử dụng dịch vụ và duyệt refund. Nếu không còn đủ điều kiện thì không gọi provider; request bị reject hoặc chuyển `review_required` theo reason code.
+8. Mọi refund cần Admin duyệt. Admin chỉ được override ngưỡng sử dụng cho trường hợp ngoại lệ có lý do; không được bỏ qua invariant số tiền không vượt khoản đã thu, đúng giao dịch provider, một refund lifecycle/order và idempotency. Quyết định/override phải vào `AuditLogs` với `domain = billing`.
+9. Worker gọi VNPAY ngoài MongoDB transaction và giữ nguyên `providerRequestId` khi retry. Timeout/kết quả không xác định chuyển `manual_review`; phải query/reconcile provider trước lần gọi tiếp theo.
+10. Chỉ khi provider xác nhận thành công mới chuyển refund sang `succeeded`, order sang `refunded` và hủy đúng Subscription grant. Khi reject hoặc provider failure đã có kết luận, order trở về `paid` và quyền lợi trả phí được mở lại.
+11. `refundPolicy` là cấu hình nghiệp vụ có version do Admin quản lý trong Plan draft rồi publish; sửa Plan không hồi tố order cũ. ENV chỉ giữ feature flag/kill switch, provider timeout, số lần retry và hard ceiling kỹ thuật.
+12. Giá trị seed khuyến nghị để review sản phẩm là `refundType = full_only`, `refundWindowHours = 168`, mọi ngưỡng sử dụng trả phí bằng `0`, `requireAdminApproval = true`. Đây là mặc định kỹ thuật, phải được chủ sản phẩm rà soát trước khi phát hành và không thay thế điều khoản pháp lý.
 
-## Notification, Outbox vÃ  worker
+## Notification, Outbox và worker
 
-1. Notifications lÃ  inbox hiá»ƒn thá»‹ trong app; OutboxEvents lÃ  hÃ ng Ä‘á»£i sá»± kiá»‡n bá»n vá»¯ng Ä‘á»ƒ worker gá»­i Socket.IO, FCM hoáº·c email.
-2. Thay Ä‘á»•i nghiá»‡p vá»¥ quan trá»ng pháº£i táº¡o entity chÃ­nh, notification vÃ  outbox event trong cÃ¹ng MongoDB transaction.
-3. Worker claim OutboxEvents theo status pending vÃ  available at, gá»­i theo channel phÃ¹ há»£p, sau Ä‘Ã³ Ä‘Ã¡nh dáº¥u completed, retry failed hoáº·c dead khi háº¿t sá»‘ láº§n thá»­.
-4. BullMQ dÃ¹ng Redis cho delayed jobs: nháº¯c lá»‹ch 24 giá» vÃ  15 phÃºt trÆ°á»›c cuá»™c háº¹n, gá»­i campaign theo batch vÃ  retry tÃ¡c vá»¥ ngoÃ i há»‡ thá»‘ng.
-5. Broadcast campaign pháº£i Ä‘Æ°á»£c worker fan-out theo batch; khÃ´ng táº¡o toÃ n bá»™ notification trong HTTP request cá»§a admin.
-6. Gá»­i cho má»™t user: táº¡o trá»±c tiáº¿p má»™t `Notifications` vÃ  má»™t OutboxEvent trong cÃ¹ng transaction. Gá»­i cho danh sÃ¡ch/nhÃ³m/táº¥t cáº£: táº¡o `NotificationCampaigns` vá»›i `targetType = individual|segment|all`, Ä‘Ã³ng bÄƒng `targetFilter` vÃ  `audienceSnapshotAt`, sau Ä‘Ã³ worker táº¡o má»™t `Notifications` cho tá»«ng ngÆ°á»i nháº­n theo batch.
-7. `Notifications` lÃ  tráº¡ng thÃ¡i inbox riÃªng cá»§a tá»«ng user, vÃ¬ váº­y Ä‘á»c/xÃ³a cá»§a ngÆ°á»i nÃ y khÃ´ng áº£nh hÆ°á»Ÿng ngÆ°á»i khÃ¡c. `uniqueKey` chá»‘ng táº¡o trÃ¹ng khi worker retry; `delivery` lÆ°u tráº¡ng thÃ¡i tá»«ng kÃªnh in-app/push/email.
-8. `segment` chá»‰ dÃ¹ng bá»™ lá»c allowlist nhÆ° role, Plan, Care Program hoáº·c khu vá»±c. KhÃ´ng nháº­n Mongo filter thÃ´ tá»« client; má»i campaign cáº§n hard cap/batch/cursor vÃ  quyá»n Admin phÃ¹ há»£p.
+1. Notifications là inbox hiển thị trong app; OutboxEvents là hàng đợi sự kiện bền vững để worker gửi Socket.IO, FCM hoặc email.
+2. Thay đổi nghiệp vụ quan trọng phải tạo entity chính, notification và outbox event trong cùng MongoDB transaction.
+3. Worker claim OutboxEvents theo status pending và available at, gửi theo channel phù hợp, sau đó đánh dấu completed, retry failed hoặc dead khi hết số lần thử.
+4. BullMQ dùng Redis cho delayed jobs: nhắc lịch 24 giờ và 15 phút trước cuộc hẹn, gửi campaign theo batch và retry tác vụ ngoài hệ thống.
+5. Broadcast campaign phải được worker fan-out theo batch; không tạo toàn bộ notification trong HTTP request của admin.
+6. Gửi cho một user: tạo trực tiếp một `Notifications` và một OutboxEvent trong cùng transaction. Gửi cho danh sách/nhóm/tất cả: tạo `NotificationCampaigns` với `targetType = individual|segment|all`, đóng băng `targetFilter` và `audienceSnapshotAt`, sau đó worker tạo một `Notifications` cho từng người nhận theo batch.
+7. `Notifications` là trạng thái inbox riêng của từng user, vì vậy đọc/xóa của người này không ảnh hưởng người khác. `uniqueKey` chống tạo trùng khi worker retry; `delivery` lưu trạng thái từng kênh in-app/push/email.
+8. `segment` chỉ dùng bộ lọc allowlist như role, Plan, Care Program hoặc khu vực. Không nhận Mongo filter thô từ client; mọi campaign cần hard cap/batch/cursor và quyền Admin phù hợp.
 
-## Quy táº¯c váº­n hÃ nh vÃ  dá»¯ liá»‡u
+## Quy tắc vận hành và dữ liệu
 
-1. MongoDB transaction cáº§n Atlas hoáº·c MongoDB replica set. Local development pháº£i cháº¡y replica set Ä‘á»ƒ test transaction.
-2. Redis lÃ  cache, presence, quota vÃ  hÃ ng Ä‘á»£i job; MongoDB lÃ  nguá»“n dá»¯ liá»‡u nghiá»‡p vá»¥ chÃ­nh.
-3. KhÃ´ng lÆ°u secret, plaintext refresh token, OTP plaintext hoáº·c khÃ³a VNPAY trong database.
-4. Táº¥t cáº£ thá»i gian lÆ°u UTC; timezone chá»‰ dÃ¹ng Ä‘á»ƒ hiá»ƒn thá»‹ vÃ  kiá»ƒm tra lá»‹ch cá»§a bÃ¡c sÄ© hoáº·c bá»‡nh nhÃ¢n.
-5. CÃ¡c enum, thá»i háº¡n vÃ  limit trong tÃ i liá»‡u nÃ y pháº£i Ä‘Æ°á»£c Ä‘áº·t thÃ nh cáº¥u hÃ¬nh, khÃ´ng hard-code ráº£i rÃ¡c trong service.
-
+1. MongoDB transaction cần Atlas hoặc MongoDB replica set. Local development phải chạy replica set để test transaction.
+2. Redis là cache, presence, quota và hàng đợi job; MongoDB là nguồn dữ liệu nghiệp vụ chính.
+3. Không lưu secret, plaintext refresh token, OTP plaintext hoặc khóa VNPAY trong database.
+4. Tất cả thời gian lưu UTC; timezone chỉ dùng để hiển thị và kiểm tra lịch của bác sĩ hoặc bệnh nhân.
+5. Các enum, thời hạn và limit trong tài liệu này phải được đặt thành cấu hình, không hard-code rải rác trong service.
 
 
 ## Product and architecture overview
 
-# Healthcare Application â€” Tá»•ng quan sáº£n pháº©m DA2
+# Healthcare Application — Tổng quan sản phẩm DA2
 
-## 1. Má»¥c Ä‘Ã­ch tÃ i liá»‡u
+## 1. Mục đích tài liệu
 
-TÃ i liá»‡u mÃ´ táº£ pháº¡m vi sáº£n pháº©m, nghiá»‡p vá»¥, kiáº¿n trÃºc vÃ  tráº¡ng thÃ¡i chuyá»ƒn Ä‘á»•i cá»§a Healthcare Application tá»« DA1 sang DA2. Nguá»“n chuáº©n Ä‘i kÃ¨m:
+Tài liệu mô tả phạm vi sản phẩm, nghiệp vụ, kiến trúc và trạng thái chuyển đổi của Healthcare Application từ DA1 sang DA2. Nguồn chuẩn đi kèm:
 
-- Nghiá»‡p vá»¥/command contract Chronic Care: ADR-0002, sau Ä‘Ã³ lÃ  `docs/BUSINESS_RULES.md`.
-- Dá»¯ liá»‡u Ä‘Ã£ triá»ƒn khai trÆ°á»›c migration: `docs/db-template-v7.dbml`; target schema DA2 Ä‘Ã£ duyá»‡t: `docs/db-template-v8.dbml`.
-- Káº¿ hoáº¡ch implementation Chronic Care: `plan/chronic-care-plan.md`; `plan/refactor-plan.md` chá»‰ giá»¯ dependency/refactor/cut-line tá»•ng quan.
-- Há»£p Ä‘á»“ng tÃ­ch há»£p frontend: `docs/fe-integration.md`.
+- Nghiệp vụ/command contract Chronic Care: ADR-0002, sau đó là `docs/BUSINESS_RULES.md`.
+- Dữ liệu đã triển khai trước migration: `docs/db-template-v7.dbml`; target schema DA2 đã duyệt: `docs/db-template-v8.dbml`.
+- Kế hoạch implementation Chronic Care: `plan/chronic-care-plan.md`; `plan/refactor-plan.md` chỉ giữ dependency/refactor/cut-line tổng quan.
+- Hợp đồng tích hợp frontend: `docs/fe-integration.md`.
 
-DA2 Ä‘Æ°á»£c triá»ƒn khai trong giai Ä‘oáº¡n 09/2026â€“12/2026, deadline má»¥c tiÃªu 31/12/2026. Nhá»¯ng chá»©c nÄƒng Ä‘Æ°á»£c mÃ´ táº£ lÃ  **má»¥c tiÃªu cá»§a phiÃªn báº£n DA2**, khÃ´ng máº·c Ä‘á»‹nh Ä‘Ã£ tá»“n táº¡i trong code DA1.
+DA2 được triển khai trong giai đoạn 09/2026–12/2026, deadline mục tiêu 31/12/2026. Những chức năng được mô tả là **mục tiêu của phiên bản DA2**, không mặc định đã tồn tại trong code DA1.
 
-## 2. Äá»‹nh vá»‹ sáº£n pháº©m
+## 2. Định vị sản phẩm
 
-Healthcare Application Ä‘Æ°á»£c Ä‘á»‹nh vá»‹ thÃ nh **HealthAI Chronic Care â€” ná»n táº£ng theo dÃµi vÃ  há»— trá»£ chÄƒm sÃ³c bá»‡nh máº¡n tá»« xa**, khÃ´ng pháº£i há»‡ thá»‘ng khÃ¡m bá»‡nh, cháº©n Ä‘oÃ¡n hoáº·c thay tháº¿ cÆ¡ sá»Ÿ y táº¿. MVP báº¯t buá»™c cÃ³ hai Care Program dÃ¹ng chung Program engine: tÄƒng huyáº¿t Ã¡p vÃ  tiá»ƒu Ä‘Æ°á»ng.
+Healthcare Application được định vị thành **HealthAI Chronic Care — nền tảng theo dõi và hỗ trợ chăm sóc bệnh mạn từ xa**, không phải hệ thống khám bệnh, chẩn đoán hoặc thay thế cơ sở y tế. MVP bắt buộc có hai Care Program dùng chung Program engine: tăng huyết áp và tiểu đường.
 
-Sáº£n pháº©m há»— trá»£:
+Sản phẩm hỗ trợ:
 
-- Bá»‡nh nhÃ¢n theo dÃµi chá»‰ sá»‘ sá»©c khá»e vÃ  nháº­n cáº£nh bÃ¡o tham kháº£o.
-- Bá»‡nh nhÃ¢n tham gia Care Program, nháº­n lá»‹ch Ä‘o vÃ  xem má»©c Ä‘á»™ hoÃ n thÃ nh theo dÃµi.
-- á»ž pháº¡m vi P1, bá»‡nh nhÃ¢n cÃ³ thá»ƒ má»i má»™t hoáº·c nhiá»u ngÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh trong giá»›i háº¡n `familyLinkLimit` Ä‘á»ƒ nháº­n lá»i nháº¯c chung khi bá»‡nh nhÃ¢n bá» lá»¡ hoáº¡t Ä‘á»™ng theo dÃµi, trÃªn cÆ¡ sá»Ÿ Ä‘á»“ng Ã½ vÃ  quyá»n chia sáº» do bá»‡nh nhÃ¢n kiá»ƒm soÃ¡t.
-- Rule engine version hÃ³a phÃ¢n táº§ng `normal|attention|urgent` vá»›i lÃ½ do giáº£i thÃ­ch Ä‘Æ°á»£c; káº¿t quáº£ khÃ´ng pháº£i cháº©n Ä‘oÃ¡n.
-- BÃ¡c sÄ© theo dÃµi Priority Inbox vÃ  bÃ¡o cÃ¡o 7/30 ngÃ y thay vÃ¬ Ä‘á»c toÃ n bá»™ dá»¯ liá»‡u thÃ´.
-- Bá»‡nh nhÃ¢n chá»§ Ä‘á»™ng Ä‘áº·t lá»‹ch theo slot bÃ¡c sÄ© Ä‘Ã£ má»Ÿ.
-- á»ž má»©c P1, bá»‡nh nhÃ¢n tÃ¬m cÆ¡ sá»Ÿ y táº¿ theo chÆ°Æ¡ng trÃ¬nh theo dÃµi/chuyÃªn khoa vÃ  vá»‹ trÃ­; danh má»¥c ná»™i bá»™ Ä‘Ã£ kiá»ƒm duyá»‡t lÃ  nguá»“n chÃ­nh, dá»‹ch vá»¥ báº£n Ä‘á»“ chá»‰ bá»• sung khi thiáº¿u káº¿t quáº£.
-- Bá»‡nh nhÃ¢n gá»­i yÃªu cáº§u tÆ° váº¥n nhanh theo cÆ¡ cháº¿ on-demand.
-- BÃ¡c sÄ© tiáº¿p nháº­n yÃªu cáº§u, quáº£n lÃ½ lá»‹ch, hÃ ng Ä‘á»£i vÃ  tÆ° váº¥n qua chat/audio/video.
-- AI cung cáº¥p thÃ´ng tin, tÃ³m táº¯t vÃ  truy xuáº¥t tri thá»©c RAG; khÃ´ng tá»± Ä‘Æ°a ra cháº©n Ä‘oÃ¡n.
-- GÃ³i há»™i viÃªn vÃ  quota kiá»ƒm soÃ¡t quyá»n lá»£i AI.
-- Ba tier `Free`, `Plus`, `Care` láº§n lÆ°á»£t phá»¥c vá»¥ theo dÃµi cÆ¡ báº£n, tá»± theo dÃµi nÃ¢ng cao vÃ  chÆ°Æ¡ng trÃ¬nh cÃ³ Doctor Ä‘á»“ng hÃ nh. Clinic/Clinic Admin chÆ°a thuá»™c pháº¡m vi DA2.
-- Má»i enrollment Ä‘á»u báº¯t buá»™c Doctor assignment Ä‘á»ƒ xÃ¡c Ä‘á»‹nh ownership; chá»‰ tier Care máº·c Ä‘á»‹nh cÃ³ quyá»n lá»£i Doctor review theo cadence Ä‘Ã£ snapshot.
-- Thanh toÃ¡n, cancel payment order vÃ  full refund cÃ³ quáº£n trá»‹ viÃªn duyá»‡t.
-- Quáº£n trá»‹ ngÆ°á»i dÃ¹ng, há»“ sÆ¡ bÃ¡c sÄ©, tri thá»©c AI, billing vÃ  bÃ¡o cÃ¡o vi pháº¡m.
+- Bệnh nhân theo dõi chỉ số sức khỏe và nhận cảnh báo tham khảo.
+- Bệnh nhân tham gia Care Program, nhận lịch đo và xem mức độ hoàn thành theo dõi.
+- Ở phạm vi P1, bệnh nhân có thể mời một hoặc nhiều người thân đồng hành trong giới hạn `familyLinkLimit` để nhận lời nhắc chung khi bệnh nhân bỏ lỡ hoạt động theo dõi, trên cơ sở đồng ý và quyền chia sẻ do bệnh nhân kiểm soát.
+- Rule engine version hóa phân tầng `normal|attention|urgent` với lý do giải thích được; kết quả không phải chẩn đoán.
+- Bác sĩ theo dõi Priority Inbox và báo cáo 7/30 ngày thay vì đọc toàn bộ dữ liệu thô.
+- Bệnh nhân chủ động đặt lịch theo slot bác sĩ đã mở.
+- Ở mức P1, bệnh nhân tìm cơ sở y tế theo chương trình theo dõi/chuyên khoa và vị trí; danh mục nội bộ đã kiểm duyệt là nguồn chính, dịch vụ bản đồ chỉ bổ sung khi thiếu kết quả.
+- Bệnh nhân gửi yêu cầu tư vấn nhanh theo cơ chế on-demand.
+- Bác sĩ tiếp nhận yêu cầu, quản lý lịch, hàng đợi và tư vấn qua chat/audio/video.
+- AI cung cấp thông tin, tóm tắt và truy xuất tri thức RAG; không tự đưa ra chẩn đoán.
+- Gói hội viên và quota kiểm soát quyền lợi AI.
+- Ba tier `Free`, `Plus`, `Care` lần lượt phục vụ theo dõi cơ bản, tự theo dõi nâng cao và chương trình có Doctor đồng hành. Clinic/Clinic Admin chưa thuộc phạm vi DA2.
+- Mọi enrollment đều bắt buộc Doctor assignment để xác định ownership; chỉ tier Care mặc định có quyền lợi Doctor review theo cadence đã snapshot.
+- Thanh toán, cancel payment order và full refund có quản trị viên duyệt.
+- Quản trị người dùng, hồ sơ bác sĩ, tri thức AI, billing và báo cáo vi phạm.
 
-Khi cÃ³ dáº¥u hiá»‡u kháº©n cáº¥p, há»‡ thá»‘ng pháº£i hÆ°á»›ng ngÆ°á»i dÃ¹ng tá»›i cÆ¡ sá»Ÿ y táº¿ hoáº·c dá»‹ch vá»¥ cáº¥p cá»©u phÃ¹ há»£p, khÃ´ng tiáº¿p tá»¥c mÃ´ phá»ng cháº©n Ä‘oÃ¡n.
+Khi có dấu hiệu khẩn cấp, hệ thống phải hướng người dùng tới cơ sở y tế hoặc dịch vụ cấp cứu phù hợp, không tiếp tục mô phỏng chẩn đoán.
 
-## 3. Vai trÃ² vÃ  kÃªnh sá»­ dá»¥ng
+## 3. Vai trò và kênh sử dụng
 
-| Vai trÃ² | Web Client | Mobile | Web Admin |
+| Vai trò | Web Client | Mobile | Web Admin |
 |---|---|---|---|
-| Patient | Theo dÃµi sá»©c khá»e, tÃ¬m bÃ¡c sÄ©, Ä‘áº·t lá»‹ch, on-demand, queue, chat/call, AI, billing | Critical patient flows, FCM vÃ  secure token storage | KhÃ´ng |
-| Doctor | Care Program, Priority Inbox, dashboard, slot, request, queue, chat/call, há»“ sÆ¡ vÃ  review | Critical doctor flows, FCM vÃ  call foreground | KhÃ´ng |
-| Admin | KhÃ´ng dÃ¹ng client cho nghiá»‡p vá»¥ quáº£n trá»‹ | NgoÃ i MVP | Dashboard, users, doctor verification, AI knowledge, plans, payments/refunds, moderation |
+| Patient | Theo dõi sức khỏe, tìm bác sĩ, đặt lịch, on-demand, queue, chat/call, AI, billing | Critical patient flows, FCM và secure token storage | Không |
+| Doctor | Care Program, Priority Inbox, dashboard, slot, request, queue, chat/call, hồ sơ và review | Critical doctor flows, FCM và call foreground | Không |
+| Admin | Không dùng client cho nghiệp vụ quản trị | Ngoài MVP | Dashboard, users, doctor verification, AI knowledge, plans, payments/refunds, moderation |
 
-Frontend sáº½ Ä‘Æ°á»£c tÃ¡ch thÃ nh repository riÃªng gá»“m:
+Frontend sẽ được tách thành repository riêng gồm:
 
 ```text
 healthcare-frontend/
-â”œâ”€â”€ apps/web-client
-â”œâ”€â”€ apps/web-admin
-â”œâ”€â”€ apps/mobile
-â””â”€â”€ packages/
-    â”œâ”€â”€ ui
-    â”œâ”€â”€ api-client
-    â””â”€â”€ realtime-contracts
+├── apps/web-client
+├── apps/web-admin
+├── apps/mobile
+└── packages/
+    ├── ui
+    ├── api-client
+    └── realtime-contracts
 ```
 
-Backend trá»Ÿ thÃ nh repository NestJS Ä‘á»™c láº­p. REST types phÃ­a frontend Ä‘Æ°á»£c sinh tá»« OpenAPI; frontend khÃ´ng import trá»±c tiáº¿p Mongoose schemas hoáº·c domain source cá»§a backend.
+Backend trở thành repository NestJS độc lập. REST types phía frontend được sinh từ OpenAPI; frontend không import trực tiếp Mongoose schemas hoặc domain source của backend.
 
-## 4. Chá»©c nÄƒng theo vai trÃ²
+## 4. Chức năng theo vai trò
 
 ### 4.1 Patient
 
-- ÄÄƒng kÃ½ local hoáº·c OAuth, xÃ¡c thá»±c email, Ä‘Äƒng nháº­p vÃ  quáº£n lÃ½ phiÃªn.
-- Quáº£n lÃ½ há»“ sÆ¡, avatar vÃ  thÃ´ng tin liÃªn há»‡.
-- Xem danh sÃ¡ch bÃ¡c sÄ© active + approved vÃ  há»“ sÆ¡ chuyÃªn mÃ´n.
-- Xem AvailabilitySlots vÃ  Ä‘áº·t lá»‹ch chá»§ Ä‘á»™ng.
-- Gá»­i on-demand request cho bÃ¡c sÄ© khi khÃ´ng chá»n slot.
-- Há»§y consultation theo policy; check-in vÃ  theo dÃµi vá»‹ trÃ­ hÃ ng Ä‘á»£i.
-- Chat, gá»­i tá»‡p/hÃ¬nh áº£nh vÃ  tham gia audio/video call khi consultation cho phÃ©p.
-- Nháº­p, sá»­a, xÃ³a vÃ  xem biá»ƒu Ä‘á»“ HealthMetrics.
-- Tham gia Care Program, xem nhiá»‡m vá»¥ Ä‘o, má»©c Ä‘á»™ hoÃ n thÃ nh vÃ  bÃ¡o cÃ¡o 7/30 ngÃ y.
-- Má»i, xÃ¡c nháº­n, sá»­a hoáº·c thu há»“i quyá»n cá»§a ngÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh trong giá»›i háº¡n `familyLinkLimit`; chá»n nháº­n lá»i nháº¯c bá» lá»¡ nhiá»‡m vá»¥ mÃ  khÃ´ng cáº§n chia sáº» chá»‰ sá»‘ sá»©c khá»e chi tiáº¿t.
-- Nháº­n Care Alert cÃ³ lÃ½ do rÃµ rÃ ng vÃ  chuyá»ƒn sang Ä‘áº·t lá»‹ch/on-demand consultation khi cáº§n.
-- TÃ¬m cÆ¡ sá»Ÿ y táº¿ theo chuyÃªn khoa, Ä‘á»‹a Ä‘iá»ƒm vÃ  khoáº£ng cÃ¡ch; xem lÃ½ do gá»£i Ã½, nguá»“n dá»¯ liá»‡u vÃ  liÃªn káº¿t chá»‰ Ä‘Æ°á»ng. Káº¿t quáº£ khÃ´ng pháº£i khuyáº¿n nghá»‹ vá» cháº¥t lÆ°á»£ng chuyÃªn mÃ´n.
-- Há»i AI, xem citation/lá»‹ch sá»­ vÃ  pháº§n trÄƒm quota token cÃ²n láº¡i.
-- Xem Plans, táº¡o PaymentOrder, theo dÃµi káº¿t quáº£ thanh toÃ¡n vÃ  Subscription.
-- Cancel order chÆ°a thanh toÃ¡n; gá»­i full-refund request cho order Ä‘Ã£ paid.
-- Review bÃ¡c sÄ© sau consultation completed vÃ  gá»­i ViolationReport.
-- Nháº­n notification trong app vÃ  FCM trÃªn mobile.
+- Đăng ký local hoặc OAuth, xác thực email, đăng nhập và quản lý phiên.
+- Quản lý hồ sơ, avatar và thông tin liên hệ.
+- Xem danh sách bác sĩ active + approved và hồ sơ chuyên môn.
+- Xem AvailabilitySlots và đặt lịch chủ động.
+- Gửi on-demand request cho bác sĩ khi không chọn slot.
+- Hủy consultation theo policy; check-in và theo dõi vị trí hàng đợi.
+- Chat, gửi tệp/hình ảnh và tham gia audio/video call khi consultation cho phép.
+- Nhập, sửa, xóa và xem biểu đồ HealthMetrics.
+- Tham gia Care Program, xem nhiệm vụ đo, mức độ hoàn thành và báo cáo 7/30 ngày.
+- Mời, xác nhận, sửa hoặc thu hồi quyền của người thân đồng hành trong giới hạn `familyLinkLimit`; chọn nhận lời nhắc bỏ lỡ nhiệm vụ mà không cần chia sẻ chỉ số sức khỏe chi tiết.
+- Nhận Care Alert có lý do rõ ràng và chuyển sang đặt lịch/on-demand consultation khi cần.
+- Tìm cơ sở y tế theo chuyên khoa, địa điểm và khoảng cách; xem lý do gợi ý, nguồn dữ liệu và liên kết chỉ đường. Kết quả không phải khuyến nghị về chất lượng chuyên môn.
+- Hỏi AI, xem citation/lịch sử và phần trăm quota token còn lại.
+- Xem Plans, tạo PaymentOrder, theo dõi kết quả thanh toán và Subscription.
+- Cancel order chưa thanh toán; gửi full-refund request cho order đã paid.
+- Review bác sĩ sau consultation completed và gửi ViolationReport.
+- Nhận notification trong app và FCM trên mobile.
 
 ### 4.2 Doctor
 
-- ÄÄƒng kÃ½, cáº­p nháº­t DoctorProfile vÃ  táº£i tÃ i liá»‡u xÃ¡c minh.
-- Chá»‰ doctor `active + approved` Ä‘Æ°á»£c má»Ÿ slot, nháº­n request hoáº·c báº¯t Ä‘áº§u tÆ° váº¥n.
-- Táº¡o, block vÃ  quáº£n lÃ½ AvailabilitySlots.
+- Đăng ký, cập nhật DoctorProfile và tải tài liệu xác minh.
+- Chỉ doctor `active + approved` được mở slot, nhận request hoặc bắt đầu tư vấn.
+- Tạo, block và quản lý AvailabilitySlots.
 - Accept/decline on-demand request.
-- Theo dÃµi patient Ä‘Ã£ check-in, gá»i ngÆ°á»i tiáº¿p theo báº±ng thao tÃ¡c atomic vÃ  xá»­ lÃ½ no-show.
-- Chat/call trong consultation Ä‘Æ°á»£c authorize.
-- Xem health context cá»§a patient trong pháº¡m vi consultation.
-- Enroll Patient vÃ o Care Program Ä‘Ã£ duyá»‡t; xem Priority Inbox vÃ  xá»­ lÃ½ Care Alert Ä‘Æ°á»£c phÃ¢n cÃ´ng.
-- Xem bÃ¡o cÃ¡o xu hÆ°á»›ng xÃ¡c Ä‘á»‹nh vÃ  AI summary trÆ°á»›c consultation; AI khÃ´ng quyáº¿t Ä‘á»‹nh severity.
-- Ghi consultation note, hoÃ n táº¥t phiÃªn vÃ  xem review.
-- Nháº­n notification vá» request, queue, lá»‹ch, message vÃ  verification.
+- Theo dõi patient đã check-in, gọi người tiếp theo bằng thao tác atomic và xử lý no-show.
+- Chat/call trong consultation được authorize.
+- Xem health context của patient trong phạm vi consultation.
+- Enroll Patient vào Care Program đã duyệt; xem Priority Inbox và xử lý Care Alert được phân công.
+- Xem báo cáo xu hướng xác định và AI summary trước consultation; AI không quyết định severity.
+- Ghi consultation note, hoàn tất phiên và xem review.
+- Nhận notification về request, queue, lịch, message và verification.
 
 ### 4.3 Admin
 
-- Xem dashboard tá»•ng há»£p tá»« endpoint chuyÃªn dá»¥ng, khÃ´ng táº£i toÃ n bá»™ collection vá» trÃ¬nh duyá»‡t Ä‘á»ƒ tá»± Ä‘áº¿m.
-- TÃ¬m kiáº¿m, lá»c, khÃ³a/má»Ÿ khÃ³a tÃ i khoáº£n vÃ  xem audit liÃªn quan.
-- Approve/reject há»“ sÆ¡ bÃ¡c sÄ© kÃ¨m lÃ½ do.
-- Quáº£n lÃ½ Plans vÃ  tráº¡ng thÃ¡i hiá»ƒn thá»‹.
-- Xem PaymentOrders, PaymentTransactions vÃ  tráº¡ng thÃ¡i Ä‘á»‘i soÃ¡t.
-- Review/approve/reject PaymentRefunds; provider call do worker thá»±c hiá»‡n.
-- Quáº£n lÃ½ tÃ i liá»‡u RAG vÃ  blacklist keywords.
-- Admin táº¡o/chá»‰nh draft Care Program vÃ  Rule theo permission, publish/retire Program vÃ  retire Rule; má»i Doctor `active + approved` cÃ³ thá»ƒ activate Rule version sau server validation, khÃ´ng cÃ³ bÆ°á»›c duyá»‡t riÃªng.
-- Xá»­ lÃ½ ViolationReports theo workflow bá»‘n tráº¡ng thÃ¡i.
-- Táº¡o vÃ  theo dÃµi NotificationCampaigns náº¿u cÃ²n trong release cut-line.
+- Xem dashboard tổng hợp từ endpoint chuyên dụng, không tải toàn bộ collection về trình duyệt để tự đếm.
+- Tìm kiếm, lọc, khóa/mở khóa tài khoản và xem audit liên quan.
+- Approve/reject hồ sơ bác sĩ kèm lý do.
+- Quản lý Plans và trạng thái hiển thị.
+- Xem PaymentOrders, PaymentTransactions và trạng thái đối soát.
+- Review/approve/reject PaymentRefunds; provider call do worker thực hiện.
+- Quản lý tài liệu RAG và blacklist keywords.
+- Admin tạo/chỉnh draft Care Program và Rule theo permission, publish/retire Program và retire Rule; mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng.
+- Xử lý ViolationReports theo workflow bốn trạng thái.
+- Tạo và theo dõi NotificationCampaigns nếu còn trong release cut-line.
 
-## 5. Nghiá»‡p vá»¥ cá»‘t lÃµi
+## 5. Nghiệp vụ cốt lõi
 
-### 5.1 Identity vÃ  OAuth
+### 5.1 Identity và OAuth
 
-1. Má»™t tÃ i khoáº£n náº±m trong `Users`; doctor/admin profile chá»‰ lÃ  dá»¯ liá»‡u theo vai trÃ².
-2. TÃ i khoáº£n OAuth Ä‘Æ°á»£c Ã¡nh xáº¡ qua `OAuthAccounts`; tÃ i khoáº£n OAuth-only cÃ³ thá»ƒ khÃ´ng cÃ³ `passwordHash`.
-3. OTP hash, attempts vÃ  TTL náº±m trong Redis, khÃ´ng náº±m trong Users.
-4. Refresh token chá»‰ lÆ°u hash trong `AuthSessions`, cÃ³ rotation theo `familyId` vÃ  phÃ¡t hiá»‡n replay.
-5. Password change, logout-all hoáº·c account ban pháº£i revoke session liÃªn quan.
-6. OAuth dÃ¹ng state, callback allowlist vÃ  PKCE khi phÃ¹ há»£p.
+1. Một tài khoản nằm trong `Users`; doctor/admin profile chỉ là dữ liệu theo vai trò.
+2. Tài khoản OAuth được ánh xạ qua `OAuthAccounts`; tài khoản OAuth-only có thể không có `passwordHash`.
+3. OTP hash, attempts và TTL nằm trong Redis, không nằm trong Users.
+4. Refresh token chỉ lưu hash trong `AuthSessions`, có rotation theo `familyId` và phát hiện replay.
+5. Password change, logout-all hoặc account ban phải revoke session liên quan.
+6. OAuth dùng state, callback allowlist và PKCE khi phù hợp.
 
 ### 5.2 Scheduled consultation
 
@@ -471,43 +470,43 @@ sequenceDiagram
     DB-->>API: Consultation accepted/not_started
     API-->>P: Booking confirmed
     W->>P: Reminder 24h/15m
-    P->>API: Check-in trong cá»­a sá»• há»£p lá»‡
-    API->>DB: sessionStatus=waiting, queuePriorityAt Ä‘Æ°á»£c gÃ¡n
+    P->>API: Check-in trong cửa sổ hợp lệ
+    API->>DB: sessionStatus=waiting, queuePriorityAt được gán
 ```
 
-- Patient chá»‰ Ä‘Æ°á»£c chá»n slot do doctor táº¡o sáºµn; khÃ´ng gá»­i `scheduledAt` tÃ¹y Ã½.
-- Claim slot lÃ  atomic, má»™t slot chá»‰ táº¡o tá»‘i Ä‘a má»™t consultation.
-- Cancel Ä‘Ãºng policy má»Ÿ láº¡i slot náº¿u slot váº«n cÃ²n há»£p lá»‡.
-- Scheduled instant booking cÃ³ `requestStatus=accepted` ngay sau transaction.
+- Patient chỉ được chọn slot do doctor tạo sẵn; không gửi `scheduledAt` tùy ý.
+- Claim slot là atomic, một slot chỉ tạo tối đa một consultation.
+- Cancel đúng policy mở lại slot nếu slot vẫn còn hợp lệ.
+- Scheduled instant booking có `requestStatus=accepted` ngay sau transaction.
 
 ### 5.3 On-demand consultation
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending: Patient gá»­i request
+    [*] --> pending: Patient gửi request
     pending --> accepted: Doctor accept
     pending --> declined: Doctor decline
     pending --> cancelled: Patient cancel
     pending --> expired: requestExpiresAt
     accepted --> waiting: Check-in/join queue
-    accepted --> cancelled: Má»™t bÃªn há»§y há»£p lá»‡
+    accepted --> cancelled: Một bên hủy hợp lệ
     waiting --> in_consultation: Doctor call-next atomically
-    waiting --> no_show: QuÃ¡ háº¡n
-    in_consultation --> interrupted: Máº¥t heartbeat/káº¿t ná»‘i
+    waiting --> no_show: Quá hạn
+    in_consultation --> interrupted: Mất heartbeat/kết nối
     interrupted --> in_consultation: Doctor resume
-    interrupted --> completed: Doctor hoÃ n táº¥t cÃ³ lÃ½ do
-    in_consultation --> completed: Doctor hoÃ n táº¥t
+    interrupted --> completed: Doctor hoàn tất có lý do
+    in_consultation --> completed: Doctor hoàn tất
 ```
 
-- Má»™t patient chá»‰ cÃ³ tá»‘i Ä‘a má»™t on-demand request pending tá»›i cÃ¹ng doctor.
-- Doctor chá»‰ cÃ³ tá»‘i Ä‘a má»™t consultation `in_consultation`.
-- `scheduledEndAt` lÃ  má»‘c dá»± kiáº¿n, khÃ´ng tá»± Ä‘á»™ng hoÃ n táº¥t phiÃªn. Doctor káº¿t thÃºc; worker chá»‰ Ä‘Æ°á»£c chuyá»ƒn phiÃªn máº¥t heartbeat sang `interrupted`.
-- `requestStatus` mÃ´ táº£ vÃ²ng Ä‘á»i yÃªu cáº§u; `sessionStatus` mÃ´ táº£ vÃ²ng Ä‘á»i phiÃªn thá»±c táº¿.
-- KhÃ´ng dÃ¹ng `active` cho nhiá»u nghÄ©a vÃ  khÃ´ng dÃ¹ng `rejected` Ä‘á»ƒ biá»ƒu diá»…n cancel.
+- Một patient chỉ có tối đa một on-demand request pending tới cùng doctor.
+- Doctor chỉ có tối đa một consultation `in_consultation`.
+- `scheduledEndAt` là mốc dự kiến, không tự động hoàn tất phiên. Doctor kết thúc; worker chỉ được chuyển phiên mất heartbeat sang `interrupted`.
+- `requestStatus` mô tả vòng đời yêu cầu; `sessionStatus` mô tả vòng đời phiên thực tế.
+- Không dùng `active` cho nhiều nghĩa và không dùng `rejected` để biểu diễn cancel.
 
-### 5.4 HÃ ng Ä‘á»£i
+### 5.4 Hàng đợi
 
-HÃ ng Ä‘á»£i lÃ  truy váº¥n nghiá»‡p vá»¥ tá»« `Consultations`, khÃ´ng pháº£i BullMQ queue. Má»™t item náº±m trong queue khi:
+Hàng đợi là truy vấn nghiệp vụ từ `Consultations`, không phải BullMQ queue. Một item nằm trong queue khi:
 
 ```text
 requestStatus = accepted
@@ -516,76 +515,76 @@ queueJoinedAt != null
 queuePriorityAt != null
 ```
 
-Scheduled vÃ  on-demand dÃ¹ng chung hÃ ng Ä‘á»£i theo Doctor. Æ¯u tiÃªn láº§n lÆ°á»£t: scheduled quÃ¡ giá», scheduled Ä‘Ã£ Ä‘áº¿n cá»­a sá»• phá»¥c vá»¥, rá»“i on-demand accepted theo thá»i Ä‘iá»ƒm vÃ o hÃ ng Ä‘á»£i. On-demand chá»‰ Ä‘Æ°á»£c gá»i trong khoáº£ng trá»‘ng náº¿u thá»i lÆ°á»£ng dá»± kiáº¿n cá»™ng buffer khÃ´ng Ä‘Ã¨ lÃªn scheduled káº¿ tiáº¿p. `queuePriorityAt` lÃ  khÃ³a sáº¯p xáº¿p á»•n Ä‘á»‹nh; `call-next` dÃ¹ng conditional update/transaction Ä‘á»ƒ hai request Ä‘á»“ng thá»i khÃ´ng claim cÃ¹ng má»™t consultation.
+Scheduled và on-demand dùng chung hàng đợi theo Doctor. Ưu tiên lần lượt: scheduled quá giờ, scheduled đã đến cửa sổ phục vụ, rồi on-demand accepted theo thời điểm vào hàng đợi. On-demand chỉ được gọi trong khoảng trống nếu thời lượng dự kiến cộng buffer không đè lên scheduled kế tiếp. `queuePriorityAt` là khóa sắp xếp ổn định; `call-next` dùng conditional update/transaction để hai request đồng thời không claim cùng một consultation.
 
-### 5.5 Chat, call vÃ  review
+### 5.5 Chat, call và review
 
-- Message gáº¯n vá»›i `consultationId`; server kiá»ƒm tra participant trÆ°á»›c read/send/join room.
-- `clientMessageId` chá»‘ng táº¡o message trÃ¹ng khi client retry.
-- Socket.IO phá»¥c vá»¥ chat, notification, queue update vÃ  WebRTC signaling.
-- WebRTC media Ä‘i peer-to-peer/TURN; database chá»‰ lÆ°u metadata báº¯t Ä‘áº§u/káº¿t thÃºc vÃ  consent.
-- `callEndedAt` ghi cuá»™c gá»i Ä‘Ã£ dá»«ng; `completedAt` chá»‰ Ä‘Æ°á»£c ghi khi Doctor xÃ¡c nháº­n hoÃ n táº¥t consultation/note. QuÃ¡ thá»i lÆ°á»£ng chá»‰ táº¡o cáº£nh bÃ¡o/overtime, khÃ´ng tá»± complete.
-- Patient chá»‰ review consultation cá»§a mÃ¬nh sau khi completed; má»™t consultation cÃ³ tá»‘i Ä‘a má»™t review.
-- Rating summary cá»§a doctor Ä‘Æ°á»£c cáº­p nháº­t trong transaction vÃ  cÃ³ job Ä‘á»‘i soÃ¡t.
+- Message gắn với `consultationId`; server kiểm tra participant trước read/send/join room.
+- `clientMessageId` chống tạo message trùng khi client retry.
+- Socket.IO phục vụ chat, notification, queue update và WebRTC signaling.
+- WebRTC media đi peer-to-peer/TURN; database chỉ lưu metadata bắt đầu/kết thúc và consent.
+- `callEndedAt` ghi cuộc gọi đã dừng; `completedAt` chỉ được ghi khi Doctor xác nhận hoàn tất consultation/note. Quá thời lượng chỉ tạo cảnh báo/overtime, không tự complete.
+- Patient chỉ review consultation của mình sau khi completed; một consultation có tối đa một review.
+- Rating summary của doctor được cập nhật trong transaction và có job đối soát.
 
-### 5.6 Chronic Care, Health tracking vÃ  AI
+### 5.6 Chronic Care, Health tracking và AI
 
-- HealthMetrics lÆ°u theo UTC; timezone dÃ¹ng cho hiá»ƒn thá»‹.
-- Care Program xÃ¡c Ä‘á»‹nh loáº¡i metric, táº§n suáº¥t Ä‘o, timezone, thá»i háº¡n vÃ  rule set Ã¡p dá»¥ng.
-- Monitoring task Ä‘Æ°á»£c hoÃ n thÃ nh bá»Ÿi HealthMetric há»£p lá»‡; adherence chá»‰ pháº£n Ã¡nh má»©c Ä‘á»™ hoÃ n thÃ nh theo dÃµi, khÃ´ng pháº£i tuÃ¢n thá»§ Ä‘iá»u trá»‹.
-- Alert threshold/rule chá»‰ lÃ  cáº£nh bÃ¡o tham kháº£o. Rule engine lÃ  deterministic, version hÃ³a vÃ  tráº£ vá» reason codes; AI khÃ´ng Ä‘Æ°á»£c táº¡o hoáº·c thay Ä‘á»•i severity.
-- Care Alert `urgent` pháº£i hiá»ƒn thá»‹ hÃ nh Ä‘á»™ng an toÃ n tá»« template Ä‘Ã£ duyá»‡t vÃ  khÃ´ng chá» LLM.
-- NgÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh lÃ  tÃ­nh nÄƒng P1, khÃ´ng pháº£i vai trÃ² y táº¿ má»›i: ngÆ°á»i thÃ¢n Ä‘Äƒng kÃ½ tÃ i khoáº£n Patient bÃ¬nh thÆ°á»ng, Ä‘Äƒng nháº­p báº±ng cÆ¡ cháº¿ sáºµn cÃ³ rá»“i xÃ¡c nháº­n liÃªn káº¿t do Patient má»i. NgÆ°á»i thÃ¢n chá»‰ nháº­n nháº¯c nhá»Ÿ chung sau khi Patient bá» lá»¡ nhiá»‡m vá»¥ quÃ¡ khoáº£ng thá»i gian cáº¥u hÃ¬nh; máº·c Ä‘á»‹nh khÃ´ng xem HealthMetrics, ná»™i dung AI, consultation hoáº·c Care Alert.
-- Patient luÃ´n Ä‘Æ°á»£c nháº¯c trÆ°á»›c. ThÃ´ng bÃ¡o cho contact khÃ´ng chá»©a chá»‰ sá»‘, cháº©n Ä‘oÃ¡n hay lÃ½ do cáº£nh bÃ¡o; má»i consent, thay Ä‘á»•i quyá»n, gá»­i thÃ´ng bÃ¡o vÃ  thu há»“i quyá»n pháº£i audit. `urgent` khÃ´ng biáº¿n contact thÃ nh kÃªnh cáº¥p cá»©u; chá»‰ thÃ´ng bÃ¡o contact náº¿u Patient báº­t lá»±a chá»n riÃªng.
-- TÃ¬m cÆ¡ sá»Ÿ y táº¿ P1 nháº­n Ä‘áº§u vÃ o lÃ  Program/bá»‡nh Ä‘Æ°á»£c chá»n rÃµ rÃ ng hoáº·c chuyÃªn khoa Ä‘Æ°á»£c duyá»‡t cÃ¹ng khu vá»±c/vá»‹ trÃ­ do Patient chá»n. Há»‡ thá»‘ng dÃ¹ng `DiseaseSpecialties` do Admin duyá»‡t, lá»c `MedicalFacilities` Ä‘Ã£ xÃ¡c minh, rá»“i sáº¯p xáº¿p xÃ¡c Ä‘á»‹nh theo má»©c khá»›p chuyÃªn khoa vÃ  khoáº£ng cÃ¡ch. Khi dá»¯ liá»‡u ná»™i bá»™ chÆ°a Ä‘á»§, backend gá»i API báº£n Ä‘á»“; Admin pháº£i chá»n káº¿t quáº£, táº¡o báº£n nhÃ¡p vÃ  kiá»ƒm tra nguá»“n chÃ­nh thá»©c trÆ°á»›c khi Ä‘Ã¡nh dáº¥u Ä‘Ã£ xÃ¡c minh.
-- AI chá»‰ chuáº©n hÃ³a truy váº¥n tá»± nhiÃªn thÃ nh specialty/khu vá»±c vÃ  giáº£i thÃ­ch reason code; AI khÃ´ng suy luáº­n diagnosis, khÃ´ng xáº¿p háº¡ng cháº¥t lÆ°á»£ng cÆ¡ sá»Ÿ vÃ  khÃ´ng thay tháº¿ safety flow. External map result pháº£i cÃ³ source label, chá»‰ Ä‘Æ°á»£c dÃ¹ng lÃ m fallback vÃ  khÃ´ng tá»± thÃ nh dá»¯ liá»‡u verified.
-- Doctor Priority Inbox chá»‰ chá»©a Patient thuá»™c enrollment Ä‘Æ°á»£c phÃ¢n cÃ´ng vÃ  cÃ³ pagination/stable sort.
-- BÃ¡o cÃ¡o 7/30 ngÃ y tÃ­nh sá»‘ liá»‡u báº±ng backend; LLM chá»‰ diá»…n Ä‘áº¡t tá»« payload chuáº©n hÃ³a vÃ  pháº£i cÃ³ fallback.
-- Chuá»—i AI summary lÃ  `normalize metrics â†’ deterministic aggregate â†’ rule evaluation â†’ SummaryInput snapshot â†’ structured LLM output â†’ grounding/safety guard â†’ summary hoáº·c fallback`. Má»i con sá»‘ vÃ  nháº­n xÃ©t pháº£i truy vá» snapshot/source reference; Patient vÃ  Doctor dÃ¹ng presentation policy khÃ¡c nhau trÃªn cÃ¹ng facts.
-- Redis reserve/commit/release quota token theo ngÃ y; `AiUsageDaily` lÃ  dá»¯ liá»‡u bá»n vá»¯ng, tÃ¡ch token chat khá»i token sinh summary. Request cap váº«n Ä‘Æ°á»£c giá»¯ Ä‘á»ƒ chá»‘ng spam.
-- KhÃ´ng dÃ¹ng cron xÃ³a toÃ n bá»™ quota key; key theo ngÃ y cÃ³ TTL.
-- RAG dÃ¹ng `AiDocuments`, `AiDocumentChunks` vÃ  Atlas Vector Search.
-- Admin/Doctor Ä‘Æ°á»£c cáº¥p quyá»n duyá»‡t á»Ÿ cáº¥p `AiDocuments`; tráº¡ng thÃ¡i trÃªn chunk lÃ  báº£n sao phá»¥c vá»¥ Atlas filter. Chunk lá»—i cÃ³ thá»ƒ bá»‹ loáº¡i riÃªng nhÆ°ng khÃ´ng yÃªu cáº§u duyá»‡t tá»«ng chunk.
-- AI response pháº£i cÃ³ safety policy/disclaimer vÃ  khÃ´ng cháº©n Ä‘oÃ¡n.
+- HealthMetrics lưu theo UTC; timezone dùng cho hiển thị.
+- Care Program xác định loại metric, tần suất đo, timezone, thời hạn và rule set áp dụng.
+- Monitoring task được hoàn thành bởi HealthMetric hợp lệ; adherence chỉ phản ánh mức độ hoàn thành theo dõi, không phải tuân thủ điều trị.
+- Alert threshold/rule chỉ là cảnh báo tham khảo. Rule engine là deterministic, version hóa và trả về reason codes; AI không được tạo hoặc thay đổi severity.
+- Care Alert `urgent` phải hiển thị hành động an toàn từ template đã duyệt và không chờ LLM.
+- Người thân đồng hành là tính năng P1, không phải vai trò y tế mới: người thân đăng ký tài khoản Patient bình thường, đăng nhập bằng cơ chế sẵn có rồi xác nhận liên kết do Patient mời. Người thân chỉ nhận nhắc nhở chung sau khi Patient bỏ lỡ nhiệm vụ quá khoảng thời gian cấu hình; mặc định không xem HealthMetrics, nội dung AI, consultation hoặc Care Alert.
+- Patient luôn được nhắc trước. Thông báo cho contact không chứa chỉ số, chẩn đoán hay lý do cảnh báo; mọi consent, thay đổi quyền, gửi thông báo và thu hồi quyền phải audit. `urgent` không biến contact thành kênh cấp cứu; chỉ thông báo contact nếu Patient bật lựa chọn riêng.
+- Tìm cơ sở y tế P1 nhận đầu vào là Program/bệnh được chọn rõ ràng hoặc chuyên khoa được duyệt cùng khu vực/vị trí do Patient chọn. Hệ thống dùng `DiseaseSpecialties` do Admin duyệt, lọc `MedicalFacilities` đã xác minh, rồi sắp xếp xác định theo mức khớp chuyên khoa và khoảng cách. Khi dữ liệu nội bộ chưa đủ, backend gọi API bản đồ; Admin phải chọn kết quả, tạo bản nháp và kiểm tra nguồn chính thức trước khi đánh dấu đã xác minh.
+- AI chỉ chuẩn hóa truy vấn tự nhiên thành specialty/khu vực và giải thích reason code; AI không suy luận diagnosis, không xếp hạng chất lượng cơ sở và không thay thế safety flow. External map result phải có source label, chỉ được dùng làm fallback và không tự thành dữ liệu verified.
+- Doctor Priority Inbox chỉ chứa Patient thuộc enrollment được phân công và có pagination/stable sort.
+- Báo cáo 7/30 ngày tính số liệu bằng backend; LLM chỉ diễn đạt từ payload chuẩn hóa và phải có fallback.
+- Chuỗi AI summary là `normalize metrics → deterministic aggregate → rule evaluation → SummaryInput snapshot → structured LLM output → grounding/safety guard → summary hoặc fallback`. Mọi con số và nhận xét phải truy về snapshot/source reference; Patient và Doctor dùng presentation policy khác nhau trên cùng facts.
+- Redis reserve/commit/release quota token theo ngày; `AiUsageDaily` là dữ liệu bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam.
+- Không dùng cron xóa toàn bộ quota key; key theo ngày có TTL.
+- RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
+- Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`; trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
+- AI response phải có safety policy/disclaimer và không chẩn đoán.
 
-### 5.7 Billing, cancel vÃ  refund
+### 5.7 Billing, cancel và refund
 
-- Free giá»¯ HealthMetrics, biá»ƒu Ä‘á»“ cÆ¡ báº£n, safety alert, má»™t Care Program cÆ¡ báº£n, in-app notification vÃ  quota AI cÆ¡ báº£n.
-- Plus bá»• sung nhiá»u Care Program, bÃ¡o cÃ¡o 7/30/90 ngÃ y, weekly AI summary, smart reminder, medication reminder, export vÃ  quota AI cao hÆ¡n.
-- Care bao gá»“m Plus cÃ¹ng Doctor-assigned Program, review Ä‘á»‹nh ká»³, Priority Inbox, follow-up, tÃ¡i khÃ¡m vÃ  Æ°u Ä‘Ã£i giÃ¡ consultation theo Plan snapshot.
-- `consultationLimitPerCycle` máº·c Ä‘á»‹nh: Free `1`, Plus `3`, Care `6`; há»‡ thá»‘ng Ä‘áº¿m trá»±c tiáº¿p `consultationsUsed` vÃ  sá»‘ cÃ²n láº¡i.
-- Scheduled/on-demand dÃ¹ng chung consultation limit vÃ  reservation ledger idempotent. Quota AI lÃ  entitlement khÃ¡c, dÃ¹ng tá»•ng input/output token vÃ  request cap, khÃ´ng dÃ¹ng chung vá»›i consultation.
-- Subscription khÃ´ng Ä‘Æ°á»£c thay Ä‘á»•i severity/Æ°u tiÃªn lÃ¢m sÃ ng; safety alert vÃ  quyá»n truy cáº­p dá»¯ liá»‡u cÆ¡ báº£n khÃ´ng bá»‹ khÃ³a khi háº¿t háº¡n.
-- Plan Ä‘Æ°á»£c version hÃ³a `draft â†’ published â†’ retired`. Admin sá»­a chÃ­nh sÃ¡ch kinh doanh trong database vÃ  hard ceiling há»‡ thá»‘ng; Subscription giá»¯ snapshot nÃªn quyá»n lá»£i Ä‘Ã£ mua khÃ´ng Ä‘á»•i Ã¢m tháº§m.
+- Free giữ HealthMetrics, biểu đồ cơ bản, safety alert, một Care Program cơ bản, in-app notification và quota AI cơ bản.
+- Plus bổ sung nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder, medication reminder, export và quota AI cao hơn.
+- Care bao gồm Plus cùng Doctor-assigned Program, review định kỳ, Priority Inbox, follow-up, tái khám và ưu đãi giá consultation theo Plan snapshot.
+- `consultationLimitPerCycle` mặc định: Free `1`, Plus `3`, Care `6`; hệ thống đếm trực tiếp `consultationsUsed` và số còn lại.
+- Scheduled/on-demand dùng chung consultation limit và reservation ledger idempotent. Quota AI là entitlement khác, dùng tổng input/output token và request cap, không dùng chung với consultation.
+- Subscription không được thay đổi severity/ưu tiên lâm sàng; safety alert và quyền truy cập dữ liệu cơ bản không bị khóa khi hết hạn.
+- Plan được version hóa `draft → published → retired`. Admin sửa chính sách kinh doanh trong database và hard ceiling hệ thống; Subscription giữ snapshot nên quyền lợi đã mua không đổi âm thầm.
 
 ```mermaid
 stateDiagram-v2
     [*] --> created
-    created --> pending: Táº¡o payment URL
-    created --> cancelled: Cancel trÆ°á»›c thanh toÃ¡n
-    pending --> cancelled: Cancel trÆ°á»›c thanh toÃ¡n
-    pending --> paid: IPN há»£p lá»‡
-    pending --> expired: Háº¿t háº¡n
+    created --> pending: Tạo payment URL
+    created --> cancelled: Cancel trước thanh toán
+    pending --> cancelled: Cancel trước thanh toán
+    pending --> paid: IPN hợp lệ
+    pending --> expired: Hết hạn
     cancelled --> paid: Late valid IPN
-    paid --> refund_pending: Táº¡o refund request
-    refund_pending --> paid: Reject/fail cÃ³ káº¿t luáº­n
-    refund_pending --> refunded: Provider xÃ¡c nháº­n thÃ nh cÃ´ng
+    paid --> refund_pending: Tạo refund request
+    refund_pending --> paid: Reject/fail có kết luận
+    refund_pending --> refunded: Provider xác nhận thành công
 ```
 
-- Return URL chá»‰ hiá»ƒn thá»‹ tráº¡ng thÃ¡i; IPN há»£p lá»‡ má»›i ghi nháº­n paid vÃ  táº¡o outbox event yÃªu cáº§u cáº¥p quyá»n lá»£i.
-- Duplicate IPN khÃ´ng táº¡o hai subscriptions.
-- Má»—i paid order táº¡o má»™t Subscription grant cÃ³ `sourceOrderId` unique.
-- Worker cáº¥p grant idempotent vÃ  reconciliation phá»¥c há»“i trÆ°á»ng há»£p paid-without-grant. DA2 dÃ¹ng state machine + Mongo transaction + transactional outbox, chÆ°a dÃ¹ng Saga framework.
-- Cancel order chá»‰ dÃ nh cho `created|pending`; khÃ´ng gá»i refund provider.
-- Late valid IPN cá»§a order cancelled/expired váº«n pháº£i ghi nháº­n, khÃ´ng bá» qua tiá»n Ä‘Ã£ thu.
-- Full refund MVP: patient request, admin approve/reject, worker gá»i VNPAY, timeout chuyá»ƒn `manual_review` Ä‘á»ƒ Ä‘á»‘i soÃ¡t.
-- Refund khÃ´ng xÃ©t theo má»™t pháº§n trÄƒm sá»­ dá»¥ng chung. Má»—i phiÃªn báº£n Plan cÃ³ `refundPolicy` riÃªng; policy Ä‘Æ°á»£c snapshot vÃ o order vÃ  Ä‘Ã¡nh giÃ¡ theo tá»«ng quyá»n lá»£i tráº£ phÃ­ nhÆ° AI token, consultation Ä‘Ã£ tÃ­nh lÆ°á»£t, Doctor review, bÃ¡o cÃ¡o vÃ  nhiá»‡m vá»¥ Care tráº£ phÃ­.
-- Khi táº¡o yÃªu cáº§u, há»‡ thá»‘ng chá»¥p má»©c sá»­ dá»¥ng vÃ  táº¡m dá»«ng hÃ nh Ä‘á»™ng tráº£ phÃ­ má»›i nhÆ°ng váº«n giá»¯ dá»¯ liá»‡u, quyá»n Free vÃ  cáº£nh bÃ¡o an toÃ n. Backend kiá»ƒm tra láº¡i má»©c sá»­ dá»¥ng ngay trÆ°á»›c khi Admin duyá»‡t Ä‘á»ƒ trÃ¡nh race condition.
-- Lá»—i thu trÃ¹ng/Ä‘Ã£ thu nhÆ°ng chÆ°a cáº¥p hoáº·c cáº¥p sai quyá»n Ä‘i vÃ o `review_required`. Admin cÃ³ thá»ƒ duyá»‡t ngoáº¡i lá»‡ vá»›i lÃ½ do vÃ  audit, nhÆ°ng khÃ´ng thá»ƒ vÆ°á»£t sá»‘ tiá»n Ä‘Ã£ thu hoáº·c táº¡o nhiá»u refund cho cÃ¹ng order.
-- Chá»‰ khi provider xÃ¡c nháº­n refund thÃ nh cÃ´ng má»›i chuyá»ƒn order `refunded` vÃ  cancel Ä‘Ãºng subscription grant.
-- Partial refund, chargeback, auto-approve vÃ  auto-refund do há»§y consultation náº±m ngoÃ i DA2.
+- Return URL chỉ hiển thị trạng thái; IPN hợp lệ mới ghi nhận paid và tạo outbox event yêu cầu cấp quyền lợi.
+- Duplicate IPN không tạo hai subscriptions.
+- Mỗi paid order tạo một Subscription grant có `sourceOrderId` unique.
+- Worker cấp grant idempotent và reconciliation phục hồi trường hợp paid-without-grant. DA2 dùng state machine + Mongo transaction + transactional outbox, chưa dùng Saga framework.
+- Cancel order chỉ dành cho `created|pending`; không gọi refund provider.
+- Late valid IPN của order cancelled/expired vẫn phải ghi nhận, không bỏ qua tiền đã thu.
+- Full refund MVP: patient request, admin approve/reject, worker gọi VNPAY, timeout chuyển `manual_review` để đối soát.
+- Refund không xét theo một phần trăm sử dụng chung. Mỗi phiên bản Plan có `refundPolicy` riêng; policy được snapshot vào order và đánh giá theo từng quyền lợi trả phí như AI token, consultation đã tính lượt, Doctor review, báo cáo và nhiệm vụ Care trả phí.
+- Khi tạo yêu cầu, hệ thống chụp mức sử dụng và tạm dừng hành động trả phí mới nhưng vẫn giữ dữ liệu, quyền Free và cảnh báo an toàn. Backend kiểm tra lại mức sử dụng ngay trước khi Admin duyệt để tránh race condition.
+- Lỗi thu trùng/đã thu nhưng chưa cấp hoặc cấp sai quyền đi vào `review_required`. Admin có thể duyệt ngoại lệ với lý do và audit, nhưng không thể vượt số tiền đã thu hoặc tạo nhiều refund cho cùng order.
+- Chỉ khi provider xác nhận refund thành công mới chuyển order `refunded` và cancel đúng subscription grant.
+- Partial refund, chargeback, auto-approve và auto-refund do hủy consultation nằm ngoài DA2.
 
-### 5.8 Notification, Outbox vÃ  worker
+### 5.8 Notification, Outbox và worker
 
 ```text
 MongoDB transaction
@@ -597,11 +596,11 @@ MongoDB transaction
   -> Socket.IO / FCM / Email / external job
 ```
 
-- Outbox Ä‘áº£m báº£o side effect khÃ´ng máº¥t sau commit.
-- BullMQ phá»¥c vá»¥ reminder, expiration, no-show, notification retry, RAG ingestion vÃ  payment/refund reconciliation.
-- Consumer pháº£i idempotent vÃ¬ delivery lÃ  at-least-once.
+- Outbox đảm bảo side effect không mất sau commit.
+- BullMQ phục vụ reminder, expiration, no-show, notification retry, RAG ingestion và payment/refund reconciliation.
+- Consumer phải idempotent vì delivery là at-least-once.
 
-## 6. Kiáº¿n trÃºc há»‡ thá»‘ng Ä‘Ã­ch
+## 6. Kiến trúc hệ thống đích
 
 ```mermaid
 flowchart LR
@@ -625,12 +624,12 @@ flowchart LR
     M <--> RTC
 ```
 
-Backend sá»­ dá»¥ng Modular Monolith, chia theo capability:
+Backend sử dụng Modular Monolith, chia theo capability:
 
-| Module | Dá»¯ liá»‡u sá»Ÿ há»¯u |
+| Module | Dữ liệu sở hữu |
 |---|---|
 | authentication | Users, OAuthAccounts, AuthSessions, UserDevices |
-| practitioner-management | DoctorProfile embedded trong Users vÃ  verification policy |
+| practitioner-management | DoctorProfile embedded trong Users và verification policy |
 | consultations | AvailabilitySlots, Consultations, ConsultationMessages, Reviews |
 | health-tracking | HealthMetrics |
 | chronic-care | CarePrograms, CareRules, PatientCarePrograms, CareTasks, HealthEvaluations, CareAlerts, CareReports, CareSummaries, FamilyLinks, FamilyPermissions, FamilyReminders |
@@ -639,109 +638,108 @@ Backend sá»­ dá»¥ng Modular Monolith, chia theo capability:
 | billing | Plans, PaymentOrders, PaymentTransactions, Subscriptions, SubscriptionAddOns, ConsultationUsages, PaymentRefunds |
 | notifications | NotificationCampaigns, Notifications, OutboxEvents |
 | moderation | ViolationReports |
-| platform-audit | AuditLogs dÃ¹ng chung, phÃ¢n biá»‡t báº±ng `domain` |
+| platform-audit | AuditLogs dùng chung, phân biệt bằng `domain` |
 
-Mongoose lÃ  ODM chÃ­nh. Má»—i collection cÃ³ má»™t canonical model thuá»™c module sá»Ÿ há»¯u; module khÃ¡c truy cáº­p qua application facade/query port, khÃ´ng inject model trá»±c tiáº¿p.
+Mongoose là ODM chính. Mỗi collection có một canonical model thuộc module sở hữu; module khác truy cập qua application facade/query port, không inject model trực tiếp.
 
-## 7. Dá»¯ liá»‡u
+## 7. Dữ liệu
 
-DB v7 gá»“m 27 collections vÃ  váº«n lÃ  baseline Ä‘Ã£ triá»ƒn khai trÆ°á»›c migration. `docs/db-template-v8.dbml` gá»“m 42 collections, trong Ä‘Ã³ cÃ³ hai collection háº¡ táº§ng migration/lock, vÃ  Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t lÃ m target schema DA2. V8 bá»• sung Chronic Care, bÃ¡o cÃ¡o xÃ¡c Ä‘á»‹nh/AI summary, quyá»n lá»£i gÃ³i dá»‹ch vá»¥/lÆ°á»£t tÆ° váº¥n, ngÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh, tÃ¬m cÆ¡ sá»Ÿ y táº¿ vÃ  má»™t `AuditLogs` dÃ¹ng chung. V8 cÃ³ thá»ƒ dÃ¹ng lÃ m nguá»“n váº½ ERD vÃ  triá»ƒn khai model, nhÆ°ng chÆ°a Ä‘Æ°á»£c xem lÃ  Ä‘Ã£ triá»ƒn khai váº­t lÃ½ cho tá»›i khi cÃ³ migration, verifier vÃ  kiá»ƒm thá»­ tÆ°Æ¡ng á»©ng.
+DB v7 gồm 27 collections và vẫn là baseline đã triển khai trước migration. `docs/db-template-v8.dbml` gồm 42 collections, trong đó có hai collection hạ tầng migration/lock, và đã được duyệt làm target schema DA2. V8 bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 có thể dùng làm nguồn vẽ ERD và triển khai model, nhưng chưa được xem là đã triển khai vật lý cho tới khi có migration, verifier và kiểm thử tương ứng.
 
-NguyÃªn táº¯c:
+Nguyên tắc:
 
-- MongoDB lÃ  source of truth cho dá»¯ liá»‡u nghiá»‡p vá»¥; Redis chá»‰ giá»¯ cache, presence, quota, OTP vÃ  queue jobs.
-- DÃ¹ng versioned migration files; khÃ´ng dÃ¹ng `autoIndex`, `syncIndexes()` hoáº·c script rá»i lÃ m deployment migration.
-- Partial/sparse/TTL index, time-series options, validators vÃ  Atlas Search definition Ä‘Æ°á»£c táº¡o/verify qua migration.
-- Timestamp lÆ°u UTC; tiá»n VND lÆ°u integer; secret/token/OTP plaintext khÃ´ng náº±m trong database.
-- Frontend chá»‰ nháº­n API DTO, khÃ´ng nháº­n raw Mongoose Document hoáº·c field ná»™i bá»™ nhÆ° hash, lock vÃ  gateway payload.
+- MongoDB là source of truth cho dữ liệu nghiệp vụ; Redis chỉ giữ cache, presence, quota, OTP và queue jobs.
+- Dùng versioned migration files; không dùng `autoIndex`, `syncIndexes()` hoặc script rời làm deployment migration.
+- Partial/sparse/TTL index, time-series options, validators và Atlas Search definition được tạo/verify qua migration.
+- Timestamp lưu UTC; tiền VND lưu integer; secret/token/OTP plaintext không nằm trong database.
+- Frontend chỉ nhận API DTO, không nhận raw Mongoose Document hoặc field nội bộ như hash, lock và gateway payload.
 
-## 8. API vÃ  realtime contract
+## 8. API và realtime contract
 
 - REST prefix: `/api/v1`.
-- OpenAPI lÃ  nguá»“n contract chuáº©n giá»¯a backend vÃ  frontend repository.
-- Lá»—i chuáº©n: `code`, `message`, `details`, `correlationId`.
-- Pagination chuáº©n: `items`, `page`, `limit`, `total`, `hasNext`.
-- Command cÃ³ nguy cÆ¡ retry nhÆ° booking, message, create order, cancel vÃ  refund dÃ¹ng `Idempotency-Key` hoáº·c conditional transition.
-- Socket event cÃ³ version, vÃ­ dá»¥ `consultation.v1.updated`, `message.v1.created`, `queue.v1.changed`, `notification.v1.created`.
-- Frontend integration chi tiáº¿t theo tá»«ng page náº±m trong `docs/fe-integration.md`.
+- OpenAPI là nguồn contract chuẩn giữa backend và frontend repository.
+- Lỗi chuẩn: `code`, `message`, `details`, `correlationId`.
+- Pagination chuẩn: `items`, `page`, `limit`, `total`, `hasNext`.
+- Command có nguy cơ retry như booking, message, create order, cancel và refund dùng `Idempotency-Key` hoặc conditional transition.
+- Socket event có version, ví dụ `consultation.v1.updated`, `message.v1.created`, `queue.v1.changed`, `notification.v1.created`.
+- Frontend integration chi tiết theo từng page nằm trong `docs/fe-integration.md`.
 
-## 9. CÃ´ng nghá»‡
+## 9. Công nghệ
 
-| NhÃ³m | CÃ´ng nghá»‡ | Vai trÃ² |
+| Nhóm | Công nghệ | Vai trò |
 |---|---|---|
-| Backend | Node.js, TypeScript, NestJS | API, authorization, use case vÃ  worker bootstrap |
-| Persistence | MongoDB Atlas, Mongoose, MongoDB driver | Business data, migration vÃ  feature MongoDB Ä‘áº·c thÃ¹ |
-| Cache/jobs | Redis, BullMQ | OTP, quota, presence, delayed/retry jobs; worker dÃ¹ng trá»±c tiáº¿p BullMQ |
-| Realtime | Socket.IO, Redis Adapter, WebRTC, TURN | Chat, notification, queue vÃ  call signaling/media |
-| AI | Google GenAI SDK, Atlas Vector Search | AI advisory, summary vÃ  RAG |
-| Files/push/email | Cloudinary, FCM, Nodemailer | Attachment, push notification vÃ  email |
-| Payment | VNPAY Sandbox | Payment, query/reconciliation vÃ  full-refund P1 |
-| Frontend | React, Vite, TanStack Query, Zustand, Tailwind/Shadcn | Web Client vÃ  Web Admin |
+| Backend | Node.js, TypeScript, NestJS | API, authorization, use case và worker bootstrap |
+| Persistence | MongoDB Atlas, Mongoose, MongoDB driver | Business data, migration và feature MongoDB đặc thù |
+| Cache/jobs | Redis, BullMQ | OTP, quota, presence, delayed/retry jobs; worker dùng trực tiếp BullMQ |
+| Realtime | Socket.IO, Redis Adapter, WebRTC, TURN | Chat, notification, queue và call signaling/media |
+| AI | Google GenAI SDK, Atlas Vector Search | AI advisory, summary và RAG |
+| Files/push/email | Cloudinary, FCM, Nodemailer | Attachment, push notification và email |
+| Payment | VNPAY Sandbox | Payment, query/reconciliation và full-refund P1 |
+| Frontend | React, Vite, TanStack Query, Zustand, Tailwind/Shadcn | Web Client và Web Admin |
 | Mobile | React Native, Expo | Patient/doctor critical flows |
-| Quality | Jest, Supertest, k6, GitHub Actions | Unit, integration, E2E, load test vÃ  CI/CD |
+| Quality | Jest, Supertest, k6, GitHub Actions | Unit, integration, E2E, load test và CI/CD |
 
-## 10. Hiá»‡n tráº¡ng vÃ  chuyá»ƒn Ä‘á»•i
+## 10. Hiện trạng và chuyển đổi
 
-| Baseline DA1 trÆ°á»›c RF-0 | ÄÃ­ch DA2 |
+| Baseline DA1 trước RF-0 | Đích DA2 |
 |---|---|
-| Session API cÅ© Ä‘Ã£ bá»‹ xÃ³a á»Ÿ RF-10B | `/consultations` vá»›i requestStatus vÃ  sessionStatus tÃ¡ch biá»‡t |
-| Patient gá»­i thá»i gian tÃ¹y Ã½ | Scheduled booking chá»‰ tá»« AvailabilitySlot |
-| ChÆ°a cÃ³ check-in/queue atomic | `queuePriorityAt`, call-next vÃ  no-show policy |
-| Chat compatibility theo `sessionId` Ä‘Ã£ bá»‹ xÃ³a | Message/room theo `consultationId`, event canonical |
-| User/Doctor/Admin models cÃ²n trÃ¹ng | Má»™t Users model vá»›i embedded role profiles |
-| AI models/endpoints trÃ¹ng | Má»™t AI Conversation/Message model vÃ  capability services |
-| Presence trong process | Redis TTL/heartbeat vÃ  Socket.IO Redis Adapter |
-| Notification side effect trá»±c tiáº¿p | Notification + transactional outbox + worker |
-| ChÆ°a cÃ³ billing implementation | Plans, payment/IPN, cancel, Subscription grant vÃ  refund P1 |
-| Health Metrics má»›i dá»«ng á»Ÿ ghi nháº­n/cáº£nh bÃ¡o Ä‘Æ¡n láº» | Care Program, monitoring adherence, rule evaluation, Care Alert vÃ  Doctor Priority Inbox |
-| Frontend/backend cÃ¹ng monorepo | Backend repo riÃªng; frontend monorepo riÃªng; OpenAPI contract |
+| Session API cũ đã bị xóa ở RF-10B | `/consultations` với requestStatus và sessionStatus tách biệt |
+| Patient gửi thời gian tùy ý | Scheduled booking chỉ từ AvailabilitySlot |
+| Chưa có check-in/queue atomic | `queuePriorityAt`, call-next và no-show policy |
+| Chat compatibility theo `sessionId` đã bị xóa | Message/room theo `consultationId`, event canonical |
+| User/Doctor/Admin models còn trùng | Một Users model với embedded role profiles |
+| AI models/endpoints trùng | Một AI Conversation/Message model và capability services |
+| Presence trong process | Redis TTL/heartbeat và Socket.IO Redis Adapter |
+| Notification side effect trực tiếp | Notification + transactional outbox + worker |
+| Chưa có billing implementation | Plans, payment/IPN, cancel, Subscription grant và refund P1 |
+| Health Metrics mới dừng ở ghi nhận/cảnh báo đơn lẻ | Care Program, monitoring adherence, rule evaluation, Care Alert và Doctor Priority Inbox |
+| Frontend/backend cùng monorepo | Backend repo riêng; frontend monorepo riêng; OpenAPI contract |
 
-CÃ¡c API/page hiá»‡n táº¡i vÃ  API/page Ä‘Ã­ch Ä‘Æ°á»£c phÃ¢n biá»‡t rÃµ trong `docs/fe-integration.md`. Frontend repo má»›i chá»‰ dÃ¹ng contract canonical; backend khÃ´ng cÃ²n Session compatibility endpoint/event.
+Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/fe-integration.md`. Frontend repo mới chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
 
-## 11. Pháº¡m vi theo deadline
+## 11. Phạm vi theo deadline
 
-### P0 pháº£i hoÃ n thÃ nh
+### P0 phải hoàn thành
 
 - Build/test/CI xanh.
-- Identity/session security vÃ  doctor verification; OAuth lÃ  P1 feature-gated.
-- AvailabilitySlot, scheduled/on-demand Consultation, check-in, queue vÃ  chat.
+- Identity/session security và doctor verification; OAuth là P1 feature-gated.
+- AvailabilitySlot, scheduled/on-demand Consultation, check-in, queue và chat.
 - Notification/outbox/worker.
-- AI quota/RAG cá»‘t lÃµi.
-- Chronic Care cho tÄƒng huyáº¿t Ã¡p vÃ  tiá»ƒu Ä‘Æ°á»ng: Doctor-assigned enrollment/consent, monitoring tasks, rule engine, Care Alert, Priority Inbox, bÃ¡o cÃ¡o 7/30 ngÃ y vÃ  AI summary cÃ³ fallback.
-- LiÃªn káº¿t Care Alert vá»›i scheduled/on-demand consultation vÃ  follow-up.
-- VNPAY Sandbox payment/subscription vÃ  cancel unpaid order.
-- Web critical journeys vÃ  test race/idempotency.
+- AI quota/RAG cốt lõi.
+- Chronic Care cho tăng huyết áp và tiểu đường: Doctor-assigned enrollment/consent, monitoring tasks, rule engine, Care Alert, Priority Inbox, báo cáo 7/30 ngày và AI summary có fallback.
+- Liên kết Care Alert với scheduled/on-demand consultation và follow-up.
+- VNPAY Sandbox payment/subscription và cancel unpaid order.
+- Web critical journeys và test race/idempotency.
 
-### P1 cÃ³ feature flag/cut-line
+### P1 có feature flag/cut-line
 
-- Full refund cÃ³ admin duyá»‡t.
+- Full refund có admin duyệt.
 - Mobile patient/doctor critical flow, FCM.
 - WebRTC foreground call.
-- AI há»— trá»£ moderation.
-- Medication adherence sau khi hai chÆ°Æ¡ng trÃ¬nh P0 Ä‘áº¡t gate.
-- NgÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh vá»›i sá»‘ liÃªn káº¿t theo `familyLinkLimit`, lá»i má»i/xÃ¡c nháº­n/thu há»“i consent, nháº¯c bá» lá»¡ nhiá»‡m vá»¥ vÃ  audit; khÃ´ng cáº§n FamilyGroup trong DA2.
-- TÃ¬m cÆ¡ sá»Ÿ y táº¿ chá»‰ sau NgÆ°á»i thÃ¢n Ä‘á»“ng hÃ nh vÃ  khi cÃ²n buffer trÆ°á»›c feature freeze; dá»‹ch vá»¥ báº£n Ä‘á»“ bÃªn ngoÃ i chá»‰ lÃ  fallback.
+- AI hỗ trợ moderation.
+- Medication adherence sau khi hai chương trình P0 đạt gate.
+- Người thân đồng hành với số liên kết theo `familyLinkLimit`, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không cần FamilyGroup trong DA2.
+- Tìm cơ sở y tế chỉ sau Người thân đồng hành và khi còn buffer trước feature freeze; dịch vụ bản đồ bên ngoài chỉ là fallback.
 
-### NgoÃ i pháº¡m vi DA2
+### Ngoài phạm vi DA2
 
-- Partial refund, chargeback vÃ  auto-refund.
-- Admin mobile Ä‘áº§y Ä‘á»§ vÃ  CallKeep production-grade.
-- AI cháº©n Ä‘oÃ¡n hoáº·c tá»± quyáº¿t Ä‘á»‹nh cháº¿ tÃ i.
-- AI táº¡o severity, kÃª/Ä‘á»•i thuá»‘c hoáº·c thay tháº¿ pháº£n á»©ng cáº¥p cá»©u.
-- IoT/Bluetooth medical device, chia sáº» dá»¯ liá»‡u sá»©c khá»e chi tiáº¿t cho ngÆ°á»i thÃ¢n vÃ  tÃ­ch há»£p nhÃ  thuá»‘c/báº£o hiá»ƒm.
-- Microservices, Kafka, Kubernetes vÃ  scale claim chÆ°a Ä‘Æ°á»£c Ä‘o.
+- Partial refund, chargeback và auto-refund.
+- Admin mobile đầy đủ và CallKeep production-grade.
+- AI chẩn đoán hoặc tự quyết định chế tài.
+- AI tạo severity, kê/đổi thuốc hoặc thay thế phản ứng cấp cứu.
+- IoT/Bluetooth medical device, chia sẻ dữ liệu sức khỏe chi tiết cho người thân và tích hợp nhà thuốc/bảo hiểm.
+- Microservices, Kafka, Kubernetes và scale claim chưa được đo.
 
-Full refund máº·c Ä‘á»‹nh khÃ´ng thuá»™c committed scope. Chá»‰ nháº­n trÆ°á»›c feature freeze khi payment/cancel/IPN/reconciliation P0 Ä‘Ã£ xanh vÃ  cÃ²n capacity Ä‘Ã£ xÃ¡c nháº­n; náº¿u khÃ´ng, giá»¯ `VNPAY_REFUND_ENABLED=false`.
+Full refund mặc định không thuộc committed scope. Chỉ nhận trước feature freeze khi payment/cancel/IPN/reconciliation P0 đã xanh và còn capacity đã xác nhận; nếu không, giữ `VNPAY_REFUND_ENABLED=false`.
 
-## 12. TiÃªu chÃ­ hoÃ n thÃ nh
+## 12. Tiêu chí hoàn thành
 
-- Business rule, API contract vÃ  migration khÃ´ng mÃ¢u thuáº«n DB v8 Ä‘Ã£ duyá»‡t; v7 chá»‰ cÃ²n lÃ  baseline Ä‘Ã£ triá»ƒn khai trÆ°á»›c migration, cÃ²n v8 lÃ  target canonical cho DA2.
-- Backend, Web Client vÃ  Web Admin build/typecheck/test xanh.
-- Critical E2E cho auth, Care Program, monitoring, alert, Doctor Inbox, AI fallback, booking/queue/chat vÃ  feature P1 Ä‘Æ°á»£c báº­t.
-- Race/idempotency tests pass cho slot, call-next, IPN vÃ  refund.
-- Database rá»—ng Ä‘Æ°á»£c táº¡o láº¡i tá»« migration files vÃ  `database:verify` pass.
-- KhÃ´ng log dá»¯ liá»‡u nháº¡y cáº£m; room/file/API Ä‘á»u authorize phÃ­a server.
-- Demo khÃ´ng cáº§n sá»­a tay database.
-- README, OpenAPI, realtime events vÃ  `fe-integration.md` khá»›p release thá»±c táº¿.
-
+- Business rule, API contract và migration không mâu thuẫn DB v8 đã duyệt; v7 chỉ còn là baseline đã triển khai trước migration, còn v8 là target canonical cho DA2.
+- Backend, Web Client và Web Admin build/typecheck/test xanh.
+- Critical E2E cho auth, Care Program, monitoring, alert, Doctor Inbox, AI fallback, booking/queue/chat và feature P1 được bật.
+- Race/idempotency tests pass cho slot, call-next, IPN và refund.
+- Database rỗng được tạo lại từ migration files và `database:verify` pass.
+- Không log dữ liệu nhạy cảm; room/file/API đều authorize phía server.
+- Demo không cần sửa tay database.
+- README, OpenAPI, realtime events và `fe-integration.md` khớp release thực tế.
 
