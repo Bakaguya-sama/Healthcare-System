@@ -4,7 +4,7 @@ Tài liệu này tổng hợp dự án **HealthAI Chronic Care — Theo dõi và
 
 > Phạm vi DA2 là mục tiêu phát triển cho giai đoạn 09/2026–12/2026. Những hạng mục như WebRTC, ứng dụng React Native, VNPAY, Redis, k6 và CI/CD được mô tả là phần nâng cấp so với nền tảng DA1, không mặc định là đã hoàn thành trong bản DA1.
 
-Kế hoạch phạm vi, backlog và cut-line Chronic Care chi tiết nằm tại `healthcare-monorepo/plan/chronic-care-plan.md`; quy tắc chuẩn nằm tại `healthcare-monorepo/docs/BUSINESS_RULES.md`.
+Roadmap implementation, scope và cut-line Chronic Care nằm tại `healthcare-monorepo/plan/chronic-care-plan.md`; command contract chuẩn nằm ở ADR-0002, sau đó là `healthcare-monorepo/docs/BUSINESS_RULES.md`.
 
 ## 1. Tổng quan
 
@@ -63,7 +63,7 @@ Người bệnh mạn cần theo dõi chỉ số và duy trì tái khám trong t
 - Theo dõi dashboard: người dùng, bác sĩ, phiên tư vấn, tài liệu AI, hoạt động/doanh thu liên quan.
 - Quản lý tài khoản; khóa/mở khóa khi cần và kiểm duyệt hồ sơ, bằng cấp của bác sĩ.
 - Quản lý kho tri thức RAG: tải lên/xóa tài liệu, theo dõi xử lý tài liệu; quản lý từ khóa cấm để lọc đầu vào AI.
-- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin publish/retire Program, mọi Doctor `active + approved` có thể activate Care Rule version sau server validation, không có bước duyệt riêng.
+- Admin tạo/chỉnh draft Care Program và Care Rule theo permission, publish/retire Program và retire Rule; mọi Doctor `active + approved` có thể activate Care Rule version sau server validation, không có bước duyệt riêng.
 - Quản lý version và quyền lợi các gói Free/Plus/Care, theo dõi giao dịch VNPAY.
 - Quản lý báo cáo vi phạm: xem bằng chứng ảnh/đoạn chat, phân loại mức độ `Low`/`Medium`/`High`, cập nhật trạng thái `Pending` → `Processing` → `Resolved` hoặc `Dismissed`, áp dụng biện pháp xử lý khi cần.
 - Định hướng dùng AI để hỗ trợ phân loại báo cáo, nhưng quyết định xử lý thuộc về quản trị viên.

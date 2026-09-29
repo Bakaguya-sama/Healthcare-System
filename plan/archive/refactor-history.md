@@ -12,7 +12,7 @@
 | Kiến trúc đích             | Modular Monolith, domain-oriented modules, DDD-lite cho domain phức tạp                                                      |
 | Chiến lược                 | Refactor có kiểm soát, không rebuild toàn bộ                                                                                 |
 | Database                   | MongoDB mới, Mongoose làm ODM, migration có version                                                                          |
-| Nguồn nghiệp vụ            | `docs/BUSINESS_RULES.md`, `docs/db-template-v8.dbml`, `plan/chronic-care-plan.md`, `docs/overview.md`                       |
+| Nguồn nghiệp vụ            | ADR-0002, `docs/BUSINESS_RULES.md`, `docs/db-template-v8.dbml`, `plan/chronic-care-plan.md`, `docs/overview.md`             |
 | Hợp đồng bàn giao frontend | OpenAPI, realtime event schemas và `docs/fe-integration.md`                                                                  |
 | Điều kiện khởi động        | Hoàn thành và chuyển `plan/preflight-checklist.md` sang `APPROVED` trước `BE-RF-001`                                         |
 
@@ -26,11 +26,12 @@ Trước khi thực thi, dùng `plan/preflight-checklist.md` để chốt scope,
 Thứ tự ưu tiên khi có mâu thuẫn đối với feature DA2:
 
 1. Sản phẩm là hệ thống **tư vấn sức khỏe**, không khám hoặc chẩn đoán.
-2. `docs/BUSINESS_RULES.md`.
-3. `docs/db-template-v8.dbml` (target); v7 chỉ là baseline lịch sử.
-4. `plan/chronic-care-plan.md` (backlog, gate và rebaseline thực thi).
-5. OpenAPI/realtime contract hiện hành; feature mới phải cập nhật contract trong cùng slice.
-6. Code hiện tại.
+2. ADR-0002 (quyết định Chronic Care và command contract).
+3. `docs/BUSINESS_RULES.md`.
+4. `docs/db-template-v8.dbml` (target); v7 chỉ là baseline lịch sử.
+5. `plan/chronic-care-plan.md` (roadmap, scope và exit gate thực thi).
+6. OpenAPI/realtime contract hiện hành; feature mới phải cập nhật contract trong cùng slice.
+7. Code hiện tại.
 
 ## 2. Quy tắc phân loại công việc
 
@@ -1404,7 +1405,7 @@ Quy tắc bổ sung cho AI/Health: feature chỉ được code sau khi chốt me
 Ưu tiên: **P0**.
 
 1. Tạo `CarePrograms`, giữ `taskTemplates` nhúng theo từng phiên bản; phiên bản bất biến sau publish và có trạng thái `draft|published|retired`.
-2. Admin và Doctor được tạo/chỉnh draft theo quyền; Admin publish/retire Program, mọi Doctor `active + approved` có thể activate Rule sau server validation, còn create/edit draft/retire Rule cần rule-management permission; không có bước duyệt riêng.
+2. Admin tạo/chỉnh draft Program và Rule theo quyền; Admin publish/retire Program và retire Rule, mọi Doctor `active + approved` có thể activate Rule sau server validation; không có bước duyệt riêng.
 3. Tạo `PatientCarePrograms` với snapshot Program version, consent, timezone, baseline và Doctor `active + approved` bắt buộc trước khi active.
 4. Trạng thái enrollment: `pending|active|paused|completed|cancelled`; chỉ active sinh task/evaluation mới. `pending -> active` cần Doctor/Program/Rule/entitlement/consent/baseline hợp lệ; completed/cancelled là terminal.
 5. MVP có hai template dùng chung engine: tăng huyết áp và tiểu đường; không fork luồng theo từng bệnh.
@@ -1853,7 +1854,7 @@ Một task `BE-NF-*` chỉ Done khi:
 
 ## 11. Backlog feature backend
 
-Backlog Chronic Care dưới đây là phạm vi điều khiển release; `plan/chronic-care-plan.md` là nguồn chi tiết. `BE-NF-*` phía sau chỉ là capability hỗ trợ và không được ưu tiên cao hơn `BE-CC-*` P0.
+Backlog Chronic Care dưới đây là phạm vi điều khiển release và dependency summary; `plan/chronic-care-plan.md` là roadmap implementation chuẩn. `BE-NF-*` phía sau chỉ là capability hỗ trợ và không được ưu tiên cao hơn `BE-CC-*` P0.
 
 | ID | Feature | Ưu tiên | Phụ thuộc | Done khi |
 |---|---|---:|---|---|

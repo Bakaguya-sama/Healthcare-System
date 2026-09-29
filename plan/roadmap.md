@@ -2,7 +2,7 @@
 
 > **Trạng thái rà soát: 28/09/2026 — READY WITH GATES.** Refactor RF-0..RF-13 đã hoàn tất trong source hiện tại, nhưng chưa có module/migration Chronic Care hoặc Billing. Mốc 15/09–28/09 cũ vì vậy được xem là baseline đã trễ, không phải phần việc đã hoàn thành. Kế hoạch thực thi được rebaseline từ 29/09 tại mục 10; thứ tự bắt đầu code nằm tại mục 9.1.
 >
-> **Thứ tự nguồn chuẩn khi có xung đột:** `docs/BUSINESS_RULES.md` → `docs/db-template-v8.dbml` → tài liệu này → `plan/refactor-plan.md` Phần B/C → `docs/fe-integration.md`. `docs/current-state/*` chỉ là bằng chứng refactor/lịch sử, không phải contract feature DA2.
+> **Thứ tự nguồn chuẩn khi có xung đột:** ADR-0002 (quyết định và command contract) → `docs/BUSINESS_RULES.md` (ràng buộc sản phẩm/safety) → `docs/db-template-v8.dbml` (schema target) → tài liệu này (roadmap/exit gate) → `plan/refactor-plan.md` (dependency/tóm tắt) → `docs/fe-integration.md` (consumer contract). `docs/current-state/*` chỉ là bằng chứng refactor/lịch sử, không phải contract feature DA2.
 
 ## 1. Quyết định sản phẩm
 
@@ -133,7 +133,7 @@ Giá và giới hạn số lượng là dữ liệu cấu hình của `Plans`, k
 
 - Bệnh nhân trưởng thành đã được nhân viên y tế hướng dẫn theo dõi huyết áp tại nhà.
 - Bác sĩ đã được hệ thống xác minh và có bệnh nhân tham gia Care Program.
-- Doctor và Admin có quyền tạo/chỉnh draft Program Template theo permission. Admin publish/retire Program; mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng. Tạo/sửa draft và retire Rule vẫn theo rule-management permission. Admin vẫn quản lý gói dịch vụ và nội dung RAG đã duyệt.
+- Admin tạo/chỉnh draft Program Template và Rule theo permission, publish/retire Program và retire Rule. Mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng. Admin vẫn quản lý gói dịch vụ và nội dung RAG đã duyệt.
 
 ### Phạm vi bệnh trong MVP
 
@@ -221,7 +221,7 @@ Admin có thể:
 
 - Tạo/chỉnh draft bằng **Program Builder Lite** theo các khối cấu hình có sẵn; DA2 không cần drag-and-drop workflow builder tổng quát.
 - Preview lịch/task/rule trên dữ liệu giả lập trước khi publish.
-- Doctor `active + approved` có thể activate Rule; tạo/sửa draft và retire Rule cần rule-management permission. Backend bắt buộc kiểm tra schema/operator allowlist/Program version, atomically retire Rule active cũ và lưu audit. Nguồn, simulation và test là metadata tùy chọn, không chặn activation trong DA2.
+- Doctor `active + approved` có thể activate Rule; Admin tạo/sửa draft và retire Rule bằng rule-management permission. Backend bắt buộc kiểm tra schema/operator allowlist/Program version, atomically retire Rule active cũ và lưu audit. Nguồn, simulation và test là metadata tùy chọn, không chặn activation trong DA2.
 - Quản lý nội dung RAG, entitlement và người có quyền tạo/chỉnh/sử dụng template.
 - Xem cohort KPI không lộ dữ liệu ngoài scope: enrollment, adherence, alert acknowledgment và follow-up conversion.
 - Audit thay đổi template, rule, consent, assignment và entitlement.
@@ -353,7 +353,7 @@ Một hành trình demo đạt yêu cầu:
 
 #### CC-1. Care Program
 
-- Admin/Doctor tạo hoặc chỉnh draft template theo permission; Admin publish/retire Program; mọi Doctor `active + approved` có thể activate Rule version sau server validation. Retire Rule cần rule-management permission.
+- Admin tạo hoặc chỉnh draft Program/Rule theo permission, publish/retire Program và retire Rule; mọi Doctor `active + approved` có thể activate Rule version sau server validation.
 - Doctor `active + approved` enroll Patient vào chương trình có thời gian bắt đầu/kết thúc; enrollment không được active nếu chưa có Doctor assignment.
 - Một enrollment có trạng thái `pending`, `active`, `paused`, `completed`, `cancelled`.
 - Enrollment chỉ `active` sau khi Doctor/Program/Rule/entitlement hợp lệ, Patient consent đúng version và hoàn thành baseline bắt buộc. Doctor pause/resume/complete; Patient có thể yêu cầu pause hoặc rút consent để cancel; completed/cancelled không reopen.
@@ -518,7 +518,7 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 
 Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request phải tạo được một lát chạy/test được, cập nhật migration/verifier/contract cùng code và không inject Mongoose model xuyên module.
 
-**Tiến độ hiện tại:** `CC-000A` có ADR và contract ở trạng thái **Proposed — awaiting review** tại `docs/adr/0002-chronic-care-program-rule-enrollment.md` và `docs/chronic-care-contract-v1.md`. Nền persistence của `CC-000B` đã được triển khai trên branch hiện tại; review checklist vẫn phải được chấp thuận trước khi mở command/controller ở `CC-001`.
+**Tiến độ hiện tại:** `CC-000A` đã được chốt trong ADR-0002 (gồm command contract). Nền persistence của `CC-000B` đã được triển khai trên branch hiện tại; `CC-001` có thể mở theo roadmap dưới đây.
 
 | PR/Slice      | Phạm vi bắt buộc                                                                                                                                                                                                           | Không làm trong slice                                                  | Exit gate                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -533,6 +533,35 @@ Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request
 | `CC-011`      | Seed/chạy lại engine cho tiểu đường                                                                                                                                                                                        | Fork service theo bệnh                                                 | E2E hai Program dùng chung use case/repository/rule interpreter                                                              |
 | `CC-012..013` | Plan/Subscription snapshot, quota + consultation ledger                                                                                                                                                                    | VNPAY trước khi entitlement thuần pass                                 | Downgrade/expiry/reserve-count-release/race tests pass                                                                       |
 | `CC-7`        | VNPAY order/IPN/outbox grant/reconciliation                                                                                                                                                                                | Refund/Saga                                                            | Sandbox happy/duplicate/late-IPN/paid-without-grant E2E pass                                                                 |
+
+### 9.1.1 Gói tài liệu bắt buộc khi implement
+
+Backlog chỉ trả lời thứ tự ưu tiên; không đủ để quyết định hành vi code. Mỗi slice phải mở và bám theo đúng bốn nguồn sau:
+
+1. **ADR-0002** — authority, lifecycle, transaction, audit, idempotency và public-port boundary. Đây là command contract chuẩn.
+2. **`docs/BUSINESS_RULES.md`** — safety/product invariant. Nếu khác ADR-0002, dừng implementation và sửa tài liệu để đồng bộ; không tự chọn một cách diễn giải khác.
+3. **`docs/db-template-v8.dbml` cùng migration/schema đã có** — persistence contract; mọi field/index mới phải đi kèm migration, manifest và verifier.
+4. **Mục slice trong tài liệu này** — scope, thứ tự, không-làm và exit gate.
+
+`plan/refactor-plan.md` chỉ được dùng để tra dependency nền tảng/refactor và cut-line toàn dự án; không dùng nó để quyết định permission, state transition, request DTO hay endpoint. `docs/current-state/*` chỉ là evidence lịch sử.
+
+### 9.1.2 Roadmap implementation chi tiết cho slice kế tiếp
+
+#### `CC-001A` — Program/Rule catalog và lifecycle
+
+1. Tạo public application port/adapters tối thiểu cho capability Doctor; không import/inject model của Users, Health Tracking, Notifications hoặc Consultations.
+2. Implement command Admin: create/update Program draft, create/update Rule draft, publish/retire Program, retire Rule. Mọi write kiểm tra actor permission, expected version và `Idempotency-Key`.
+3. Implement command activate Rule cho mọi Doctor `active + approved`: kiểm tra parent Program `published`, declarative schema/operator allowlist, sau đó transactionally activate Rule mới, retire Rule active cũ và ghi hai audit records.
+4. Cấm update trực tiếp Program `published` hoặc Rule `active`; thay đổi ngữ nghĩa phải tạo document version draft mới. Không sinh Enrollment, Task, Alert, AI hay payment trong slice này.
+5. Thêm OpenAPI/controller/DTO sau khi application command pass unit test. DTO không nhận actor-controlled `status`, `doctorId`, entitlement hoặc Rule version từ Patient.
+6. Exit gate: authorization matrix, immutable-version, active-rule uniqueness, transaction/audit, same-key replay/different-payload conflict và boundary tests đều pass; cập nhật OpenAPI/FE contract cùng PR.
+
+#### `CC-001B` — Enrollment activation (chỉ bắt đầu sau `CC-001A`)
+
+1. Assigned Doctor tạo enrollment `pending`; Patient chỉ submit consent/baseline, request pause hoặc withdraw consent.
+2. Activation guard dùng public ports để kiểm tra Patient active, Doctor active+approved, Program published, Rule active, entitlement, consent version và baseline hoàn chỉnh.
+3. Doctor assigned pause/resume/complete/cancel; Admin chỉ audit, không thay quyền quyết định lâm sàng.
+4. Transaction ghi enrollment + audit; side effect chỉ qua outbox. Không materialize Task trước `CC-002`.
 
 Quy tắc chia việc cho hai thành viên:
 
@@ -610,9 +639,9 @@ Mọi dashboard phải phân biệt dữ liệu seed/demo với dữ liệu ngư
 ## 13. Quyết định đã duyệt ngày 23/09/2026
 
 1. MVP bắt buộc có cả chương trình tăng huyết áp và tiểu đường; hai chương trình dùng chung Program engine.
-2. Admin và Doctor đều được tạo/chỉnh draft Program Template theo permission. Admin chịu trách nhiệm quản lý lifecycle, nguồn, version và publish/retire rule/ngưỡng.
+2. Chỉ Admin được tạo/chỉnh draft Program Template và Rule theo permission. Admin chịu trách nhiệm quản lý lifecycle, version và publish/retire Program/Rule; nguồn là metadata, không phải activation gate.
 3. Doctor assignment là bắt buộc cho mọi enrollment trước khi kích hoạt.
 4. VNPAY Sandbox payment/subscription và cancel unpaid order là tiêu chí bắt buộc của MVP/demo; full refund không tự động trở thành P0.
-5. Rule/ngưỡng có version và audit. Mọi Doctor `active + approved` được activate Rule sau server validation; tạo/sửa draft và retire Rule cần rule-management permission. Không có bước duyệt riêng; AI không được tự phát hành Rule khi không có actor chịu trách nhiệm.
+5. Rule/ngưỡng có version và audit. Mọi Doctor `active + approved` được activate Rule sau server validation; chỉ Admin tạo/sửa draft và retire Rule bằng rule-management permission. Không có bước duyệt riêng; AI không được tự phát hành Rule khi không có actor chịu trách nhiệm.
 6. Entitlement Free/Plus/Care và VNPAY Sandbox payment/cancel là P0; seed subscription chỉ phục vụ phát triển/test sớm, không thay acceptance payment E2E.
 7. Kế hoạch được rebaseline ngày 28/09/2026 vì source chưa có Chronic Care/Billing; bắt đầu bằng `BE-CC-000`, không giả định milestone 15/09–28/09 đã hoàn thành.

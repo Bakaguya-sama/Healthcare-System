@@ -15,11 +15,11 @@ Refactor backend RF-0..RF-13 đã hoàn tất. Chronic Care/Billing là phase fe
 
 Đọc theo thứ tự sau trước khi code feature DA2:
 
-1. [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) — quy tắc nghiệp vụ chuẩn;
-2. [`docs/db-template-v8.dbml`](docs/db-template-v8.dbml) — target schema đã duyệt;
-3. [`plan/chronic-care-plan.md`](plan/chronic-care-plan.md) — scope, dependency, execution order và gate;
-4. [`docs/overview.md`](docs/overview.md) — tổng quan kiến trúc/sản phẩm;
-5. [`docs/fe-integration.md`](docs/fe-integration.md) — contract tích hợp giao diện.
+1. [`docs/README.md`](docs/README.md) — map tài liệu và thứ tự đọc chuẩn;
+2. [`docs/chronic-care-spec.md`](docs/chronic-care-spec.md) — command contract chuẩn;
+3. [`docs/product-spec.md`](docs/product-spec.md) — quy tắc nghiệp vụ/safety;
+4. [`docs/data-model.dbml`](docs/data-model.dbml) — target schema;
+5. [`plan/README.md`](plan/README.md) — map kế hoạch; [`plan/roadmap.md`](plan/roadmap.md) là roadmap implementation.
 
 `docs/current-state/*` là bằng chứng lịch sử của refactor. Contract runtime hiện hành nằm ở `apps/api/openapi/openapi.json` và `apps/api/contracts/realtime-events.json`.
 
@@ -59,4 +59,4 @@ Migration phải chạy được trên database rỗng, `database:verify` phải
 
 P0 gồm hai Care Program (tăng huyết áp, tiểu đường) dùng chung engine; enrollment/consent/baseline; monitoring task; rule/evaluation/alert; Doctor Priority Inbox; báo cáo xác định và AI summary có guard/fallback; consultation link; entitlement Free/Plus/Care; VNPAY Sandbox payment/cancel và reconciliation.
 
-OAuth, full refund, Mobile/FCM, WebRTC production-grade, người thân đồng hành, tìm cơ sở y tế và medication adherence là P1/cut-line theo kế hoạch. Chi tiết và thứ tự PR bắt đầu tại [`plan/chronic-care-plan.md`](plan/chronic-care-plan.md#91-thứ-tự-bắt-đầu-code-theo-vertical-slice).
+OAuth, full refund, Mobile/FCM, WebRTC production-grade, người thân đồng hành, tìm cơ sở y tế và medication adherence là P1/cut-line theo kế hoạch. Chi tiết và thứ tự PR bắt đầu tại [`plan/roadmap.md`](plan/roadmap.md#91-thứ-tự-bắt-đầu-code-theo-vertical-slice).
