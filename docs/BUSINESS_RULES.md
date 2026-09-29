@@ -20,7 +20,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 ## Care Program và enrollment
 
 1. MVP cam kết cả Care Program tăng huyết áp và tiểu đường; hai chương trình phải dùng chung domain model/rule engine.
-2. Chỉ Patient active mới được enroll. Admin và Doctor có thể tạo/chỉnh draft Program Template theo permission; chỉ Doctor `active + approved` được khởi tạo enrollment cho Patient.
+2. Chỉ Patient active mới được enroll. Chỉ Admin có `program-management permission` được tạo/chỉnh draft Program Template; chỉ Doctor `active + approved` được khởi tạo enrollment cho Patient.
 3. Patient phải xác nhận consent và mục đích sử dụng dữ liệu trước khi enrollment chuyển `active`; consent lưu version và timestamp.
 4. Enrollment có trạng thái `pending`, `active`, `paused`, `completed`, `cancelled`. Chỉ enrollment `active` sinh Monitoring Task và Care Evaluation mới.
 5. Mỗi enrollment phải tham chiếu đúng một Care Program version và bắt buộc có một Doctor `active + approved` phụ trách trước khi chuyển active.
@@ -30,12 +30,12 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 9. Program version đã publish là bất biến; chỉnh sửa tạo draft/version mới. Chỉ version published/active mới được dùng cho enrollment mới.
 10. Baseline, eligibility, consent, task templates, reminder, rule set, review policy, content journey và completion criteria phải được snapshot hoặc tham chiếu version ổn định khi enrollment kích hoạt. Trong DA2, `taskTemplates` được nhúng trong từng phiên bản `CarePrograms`; nhiệm vụ đã sinh được lưu riêng trong `CareTasks`.
 11. Doctor chỉ được tùy chỉnh các field được Program Template allowlist. Thay đổi patient-specific threshold hoặc review cadence phải có quyền, lý do và audit.
-12. Admin quản lý lifecycle/version/publish/retire của Program Template. Tạo/sửa draft và retire Rule cần rule-management permission; mọi Doctor `active + approved` có thể activate Rule mà không cần permission/approval riêng. Activate tự retire Rule active cũ của cùng Program version trong một thao tác audit.
+12. Admin quản lý lifecycle/version/publish/retire của Program Template và tạo/sửa/retire Rule draft qua `rule-management permission`; mọi Doctor `active + approved` có thể activate Rule mà không cần permission/approval riêng. Activate tự retire Rule active cũ của cùng Program version trong một thao tác audit.
 13. Rule activation bắt buộc qua server validation cho declarative schema, operator allowlist, Program version và audit. Nguồn/căn cứ, simulation/test evidence là metadata tùy chọn trong DA2, không phải activation gate; AI vẫn không được tự phát hành Rule khi không có Admin/Doctor actor.
 14. Doctor assignment bắt buộc ở mọi tier để xác định ownership và authorization; không mặc định tạo nghĩa vụ review định kỳ, SLA hoặc chat 24/7. Các quyền đó chỉ có khi Plan/Enrollment snapshot ghi rõ.
 15. `pending -> active` chỉ xảy ra tự động khi đồng thời có Doctor `active + approved`, Program `published`, Care Rule `active`, entitlement hợp lệ, Patient đã chấp nhận đúng consent version và hoàn thành toàn bộ baseline bắt buộc. Thiếu một điều kiện thì enrollment vẫn `pending` và không sinh task/evaluation.
 16. Assigned Doctor được chuyển `active -> paused` và `paused -> active` với lý do. Patient có thể gửi yêu cầu pause; Doctor phải xử lý yêu cầu trước khi resume. Resume phải kiểm tra lại Doctor, Program/Rule, consent và entitlement.
-17. Assigned Doctor hoặc worker completion được duyệt có thể chuyển `active|paused -> completed` khi đạt completion criteria; phải lưu actor/reason. Patient rút consent làm enrollment chưa kết thúc chuyển `cancelled` ngay; Doctor/Admin chỉ cancel với lý do và quyền phù hợp.
+17. Assigned Doctor hoặc worker completion được duyệt có thể chuyển `active|paused -> completed` khi đạt completion criteria; phải lưu actor/reason. Patient rút consent làm enrollment chưa kết thúc chuyển `cancelled` ngay; chỉ Assigned Doctor được cancel với lý do.
 18. `completed` và `cancelled` là trạng thái cuối, không reopen. Nếu Patient tiếp tục chương trình, Doctor tạo enrollment mới để giữ nguyên lịch sử và snapshot cũ.
 
 ## Monitoring Task và mức độ hoàn thành

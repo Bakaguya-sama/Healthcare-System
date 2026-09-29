@@ -69,7 +69,7 @@ Integration/E2E/database bootstrap không được chạy trong lượt rà soá
 | Gate                                               | Chặn từ task            | Trạng thái 28/09                                       |
 | -------------------------------------------------- | ----------------------- | ------------------------------------------------------ |
 | Owner/reviewer và capacity thực của hai thành viên | `CC-000B` merge         | Chưa điền trong preflight                              |
-| Nguồn + người duyệt rule tăng huyết áp/tiểu đường  | `CC-003`                | Chưa có evidence được liên kết                         |
+| Operator allowlist + test fixture rule tăng huyết áp/tiểu đường | `CC-003` | Chưa có schema/fixture được liên kết; source/reviewer không là activation gate |
 | Metric/unit/timezone allowlist và DST cases        | `CC-002`                | Cần chốt thành contract/test fixture                   |
 | SummaryInput v1 + fixed evaluation dataset         | `CC-007`                | Mới có yêu cầu, chưa có artifact version hóa           |
 | VNPAY sandbox credential/callback                  | `CC-7`                  | Chưa xác nhận trong preflight                          |
@@ -77,7 +77,7 @@ Integration/E2E/database bootstrap không được chạy trong lượt rà soá
 
 ## Việc bắt đầu ngay
 
-Status update 28/09: `BE-CC-000A` is now prepared for review. Its ADR and contract are proposed only; no application schema, migration, API route or worker has been added.
+Status update 29/09: this review is historical. ADR-0002 now includes the accepted command contract, and `BE-CC-000B` has module/schema/migration/verifier/seed-harness implementation. The current execution roadmap is `plan/chronic-care-plan.md` section 9.1.
 
 1. Tạo branch/issue `BE-CC-000A`.
 2. Viết ADR cho Program/rule versioning, enrollment activation và module ownership.

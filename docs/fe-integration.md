@@ -907,8 +907,8 @@ interface AdminDashboardDto {
 | ID | Method + path | Role | Request/query | Response | Status |
 |---|---|---|---|---|---|
 | CARE-01 | `GET /care-programs` | Patient/Doctor/Admin | diseaseKey, status, page | `PageResult<CareProgramDto>`; Patient chỉ thấy published | Target P0 |
-| CARE-02 | `POST /care-programs` | Admin/Doctor có permission | draft payload hoặc sourceProgramId để clone + idempotency | `CareProgramDto` | Target P1 Builder Lite; seed P0 |
-| CARE-03 | `PATCH /care-programs/:id` | Admin/Doctor có permission | draft changes + version | `CareProgramDto` | Target P1; draft only |
+| CARE-02 | `POST /care-programs` | Admin có program-management permission | draft payload hoặc sourceProgramId để clone + idempotency | `CareProgramDto` | Target P1 Builder Lite; seed P0 |
+| CARE-03 | `PATCH /care-programs/:id` | Admin có program-management permission | draft changes + version | `CareProgramDto` | Target P1; draft only |
 | CARE-04 | `POST /care-programs/:id/publish` | Admin | review reason + idempotency | published program | Target P0 cho seed/admin workflow |
 | CARE-05 | `POST /care-programs/:id/enrollments` | Doctor approved | patientId, timezone, allowed custom settings | `PatientCareProgramDto` pending | Target P0 |
 | CARE-06 | `GET /care-enrollments` | Patient/Doctor | status, programCode, page | authorized enrollment page | Target P0 |
@@ -923,19 +923,19 @@ interface AdminDashboardDto {
 | CARE-15 | `POST /care-alerts/:id/dismiss` | Assigned Doctor | allowlisted reason + idempotency | updated alert | Target P0; Admin chỉ audit |
 | CARE-16 | `POST /care-alerts/:id/consultations` | Patient/Assigned Doctor policy | scheduled/on-demand input + idempotency | linked `ConsultationDto` | Target P0 |
 | CARE-17 | `POST /care-enrollments/:id/actions/:action` | Participant theo policy | `request_pause|pause|resume|complete|cancel`, reason + idempotency | updated enrollment hoặc pause request | Target P0; Doctor pause/resume/complete, Patient request pause/withdraw consent |
-| CARE-18 | `GET /care-programs/:id/rules` | Admin/Doctor có permission | version/status/page | rule versions + test summary | Target P0 read; edit P1 Builder Lite |
-| CARE-19 | `POST /care-programs/:id/rules` | Admin/Doctor có permission | declarative rule draft + sources | draft rule | Target P1 Builder Lite |
-| CARE-20 | `POST /care-programs/:id/simulations` | Admin/Doctor có permission | draft version + test cases | deterministic simulation result | Target P1 Builder Lite |
+| CARE-18 | `GET /care-programs/:id/rules` | Admin; Doctor `active + approved` chỉ đọc Rule của Program published | version/status/page | rule versions + test summary | Target P0 read; edit P1 Builder Lite |
+| CARE-19 | `POST /care-programs/:id/rules` | Admin có rule-management permission | declarative rule draft + sources | draft rule | Target P1 Builder Lite |
+| CARE-20 | `POST /care-programs/:id/simulations` | Admin có rule-management permission | draft version + test cases | deterministic simulation result | Target P1 Builder Lite |
 | CARE-21 | `POST /care-programs/:id/rules/:ruleId/activate` | Admin hoặc Doctor `active + approved` | idempotency | active rule/version | Target P0; server validate schema/operator/Program version, atomically retire Rule cũ, không có review gate |
 | CARE-22 | `GET /admin/care-operations` | Admin | range, programCode, doctorId | bounded operational aggregate | Target P0 |
 | CARE-23 | `POST /care-programs/:id/retire` | Admin | reason + idempotency | retired Program version | Target P0 |
-| CARE-24 | `POST /care-programs/:id/rules/:ruleId/retire` | Admin/Doctor có rule-management permission | reason + idempotency | retired Rule version | Target P0 |
+| CARE-24 | `POST /care-programs/:id/rules/:ruleId/retire` | Admin có rule-management permission | reason + idempotency | retired Rule version | Target P0 |
 | CARE-25 | `GET /care-alerts/:id` | Patient owner/Assigned Doctor/Admin audit | none | `CareAlertDto` + bounded evaluation/timeline context | Target P0 |
 | CARE-26 | `GET /care-tasks/:id` | Authorized task actor | none | `CareTaskDto` + type-specific approved content/form/action | Target P0 |
 | CARE-27 | `GET /care-programs/:id` | Patient/Doctor/Admin theo scope | none | `CareProgramDto` + form/template/source projection phù hợp role | Target P0 |
 | CARE-28 | `GET /care-reports/:id` | Enrollment participant | none | `CareReportDto` + authorized `CareSummaryDto[]` | Target P0 |
 | CARE-29 | `POST /care-summaries/:id/review` | Assigned Doctor | `review|reject`, note + idempotency | updated Doctor-audience summary | Target P0 khi Doctor review được bật |
-| CARE-30 | `PATCH /care-programs/:id/rules/:ruleId` | Admin/Doctor có permission | declarative draft changes + version | updated draft rule | Target P1 Builder Lite; draft only |
+| CARE-30 | `PATCH /care-programs/:id/rules/:ruleId` | Admin có rule-management permission | declarative draft changes + version | updated draft rule | Target P1 Builder Lite; draft only |
 | CARE-31 | `POST /care-reports/:id/exports` | Enrollment participant có entitlement | `pdf|csv` + idempotency | export job hoặc short-lived download URL | Target P0 cho quyền lợi export |
 | CARE-32 | `GET /care-report-exports/:id` | Export owner | none | export status + short-lived download URL | Target P0 |
 | CARE-33 | `GET /care-tasks` | Patient/Doctor theo scope | enrollmentId?, type/status/from/to/page | cross-enrollment `PageResult<CareTaskDto>` | Target P1 cho trang medication; P0 có thể chỉ dùng CARE-09 |
@@ -1154,9 +1154,9 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CARE-15 | Doctor dismiss alert chỉ với reason trong allowlist; trạng thái terminal, Admin chỉ audit chứ không xử lý thay. |
 | CARE-16 | Tạo consultation gắn alert theo scheduled/on-demand policy; consultation vẫn là domain độc lập và dùng quota bình thường. |
 | CARE-17 | Thực hiện lifecycle enrollment: Patient request pause/withdraw consent; Doctor pause/resume/complete; cancel/complete cần reason và audit. |
-| CARE-18 | Liệt kê các CareRule version của Program cùng status, nguồn và test summary; chỉ role có permission được xem draft chi tiết. |
-| CARE-19 | Tạo CareRule draft bằng operator declarative allowlist và nguồn tham chiếu; không thực thi rule mới cho Patient. |
-| CARE-20 | Chạy deterministic simulation cho Program/Rule draft trên test cases, trả kết quả boundary/missing/repeated để reviewer đánh giá. |
+| CARE-18 | Liệt kê các CareRule version của Program cùng status, nguồn và test summary; Admin có permission được xem draft chi tiết, Doctor chỉ đọc Rule của Program published. |
+| CARE-19 | Admin tạo CareRule draft bằng operator declarative allowlist và nguồn tham chiếu; không thực thi rule mới cho Patient. |
+| CARE-20 | Admin chạy deterministic simulation cho Program/Rule draft trên test cases, trả kết quả boundary/missing/repeated để kiểm tra cấu hình. |
 | CARE-21 | Admin hoặc Doctor `active + approved` activate một Rule sau server validation; ghi version/audit, atomically retire Rule cũ và không hồi tố enrollment đang chạy. |
 | CARE-22 | Trả aggregate vận hành Chronic Care theo range/Program/Doctor: enrollment, adherence và alert/follow-up metrics; không trả raw HealthMetrics. |
 | CARE-23 | Retire Program version để ngăn enrollment mới; enrollment hiện hữu tiếp tục theo snapshot trừ khi policy yêu cầu chuyển đổi riêng. |
@@ -1454,7 +1454,7 @@ Patient page guards:
 | Priority Inbox `/doctor/care-alerts` | New | CareAlertDto page | CARE-12..16 | stable severity/time sort; acknowledge/resolve/dismiss/link consultation; alert realtime events |
 | Alert detail `/doctor/care-alerts/:id` | New | CareAlertDto + metric/evaluation/report context | CARE-25, CARE-13..16 | acknowledge/resolve/dismiss/link consultation; direct resolve ghi implicit acknowledge |
 | Patient Care detail `/doctor/care-programs/:id` | New | enrollment, tasks, reports, Doctor summary | CARE-07/09/11/17/28/29 | chỉ assigned Doctor; pause/resume/complete theo `allowedActions`; audit reason bắt buộc |
-| Program drafts `/doctor/program-templates` | New P1 Builder Lite | CareProgramDto/rule drafts/simulation | CARE-01..04, CARE-18..21 | Doctor tạo/chỉnh draft theo permission; mọi Doctor `active + approved` có thể activate Rule sau server validation |
+| Rule activation `/doctor/care-rules` | New P0 | Published Program + Rule read-only preview | CARE-18, CARE-21 | Doctor không sửa draft; mọi Doctor `active + approved` có thể activate Rule sau server validation |
 | Reviews `/doctor/reviews` | dashboard/list partial | ReviewDto page/summary | DOC-08 | filter/rating; no edit/delete by doctor |
 | Notifications/global | Current partial | NotificationDto | NOTI-01..04 | request/check-in/called/message/verification events |
 
@@ -1472,7 +1472,7 @@ Doctor route guard phải phân biệt:
 | User detail `/admin/users/:id` | New | UserDto + bounded account/audit summary | ADM-21, ADM-03/04, ADM-24 | khóa/mở khóa cần reason và confirm; không hiển thị raw token/health payload |
 | Doctor verification `/admin/doctors/verification` | `/doc-verification` | applications/files/summary | DOC-04..06 | approve/reject reason; file preview; audit result notification |
 | Care Program management `/admin/care-programs` | New | CareProgramDto versions/rules | CARE-01..04, CARE-23/24/27 | draft/preview/publish/retire; published version immutable; Admin là publisher |
-| Care Program editor `/admin/care-programs/:id` | New | Program draft, rule versions, sources, simulation | CARE-03/04, CARE-18..21, CARE-23/24/27/30 | tabs cấu hình/baseline/tasks/rules/source/preview; publish/activate có review evidence |
+| Care Program editor `/admin/care-programs/:id` | New | Program draft, rule versions, sources, simulation | CARE-03/04, CARE-18..21, CARE-23/24/27/30 | tabs cấu hình/baseline/tasks/rules/source/preview; publish/activate theo validation/audit, không có review-evidence gate |
 | Care operations `/admin/care-operations` | New | bounded aggregate/alert audit | CARE-22, ADM-24/25 | audit/operational metrics; không đóng vai assigned Doctor |
 | Family audit `/admin/family-links` | New P1 | scoped FamilyLinkDto/audit | FAM-06, ADM-24 | read/audit để hỗ trợ tranh chấp; không tự mở quyền hoặc xem dữ liệu sức khỏe |
 | Medical facilities `/admin/medical-facilities` | New P1 sau Family | drafts, verified facilities, disease mappings | FAC-02..11 | chọn map candidate, sửa draft, xác minh nguồn chính thức, stale/retire, publish mapping |
@@ -1502,7 +1502,7 @@ Các bảng ở mục 8–11 là **hợp đồng route/API** để lập trình 
 |---|---:|---:|---:|
 | Public/dùng chung | 6 trang/luồng | OAuth nằm trong trang Login | 0 |
 | Patient | 7 workspace | 2 workspace: Người thân, Cơ sở y tế; call/refund/medication là phần mở rộng | 0 |
-| Doctor | 7 workspace | 1 workspace: Program drafts; call là phần mở rộng | 0 |
+| Doctor | 7 workspace | 1 workspace: Rule activation/read-only preview; call là phần mở rộng | 0 |
 | Web Admin | 10 workspace nền | 2 workspace: Family audit, Facility; refund là tab mở rộng | 1: Notification Campaign |
 
 Con số trên đếm theo **workspace người dùng nhìn thấy**, không đếm drawer, dialog hoặc route deep-link là trang mới.
@@ -1692,10 +1692,10 @@ Route `/doctor/care-alerts/:id` là deep-link mở `AlertDetailPanel`.
 
 #### D-07. Trang Bản nháp chương trình — `/doctor/program-templates` — P1
 
-- **Trang làm gì:** cho Doctor được cấp quyền tạo/chỉnh phần allowlist của draft và kiểm tra rule trước khi gửi Admin duyệt.
-- **Component:** `DraftProgramList`, `ProgramDraftEditor`, `BaselineSchemaBuilder`, `TaskTemplateBuilder`, `ReminderPolicyEditor`, `RuleReadOnlyPreview`, `SourceReferenceEditor`, `RuleSimulationPanel`, `DraftDiffViewer`, `SubmitForReviewDialog`.
+- **Trang làm gì:** cho mọi Doctor `active + approved` xem Rule draft/read-only preview của Program đã publish và activate Rule sau server validation; Doctor không tạo/chỉnh draft hoặc gửi duyệt.
+- **Component:** `PublishedProgramList`, `RuleReadOnlyPreview`, `RuleVersionDiff`, `ActivationValidationPanel`, `ActivateRuleDialog`.
 - **Hành động chính:** tạo/clone/chỉnh draft; chạy simulation; gửi review.
-- **Trạng thái bắt buộc:** Doctor không publish Program; mọi Doctor `active + approved` có thể activate Rule, còn retire Rule cần rule-management permission; AI chỉ hỗ trợ tạo nháp; conflict version phải compare/refetch.
+- **Trạng thái bắt buộc:** Doctor không tạo/sửa/publish/retire Program hoặc Rule; mọi Doctor `active + approved` có thể activate Rule, còn Admin retire Rule với rule-management permission; AI chỉ hỗ trợ tạo nháp; conflict version phải compare/refetch.
 
 #### D-08. Trang Đánh giá — `/doctor/reviews` — P0
 
@@ -1733,7 +1733,7 @@ Route `/admin/users/:id` là deep-link mở `UserDetailDrawer`.
 
 #### A-04. Trang Quản lý Care Program — `/admin/care-programs` — P0 seed/lifecycle, Builder P1
 
-- **Trang làm gì:** quản lý version Program và CareRule từ draft, mô phỏng, duyệt đến publish/activate/retire trong một workspace.
+- **Trang làm gì:** Admin quản lý version Program và CareRule từ draft, mô phỏng, publish/activate/retire trong một workspace; simulation/evidence không là approval gate.
 - **Component cấp danh sách:** `ProgramFilterBar`, `ProgramVersionTable`, `ProgramStatusBadge`, `VersionCompareDrawer`, `CreateOrCloneDraftDialog`.
 - **Component editor:** `ProgramOverviewForm`, `EligibilityFormBuilder`, `BaselineFormBuilder`, `TaskTemplateBuilder`, `ReminderPolicyEditor`, `ReviewPolicyEditor`, `ContentJourneyEditor`, `SourceReferenceEditor`, `CareRuleEditor`, `RuleSimulationPanel`, `ValidationIssueList`, `DraftDiffViewer`, `ProgramAuditTimeline`, `PublishProgramDialog`, `ActivateRuleDialog`, `RetireDialog`.
 - **Hành động chính:** tạo/clone draft; chỉnh metadata/schema/template/rule; simulation; publish Program; activate Rule riêng; retire.

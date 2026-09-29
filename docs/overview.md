@@ -4,10 +4,9 @@
 
 Tài liệu mô tả phạm vi sản phẩm, nghiệp vụ, kiến trúc và trạng thái chuyển đổi của Healthcare Application từ DA1 sang DA2. Nguồn chuẩn đi kèm:
 
-- Nghiệp vụ: `docs/BUSINESS_RULES.md`.
+- Nghiệp vụ/command contract Chronic Care: ADR-0002, sau đó là `docs/BUSINESS_RULES.md`.
 - Dữ liệu đã triển khai trước migration: `docs/db-template-v7.dbml`; target schema DA2 đã duyệt: `docs/db-template-v8.dbml`.
-- Kế hoạch thực thi: `plan/refactor-plan.md`.
-- Kế hoạch sản phẩm Chronic Care: `plan/chronic-care-plan.md`.
+- Kế hoạch implementation Chronic Care: `plan/chronic-care-plan.md`; `plan/refactor-plan.md` chỉ giữ dependency/refactor/cut-line tổng quan.
 - Hợp đồng tích hợp frontend: `docs/fe-integration.md`.
 
 DA2 được triển khai trong giai đoạn 09/2026–12/2026, deadline mục tiêu 31/12/2026. Những chức năng được mô tả là **mục tiêu của phiên bản DA2**, không mặc định đã tồn tại trong code DA1.
@@ -104,7 +103,7 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Xem PaymentOrders, PaymentTransactions và trạng thái đối soát.
 - Review/approve/reject PaymentRefunds; provider call do worker thực hiện.
 - Quản lý tài liệu RAG và blacklist keywords.
-- Admin và Doctor tạo/chỉnh draft Care Program theo permission; Admin publish/retire Program, mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng.
+- Admin tạo/chỉnh draft Care Program và Rule theo permission, publish/retire Program và retire Rule; mọi Doctor `active + approved` có thể activate Rule version sau server validation, không có bước duyệt riêng.
 - Xử lý ViolationReports theo workflow bốn trạng thái.
 - Tạo và theo dõi NotificationCampaigns nếu còn trong release cut-line.
 
