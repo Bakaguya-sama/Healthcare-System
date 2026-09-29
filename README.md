@@ -59,4 +59,4 @@ Migration phải chạy được trên database rỗng, `database:verify` phải
 
 P0 gồm hai Care Program (tăng huyết áp, tiểu đường) dùng chung engine; enrollment/consent/baseline; monitoring task; rule/evaluation/alert; Doctor Priority Inbox; báo cáo xác định và AI summary có guard/fallback; consultation link; entitlement Free/Plus/Care; VNPAY Sandbox payment/cancel và reconciliation.
 
-OAuth, full refund, Mobile/FCM, WebRTC production-grade, người thân đồng hành, tìm cơ sở y tế và medication adherence là P1/cut-line theo kế hoạch. Chi tiết và thứ tự PR bắt đầu tại [`plan/chronic-care-plan.md`](plan/chronic-care-plan.md#91-thứ-tự-bắt-đầu-code-theo-vertical-slice).
+OAuth, full refund, Mobile/FCM, WebRTC production-grade, người thân đồng hành, tìm cơ sở y tế và medication adherence là P1/cut-line theo kế hoạch. Chi tiết và thứ tự PR bắt đầu tại [`plan/roadmap.md`](plan/roadmap.md#91-thứ-tự-bắt-đầu-code-theo-vertical-slice).
