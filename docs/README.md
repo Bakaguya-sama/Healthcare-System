@@ -4,11 +4,11 @@
 
 Read these documents in order. Do not use the legacy refactor history or a backlog row as an implementation contract.
 
-1. [ADR-0002](adr/0002-chronic-care-program-rule-enrollment.md) — canonical Program/Rule/Enrollment command contract: authority, lifecycle, error code, idempotency and public ports.
-2. [Business rules](BUSINESS_RULES.md) — product and safety invariants.
-3. [Data model v8](db-template-v8.dbml) — target persistence model; runtime changes also require migration, schema manifest and database verifier updates.
-4. [Implementation roadmap](../plan/chronic-care-plan.md) — slice order, scope, explicit non-goals and exit gates.
-5. [Frontend integration contract](fe-integration.md) — consumer/API mapping; update it with OpenAPI/realtime artifacts in the same slice.
+1. [Chronic Care specification](chronic-care-spec.md) — canonical Program/Rule/Enrollment command contract: authority, lifecycle, error code, idempotency and public ports.
+2. [Product specification](product-spec.md) — product and safety invariants.
+3. [Data model](data-model.dbml) — target persistence model; runtime changes also require migration, schema manifest and database verifier updates.
+4. [Implementation roadmap](../plan/roadmap.md) — slice order, scope, explicit non-goals and exit gates.
+5. [Integration contract](integration-contract.md) — consumer/API mapping; update it with OpenAPI/realtime artifacts in the same slice.
 
 ## Document roles
 
