@@ -15,11 +15,11 @@ Refactor backend RF-0..RF-13 đã hoàn tất. Chronic Care/Billing là phase fe
 
 Đọc theo thứ tự sau trước khi code feature DA2:
 
-1. [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) — quy tắc nghiệp vụ chuẩn;
-2. [`docs/db-template-v8.dbml`](docs/db-template-v8.dbml) — target schema đã duyệt;
-3. [`plan/chronic-care-plan.md`](plan/chronic-care-plan.md) — scope, dependency, execution order và gate;
-4. [`docs/overview.md`](docs/overview.md) — tổng quan kiến trúc/sản phẩm;
-5. [`docs/fe-integration.md`](docs/fe-integration.md) — contract tích hợp giao diện.
+1. [`docs/README.md`](docs/README.md) — map tài liệu và thứ tự đọc chuẩn;
+2. [`docs/adr/0002-chronic-care-program-rule-enrollment.md`](docs/adr/0002-chronic-care-program-rule-enrollment.md) — command contract chuẩn;
+3. [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) — quy tắc nghiệp vụ/safety;
+4. [`docs/db-template-v8.dbml`](docs/db-template-v8.dbml) — target schema;
+5. [`plan/README.md`](plan/README.md) — map kế hoạch; [`plan/chronic-care-plan.md`](plan/chronic-care-plan.md) là roadmap implementation.
 
 `docs/current-state/*` là bằng chứng lịch sử của refactor. Contract runtime hiện hành nằm ở `apps/api/openapi/openapi.json` và `apps/api/contracts/realtime-events.json`.
 
