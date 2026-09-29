@@ -71,6 +71,7 @@ import {
   CC001A_CARE_CATALOG_NAME,
   CC001A_CARE_CATALOG_VERSION,
 } from './202609291000-cc001a-care-catalog';
+import { applyCc001bEnrollment, CC001B_ENROLLMENT_CHECKSUM, CC001B_ENROLLMENT_NAME, CC001B_ENROLLMENT_VERSION } from './202609291100-cc001b-enrollment';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -145,6 +146,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     checksum: CC001A_CARE_CATALOG_CHECKSUM,
     up: applyCc001aCareCatalog,
   },
+  { version: CC001B_ENROLLMENT_VERSION, name: CC001B_ENROLLMENT_NAME, checksum: CC001B_ENROLLMENT_CHECKSUM, up: applyCc001bEnrollment },
 ];
 
 export const LATEST_SCHEMA_VERSION = Math.max(

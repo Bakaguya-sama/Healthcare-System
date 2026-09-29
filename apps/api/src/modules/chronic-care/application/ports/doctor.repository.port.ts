@@ -1,6 +1,6 @@
-export const DOCTOR_CAPABILITY_PORT = Symbol('DOCTOR_CAPABILITY_PORT');
+export const DOCTOR_REPOSITORY_PORT = Symbol('DOCTOR_REPOSITORY_PORT');
 
 /** Public capability requested from Users; no Users model crosses this boundary. */
-export interface DoctorCapabilityPort {
+export interface DoctorRepositoryPort {
   isActiveAndApproved(id: string): Promise<boolean>;
 }

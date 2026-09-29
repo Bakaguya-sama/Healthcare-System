@@ -18,8 +18,8 @@ import {
   CareRuleDocument,
   CareRuleStatus,
 } from '../entities/care-rule.entity';
-import { DOCTOR_CAPABILITY_PORT } from './ports/doctor.repository.port';
-import type { DoctorCapabilityPort } from './ports/doctor.repository.port';
+import { DOCTOR_REPOSITORY_PORT } from './ports/doctor.repository.port';
+import type { DoctorRepositoryPort } from './ports/doctor.repository.port';
 
 export type CareActor = { id: string; role: UserRole };
 type Entity = CareProgramDocument | CareRuleDocument;
@@ -35,8 +35,8 @@ export class CareProgramRuleService {
     @InjectModel(CareCommandIdempotency.name)
     private readonly idempotency: Model<CareCommandIdempotencyDocument>,
     @InjectConnection() private readonly connection: Connection,
-    @Inject(DOCTOR_CAPABILITY_PORT)
-    private readonly doctors: DoctorCapabilityPort,
+    @Inject(DOCTOR_REPOSITORY_PORT)
+    private readonly doctors: DoctorRepositoryPort,
   ) {}
 
   private fail(

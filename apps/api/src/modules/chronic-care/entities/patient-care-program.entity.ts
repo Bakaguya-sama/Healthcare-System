@@ -13,6 +13,7 @@ export enum PatientCareProgramStatus {
 
 @Schema({ timestamps: true, collection: 'patientcareprograms' })
 export class PatientCareProgram {
+  @Prop({ required: true, min: 1, default: 1 }) revision: number;
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   patientId: Types.ObjectId;
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
@@ -37,6 +38,8 @@ export class PatientCareProgram {
     unknown
   >;
   @Prop({ type: Date }) baselineCompletedAt?: Date;
+  @Prop({ type: Date }) pauseRequestedAt?: Date;
+  @Prop({ maxlength: 500 }) pauseRequestReason?: string;
   @Prop({ type: MongooseSchema.Types.Mixed }) customSettings?: Record<
     string,
     unknown

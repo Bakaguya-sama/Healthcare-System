@@ -14,8 +14,14 @@ import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { UsersModule } from '../users/users.module';
 import { CareProgramRuleService } from './application/care-program-rule.service';
 import { CareProgramRuleController } from './care-program-rule.controller';
-import { UsersDoctorCapabilityAdapter } from './application/adapters/doctor.adapter';
-import { DOCTOR_CAPABILITY_PORT } from './application/ports/doctor.repository.port';
+import { UsersDoctorAdapter } from './application/adapters/doctor.adapter';
+import { DOCTOR_REPOSITORY_PORT } from './application/ports/doctor.repository.port';
+import { PATIENT_REPOSITORY_PORT } from './application/ports/patient.repository.port';
+import { CARE_PROGRAM_ACCESS_PORT } from './application/ports/care-program-access.port';
+import { UsersPatientAdapter } from './application/adapters/patient.adapter';
+import { NoEntitlementAdapter } from './application/adapters/no-entitlement.adapter';
+import { CareEnrollmentService } from './application/care-enrollment.service';
+import { CareEnrollmentController } from './care-enrollment.controller';
 
 @Module({
   imports: [
@@ -31,14 +37,19 @@ import { DOCTOR_CAPABILITY_PORT } from './application/ports/doctor.repository.po
       },
     ]),
   ],
-  controllers: [CareProgramRuleController],
+  controllers: [CareProgramRuleController, CareEnrollmentController],
   providers: [
     CareProgramRuleService,
-    UsersDoctorCapabilityAdapter,
+    CareEnrollmentService,
+    UsersDoctorAdapter,
+    UsersPatientAdapter,
+    NoEntitlementAdapter,
     {
-      provide: DOCTOR_CAPABILITY_PORT,
-      useExisting: UsersDoctorCapabilityAdapter,
+      provide: DOCTOR_REPOSITORY_PORT,
+      useExisting: UsersDoctorAdapter,
     },
+    { provide: PATIENT_REPOSITORY_PORT, useExisting: UsersPatientAdapter },
+    { provide: CARE_PROGRAM_ACCESS_PORT, useExisting: NoEntitlementAdapter },
   ],
   exports: [MongooseModule, CareProgramRuleService],
 })

@@ -5,10 +5,10 @@ import {
   UserRole,
 } from '../../../../core/domain/user.enums';
 import { UsersService } from '../../../users/public-api';
-import { DoctorCapabilityPort } from '../ports/doctor.repository.port';
+import { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 
 @Injectable()
-export class UsersDoctorCapabilityAdapter implements DoctorCapabilityPort {
+export class UsersDoctorAdapter implements DoctorRepositoryPort {
   constructor(private readonly users: UsersService) {}
 
   async isActiveAndApproved(id: string): Promise<boolean> {
