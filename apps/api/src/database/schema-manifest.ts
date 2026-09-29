@@ -4,6 +4,10 @@ import {
   CC000_FOUNDATION_COLLECTIONS,
   CC000_FOUNDATION_INDEXES,
 } from './migrations/202609281000-cc000-chronic-care-foundation';
+import {
+  CC001A_COLLECTIONS,
+  CC001A_INDEXES,
+} from './migrations/202609291000-cc001a-care-catalog';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -49,6 +53,7 @@ export const INFRASTRUCTURE_COLLECTIONS: ReadonlyArray<{
 export const EXPECTED_DATABASE_COLLECTIONS = [
   ...INFRASTRUCTURE_COLLECTIONS,
   ...CC000_FOUNDATION_COLLECTIONS,
+  ...CC001A_COLLECTIONS,
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
@@ -204,6 +209,7 @@ export const MANAGED_DATABASE_INDEXES = [
     sparse: true,
   },
   ...CC000_FOUNDATION_INDEXES,
+  ...CC001A_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

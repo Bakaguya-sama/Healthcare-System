@@ -8,8 +8,8 @@ export type ChronicCareFoundationSeedInput = {
 };
 
 /**
- * Inserts only draft fixtures. Publishing, activation, and enrollment must go
- * through their future command handlers so their business invariants are kept.
+ * This is a deterministic catalog fixture for local development only. Runtime
+ * publishing and activation must use the audited command handlers.
  */
 export async function seedChronicCareFoundation(
   db: Db,
@@ -26,13 +26,16 @@ export async function seedChronicCareFoundation(
         version: 1,
         name: 'Demo hypertension care program',
         diseaseKey,
-        status: 'draft',
+        status: 'published',
+        revision: 1,
         eligibilityForm: { all: [] },
         baselineForm: { fields: [] },
         taskTemplates: [],
         reminderPolicy: { channels: [] },
         dataSources: [],
         createdBy: input.createdBy,
+        publishedBy: input.createdBy,
+        publishedAt: now,
         createdAt: now,
         updatedAt: now,
       },
@@ -49,10 +52,13 @@ export async function seedChronicCareFoundation(
       $setOnInsert: {
         careProgramId,
         version: 1,
-        status: 'draft',
-        rules: [],
+        status: 'active',
+        revision: 1,
+        rules: [{ operator: 'all' }],
         dataSources: [],
         createdBy: input.createdBy,
+        activatedBy: input.createdBy,
+        activatedAt: now,
         createdAt: now,
         updatedAt: now,
       },

@@ -15,6 +15,7 @@ export class CareRule {
   @Prop({ type: Types.ObjectId, ref: CareProgram.name, required: true })
   careProgramId: Types.ObjectId;
   @Prop({ required: true, min: 1 }) version: number;
+  @Prop({ required: true, min: 1, default: 1 }) revision: number;
   @Prop({ required: true, enum: CareRuleStatus, default: CareRuleStatus.DRAFT })
   status: CareRuleStatus;
   @Prop({ type: [MongooseSchema.Types.Mixed], required: true, default: [] })

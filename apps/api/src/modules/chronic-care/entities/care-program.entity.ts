@@ -17,6 +17,12 @@ export class CareProgram {
   @Prop({ required: true, min: 1 })
   version: number;
 
+  // Optimistic-concurrency revision. This is distinct from the immutable
+  // business version: editing a draft increments revision, publishing does not
+  // mutate the Program's business configuration.
+  @Prop({ required: true, min: 1, default: 1 })
+  revision: number;
+
   @Prop({ required: true, trim: true, maxlength: 200 })
   name: string;
 

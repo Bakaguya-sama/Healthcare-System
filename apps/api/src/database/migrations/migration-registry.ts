@@ -65,6 +65,12 @@ import {
   CC000_CHRONIC_CARE_FOUNDATION_NAME,
   CC000_CHRONIC_CARE_FOUNDATION_VERSION,
 } from './202609281000-cc000-chronic-care-foundation';
+import {
+  applyCc001aCareCatalog,
+  CC001A_CARE_CATALOG_CHECKSUM,
+  CC001A_CARE_CATALOG_NAME,
+  CC001A_CARE_CATALOG_VERSION,
+} from './202609291000-cc001a-care-catalog';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -132,6 +138,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC000_CHRONIC_CARE_FOUNDATION_NAME,
     checksum: CC000_CHRONIC_CARE_FOUNDATION_CHECKSUM,
     up: applyCc000ChronicCareFoundation,
+  },
+  {
+    version: CC001A_CARE_CATALOG_VERSION,
+    name: CC001A_CARE_CATALOG_NAME,
+    checksum: CC001A_CARE_CATALOG_CHECKSUM,
+    up: applyCc001aCareCatalog,
   },
 ];
 
