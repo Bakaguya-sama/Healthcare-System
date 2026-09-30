@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { MetricType } from '../entities/health-metric.entity';
+import { MetricType } from '../../domain/entities/health-metric.entity';
 
 export class MetricValueEntryDto {
   @ApiProperty({ example: 120 })

@@ -11,16 +11,16 @@ import {
   HealthMetricDocument,
   MetricValueDetail,
   MetricType,
-} from './entities/health-metric.entity';
-import { CreateHealthMetricDto } from './dto/create-health-metric.dto';
-import { UpdateHealthMetricDto } from './dto/update-health-metric.dto';
-import { QueryHealthMetricDto } from './dto/query-health-metric.dto';
-import { NotificationsService } from '../notifications/public-api';
-import { UsersService } from '../users/public-api';
+} from '../../domain/entities/health-metric.entity';
+import { CreateHealthMetricDto } from '../../presentation/dto/create-health-metric.dto';
+import { UpdateHealthMetricDto } from '../../presentation/dto/update-health-metric.dto';
+import { QueryHealthMetricDto } from '../../presentation/dto/query-health-metric.dto';
+import { NotificationsService } from '../../../notifications/public-api';
+import { UsersService } from '../../../users/public-api';
 import type {
   HealthProfileMetric,
   HealthProfilePort,
-} from './ports/health-profile.port';
+} from '../ports/health-profile.port';
 import { HealthMetricQueryService } from './health-metric-query.service';
 import { HealthMetricAlertService } from './health-metric-alert.service';
 

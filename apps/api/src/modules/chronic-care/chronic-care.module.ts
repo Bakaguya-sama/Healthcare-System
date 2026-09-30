@@ -1,35 +1,35 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CareProgram, CareProgramSchema } from './entities/care-program.entity';
-import { CareRule, CareRuleSchema } from './entities/care-rule.entity';
+import { CareProgram, CareProgramSchema } from './domain/entities/care-program.entity';
+import { CareRule, CareRuleSchema } from './domain/entities/care-rule.entity';
 import {
   PatientCareProgram,
   PatientCareProgramSchema,
-} from './entities/patient-care-program.entity';
+} from './domain/entities/patient-care-program.entity';
 import {
   CareCommandIdempotency,
   CareCommandIdempotencySchema,
-} from './entities/care-command-idempotency.entity';
+} from './domain/entities/care-command-idempotency.entity';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { UsersModule } from '../users/users.module';
-import { CareProgramRuleService } from './application/care-program-rule.service';
-import { CareProgramRuleController } from './care-program-rule.controller';
-import { UsersDoctorAdapter } from './application/adapters/doctor.adapter';
+import { CareProgramRuleService } from './application/services/care-program-rule.service';
+import { CareProgramRuleController } from './presentation/controllers/care-program-rule.controller';
+import { UsersDoctorAdapter } from './infrastructure/adapters/doctor.adapter';
 import { DOCTOR_REPOSITORY_PORT } from './application/ports/doctor.repository.port';
 import { PATIENT_REPOSITORY_PORT } from './application/ports/patient.repository.port';
 import { CARE_PROGRAM_ACCESS_PORT } from './application/ports/care-program-access.port';
-import { UsersPatientAdapter } from './application/adapters/patient.adapter';
-import { NoEntitlementAdapter } from './application/adapters/no-entitlement.adapter';
-import { CareEnrollmentService } from './application/care-enrollment.service';
-import { CareEnrollmentController } from './care-enrollment.controller';
-import { CareTask, CareTaskSchema } from './entities/care-task.entity';
-import { CareTaskSchedulerService } from './care-task-scheduler.service';
-import { CareTaskProgressService } from './care-task-progress.service';
+import { UsersPatientAdapter } from './infrastructure/adapters/patient.adapter';
+import { NoEntitlementAdapter } from './infrastructure/adapters/no-entitlement.adapter';
+import { CareEnrollmentService } from './application/services/care-enrollment.service';
+import { CareEnrollmentController } from './presentation/controllers/care-enrollment.controller';
+import { CareTask, CareTaskSchema } from './domain/entities/care-task.entity';
+import { CareTaskSchedulerService } from './application/services/care-task-scheduler.service';
+import { CareTaskProgressService } from './application/services/care-task-progress.service';
 import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 import { HealthTrackingModule } from '../health-tracking/health-tracking.module';
-import { CareTaskController } from './care-task.controller';
+import { CareTaskController } from './presentation/controllers/care-task.controller';
 import { CARE_TASK_QUEUE } from './application/ports/care-task-queue.port';
-import { OutboxCareTaskQueue } from './application/adapters/outbox-care-task-queue.adapter';
+import { OutboxCareTaskQueue } from './infrastructure/adapters/outbox-care-task-queue.adapter';
 
 @Module({
   imports: [

@@ -9,18 +9,18 @@ import {
   decodeCursor,
   encodeCursor,
   InvalidCursorError,
-} from '../../common/pagination';
-import { QueryHealthMetricDto } from './dto/query-health-metric.dto';
+} from '../../../../common/pagination';
+import { QueryHealthMetricDto } from '../../presentation/dto/query-health-metric.dto';
 import {
   HealthMetric,
   HealthMetricDocument,
   MetricType,
-} from './entities/health-metric.entity';
+} from '../../domain/entities/health-metric.entity';
 import type {
   HealthProfileMetric,
   HealthProfilePort,
-} from './ports/health-profile.port';
-import type { HealthMetricPort } from './ports/health-metric.port';
+} from '../ports/health-profile.port';
+import type { HealthMetricPort } from '../ports/health-metric.port';
 
 type MetricEntry = {
   value: number;

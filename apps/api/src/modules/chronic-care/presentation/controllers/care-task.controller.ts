@@ -8,14 +8,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { UserRole } from '../../core/domain/user.enums';
-import type { CareActor } from './application/care-program-rule.service';
-import { CareTaskSchedulerService } from './care-task-scheduler.service';
-import { CareTaskProgressService } from './care-task-progress.service';
+import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
+import { Roles } from '../../../../core/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../core/guards/roles.guard';
+import { UserRole } from '../../../../core/domain/user.enums';
+import type { CareActor } from '../../application/services/care-program-rule.service';
+import { CareTaskSchedulerService } from '../../application/services/care-task-scheduler.service';
+import { CareTaskProgressService } from '../../application/services/care-task-progress.service';
 
 @ApiTags('care-tasks')
 @ApiBearerAuth()

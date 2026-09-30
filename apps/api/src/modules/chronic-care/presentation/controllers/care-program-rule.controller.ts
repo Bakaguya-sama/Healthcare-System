@@ -15,20 +15,20 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { UserRole } from '../../core/domain/user.enums';
-import { CareProgramRuleService } from './application/care-program-rule.service';
-import type { CareActor } from './application/care-program-rule.service';
+import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
+import { Roles } from '../../../../core/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../core/guards/roles.guard';
+import { UserRole } from '../../../../core/domain/user.enums';
+import { CareProgramRuleService } from '../../application/services/care-program-rule.service';
+import type { CareActor } from '../../application/services/care-program-rule.service';
 import {
   CreateCareProgramDto,
   CreateCareRuleDto,
   LifecycleReasonDto,
   UpdateCareProgramDto,
   UpdateCareRuleDto,
-} from './dto/care-program-rule.dto';
+} from '../dto/care-program-rule.dto';
 
 const IDEMPOTENCY = ApiHeader({
   name: 'Idempotency-Key',

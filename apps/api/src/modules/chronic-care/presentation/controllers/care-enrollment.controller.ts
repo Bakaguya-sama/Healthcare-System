@@ -9,19 +9,19 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { UserRole } from '../../core/domain/user.enums';
-import type { CareActor } from './application/care-program-rule.service';
-import { CareEnrollmentService } from './application/care-enrollment.service';
+import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
+import { Roles } from '../../../../core/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../core/guards/roles.guard';
+import { UserRole } from '../../../../core/domain/user.enums';
+import type { CareActor } from '../../application/services/care-program-rule.service';
+import { CareEnrollmentService } from '../../application/services/care-enrollment.service';
 import {
   BaselineDto,
   ConsentDto,
   CreateCareEnrollmentDto,
   EnrollmentReasonDto,
-} from './dto/care-enrollment.dto';
+} from '../dto/care-enrollment.dto';
 
 const Idempotent = ApiHeader({ name: 'Idempotency-Key', required: true });
 

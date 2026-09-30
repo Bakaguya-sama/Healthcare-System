@@ -5,7 +5,7 @@ import {
   UserRole,
 } from '../../../../core/domain/user.enums';
 import { UsersService } from '../../../users/public-api';
-import { DoctorRepositoryPort } from '../ports/doctor.repository.port';
+import { DoctorRepositoryPort } from '../../application/ports/doctor.repository.port';
 
 @Injectable()
 export class UsersDoctorAdapter implements DoctorRepositoryPort {

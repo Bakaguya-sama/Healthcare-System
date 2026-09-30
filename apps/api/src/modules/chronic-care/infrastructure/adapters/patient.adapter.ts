@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, UserRole } from '../../../../core/domain/user.enums';
 import { UsersService } from '../../../users/public-api';
-import type { PatientRepositoryPort } from '../ports/patient.repository.port';
+import type { PatientRepositoryPort } from '../../application/ports/patient.repository.port';
 @Injectable()
 export class UsersPatientAdapter implements PatientRepositoryPort {
   constructor(private readonly users: UsersService) {}

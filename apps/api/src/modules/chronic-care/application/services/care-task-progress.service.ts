@@ -5,7 +5,7 @@ import {
   CareTask,
   CareTaskDocument,
   CareTaskStatus,
-} from './entities/care-task.entity';
+} from '../../domain/entities/care-task.entity';
 
 @Injectable()
 export class CareTaskProgressService {

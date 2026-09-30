@@ -12,12 +12,12 @@ import {
   Delete,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { HealthMetricsService } from './health-metrics.service';
-import { CreateHealthMetricDto } from './dto/create-health-metric.dto';
-import { UpdateHealthMetricDto } from './dto/update-health-metric.dto';
-import { QueryHealthMetricDto } from './dto/query-health-metric.dto';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
+import { HealthMetricsService } from '../../application/services/health-metrics.service';
+import { CreateHealthMetricDto } from '../dto/create-health-metric.dto';
+import { UpdateHealthMetricDto } from '../dto/update-health-metric.dto';
+import { QueryHealthMetricDto } from '../dto/query-health-metric.dto';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
 
 @ApiTags('health-metrics')
 @ApiBearerAuth()

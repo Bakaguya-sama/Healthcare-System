@@ -1,4 +1,4 @@
-import { CareTaskType } from '../entities/care-task.entity';
+import { CareTaskType } from '../domain/entities/care-task.entity';
 
 export type CareTaskTemplate = {
   key: string;

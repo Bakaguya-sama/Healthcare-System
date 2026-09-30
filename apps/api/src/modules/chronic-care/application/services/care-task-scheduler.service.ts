@@ -5,29 +5,29 @@ import {
   CareTask,
   CareTaskDocument,
   CareTaskStatus,
-} from './entities/care-task.entity';
+} from '../../domain/entities/care-task.entity';
 import {
   PatientCareProgram,
   PatientCareProgramDocument,
   PatientCareProgramStatus,
-} from './entities/patient-care-program.entity';
+} from '../../domain/entities/patient-care-program.entity';
 import {
   CareTaskTemplate,
   validateCareTaskTemplates,
-} from './utils/care-task-template.validator';
+} from '../../utils/care-task-template.validator';
 import {
   localDate,
   localDateTimeToUtc,
   nextLocalDate,
-} from './utils/care-task-timezone';
+} from '../../utils/care-task-timezone';
 import {
   HEALTH_METRIC,
   type HealthMetricPort,
-} from '../health-tracking/public-api';
+} from '../../../health-tracking/public-api';
 import {
   CARE_TASK_QUEUE,
   type CareTaskQueue,
-} from './application/ports/care-task-queue.port';
+} from '../ports/care-task-queue.port';
 
 @Injectable()
 export class CareTaskSchedulerService {

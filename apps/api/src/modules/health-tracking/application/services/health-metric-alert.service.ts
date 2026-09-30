@@ -8,17 +8,17 @@ import { Model, Types } from 'mongoose';
 import {
   evaluateMetricThreshold,
   Gender,
-} from './health-metrics-alert.evaluator';
+} from '../evaluators/health-metrics-alert.evaluator';
 import {
   HealthMetric,
   HealthMetricDocument,
   MetricType,
-} from './entities/health-metric.entity';
+} from '../../domain/entities/health-metric.entity';
 import {
   NotificationsService,
   NotificationType,
-} from '../notifications/public-api';
-import { UsersService } from '../users/public-api';
+} from '../../../notifications/public-api';
+import { UsersService } from '../../../users/public-api';
 
 type MetricEntry = {
   value: number;

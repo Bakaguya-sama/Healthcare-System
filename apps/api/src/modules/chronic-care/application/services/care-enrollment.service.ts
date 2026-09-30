@@ -2,38 +2,38 @@ import { createHash } from 'node:crypto';
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
-import { UserRole } from '../../../core/domain/user.enums';
-import { AuditLog } from '../../platform-audit/public-api';
+import { UserRole } from '../../../../core/domain/user.enums';
+import { AuditLog } from '../../../platform-audit/public-api';
 import {
   CareCommandIdempotency,
   CareCommandIdempotencyDocument,
-} from '../entities/care-command-idempotency.entity';
+} from '../../domain/entities/care-command-idempotency.entity';
 import {
   CareProgram,
   CareProgramDocument,
   CareProgramStatus,
-} from '../entities/care-program.entity';
+} from '../../domain/entities/care-program.entity';
 import {
   CareRule,
   CareRuleDocument,
   CareRuleStatus,
-} from '../entities/care-rule.entity';
+} from '../../domain/entities/care-rule.entity';
 import {
   PatientCareProgram,
   PatientCareProgramDocument,
   PatientCareProgramStatus,
-} from '../entities/patient-care-program.entity';
-import { CARE_PROGRAM_ACCESS_PORT } from './ports/care-program-access.port';
-import type { CareProgramAccessPort } from './ports/care-program-access.port';
-import { DOCTOR_REPOSITORY_PORT } from './ports/doctor.repository.port';
-import type { DoctorRepositoryPort } from './ports/doctor.repository.port';
-import { PATIENT_REPOSITORY_PORT } from './ports/patient.repository.port';
-import type { PatientRepositoryPort } from './ports/patient.repository.port';
+} from '../../domain/entities/patient-care-program.entity';
+import { CARE_PROGRAM_ACCESS_PORT } from '../ports/care-program-access.port';
+import type { CareProgramAccessPort } from '../ports/care-program-access.port';
+import { DOCTOR_REPOSITORY_PORT } from '../ports/doctor.repository.port';
+import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
+import { PATIENT_REPOSITORY_PORT } from '../ports/patient.repository.port';
+import type { PatientRepositoryPort } from '../ports/patient.repository.port';
 import type { CareActor } from './care-program-rule.service';
 import {
   BASELINE_SCHEMA_VERSION_V1,
   validateBaselineAnswers,
-} from './baseline-form.validator';
+} from '../validators/baseline-form.validator';
 
 @Injectable()
 export class CareEnrollmentService {

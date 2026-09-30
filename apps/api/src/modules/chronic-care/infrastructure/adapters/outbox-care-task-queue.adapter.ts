@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { OutboxService } from '../../../../infrastructure/outbox/outbox.service';
-import type { CareTaskQueue } from '../ports/care-task-queue.port';
+import type { CareTaskQueue } from '../../application/ports/care-task-queue.port';
 
 @Injectable()
 export class OutboxCareTaskQueue implements CareTaskQueue {

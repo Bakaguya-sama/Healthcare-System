@@ -1,4 +1,4 @@
-import { MetricType } from '../entities/health-metric.entity';
+import { MetricType } from '../../domain/entities/health-metric.entity';
 
 export const HEALTH_PROFILE = Symbol('HEALTH_PROFILE');
 

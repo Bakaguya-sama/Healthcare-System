@@ -2,26 +2,26 @@ import { createHash } from 'node:crypto';
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
-import { UserRole } from '../../../core/domain/user.enums';
-import { AuditLog } from '../../platform-audit/public-api';
+import { UserRole } from '../../../../core/domain/user.enums';
+import { AuditLog } from '../../../platform-audit/public-api';
 import {
   CareCommandIdempotency,
   CareCommandIdempotencyDocument,
-} from '../entities/care-command-idempotency.entity';
+} from '../../domain/entities/care-command-idempotency.entity';
 import {
   CareProgram,
   CareProgramDocument,
   CareProgramStatus,
-} from '../entities/care-program.entity';
+} from '../../domain/entities/care-program.entity';
 import {
   CareRule,
   CareRuleDocument,
   CareRuleStatus,
-} from '../entities/care-rule.entity';
-import { DOCTOR_REPOSITORY_PORT } from './ports/doctor.repository.port';
-import type { DoctorRepositoryPort } from './ports/doctor.repository.port';
-import { validateBaselineForm } from './baseline-form.validator';
-import { validateCareTaskTemplates } from '../utils/care-task-template.validator';
+} from '../../domain/entities/care-rule.entity';
+import { DOCTOR_REPOSITORY_PORT } from '../ports/doctor.repository.port';
+import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
+import { validateBaselineForm } from '../validators/baseline-form.validator';
+import { validateCareTaskTemplates } from '../../utils/care-task-template.validator';
 
 export type CareActor = { id: string; role: UserRole };
 type Entity = CareProgramDocument | CareRuleDocument;

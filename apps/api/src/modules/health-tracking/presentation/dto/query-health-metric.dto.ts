@@ -7,8 +7,8 @@ import {
   IsString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { MetricType } from '../entities/health-metric.entity';
-import { PageSortQueryDto } from '../../../common/pagination';
+import { MetricType } from '../../domain/entities/health-metric.entity';
+import { PageSortQueryDto } from '../../../../common/pagination';
 
 export const HEALTH_METRIC_SORT_FIELDS = ['recordedAt', 'createdAt'] as const;
 export type HealthMetricSortField = (typeof HEALTH_METRIC_SORT_FIELDS)[number];

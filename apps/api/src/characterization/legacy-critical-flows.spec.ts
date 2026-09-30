@@ -8,8 +8,8 @@ import {
 } from '../modules/ai-advisory/conversations/entities/ai-conversation.entity';
 import { ChatService } from '../modules/consultations/messaging/chat.service';
 import { SenderType } from '../modules/consultations/messaging/entities/message.entity';
-import { HealthMetricsService } from '../modules/health-tracking/health-metrics.service';
-import { MetricType } from '../modules/health-tracking/entities/health-metric.entity';
+import { HealthMetricsService } from '../modules/health-tracking/application/services/health-metrics.service';
+import { MetricType } from '../modules/health-tracking/domain/entities/health-metric.entity';
 import { NotificationsService } from '../modules/notifications/notifications.service';
 import { NotificationType } from '../modules/notifications/entities/notification.entity';
 import { RagRetrievalService } from '../modules/ai-advisory/retrieval/services/rag-retrieval.service';

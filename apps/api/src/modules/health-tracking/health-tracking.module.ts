@@ -1,17 +1,17 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { HealthMetricsService } from './health-metrics.service';
-import { HealthMetricsController } from './health-metrics.controller';
+import { HealthMetricsService } from './application/services/health-metrics.service';
+import { HealthMetricsController } from './presentation/controllers/health-metrics.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import {
   HealthMetric,
   HealthMetricSchema,
-} from './entities/health-metric.entity';
+} from './domain/entities/health-metric.entity';
 import { UsersModule } from '../users/users.module';
-import { HEALTH_PROFILE } from './ports/health-profile.port';
-import { HealthMetricQueryService } from './health-metric-query.service';
-import { HealthMetricAlertService } from './health-metric-alert.service';
-import { HEALTH_METRIC } from './ports/health-metric.port';
+import { HEALTH_PROFILE } from './application/ports/health-profile.port';
+import { HealthMetricQueryService } from './application/services/health-metric-query.service';
+import { HealthMetricAlertService } from './application/services/health-metric-alert.service';
+import { HEALTH_METRIC } from './application/ports/health-metric.port';
 
 @Module({
   imports: [
