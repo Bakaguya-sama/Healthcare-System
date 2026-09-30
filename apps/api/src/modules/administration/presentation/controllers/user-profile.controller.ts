@@ -1,7 +1,7 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { UserProfileQueryService } from './user-profile-query.service';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { UserProfileQueryService } from '../../application/services/user-profile-query.service';
 
 @ApiTags('users')
 @ApiBearerAuth()

@@ -1,1 +1,1 @@
-export { AuditLog } from './entities/audit-log.entity';
+export { AuditLog } from './domain/entities/audit-log.entity';

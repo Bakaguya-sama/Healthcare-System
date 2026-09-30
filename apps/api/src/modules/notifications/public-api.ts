@@ -1,3 +1,3 @@
-export { NotificationsGateway } from './notifications.gateway';
-export { NotificationsService } from './notifications.service';
-export { NotificationType } from './entities/notification.entity';
+export { NotificationsGateway } from './presentation/gateways/notifications.gateway';
+export { NotificationsService } from './application/services/notifications.service';
+export { NotificationType } from './domain/entities/notification.entity';

@@ -10,17 +10,17 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { NotificationsService } from './notifications.service';
+import { NotificationsService } from '../../application/services/notifications.service';
 import {
   CreateNotificationDto,
   UpdateNotificationDto,
   QueryNotificationDto,
-} from './dto/create-notification.dto';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { UserRole } from '../../core/domain/user.enums';
+} from '../dto/create-notification.dto';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../core/guards/roles.guard';
+import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
+import { Roles } from '../../../../core/decorators/roles.decorator';
+import { UserRole } from '../../../../core/domain/user.enums';
 
 @ApiTags('notifications')
 @Controller('notifications')

@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { AdminService } from '../modules/administration/admin.service';
+import { AdminService } from '../modules/administration/application/services/admin.service';
 import { AiAssistantService } from '../modules/ai-advisory/conversations/ai-assistant.service';
 import {
   ConversationType,
@@ -10,8 +10,8 @@ import { ChatService } from '../modules/consultations/messaging/chat.service';
 import { SenderType } from '../modules/consultations/messaging/entities/message.entity';
 import { HealthMetricsService } from '../modules/health-tracking/application/services/health-metrics.service';
 import { MetricType } from '../modules/health-tracking/domain/entities/health-metric.entity';
-import { NotificationsService } from '../modules/notifications/notifications.service';
-import { NotificationType } from '../modules/notifications/entities/notification.entity';
+import { NotificationsService } from '../modules/notifications/application/services/notifications.service';
+import { NotificationType } from '../modules/notifications/domain/entities/notification.entity';
 import { RagRetrievalService } from '../modules/ai-advisory/retrieval/services/rag-retrieval.service';
 import { ReviewsService } from '../modules/consultations/reviews/reviews.service';
 import { DoctorVerificationStatus } from '../core/domain/user.enums';

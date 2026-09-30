@@ -9,18 +9,18 @@ import { Connection, Model, Types } from 'mongoose';
 import {
   Notification,
   NotificationDocument,
-} from './entities/notification.entity';
+} from '../../domain/entities/notification.entity';
 import {
   CreateNotificationDto,
   UpdateNotificationDto,
   QueryNotificationDto,
-} from './dto/create-notification.dto';
-import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+} from '../../presentation/dto/create-notification.dto';
+import { OutboxService } from '../../../../infrastructure/outbox/outbox.service';
 import {
   decodeCursor,
   encodeCursor,
   InvalidCursorError,
-} from '../../common/pagination';
+} from '../../../../common/pagination';
 
 const NOTIFICATION_READ_PROJECTION =
   '_id userId type title message isRead readAt attachments metadata expiresAt createdAt updatedAt';

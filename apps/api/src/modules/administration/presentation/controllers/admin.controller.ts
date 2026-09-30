@@ -11,17 +11,17 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { AdminService } from './admin.service';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { UserRole } from '../../core/domain/user.enums';
-import { VerifyDoctorDto } from './dto/verify-doctor.dto';
-import { RejectDoctorDto } from './dto/reject-doctor.dto';
-import { LockAccountDto } from './dto/lock-account.dto';
-import { QueryConsultationDto } from '../consultations/public-api';
-import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
+import { AdminService } from '../../application/services/admin.service';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../core/guards/roles.guard';
+import { Roles } from '../../../../core/decorators/roles.decorator';
+import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
+import { UserRole } from '../../../../core/domain/user.enums';
+import { VerifyDoctorDto } from '../dto/verify-doctor.dto';
+import { RejectDoctorDto } from '../dto/reject-doctor.dto';
+import { LockAccountDto } from '../dto/lock-account.dto';
+import { QueryConsultationDto } from '../../../consultations/public-api';
+import { QueryDoctorApplicationsDto } from '../dto/query-doctor-applications.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()

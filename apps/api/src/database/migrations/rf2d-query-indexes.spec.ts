@@ -1,7 +1,7 @@
 import { AiConversationSchema } from '../../modules/ai-advisory/conversations/entities/ai-conversation.entity';
 import { MessageSchema } from '../../modules/consultations/messaging/entities/message.entity';
 import { HealthMetricSchema } from '../../modules/health-tracking/domain/entities/health-metric.entity';
-import { NotificationSchema } from '../../modules/notifications/entities/notification.entity';
+import { NotificationSchema } from '../../modules/notifications/domain/entities/notification.entity';
 import { RF2D_QUERY_INDEXES } from './202609162200-rf2d-query-indexes';
 import { RETIRED_AI_CONVERSATION_INDEX_NAMES } from './202609291200-schema-simplification';
 

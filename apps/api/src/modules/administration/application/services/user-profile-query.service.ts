@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ReviewsService } from '../consultations/public-api';
-import { ViolationsService } from '../moderation/public-api';
-import { UserRole } from '../../core/domain/user.enums';
-import { UsersService } from '../users/public-api';
+import { ReviewsService } from '../../../consultations/public-api';
+import { ViolationsService } from '../../../moderation/public-api';
+import { UserRole } from '../../../../core/domain/user.enums';
+import { UsersService } from '../../../users/public-api';
 
 @Injectable()
 export class UserProfileQueryService {

@@ -5,9 +5,9 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { DoctorVerificationStatus } from '../../../core/domain/user.enums';
-import { PageQueryDto } from '../../../common/pagination';
-import type { DoctorApplicationQuery } from '../../users/public-api';
+import { DoctorVerificationStatus } from '../../../../core/domain/user.enums';
+import { PageQueryDto } from '../../../../common/pagination';
+import type { DoctorApplicationQuery } from '../../../users/public-api';
 
 export class QueryDoctorApplicationsDto
   extends PageQueryDto

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { NotificationsService } from './notifications.service';
-import { NotificationsController } from './notifications.controller';
-import { NotificationsGateway } from './notifications.gateway';
+import { NotificationsService } from './application/services/notifications.service';
+import { NotificationsController } from './presentation/controllers/notifications.controller';
+import { NotificationsGateway } from './presentation/gateways/notifications.gateway';
 import {
   Notification,
   NotificationSchema,
-} from './entities/notification.entity';
+} from './domain/entities/notification.entity';
 import { PresenceModule } from '../../infrastructure/realtime/presence/presence.module';
 import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 

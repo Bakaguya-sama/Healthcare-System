@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuditLog, AuditLogSchema } from './entities/audit-log.entity';
+import { AuditLog, AuditLogSchema } from './domain/entities/audit-log.entity';
 
 @Module({
   imports: [

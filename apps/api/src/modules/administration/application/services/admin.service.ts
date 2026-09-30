@@ -2,18 +2,18 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   DoctorVerificationStatus,
-} from '../../core/domain/user.enums';
-import { NodemailerService } from '../../infrastructure/email/nodemailer.service';
+} from '../../../../core/domain/user.enums';
+import { NodemailerService } from '../../../../infrastructure/email/nodemailer.service';
 import {
   ConsultationsService,
   type QueryConsultationDto,
-} from '../consultations/public-api';
-import { NotificationsGateway } from '../notifications/public-api';
-import { UserAdministrationService } from '../users/public-api';
-import { LockAccountDto } from './dto/lock-account.dto';
-import { QueryDoctorApplicationsDto } from './dto/query-doctor-applications.dto';
-import { RejectDoctorDto } from './dto/reject-doctor.dto';
-import { VerifyDoctorDto } from './dto/verify-doctor.dto';
+} from '../../../consultations/public-api';
+import { NotificationsGateway } from '../../../notifications/public-api';
+import { UserAdministrationService } from '../../../users/public-api';
+import { LockAccountDto } from '../../presentation/dto/lock-account.dto';
+import { QueryDoctorApplicationsDto } from '../../presentation/dto/query-doctor-applications.dto';
+import { RejectDoctorDto } from '../../presentation/dto/reject-doctor.dto';
+import { VerifyDoctorDto } from '../../presentation/dto/verify-doctor.dto';
 
 @Injectable()
 export class AdminService {

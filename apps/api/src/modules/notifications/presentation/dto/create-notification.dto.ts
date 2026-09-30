@@ -8,8 +8,8 @@ import {
   IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { NotificationType } from '../entities/notification.entity';
-import { PageSortQueryDto } from '../../../common/pagination';
+import { NotificationType } from '../../domain/entities/notification.entity';
+import { PageSortQueryDto } from '../../../../common/pagination';
 
 export class CreateNotificationDto {
   @ApiProperty({
