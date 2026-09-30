@@ -272,6 +272,12 @@ export class CareEnrollmentService {
             consentPolicyVersion:
               (p.reviewPolicy as any)?.consentPolicyVersion ?? 'v1',
             baselineForm: p.baselineForm,
+            ruleSnapshot: {
+              careRuleId: String(r._id),
+              version: r.version,
+              revision: r.revision,
+              rules: r.rules,
+            },
             taskTemplates: p.taskTemplates,
             reminderPolicy: p.reminderPolicy,
             doctorEditableFields: p.doctorEditableFields,

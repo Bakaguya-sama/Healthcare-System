@@ -102,12 +102,17 @@ export class HealthMetricQueryService
         recordedAt: { $gte: input.from, $lte: input.to },
       })
       .sort({ recordedAt: 1, _id: 1 })
-      .select('_id recordedAt')
+      .select('_id recordedAt updatedAt values')
       .lean()
       .exec();
-    return metric
-      ? { id: String(metric._id), recordedAt: metric.recordedAt }
-      : null;
+    if (!metric) return null;
+    const updatedAt = (metric as unknown as { updatedAt?: Date }).updatedAt;
+    return {
+      id: String(metric._id),
+      recordedAt: metric.recordedAt,
+      updatedAt: updatedAt ?? metric.recordedAt,
+      values: metric.values,
+    };
   }
 
   async findAll(

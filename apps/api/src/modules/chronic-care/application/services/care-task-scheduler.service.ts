@@ -28,6 +28,7 @@ import {
   CARE_TASK_QUEUE,
   type CareTaskQueue,
 } from '../ports/care-task-queue.port';
+import { HealthEvaluationService } from './health-evaluation.service';
 
 @Injectable()
 export class CareTaskSchedulerService {
@@ -37,6 +38,7 @@ export class CareTaskSchedulerService {
     private readonly enrollments: Model<PatientCareProgramDocument>,
     @Inject(CARE_TASK_QUEUE) private readonly taskQueue: CareTaskQueue,
     @Inject(HEALTH_METRIC) private readonly metrics: HealthMetricPort,
+    private readonly evaluations: HealthEvaluationService,
   ) {}
 
   async scheduleActiveEnrollments(now = new Date(), horizonDays = 7) {
@@ -187,6 +189,14 @@ export class CareTaskSchedulerService {
           },
         )
         .exec();
+      await this.evaluations.evaluateMetric({
+        enrollmentId: String(task.patientCareProgramId),
+        careTaskId: String(task._id),
+        metricId: metric.id,
+        values: metric.values,
+        recordedAt: metric.recordedAt,
+        updatedAt: metric.updatedAt,
+      });
     }
   }
 

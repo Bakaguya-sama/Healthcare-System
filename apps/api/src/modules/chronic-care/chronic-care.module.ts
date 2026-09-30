@@ -30,6 +30,8 @@ import { HealthTrackingModule } from '../health-tracking/health-tracking.module'
 import { CareTaskController } from './presentation/controllers/care-task.controller';
 import { CARE_TASK_QUEUE } from './application/ports/care-task-queue.port';
 import { OutboxCareTaskQueue } from './infrastructure/adapters/outbox-care-task-queue.adapter';
+import { HealthEvaluation, HealthEvaluationSchema } from './domain/entities/health-evaluation.entity';
+import { HealthEvaluationService } from './application/services/health-evaluation.service';
 
 @Module({
   imports: [
@@ -42,6 +44,7 @@ import { OutboxCareTaskQueue } from './infrastructure/adapters/outbox-care-task-
       { name: CareRule.name, schema: CareRuleSchema },
       { name: PatientCareProgram.name, schema: PatientCareProgramSchema },
       { name: CareTask.name, schema: CareTaskSchema },
+      { name: HealthEvaluation.name, schema: HealthEvaluationSchema },
       {
         name: CareCommandIdempotency.name,
         schema: CareCommandIdempotencySchema,
@@ -58,6 +61,7 @@ import { OutboxCareTaskQueue } from './infrastructure/adapters/outbox-care-task-
     CareEnrollmentService,
     CareTaskSchedulerService,
     CareTaskProgressService,
+    HealthEvaluationService,
     OutboxCareTaskQueue,
     {
       provide: CARE_TASK_QUEUE,

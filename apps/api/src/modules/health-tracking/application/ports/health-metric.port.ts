@@ -6,5 +6,5 @@ export interface HealthMetricPort {
     metricType: string;
     from: Date;
     to: Date;
-  }): Promise<{ id: string; recordedAt: Date } | null>;
+  }): Promise<{ id: string; recordedAt: Date; updatedAt: Date; values: Record<string, unknown> } | null>;
 }
