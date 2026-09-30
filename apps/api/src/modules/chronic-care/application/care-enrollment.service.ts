@@ -30,6 +30,10 @@ import type { DoctorRepositoryPort } from './ports/doctor.repository.port';
 import { PATIENT_REPOSITORY_PORT } from './ports/patient.repository.port';
 import type { PatientRepositoryPort } from './ports/patient.repository.port';
 import type { CareActor } from './care-program-rule.service';
+import {
+  BASELINE_SCHEMA_VERSION_V1,
+  validateBaselineAnswers,
+} from './baseline-form.validator';
 
 @Injectable()
 export class CareEnrollmentService {
@@ -185,16 +189,11 @@ export class CareEnrollmentService {
       consent.policyVersion !== (e.programConfig as any).consentPolicyVersion
     )
       reasons.push('consent_incomplete');
-    const required = ((e.programConfig as any).baselineForm?.fields ?? [])
-      .filter((f: any) => f.required)
-      .map((f: any) => f.key);
-    if (
-      !e.baselineAnswers ||
-      required.some(
-        (key: string) => (e.baselineAnswers as any)[key] === undefined,
-      )
-    )
-      reasons.push('baseline_incomplete');
+    const baseline = validateBaselineAnswers(
+      (e.programConfig as any).baselineForm,
+      e.baselineAnswers ?? {},
+    );
+    if (!baseline.valid) reasons.push('baseline_incomplete');
     return reasons;
   }
 
@@ -267,6 +266,9 @@ export class CareEnrollmentService {
           programConfig: {
             programCode: p.programCode,
             programVersion: p.version,
+            baselineSchemaVersion:
+              (p.baselineForm as any)?.schemaVersion ??
+              BASELINE_SCHEMA_VERSION_V1,
             consentPolicyVersion:
               (p.reviewPolicy as any)?.consentPolicyVersion ?? 'v1',
             baselineForm: p.baselineForm,
@@ -356,6 +358,20 @@ export class CareEnrollmentService {
             'CARE_ENROLLMENT_NOT_FOUND',
             HttpStatus.NOT_FOUND,
             'Enrollment not found',
+          );
+        const result = validateBaselineAnswers(
+          (e.programConfig as any).baselineForm,
+          dto.answers,
+        );
+        if (!result.valid)
+          this.fail(
+            'CARE_BASELINE_INCOMPLETE',
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            'Baseline answers do not match the enrollment schema',
+            {
+              fields: result.issues.map((issue) => issue.field).filter(Boolean),
+              reasons: result.issues.map((issue) => issue.code),
+            },
           );
         e.baselineAnswers = dto.answers;
         e.baselineCompletedAt = new Date();

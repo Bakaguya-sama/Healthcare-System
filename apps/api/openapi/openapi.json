@@ -19445,7 +19445,23 @@
             "type": "object"
           },
           "baselineForm": {
-            "type": "object"
+            "type": "object",
+            "example": {
+              "schemaVersion": "v1",
+              "fields": [
+                {
+                  "key": "systolic_bp",
+                  "type": "integer",
+                  "unit": "mmHg",
+                  "range": {
+                    "min": 70,
+                    "max": 250
+                  },
+                  "required": true,
+                  "visibility": "care_team"
+                }
+              ]
+            }
           },
           "taskTemplates": {
             "type": "array",
@@ -19597,7 +19613,8 @@
         "type": "object",
         "properties": {
           "answers": {
-            "type": "object"
+            "type": "object",
+            "description": "Answers must match the baseline schema snapshot stored on the enrollment."
           }
         },
         "required": [

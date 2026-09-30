@@ -561,7 +561,7 @@ Table CarePrograms {
   description text
   status varchar [not null, note: "draft, published, retired"]
   eligibilityForm json [note: "Admin-approved structured criteria; informational/program eligibility only"]
-  baselineForm json [not null]
+  baselineForm json [not null, note: "Baseline schema v1 only: { schemaVersion, fields[{ key, type, unit?, range?, required, visibility }] }; no executable expressions"]
   taskTemplates json [not null, note: "Versioned definitions for metric, check_in, education, appointment, doctor_review"]
   reminderPolicy json [not null, note: "{ quietHours, frequencyCap, retryPolicy, defaultChannels }"]
   reviewPolicy json [note: "{ cadence, requiredTier, slaPolicyId }"]

@@ -29,7 +29,7 @@ export async function seedChronicCareFoundation(
         status: 'published',
         revision: 1,
         eligibilityForm: { all: [] },
-        baselineForm: { fields: [] },
+        baselineForm: { schemaVersion: 'v1', fields: [] },
         taskTemplates: [],
         reminderPolicy: { channels: [] },
         dataSources: [],

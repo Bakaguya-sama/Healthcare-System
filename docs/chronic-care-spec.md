@@ -70,6 +70,10 @@ The application, not a client-supplied `status`, performs transitions. `pending 
 
 If any guard fails, the enrollment remains `pending`; it returns a stable blocking reason and does not create tasks, evaluations, alerts or reminders. Resume repeats the same guards. Consent withdrawal changes a non-terminal enrollment to `cancelled` immediately and prevents new processing.
 
+#### Baseline schema v1
+
+`baselineForm` is an allowlisted, versioned contract: `{ schemaVersion: "v1", fields[] }`. Every field has a unique snake_case `key`, a primitive `type` (`number`, `integer`, `boolean`, `string`, or `date`), optional `unit` and numeric `range`, `required`, and `visibility` (`patient` or `care_team`). Executable expressions, unknown properties, nested workflow definitions and arbitrary fields are rejected. At enrollment creation, the complete form and `baselineSchemaVersion` are copied inside `programConfig`; later Program drafts do not affect its validation. Validation errors expose only field keys and stable reason codes, while audit records never contain answer values or consent payloads. A patient-facing projection excludes `care_team` fields.
+
 Only the assigned Doctor performs clinical workflow transitions. Admin may audit and administer Program/Rule lifecycle but may not acknowledge/resolve clinical alerts or alter a Patient enrollment as a substitute for the assigned Doctor. Patient may submit consent/baseline, withdraw consent and request a pause; a pause request is not itself a state transition.
 
 ### 4. Bounded-context ownership and public ports
@@ -185,6 +189,7 @@ All errors use the existing envelope: `code`, `message`, `details`, `correlation
 | `CARE_ENROLLMENT_ACTIVATION_BLOCKED` | 409        | At least one activation guard failed; returns safe blocking reason codes |
 | `CARE_CONSENT_VERSION_MISMATCH`      | 409        | Submitted consent does not match the Program snapshot policy version     |
 | `CARE_BASELINE_INCOMPLETE`           | 422        | Required baseline answer is missing or invalid                           |
+| `CARE_BASELINE_SCHEMA_INVALID`       | 422        | Program baseline schema is not the allowlisted v1 contract               |
 | `CARE_DOCTOR_OVERRIDE_FORBIDDEN`     | 403        | Doctor tries to change a field outside `doctorEditableFields`            |
 | `CARE_FORBIDDEN`                     | 403        | Actor is not authorized for the resource/action                          |
 | `CARE_IDEMPOTENCY_CONFLICT`          | 409        | Idempotency key was reused with a different request hash                 |

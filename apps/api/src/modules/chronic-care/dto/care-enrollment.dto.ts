@@ -26,7 +26,12 @@ export class ConsentDto {
 }
 
 export class BaselineDto {
-  @ApiProperty() @IsObject() answers: Record<string, unknown>;
+  @ApiProperty({
+    description:
+      'Answers must match the baseline schema snapshot stored on the enrollment.',
+  })
+  @IsObject()
+  answers: Record<string, unknown>;
 }
 
 export class EnrollmentReasonDto {

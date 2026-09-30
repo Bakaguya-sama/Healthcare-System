@@ -570,6 +570,8 @@ interface MedicalFacilityDto {
 }
 ```
 
+`programConfig.baselineSchemaVersion` identifies the immutable baseline-form snapshot used to validate answers. The form renderer must use its `fields[].visibility` to project answers: `patient` sees only patient-visible fields; `care_team` may see both. API validation rejects unknown fields and invalid required/type/range values with safe field keys and reason codes only.
+
 `allowedActions` là nguồn hiển thị hành động theo role/status. State machine đã chốt: Enrollment chỉ active sau Doctor/Program/Rule/entitlement/consent/baseline hợp lệ; CareTask missed là terminal; CareAlert cho phép resolve trực tiếp kèm implicit acknowledge; FamilyLink tái sử dụng record và tăng `invitationVersion` khi mời lại.
 
 ### 4.5 Billing

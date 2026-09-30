@@ -20,6 +20,7 @@ import {
 } from '../entities/care-rule.entity';
 import { DOCTOR_REPOSITORY_PORT } from './ports/doctor.repository.port';
 import type { DoctorRepositoryPort } from './ports/doctor.repository.port';
+import { validateBaselineForm } from './baseline-form.validator';
 
 export type CareActor = { id: string; role: UserRole };
 type Entity = CareProgramDocument | CareRuleDocument;
@@ -60,6 +61,17 @@ export class CareProgramRuleService {
         'CARE_FORBIDDEN',
         HttpStatus.FORBIDDEN,
         'Care catalog action is forbidden',
+      );
+  }
+
+  private requireValidBaselineForm(value: unknown): void {
+    const result = validateBaselineForm(value);
+    if (!result.valid)
+      this.fail(
+        'CARE_BASELINE_SCHEMA_INVALID',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Baseline schema must be a supported allowlisted schema',
+        { reasons: result.issues.map((issue) => issue.code) },
       );
   }
 
@@ -188,6 +200,7 @@ export class CareProgramRuleService {
     key: string,
   ) {
     this.requireAdmin(actor);
+    this.requireValidBaselineForm(input.baselineForm);
     return this.execute(
       actor,
       'care-program.create',
@@ -230,6 +243,8 @@ export class CareProgramRuleService {
     this.requireAdmin(actor);
     const expectedRevision = input.expectedRevision as number;
     delete input.expectedRevision;
+    if (input.baselineForm !== undefined)
+      this.requireValidBaselineForm(input.baselineForm);
     return this.execute(
       actor,
       'care-program.update',
@@ -282,6 +297,21 @@ export class CareProgramRuleService {
       { id, expectedRevision, reason },
       'careProgram',
       async (session) => {
+        const draft = await this.programs
+          .findOne({
+            _id: this.objectId(id, 'CARE_PROGRAM_NOT_FOUND'),
+            status: CareProgramStatus.DRAFT,
+            revision: expectedRevision,
+          })
+          .session(session)
+          .exec();
+        if (!draft)
+          this.fail(
+            'CARE_RULE_VERSION_CONFLICT',
+            HttpStatus.CONFLICT,
+            'Program is not a current draft version',
+          );
+        this.requireValidBaselineForm(draft.baselineForm);
         const program = await this.programs
           .findOneAndUpdate(
             {

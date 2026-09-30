@@ -14,6 +14,8 @@ import {
   RETIRED_AI_CONVERSATION_INDEX_NAMES,
 } from './migrations/202609291200-schema-simplification';
 import { CC001B_CARE_COMMAND_IDEMPOTENCY_VALIDATOR } from './migrations/202609291100-cc001b-enrollment';
+import { CC014_BASELINE_SCHEMA_COLLECTIONS } from './migrations/202609291300-cc014-baseline-schema-engine';
+import { CC014_PATIENT_CARE_PROGRAM_VALIDATOR } from './migrations/202609300900-cc014-remove-redundant-baseline-version';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -58,7 +60,18 @@ export const INFRASTRUCTURE_COLLECTIONS: ReadonlyArray<{
 
 export const EXPECTED_DATABASE_COLLECTIONS = [
   ...INFRASTRUCTURE_COLLECTIONS,
-  ...CC000_FOUNDATION_COLLECTIONS,
+  ...CC000_FOUNDATION_COLLECTIONS.filter(
+    (collection) =>
+      collection.name !== 'careprograms' &&
+      collection.name !== 'patientcareprograms',
+  ),
+  ...CC014_BASELINE_SCHEMA_COLLECTIONS.filter(
+    (collection) => collection.name !== 'patientcareprograms',
+  ),
+  {
+    name: 'patientcareprograms',
+    validator: CC014_PATIENT_CARE_PROGRAM_VALIDATOR,
+  },
   ...CC001A_COLLECTIONS.filter(
     (collection) => collection.name !== 'carecommandidempotencies',
   ),

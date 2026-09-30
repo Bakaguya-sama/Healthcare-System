@@ -25,7 +25,23 @@ export class CreateCareProgramDto {
     string,
     unknown
   >;
-  @ApiProperty() @IsObject() baselineForm: Record<string, unknown>;
+  @ApiProperty({
+    example: {
+      schemaVersion: 'v1',
+      fields: [
+        {
+          key: 'systolic_bp',
+          type: 'integer',
+          unit: 'mmHg',
+          range: { min: 70, max: 250 },
+          required: true,
+          visibility: 'care_team',
+        },
+      ],
+    },
+  })
+  @IsObject()
+  baselineForm: Record<string, unknown>;
   @ApiProperty({ type: [Object] }) @IsArray() taskTemplates: Record<
     string,
     unknown
