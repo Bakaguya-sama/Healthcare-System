@@ -1,5 +1,5 @@
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import { AuthController } from './presentation/controllers/auth.controller';
+import { AuthService } from './application/services/auth.service';
 
 describe('AuthController legacy characterization', () => {
   it('delegates login and preserves its response', async () => {

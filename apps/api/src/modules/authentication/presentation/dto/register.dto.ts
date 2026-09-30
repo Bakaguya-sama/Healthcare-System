@@ -12,7 +12,7 @@ import {
   IsArray,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { UserRole } from '../../../core/domain/user.enums';
+import { UserRole } from '../../../../core/domain/user.enums';
 import { Transform, Type } from 'class-transformer';
 
 export class AddressDto {

@@ -1,8 +1,8 @@
 import { Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from './auth.service';
+import { AuthService } from './application/services/auth.service';
 import { UserRole } from '../../core/domain/user.enums';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterDto } from './presentation/dto/register.dto';
 
 describe('AuthService legacy characterization', () => {
   const userId = new Types.ObjectId();

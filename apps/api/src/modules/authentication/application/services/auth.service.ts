@@ -15,27 +15,27 @@ import { Model, Types } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID, createHash } from 'node:crypto';
-import { User, UserDocument } from '../users/entities/user.schema';
+import { User, UserDocument } from '../../../users/entities/user.schema';
 import {
   AuthSession,
   AuthSessionDocument,
-} from './entities/auth-session.schema';
+} from '../../domain/entities/auth-session.schema';
 import {
   AuthEvent,
   AuthEventDocument,
   AuthEventType,
-} from './entities/auth-event.schema';
+} from '../../domain/entities/auth-event.schema';
 import { OtpService } from './otp.service';
-import { DoctorVerificationStatus } from '../../core/domain/user.enums';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ConfirmOtpDto } from './dto/confirm-otp.dto';
-import { SendOtpDto } from './dto/send-otp.dto';
-import { NodemailerService } from '../../infrastructure/email/nodemailer.service';
-import { CloudinaryService } from '../../infrastructure/files/cloudinary.service';
-import { UserRole } from '../../core/domain/user.enums';
+import { DoctorVerificationStatus } from '../../../../core/domain/user.enums';
+import { RegisterDto } from '../../presentation/dto/register.dto';
+import { LoginDto } from '../../presentation/dto/login.dto';
+import { ChangePasswordDto } from '../../presentation/dto/change-password.dto';
+import { ForgotPasswordDto } from '../../presentation/dto/forgot-password.dto';
+import { ConfirmOtpDto } from '../../presentation/dto/confirm-otp.dto';
+import { SendOtpDto } from '../../presentation/dto/send-otp.dto';
+import { NodemailerService } from '../../../../infrastructure/email/nodemailer.service';
+import { CloudinaryService } from '../../../../infrastructure/files/cloudinary.service';
+import { UserRole } from '../../../../core/domain/user.enums';
 
 @Injectable()
 export class AuthService {

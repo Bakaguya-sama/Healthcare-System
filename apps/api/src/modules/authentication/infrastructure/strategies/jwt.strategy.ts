@@ -4,8 +4,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { PassportStrategy } from '@nestjs/passport';
 import { Model } from 'mongoose';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { User, UserDocument } from '../../users/entities/user.schema';
-import { AccountStatus } from '../../../core/domain/user.enums';
+import { User, UserDocument } from '../../../users/entities/user.schema';
+import { AccountStatus } from '../../../../core/domain/user.enums';
 
 export interface JwtPayload {
   sub: string;

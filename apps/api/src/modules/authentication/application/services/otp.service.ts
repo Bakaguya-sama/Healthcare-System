@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomInt } from 'node:crypto';
-import { RedisKeyService } from '../../infrastructure/redis/redis-key.service';
-import { RedisService } from '../../infrastructure/redis/redis.service';
+import { RedisKeyService } from '../../../../infrastructure/redis/redis-key.service';
+import { RedisService } from '../../../../infrastructure/redis/redis.service';
 
 type OtpChallenge = {
   codeHash?: string;
