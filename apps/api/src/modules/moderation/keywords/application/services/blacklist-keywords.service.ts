@@ -8,14 +8,14 @@ import { Model, Types } from 'mongoose';
 import {
   BlacklistKeyword,
   BlacklistKeywordDocument,
-} from './entities/blacklist-keyword.entity';
+} from '../../domain/entities/blacklist-keyword.entity';
 import {
   CreateBlacklistKeywordDto,
   UpdateBlacklistKeywordDto,
   QueryBlacklistKeywordDto,
-} from './dto/create-blacklist-keyword.dto';
-import { CachePort } from '../../../common/cache/cache.port';
-import { toLiteralCaseInsensitiveRegex } from '../../../common/query/search-pattern';
+} from '../../presentation/dto/create-blacklist-keyword.dto';
+import { CachePort } from '../../../../../common/cache/cache.port';
+import { toLiteralCaseInsensitiveRegex } from '../../../../../common/query/search-pattern';
 
 const BLACKLIST_KEYWORD_READ_PROJECTION = '_id keyword createdAt updatedAt';
 

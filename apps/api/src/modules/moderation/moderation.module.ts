@@ -1,17 +1,17 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { BlacklistKeywordsController } from './keywords/blacklist-keywords.controller';
-import { BlacklistKeywordsService } from './keywords/blacklist-keywords.service';
+import { BlacklistKeywordsController } from './keywords/presentation/controllers/blacklist-keywords.controller';
+import { BlacklistKeywordsService } from './keywords/application/services/blacklist-keywords.service';
 import {
   BlacklistKeyword,
   BlacklistKeywordSchema,
-} from './keywords/entities/blacklist-keyword.entity';
-import { ViolationsController } from './violations/violations.controller';
-import { ViolationsService } from './violations/violations.service';
+} from './keywords/domain/entities/blacklist-keyword.entity';
+import { ViolationsController } from './violations/presentation/controllers/violations.controller';
+import { ViolationsService } from './violations/application/services/violations.service';
 import {
   Violation,
   ViolationSchema,
-} from './violations/entities/violation.entity';
+} from './violations/domain/entities/violation.entity';
 
 @Module({
   imports: [

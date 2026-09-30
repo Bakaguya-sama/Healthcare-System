@@ -1,2 +1,2 @@
-export { BlacklistKeywordsService } from './keywords/blacklist-keywords.service';
-export { ViolationsService } from './violations/violations.service';
+export { BlacklistKeywordsService } from './keywords/application/services/blacklist-keywords.service';
+export { ViolationsService } from './violations/application/services/violations.service';

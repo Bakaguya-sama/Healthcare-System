@@ -9,12 +9,12 @@ import {
   Violation,
   ViolationActionTaken,
   ViolationStatus,
-} from './entities/violation.entity';
+} from '../../domain/entities/violation.entity';
 import {
   CreateViolationDto,
   UpdateViolationDto,
   QueryViolationDto,
-} from './dto/create-violation.dto';
+} from '../../presentation/dto/create-violation.dto';
 
 const VIOLATION_READ_PROJECTION =
   '_id reporterId reportedUserId reportType reason status resolutionNote actionTaken resolvedBy resolvedAt createdAt updatedAt';

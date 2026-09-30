@@ -10,16 +10,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { BlacklistKeywordsService } from './blacklist-keywords.service';
+import { BlacklistKeywordsService } from '../../application/services/blacklist-keywords.service';
 import {
   CreateBlacklistKeywordDto,
   UpdateBlacklistKeywordDto,
   QueryBlacklistKeywordDto,
-} from './dto/create-blacklist-keyword.dto';
-import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
-import { Roles } from '../../../core/decorators/roles.decorator';
-import { RolesGuard } from '../../../core/guards/roles.guard';
-import { UserRole } from '../../../core/domain/user.enums';
+} from '../dto/create-blacklist-keyword.dto';
+import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
+import { Roles } from '../../../../../core/decorators/roles.decorator';
+import { RolesGuard } from '../../../../../core/guards/roles.guard';
+import { UserRole } from '../../../../../core/domain/user.enums';
 
 @ApiTags('Blacklist Keywords')
 @ApiBearerAuth()

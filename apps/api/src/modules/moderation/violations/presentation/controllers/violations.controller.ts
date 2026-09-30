@@ -17,18 +17,18 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { ViolationsService } from './violations.service';
+import { ViolationsService } from '../../application/services/violations.service';
 import {
   CreateViolationDto,
   UpdateViolationDto,
   QueryViolationDto,
-} from './dto/create-violation.dto';
-import { Violation } from './entities/violation.entity';
-import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../core/guards/roles.guard';
-import { CurrentUser } from '../../../core/decorators/current-user.decorator';
-import { Roles } from '../../../core/decorators/roles.decorator';
-import { UserRole } from '../../../core/domain/user.enums';
+} from '../dto/create-violation.dto';
+import { Violation } from '../../domain/entities/violation.entity';
+import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../../core/guards/roles.guard';
+import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
+import { Roles } from '../../../../../core/decorators/roles.decorator';
+import { UserRole } from '../../../../../core/domain/user.enums';
 
 @ApiTags('Violations')
 @Controller('violations')

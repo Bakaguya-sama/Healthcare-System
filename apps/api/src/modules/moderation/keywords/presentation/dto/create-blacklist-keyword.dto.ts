@@ -6,7 +6,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { PageSortQueryDto } from '../../../../common/pagination';
+import { PageSortQueryDto } from '../../../../../common/pagination';
 
 export class CreateBlacklistKeywordDto {
   @ApiProperty({ description: 'Keyword/phrase to block' })

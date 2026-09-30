@@ -11,8 +11,8 @@ import {
   ReportType,
   ViolationActionTaken,
   ViolationStatus,
-} from '../entities/violation.entity';
-import { PageQueryDto } from '../../../../common/pagination';
+} from '../../domain/entities/violation.entity';
+import { PageQueryDto } from '../../../../../common/pagination';
 
 export class CreateViolationDto {
   @ApiPropertyOptional({
