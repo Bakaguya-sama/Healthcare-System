@@ -74,6 +74,10 @@ If any guard fails, the enrollment remains `pending`; it returns a stable blocki
 
 `baselineForm` is an allowlisted, versioned contract: `{ schemaVersion: "v1", fields[] }`. Every field has a unique snake_case `key`, a primitive `type` (`number`, `integer`, `boolean`, `string`, or `date`), optional `unit` and numeric `range`, `required`, and `visibility` (`patient` or `care_team`). Executable expressions, unknown properties, nested workflow definitions and arbitrary fields are rejected. At enrollment creation, the complete form and `baselineSchemaVersion` are copied inside `programConfig`; later Program drafts do not affect its validation. Validation errors expose only field keys and stable reason codes, while audit records never contain answer values or consent payloads. A patient-facing projection excludes `care_team` fields.
 
+#### Care task schedule v1
+
+`taskTemplates` is also snapshotted inside `programConfig`. The current P0 contract accepts only a unique snake_case `key`, a supported type (`metric`, `check_in`, `education`, `appointment`, `doctor_review`), and `schedule: { frequency: "daily", time: "HH:mm", windowMinutes }`. The scheduler resolves that IANA-local time to UTC, creates tasks for a rolling seven-day window, and uses `enrollment + template + scheduleVersion + local date` as its idempotent unique key. A task moves `scheduled → due → completed|missed|cancelled`; terminal tasks are never reopened by late metric input. Metric tasks query Health Tracking through its public `HEALTH_METRIC` port and persist only the matching metric ID. Reminder work is an idempotent outbox event, never a provider call in the task transaction.
+
 Only the assigned Doctor performs clinical workflow transitions. Admin may audit and administer Program/Rule lifecycle but may not acknowledge/resolve clinical alerts or alter a Patient enrollment as a substitute for the assigned Doctor. Patient may submit consent/baseline, withdraw consent and request a pause; a pause request is not itself a state transition.
 
 ### 4. Bounded-context ownership and public ports

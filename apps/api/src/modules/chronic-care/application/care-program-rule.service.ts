@@ -21,6 +21,7 @@ import {
 import { DOCTOR_REPOSITORY_PORT } from './ports/doctor.repository.port';
 import type { DoctorRepositoryPort } from './ports/doctor.repository.port';
 import { validateBaselineForm } from './baseline-form.validator';
+import { validateCareTaskTemplates } from '../utils/care-task-template.validator';
 
 export type CareActor = { id: string; role: UserRole };
 type Entity = CareProgramDocument | CareRuleDocument;
@@ -72,6 +73,15 @@ export class CareProgramRuleService {
         HttpStatus.UNPROCESSABLE_ENTITY,
         'Baseline schema must be a supported allowlisted schema',
         { reasons: result.issues.map((issue) => issue.code) },
+      );
+  }
+
+  private requireValidTaskTemplates(value: unknown): void {
+    if (!validateCareTaskTemplates(value))
+      this.fail(
+        'CARE_TASK_TEMPLATE_INVALID',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Task templates must use the supported daily schedule contract',
       );
   }
 
@@ -201,6 +211,7 @@ export class CareProgramRuleService {
   ) {
     this.requireAdmin(actor);
     this.requireValidBaselineForm(input.baselineForm);
+    this.requireValidTaskTemplates(input.taskTemplates);
     return this.execute(
       actor,
       'care-program.create',
@@ -245,6 +256,8 @@ export class CareProgramRuleService {
     delete input.expectedRevision;
     if (input.baselineForm !== undefined)
       this.requireValidBaselineForm(input.baselineForm);
+    if (input.taskTemplates !== undefined)
+      this.requireValidTaskTemplates(input.taskTemplates);
     return this.execute(
       actor,
       'care-program.update',
@@ -312,6 +325,7 @@ export class CareProgramRuleService {
             'Program is not a current draft version',
           );
         this.requireValidBaselineForm(draft.baselineForm);
+        this.requireValidTaskTemplates(draft.taskTemplates);
         const program = await this.programs
           .findOneAndUpdate(
             {

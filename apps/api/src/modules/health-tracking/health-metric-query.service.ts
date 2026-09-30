@@ -18,8 +18,9 @@ import {
 } from './entities/health-metric.entity';
 import type {
   HealthProfileMetric,
-  HealthProfileReader,
-} from './ports/health-profile-reader';
+  HealthProfilePort,
+} from './ports/health-profile.port';
+import type { HealthMetricPort } from './ports/health-metric.port';
 
 type MetricEntry = {
   value: number;
@@ -63,7 +64,9 @@ const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
 };
 
 @Injectable()
-export class HealthMetricQueryService implements HealthProfileReader {
+export class HealthMetricQueryService
+  implements HealthProfilePort, HealthMetricPort
+{
   constructor(
     @InjectModel(HealthMetric.name)
     private readonly healthMetricModel: Model<HealthMetricDocument>,
@@ -83,6 +86,28 @@ export class HealthMetricQueryService implements HealthProfileReader {
       .limit(boundedLimit)
       .lean<HealthProfileMetric[]>()
       .exec();
+  }
+
+  async findFirstRecordedInWindow(input: {
+    patientId: string;
+    metricType: string;
+    from: Date;
+    to: Date;
+  }) {
+    if (!Types.ObjectId.isValid(input.patientId)) return null;
+    const metric = await this.healthMetricModel
+      .findOne({
+        patientId: new Types.ObjectId(input.patientId),
+        type: input.metricType,
+        recordedAt: { $gte: input.from, $lte: input.to },
+      })
+      .sort({ recordedAt: 1, _id: 1 })
+      .select('_id recordedAt')
+      .lean()
+      .exec();
+    return metric
+      ? { id: String(metric._id), recordedAt: metric.recordedAt }
+      : null;
   }
 
   async findAll(

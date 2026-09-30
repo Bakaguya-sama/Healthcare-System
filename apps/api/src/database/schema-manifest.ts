@@ -16,6 +16,10 @@ import {
 import { CC001B_CARE_COMMAND_IDEMPOTENCY_VALIDATOR } from './migrations/202609291100-cc001b-enrollment';
 import { CC014_BASELINE_SCHEMA_COLLECTIONS } from './migrations/202609291300-cc014-baseline-schema-engine';
 import { CC014_PATIENT_CARE_PROGRAM_VALIDATOR } from './migrations/202609300900-cc014-remove-redundant-baseline-version';
+import {
+  CC002_CARE_TASK_COLLECTION,
+  CC002_CARE_TASK_INDEXES,
+} from './migrations/202609301000-cc002-care-tasks';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -83,6 +87,7 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
     name: 'notificationcampaignrecipients',
     validator: NOTIFICATION_CAMPAIGN_RECIPIENT_VALIDATOR,
   },
+  CC002_CARE_TASK_COLLECTION,
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
@@ -245,6 +250,7 @@ export const MANAGED_DATABASE_INDEXES = [
   },
   ...CC000_FOUNDATION_INDEXES,
   ...CC001A_INDEXES,
+  ...CC002_CARE_TASK_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

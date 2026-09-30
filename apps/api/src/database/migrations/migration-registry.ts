@@ -95,6 +95,12 @@ import {
   CC014_REMOVE_REDUNDANT_BASELINE_VERSION_CHECKSUM,
   CC014_REMOVE_REDUNDANT_BASELINE_VERSION_NAME,
 } from './202609300900-cc014-remove-redundant-baseline-version';
+import {
+  applyCc002CareTasks,
+  CC002_CARE_TASKS_CHECKSUM,
+  CC002_CARE_TASKS_NAME,
+  CC002_CARE_TASKS_VERSION,
+} from './202609301000-cc002-care-tasks';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -192,6 +198,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC014_REMOVE_REDUNDANT_BASELINE_VERSION_NAME,
     checksum: CC014_REMOVE_REDUNDANT_BASELINE_VERSION_CHECKSUM,
     up: applyCc014RemoveRedundantBaselineVersion,
+  },
+  {
+    version: CC002_CARE_TASKS_VERSION,
+    name: CC002_CARE_TASKS_NAME,
+    checksum: CC002_CARE_TASKS_CHECKSUM,
+    up: applyCc002CareTasks,
   },
 ];
 

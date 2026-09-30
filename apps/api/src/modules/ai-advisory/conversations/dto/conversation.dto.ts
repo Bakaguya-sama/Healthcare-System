@@ -37,6 +37,7 @@ export class StartConversationDto {
   @IsOptional()
   @IsArray()
   tags?: string[];
+
 }
 
 export class AiSendMessageDto {
@@ -99,7 +100,6 @@ export class UpdateConversationDto {
   @IsOptional()
   @IsArray()
   tags?: string[];
-
 }
 
 export class QueryConversationDto extends PageSortQueryDto {

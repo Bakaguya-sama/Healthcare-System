@@ -30,8 +30,8 @@ import { CloudinaryService } from '../../../infrastructure/files/cloudinary.serv
 import { AiResponseOrchestrator } from './services/ai-response-orchestrator.service';
 import { AiSafetyService } from './services/ai-safety.service';
 import {
-  HEALTH_PROFILE_READER,
-  type HealthProfileReader,
+  HEALTH_PROFILE,
+  type HealthProfilePort,
 } from '../../health-tracking/public-api';
 import { AiConversationQueryService } from './ai-conversation-query.service';
 import { AiConversationManagementService } from './ai-conversation-management.service';
@@ -66,8 +66,8 @@ export class AiAssistantService {
     @Optional() private readonly responseOrchestrator?: AiResponseOrchestrator,
     @Optional() private readonly aiSafetyService?: AiSafetyService,
     @Optional()
-    @Inject(HEALTH_PROFILE_READER)
-    private readonly healthProfileReader?: HealthProfileReader,
+    @Inject(HEALTH_PROFILE)
+    private readonly healthProfileReader?: HealthProfilePort,
     @Optional() conversationQueries?: AiConversationQueryService,
     @Optional() conversationManagement?: AiConversationManagementService,
     @Optional() messageOrchestration?: AiMessageOrchestrationService,

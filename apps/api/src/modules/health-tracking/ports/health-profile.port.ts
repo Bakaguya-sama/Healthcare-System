@@ -1,6 +1,6 @@
 import { MetricType } from '../entities/health-metric.entity';
 
-export const HEALTH_PROFILE_READER = Symbol('HEALTH_PROFILE_READER');
+export const HEALTH_PROFILE = Symbol('HEALTH_PROFILE');
 
 export type HealthProfileMetric = {
   type: MetricType;
@@ -11,7 +11,7 @@ export type HealthProfileMetric = {
   recordedAt: Date;
 };
 
-export interface HealthProfileReader {
+export interface HealthProfilePort {
   readRecentMetrics(
     patientId: string,
     limit?: number,

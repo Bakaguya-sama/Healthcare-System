@@ -8,9 +8,10 @@ import {
   HealthMetricSchema,
 } from './entities/health-metric.entity';
 import { UsersModule } from '../users/users.module';
-import { HEALTH_PROFILE_READER } from './ports/health-profile-reader';
+import { HEALTH_PROFILE } from './ports/health-profile.port';
 import { HealthMetricQueryService } from './health-metric-query.service';
 import { HealthMetricAlertService } from './health-metric-alert.service';
+import { HEALTH_METRIC } from './ports/health-metric.port';
 
 @Module({
   imports: [
@@ -25,8 +26,12 @@ import { HealthMetricAlertService } from './health-metric-alert.service';
     HealthMetricsService,
     HealthMetricQueryService,
     HealthMetricAlertService,
-    { provide: HEALTH_PROFILE_READER, useExisting: HealthMetricQueryService },
+    { provide: HEALTH_PROFILE, useExisting: HealthMetricQueryService },
+    {
+      provide: HEALTH_METRIC,
+      useExisting: HealthMetricQueryService,
+    },
   ],
-  exports: [HealthMetricsService, HEALTH_PROFILE_READER],
+  exports: [HealthMetricsService, HEALTH_PROFILE, HEALTH_METRIC],
 })
 export class HealthTrackingModule {}

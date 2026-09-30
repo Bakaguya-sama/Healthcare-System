@@ -570,6 +570,8 @@ interface MedicalFacilityDto {
 }
 ```
 
+`POST /care-tasks/schedule` is an Admin operational endpoint that advances due/missed states and schedules the next seven local calendar days for active enrollments. Patients read only their own tasks and completion rate through `GET /care-enrollments/:id/tasks` and `GET /care-enrollments/:id/completion-rate`. Completion rate is deterministic: `completed / (completed + missed)` for required scheduled tasks; it is `null` before a required task has reached a terminal outcome.
+
 `programConfig.baselineSchemaVersion` identifies the immutable baseline-form snapshot used to validate answers. The form renderer must use its `fields[].visibility` to project answers: `patient` sees only patient-visible fields; `care_team` may see both. API validation rejects unknown fields and invalid required/type/range values with safe field keys and reason codes only.
 
 `allowedActions` là nguồn hiển thị hành động theo role/status. State machine đã chốt: Enrollment chỉ active sau Doctor/Program/Rule/entitlement/consent/baseline hợp lệ; CareTask missed là terminal; CareAlert cho phép resolve trực tiếp kèm implicit acknowledge; FamilyLink tái sử dụng record và tăng `invitationVersion` khi mời lại.

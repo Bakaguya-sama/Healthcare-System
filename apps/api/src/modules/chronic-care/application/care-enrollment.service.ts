@@ -272,6 +272,8 @@ export class CareEnrollmentService {
             consentPolicyVersion:
               (p.reviewPolicy as any)?.consentPolicyVersion ?? 'v1',
             baselineForm: p.baselineForm,
+            taskTemplates: p.taskTemplates,
+            reminderPolicy: p.reminderPolicy,
             doctorEditableFields: p.doctorEditableFields,
           },
           createdBy: this.id(actor.id, 'CARE_FORBIDDEN'),

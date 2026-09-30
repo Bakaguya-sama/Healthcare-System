@@ -19,8 +19,8 @@ import { NotificationsService } from '../notifications/public-api';
 import { UsersService } from '../users/public-api';
 import type {
   HealthProfileMetric,
-  HealthProfileReader,
-} from './ports/health-profile-reader';
+  HealthProfilePort,
+} from './ports/health-profile.port';
 import { HealthMetricQueryService } from './health-metric-query.service';
 import { HealthMetricAlertService } from './health-metric-alert.service';
 
@@ -74,7 +74,7 @@ const DEFAULT_UNIT_BY_TYPE: Record<MetricType, string> = {
 };
 
 @Injectable()
-export class HealthMetricsService implements HealthProfileReader {
+export class HealthMetricsService implements HealthProfilePort {
   private readonly healthMetricQueries: HealthMetricQueryService;
   private readonly healthMetricAlerts: HealthMetricAlertService;
 

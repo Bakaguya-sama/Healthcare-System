@@ -1,5 +1,9 @@
 export {
-  HEALTH_PROFILE_READER,
+  HEALTH_PROFILE,
   type HealthProfileMetric,
-  type HealthProfileReader,
-} from './ports/health-profile-reader';
+  type HealthProfilePort,
+} from './ports/health-profile.port';
+export {
+  HEALTH_METRIC,
+  type HealthMetricPort,
+} from './ports/health-metric.port';

@@ -22,25 +22,47 @@ import { UsersPatientAdapter } from './application/adapters/patient.adapter';
 import { NoEntitlementAdapter } from './application/adapters/no-entitlement.adapter';
 import { CareEnrollmentService } from './application/care-enrollment.service';
 import { CareEnrollmentController } from './care-enrollment.controller';
+import { CareTask, CareTaskSchema } from './entities/care-task.entity';
+import { CareTaskSchedulerService } from './care-task-scheduler.service';
+import { CareTaskProgressService } from './care-task-progress.service';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
+import { HealthTrackingModule } from '../health-tracking/health-tracking.module';
+import { CareTaskController } from './care-task.controller';
+import { CARE_TASK_QUEUE } from './application/ports/care-task-queue.port';
+import { OutboxCareTaskQueue } from './application/adapters/outbox-care-task-queue.adapter';
 
 @Module({
   imports: [
     PlatformAuditModule,
+    OutboxModule,
+    HealthTrackingModule,
     UsersModule,
     MongooseModule.forFeature([
       { name: CareProgram.name, schema: CareProgramSchema },
       { name: CareRule.name, schema: CareRuleSchema },
       { name: PatientCareProgram.name, schema: PatientCareProgramSchema },
+      { name: CareTask.name, schema: CareTaskSchema },
       {
         name: CareCommandIdempotency.name,
         schema: CareCommandIdempotencySchema,
       },
     ]),
   ],
-  controllers: [CareProgramRuleController, CareEnrollmentController],
+  controllers: [
+    CareProgramRuleController,
+    CareEnrollmentController,
+    CareTaskController,
+  ],
   providers: [
     CareProgramRuleService,
     CareEnrollmentService,
+    CareTaskSchedulerService,
+    CareTaskProgressService,
+    OutboxCareTaskQueue,
+    {
+      provide: CARE_TASK_QUEUE,
+      useExisting: OutboxCareTaskQueue,
+    },
     UsersDoctorAdapter,
     UsersPatientAdapter,
     NoEntitlementAdapter,
