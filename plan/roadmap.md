@@ -707,6 +707,10 @@ Không thuộc slice: Priority Inbox aggregate, AI severity, consultation bookin
 
 Exit gate: dedupe, retry, race transition, authorization, outbox replay/dead-letter và safety-template E2E pass.
 
+**Trạng thái implementation (05/10/2026):** `CareAlert`, migration/index, lifecycle endpoint, audit và Outbox event đã có. Dedupe dùng unique key `(enrollment, rule snapshot, evaluation window)` và duplicate-key race phải đọc lại alert đã tạo; transition dùng `expectedRevision` + conditional update trong transaction; `resolve` từ `open` ghi audit implicit acknowledge. Worker xử lý `care.alert.opened` bằng template `urgent-care-alert-v1` hoặc `attention-care-alert-v1`, tạo Notification idempotent rồi để Outbox notification/realtime hiện hữu giao tiếp.
+
+**Gate còn phải có evidence E2E/integration:** assigned Doctor/other Doctor/Patient/Admin authorization; cùng evaluation window khi retry/race chỉ có một alert và một outbox event; hai transition cùng revision chỉ một request thắng; worker success/retry/dead/requeue không gửi notification trùng; urgent template không chứa diagnosis, prescription, dose/medication advice hoặc raw metric. Chỉ chuyển sang `DONE` sau khi các case trên chạy xanh cùng migrate → `database:verify` → migration `--expect-noop`.
+
 Ước lượng: **4-6 person-days**.
 
 #### `CC-005` — Doctor Priority Inbox

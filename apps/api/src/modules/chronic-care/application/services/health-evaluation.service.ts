@@ -16,6 +16,7 @@ import {
   evaluateCareRules,
   isCareRuleNode,
 } from '../../domain/rules/care-rule-interpreter';
+import { CareAlertService } from './care-alert.service';
 
 @Injectable()
 export class HealthEvaluationService {
@@ -24,6 +25,7 @@ export class HealthEvaluationService {
     private readonly enrollments: Model<PatientCareProgramDocument>,
     @InjectModel(HealthEvaluation.name)
     private readonly evaluations: Model<HealthEvaluationDocument>,
+    private readonly alerts: CareAlertService,
   ) {}
 
   async evaluateMetric(input: {
@@ -69,7 +71,7 @@ export class HealthEvaluationService {
       snapshot.rules as CareRuleNode[],
       input.values,
     );
-    return this.evaluations.create({
+    const evaluation = await this.evaluations.create({
       patientCareProgramId: enrollment._id,
       patientId: enrollment.patientId,
       ...(input.careTaskId && Types.ObjectId.isValid(input.careTaskId)
@@ -95,5 +97,7 @@ export class HealthEvaluationService {
       evaluatedAt: new Date(),
       ...(previous ? { replacesEvaluationId: previous._id } : {}),
     });
+    await this.alerts.createForEvaluation(evaluation);
+    return evaluation;
   }
 }

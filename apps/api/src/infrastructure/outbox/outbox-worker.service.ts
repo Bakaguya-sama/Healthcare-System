@@ -8,6 +8,8 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
 import { RedisService } from '../redis/redis.service';
 import { OutboxService } from './outbox.service';
+import { NotificationsService } from '../../modules/notifications/application/services/notifications.service';
+import { renderCareAlertNotification } from './care-alert-notification.template';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
@@ -24,6 +26,7 @@ export class OutboxWorkerService
     private readonly config: ConfigService,
     private readonly outbox: OutboxService,
     private readonly redis: RedisService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async onModuleInit() {
@@ -79,10 +82,31 @@ export class OutboxWorkerService
     const event = await this.outbox.getProcessing(eventId);
     if (!event) return;
     try {
+      if (event.eventType === 'care.alert.opened') {
+        const payload = event.payload as {
+          alertId?: string;
+          patientId?: string;
+          severity?: 'attention' | 'urgent';
+        };
+        if (!payload.alertId || !payload.patientId || !payload.severity)
+          throw new Error('Invalid care alert payload');
+        const template = renderCareAlertNotification({
+          severity: payload.severity,
+        });
+        await this.notifications.create(payload.patientId, {
+          userId: payload.patientId,
+          ...template,
+          idempotencyKey: `care.alert.notification.${payload.alertId}`,
+        });
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
       if (
-        !['notification.created', 'notification.realtime'].includes(
-          event.eventType,
-        )
+        ![
+          'notification.created',
+          'notification.realtime',
+          'care.alert.opened',
+        ].includes(event.eventType)
       )
         throw new Error(`Unsupported outbox event: ${event.eventType}`);
       await this.redis.run(

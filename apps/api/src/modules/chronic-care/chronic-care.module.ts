@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CareProgram, CareProgramSchema } from './domain/entities/care-program.entity';
+import {
+  CareProgram,
+  CareProgramSchema,
+} from './domain/entities/care-program.entity';
 import { CareRule, CareRuleSchema } from './domain/entities/care-rule.entity';
 import {
   PatientCareProgram,
@@ -30,8 +33,17 @@ import { HealthTrackingModule } from '../health-tracking/health-tracking.module'
 import { CareTaskController } from './presentation/controllers/care-task.controller';
 import { CARE_TASK_QUEUE } from './application/ports/care-task-queue.port';
 import { OutboxCareTaskQueue } from './infrastructure/adapters/outbox-care-task-queue.adapter';
-import { HealthEvaluation, HealthEvaluationSchema } from './domain/entities/health-evaluation.entity';
+import {
+  HealthEvaluation,
+  HealthEvaluationSchema,
+} from './domain/entities/health-evaluation.entity';
 import { HealthEvaluationService } from './application/services/health-evaluation.service';
+import {
+  CareAlert,
+  CareAlertSchema,
+} from './domain/entities/care-alert.entity';
+import { CareAlertService } from './application/services/care-alert.service';
+import { CareAlertController } from './presentation/controllers/care-alert.controller';
 
 @Module({
   imports: [
@@ -45,6 +57,7 @@ import { HealthEvaluationService } from './application/services/health-evaluatio
       { name: PatientCareProgram.name, schema: PatientCareProgramSchema },
       { name: CareTask.name, schema: CareTaskSchema },
       { name: HealthEvaluation.name, schema: HealthEvaluationSchema },
+      { name: CareAlert.name, schema: CareAlertSchema },
       {
         name: CareCommandIdempotency.name,
         schema: CareCommandIdempotencySchema,
@@ -55,6 +68,7 @@ import { HealthEvaluationService } from './application/services/health-evaluatio
     CareProgramRuleController,
     CareEnrollmentController,
     CareTaskController,
+    CareAlertController,
   ],
   providers: [
     CareProgramRuleService,
@@ -62,6 +76,7 @@ import { HealthEvaluationService } from './application/services/health-evaluatio
     CareTaskSchedulerService,
     CareTaskProgressService,
     HealthEvaluationService,
+    CareAlertService,
     OutboxCareTaskQueue,
     {
       provide: CARE_TASK_QUEUE,

@@ -101,6 +101,12 @@ import {
   CC002_CARE_TASKS_NAME,
   CC002_CARE_TASKS_VERSION,
 } from './202609301000-cc002-care-tasks';
+import {
+  applyCc003Cc004EvaluationsAlerts,
+  CC003_CC004_EVALUATIONS_ALERTS_CHECKSUM,
+  CC003_CC004_EVALUATIONS_ALERTS_NAME,
+  CC003_CC004_EVALUATIONS_ALERTS_VERSION,
+} from './202610020900-cc003-cc004-evaluations-alerts';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -204,6 +210,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC002_CARE_TASKS_NAME,
     checksum: CC002_CARE_TASKS_CHECKSUM,
     up: applyCc002CareTasks,
+  },
+  {
+    version: CC003_CC004_EVALUATIONS_ALERTS_VERSION,
+    name: CC003_CC004_EVALUATIONS_ALERTS_NAME,
+    checksum: CC003_CC004_EVALUATIONS_ALERTS_CHECKSUM,
+    up: applyCc003Cc004EvaluationsAlerts,
   },
 ];
 
