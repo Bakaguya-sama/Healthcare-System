@@ -219,12 +219,35 @@
         }
       },
       "notificationChanged": {
+        "description": "For action care_alerts_invalidated, refetch the Doctor priority inbox and alert detail before rendering another action.",
         "payload": {
           "type": "object",
           "required": [
             "userId",
             "action"
-          ]
+          ],
+          "properties": {
+            "userId": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "send",
+                "mark_read",
+                "mark_all_read",
+                "deleted",
+                "care_alerts_invalidated"
+              ]
+            },
+            "alertId": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
         }
       },
       "consultationMessageNotification": {

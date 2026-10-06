@@ -106,6 +106,7 @@ export class OutboxWorkerService
           'notification.created',
           'notification.realtime',
           'care.alert.opened',
+          'care.alert.inbox-invalidated',
         ].includes(event.eventType)
       )
         throw new Error(`Unsupported outbox event: ${event.eventType}`);

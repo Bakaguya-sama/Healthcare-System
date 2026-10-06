@@ -11,4 +11,13 @@ describe('CareAlert persistence indexes', () => {
       expect.objectContaining({ name: 'uniqueKey_1', unique: true }),
     ]);
   });
+
+  it('supports the doctor inbox sort without a collection scan', () => {
+    expect(CareAlertSchema.indexes()).toContainEqual([
+      { assignedDoctorId: 1, severity: -1, detectedAt: -1, _id: -1 },
+      expect.objectContaining({
+        name: 'assignedDoctorId_1_severity_-1_detectedAt_-1__id_-1',
+      }),
+    ]);
+  });
 });

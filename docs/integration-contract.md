@@ -931,7 +931,7 @@ interface AdminDashboardDto {
 | CARE-09 | `GET /care-enrollments/:id/tasks` | Participant | status, type, from/to, page | `PageResult<CareTaskDto>` | Target P0 |
 | CARE-10 | `POST /care-tasks/:id/responses` | Authorized task actor | structured response + idempotency | updated task | Target P0; metric task hoàn thành từ HLTH-02 |
 | CARE-11 | `GET /care-enrollments/:id/reports` | Participant | reportType, page | reports + summaries | Target P0 |
-| CARE-12 | `GET /doctors/me/care-alerts` | Assigned Doctor | severity, status, from/to, page | `PageResult<CareAlertDto>` | Target P0 |
+| CARE-12 | `GET /care-alerts` | Assigned Doctor | cursor, limit, severity, status | cursor page of bounded alert summaries | CC-005; stable `severity DESC, detectedAt DESC, _id DESC` |
 | CARE-13 | `POST /care-alerts/:id/acknowledge` | Assigned Doctor | note? + idempotency | updated alert | Target P0 |
 | CARE-14 | `POST /care-alerts/:id/resolve` | Assigned Doctor | reason/note + idempotency | updated alert | Target P0 |
 | CARE-15 | `POST /care-alerts/:id/dismiss` | Assigned Doctor | allowlisted reason + idempotency | updated alert | Target P0; Admin chỉ audit |
@@ -944,7 +944,7 @@ interface AdminDashboardDto {
 | CARE-22 | `GET /admin/care-operations` | Admin | range, programCode, doctorId | bounded operational aggregate | Target P0 |
 | CARE-23 | `POST /care-programs/:id/retire` | Admin | reason + idempotency | retired Program version | Target P0 |
 | CARE-24 | `POST /care-programs/:id/rules/:ruleId/retire` | Admin có rule-management permission | reason + idempotency | retired Rule version | Target P0 |
-| CARE-25 | `GET /care-alerts/:id` | Patient owner/Assigned Doctor/Admin audit | none | `CareAlertDto` + bounded evaluation/timeline context | Target P0 |
+| CARE-25 | `GET /care-alerts/:id/detail` | Assigned Doctor | none | alert + bounded evaluation/timeline context + `allowedActions` | CC-005; Patient summary remains `GET /care-alerts/:id`, Admin audit remains `GET /care-alerts/:id/audit` |
 | CARE-26 | `GET /care-tasks/:id` | Authorized task actor | none | `CareTaskDto` + type-specific approved content/form/action | Target P0 |
 | CARE-27 | `GET /care-programs/:id` | Patient/Doctor/Admin theo scope | none | `CareProgramDto` + form/template/source projection phù hợp role | Target P0 |
 | CARE-28 | `GET /care-reports/:id` | Enrollment participant | none | `CareReportDto` + authorized `CareSummaryDto[]` | Target P0 |
@@ -1162,7 +1162,7 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CARE-09 | Liệt kê task của một enrollment theo status/type/time range, bảo toàn timezone và terminal states. |
 | CARE-10 | Ghi response hoặc tiến độ cho task phù hợp type/completionRule; chống submit lặp và không cho hoàn thành task missed/terminal. |
 | CARE-11 | Liệt kê các report và summary của enrollment theo reportType; lọc audience để Patient không thấy nội dung chỉ dành Doctor. |
-| CARE-12 | Trả Priority Inbox của assigned Doctor, sort ổn định theo severity–detectedAt–id và hỗ trợ filter/pagination. |
+| CARE-12 | Trả Priority Inbox của assigned Doctor bằng cursor; sort ổn định theo severity–detectedAt–id, filter status/severity và chỉ projection summary bounded. |
 | CARE-13 | Doctor acknowledge alert open, ghi actor/time/note; gọi lặp không tạo thêm transition hoặc notification trùng. |
 | CARE-14 | Doctor resolve alert open/acknowledged với reason/follow-up; resolve trực tiếp tự ghi implicit acknowledge theo quyết định 3A. |
 | CARE-15 | Doctor dismiss alert chỉ với reason trong allowlist; trạng thái terminal, Admin chỉ audit chứ không xử lý thay. |
@@ -1175,7 +1175,7 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CARE-22 | Trả aggregate vận hành Chronic Care theo range/Program/Doctor: enrollment, adherence và alert/follow-up metrics; không trả raw HealthMetrics. |
 | CARE-23 | Retire Program version để ngăn enrollment mới; enrollment hiện hữu tiếp tục theo snapshot trừ khi policy yêu cầu chuyển đổi riêng. |
 | CARE-24 | Retire CareRule version để ngăn gán mới; giữ version cho khả năng tái hiện evaluation/report lịch sử. |
-| CARE-25 | Trả chi tiết alert và bounded evaluation/timeline context cho Patient, assigned Doctor hoặc Admin audit theo projection khác nhau. |
+| CARE-25 | Doctor detail chỉ trả alert được gán cho chính Doctor, bounded evaluation context và action allowlist; Patient chỉ nhận safe summary, Admin chỉ nhận audit projection. |
 | CARE-26 | Trả chi tiết task cùng form/content/action theo taskType; chỉ cung cấp nội dung approved và `allowedActions` ở thời điểm đọc. |
 | CARE-27 | Trả chi tiết Program và projection schema/template/source theo role; Patient không nhận rule nội bộ hoặc draft content. |
 | CARE-28 | Trả một deterministic report và summary đúng audience; report facts vẫn có dù AI summary failed/fallback. |

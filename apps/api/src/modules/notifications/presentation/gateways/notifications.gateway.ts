@@ -18,7 +18,8 @@ type NotificationGatewayActions =
   | 'send'
   | 'mark_read'
   | 'mark_all_read'
-  | 'deleted';
+  | 'deleted'
+  | 'care_alerts_invalidated';
 
 @WebSocketGateway({
   namespace: '/notifications',

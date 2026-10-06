@@ -735,6 +735,8 @@ Exit gate: auth/pagination/sort/query-plan E2E pass; critical query không COLLS
 
 Ước lượng: **3-5 person-days**.
 
+**Exit gate: CLOSED (2026-10-06).** `GET /care-alerts` chỉ cho Doctor, dùng cursor + hard limit + projection + `lean()` và stable sort `severity DESC, detectedAt DESC, _id DESC`; `GET /care-alerts/:id/detail` chỉ trả alert gán cho chính Doctor cùng bounded evaluation/timeline và action allowlist. E2E `care-alert-inbox.e2e-spec.ts` chạy xanh 6/6 cho role authorization, assigned/cross-Doctor scope, stable sort, fixed-severity cursor không gap/trùng, hard limit và bounded detail. Query fixture chạy xanh 2/2, xác nhận critical query dùng `IXSCAN`, không `COLLSCAN` và không blocking `SORT`. Migration `202610061000-cc005-doctor-priority-inbox` đã qua migrate → `database:verify` tại schema version `202610061000` → migrate lần hai no-op; OpenAPI/realtime contract, typecheck, lint và unit index test đều xanh.
+
 #### `CC-006` — Deterministic CareReport và SummaryInput v1
 
 Mục tiêu: tạo facts/report 7/30 ngày đúng trước khi nối bất kỳ LLM nào.

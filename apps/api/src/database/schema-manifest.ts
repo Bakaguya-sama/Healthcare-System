@@ -20,6 +20,7 @@ import {
   CC002_CARE_TASK_COLLECTION,
   CC002_CARE_TASK_INDEXES,
 } from './migrations/202609301000-cc002-care-tasks';
+import { CC005_DOCTOR_PRIORITY_INBOX_INDEX } from './migrations/202610061000-cc005-doctor-priority-inbox';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -251,6 +252,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...CC000_FOUNDATION_INDEXES,
   ...CC001A_INDEXES,
   ...CC002_CARE_TASK_INDEXES,
+  CC005_DOCTOR_PRIORITY_INBOX_INDEX,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

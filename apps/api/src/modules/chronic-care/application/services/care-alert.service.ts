@@ -18,6 +18,13 @@ import {
   PatientCareProgramDocument,
 } from '../../domain/entities/patient-care-program.entity';
 import type { CareActor } from './care-program-rule.service';
+import {
+  decodeCursor,
+  encodeCursor,
+  InvalidCursorError,
+  normalizeCursorRequest,
+} from '../../../../common/pagination';
+import type { QueryDoctorCareAlertsDto } from '../../presentation/dto/care-alert.dto';
 
 @Injectable()
 export class CareAlertService {
@@ -147,7 +154,10 @@ export class CareAlertService {
       );
     if (alert.revision !== expectedRevision)
       throw new HttpException(
-        { code: 'CARE_ALERT_REVISION_CONFLICT', message: 'Alert was changed by another request' },
+        {
+          code: 'CARE_ALERT_REVISION_CONFLICT',
+          message: 'Alert was changed by another request',
+        },
         HttpStatus.CONFLICT,
       );
     const fromStatus = alert.status;
@@ -158,38 +168,118 @@ export class CareAlertService {
         { code: 'CARE_ALERT_TRANSITION_INVALID', message: 'Alert is not open' },
         HttpStatus.CONFLICT,
       );
-    const update = action === 'acknowledge'
-      ? { status: CareAlertStatus.ACKNOWLEDGED, acknowledgedBy: actorId, acknowledgedAt: now }
-      : action === 'resolve'
-        ? { status: CareAlertStatus.RESOLVED, acknowledgedBy: alert.acknowledgedBy ?? actorId, acknowledgedAt: alert.acknowledgedAt ?? now, resolvedBy: actorId, resolvedAt: now, resolutionNote: reason }
-        : { status: CareAlertStatus.DISMISSED, dismissedBy: actorId, dismissedAt: now, dismissalReason: reason };
+    const update =
+      action === 'acknowledge'
+        ? {
+            status: CareAlertStatus.ACKNOWLEDGED,
+            acknowledgedBy: actorId,
+            acknowledgedAt: now,
+          }
+        : action === 'resolve'
+          ? {
+              status: CareAlertStatus.RESOLVED,
+              acknowledgedBy: alert.acknowledgedBy ?? actorId,
+              acknowledgedAt: alert.acknowledgedAt ?? now,
+              resolvedBy: actorId,
+              resolvedAt: now,
+              resolutionNote: reason,
+            }
+          : {
+              status: CareAlertStatus.DISMISSED,
+              dismissedBy: actorId,
+              dismissedAt: now,
+              dismissalReason: reason,
+            };
     const session = await this.connection.startSession();
     try {
       let updated!: CareAlertDocument;
       await session.withTransaction(async () => {
-        const statuses = action === 'acknowledge'
-          ? [CareAlertStatus.OPEN]
-          : [CareAlertStatus.OPEN, CareAlertStatus.ACKNOWLEDGED];
-        const found = await this.alerts.findOneAndUpdate(
-          { _id: alert._id, assignedDoctorId: actorId, revision: expectedRevision, status: { $in: statuses } },
-          { $set: update, $inc: { revision: 1 } },
-          { new: true, session },
-        ).exec();
-        if (!found) throw new HttpException({ code: 'CARE_ALERT_REVISION_CONFLICT', message: 'Alert was changed by another request' }, HttpStatus.CONFLICT);
+        const statuses =
+          action === 'acknowledge'
+            ? [CareAlertStatus.OPEN]
+            : [CareAlertStatus.OPEN, CareAlertStatus.ACKNOWLEDGED];
+        const found = await this.alerts
+          .findOneAndUpdate(
+            {
+              _id: alert._id,
+              assignedDoctorId: actorId,
+              revision: expectedRevision,
+              status: { $in: statuses },
+            },
+            { $set: update, $inc: { revision: 1 } },
+            { new: true, session },
+          )
+          .exec();
+        if (!found)
+          throw new HttpException(
+            {
+              code: 'CARE_ALERT_REVISION_CONFLICT',
+              message: 'Alert was changed by another request',
+            },
+            HttpStatus.CONFLICT,
+          );
         updated = found;
         const auditRows: Record<string, unknown>[] = [];
         if (action === 'resolve' && fromStatus === CareAlertStatus.OPEN)
-          auditRows.push({ domain: 'care', entityType: 'careAlert', entityId: updated._id, actorId, action: 'care_alert_acknowledged_implicitly', fromStatus: CareAlertStatus.OPEN, toStatus: CareAlertStatus.ACKNOWLEDGED, metadata: { revision: updated.revision } });
-        auditRows.push({ domain: 'care', entityType: 'careAlert', entityId: updated._id, actorId, action: `care_alert_${action}d`, fromStatus, toStatus: updated.status, reason, metadata: { revision: updated.revision } });
+          auditRows.push({
+            domain: 'care',
+            entityType: 'careAlert',
+            entityId: updated._id,
+            actorId,
+            action: 'care_alert_acknowledged_implicitly',
+            fromStatus: CareAlertStatus.OPEN,
+            toStatus: CareAlertStatus.ACKNOWLEDGED,
+            metadata: { revision: updated.revision },
+          });
+        auditRows.push({
+          domain: 'care',
+          entityType: 'careAlert',
+          entityId: updated._id,
+          actorId,
+          action: `care_alert_${action}d`,
+          fromStatus,
+          toStatus: updated.status,
+          reason,
+          metadata: { revision: updated.revision },
+        });
         await this.audits.create(auditRows, { session });
+        await this.outbox.enqueue(
+          {
+            eventType: 'care.alert.inbox-invalidated',
+            aggregateType: 'careAlert',
+            aggregateId: updated._id,
+            idempotencyKey: `care.alert.inbox-invalidated.${updated._id}.${updated.revision}`,
+            payload: {
+              userId: String(updated.assignedDoctorId),
+              action: 'care_alerts_invalidated',
+              alertId: String(updated._id),
+              revision: updated.revision,
+            },
+          },
+          session,
+        );
       });
       return updated;
-    } finally { await session.endSession(); }
+    } finally {
+      await session.endSession();
+    }
   }
 
   async getAuditForAdmin(alertId: string) {
-    if (!Types.ObjectId.isValid(alertId)) throw new HttpException({ code: 'CARE_ALERT_NOT_FOUND', message: 'Alert not found' }, HttpStatus.NOT_FOUND);
-    return this.audits.find({ domain: 'care', entityType: 'careAlert', entityId: new Types.ObjectId(alertId) }).sort({ createdAt: 1, _id: 1 }).lean().exec();
+    if (!Types.ObjectId.isValid(alertId))
+      throw new HttpException(
+        { code: 'CARE_ALERT_NOT_FOUND', message: 'Alert not found' },
+        HttpStatus.NOT_FOUND,
+      );
+    return this.audits
+      .find({
+        domain: 'care',
+        entityType: 'careAlert',
+        entityId: new Types.ObjectId(alertId),
+      })
+      .sort({ createdAt: 1, _id: 1 })
+      .lean()
+      .exec();
   }
 
   async getForPatient(actorId: string, alertId: string) {
@@ -209,5 +299,132 @@ export class CareAlertService {
       detectedAt: alert.detectedAt,
       reasonCodes: alert.reasonCodes,
     };
+  }
+
+  async listForDoctor(actor: CareActor, query: QueryDoctorCareAlertsDto) {
+    if (!Types.ObjectId.isValid(actor.id))
+      throw new HttpException(
+        { code: 'CARE_FORBIDDEN', message: 'Invalid doctor identity' },
+        HttpStatus.FORBIDDEN,
+      );
+    const { cursor, limit } = normalizeCursorRequest(query);
+    const filter: Record<string, unknown> = {
+      assignedDoctorId: new Types.ObjectId(actor.id),
+    };
+    if (query.status) filter.status = query.status;
+    else
+      filter.status = {
+        $in: [CareAlertStatus.OPEN, CareAlertStatus.ACKNOWLEDGED],
+      };
+    if (query.severity) filter.severity = query.severity;
+    if (cursor) {
+      try {
+        const parsed = decodeCursor(cursor);
+        const [severity, detectedAt] = String(parsed.sortValue).split('|');
+        if (!Types.ObjectId.isValid(parsed.id)) throw new InvalidCursorError();
+        const id = new Types.ObjectId(parsed.id);
+        const date = new Date(detectedAt);
+        if (
+          ![
+            HealthEvaluationSeverity.ATTENTION,
+            HealthEvaluationSeverity.URGENT,
+          ].includes(severity as HealthEvaluationSeverity) ||
+          (query.severity && severity !== query.severity) ||
+          Number.isNaN(date.getTime())
+        )
+          throw new InvalidCursorError();
+        filter.$or = query.severity
+          ? [
+              { detectedAt: { $lt: date } },
+              { detectedAt: date, _id: { $lt: id } },
+            ]
+          : [
+              { severity: { $lt: severity } },
+              { severity, detectedAt: { $lt: date } },
+              { severity, detectedAt: date, _id: { $lt: id } },
+            ];
+      } catch (error) {
+        if (error instanceof InvalidCursorError)
+          throw new HttpException(
+            {
+              code: 'CARE_ALERT_CURSOR_INVALID',
+              message: 'Invalid alert cursor',
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        throw error;
+      }
+    }
+    const rows = await this.alerts
+      .find(filter)
+      .select(
+        '_id patientCareProgramId patientId evaluationId severity status reasonCodes detectedAt revision',
+      )
+      .sort({ severity: -1, detectedAt: -1, _id: -1 })
+      .limit(limit + 1)
+      .lean()
+      .exec();
+    const hasNextPage = rows.length > limit;
+    const items = hasNextPage ? rows.slice(0, limit) : rows;
+    const last = items.at(-1);
+    return {
+      items,
+      hasNextPage,
+      nextCursor:
+        hasNextPage && last
+          ? encodeCursor({
+              sortValue: `${last.severity}|${last.detectedAt.toISOString()}`,
+              id: String(last._id),
+            })
+          : null,
+    };
+  }
+
+  async getForDoctor(actor: CareActor, alertId: string) {
+    if (!Types.ObjectId.isValid(actor.id) || !Types.ObjectId.isValid(alertId))
+      throw new HttpException(
+        { code: 'CARE_ALERT_NOT_FOUND', message: 'Alert not found' },
+        HttpStatus.NOT_FOUND,
+      );
+    const alert = await this.alerts
+      .findOne({
+        _id: new Types.ObjectId(alertId),
+        assignedDoctorId: new Types.ObjectId(actor.id),
+      })
+      .select(
+        '_id patientCareProgramId patientId evaluationId severity status reasonCodes detectedAt revision acknowledgedAt resolvedAt dismissedAt',
+      )
+      .lean()
+      .exec();
+    if (!alert)
+      throw new HttpException(
+        { code: 'CARE_ALERT_NOT_FOUND', message: 'Alert not found' },
+        HttpStatus.NOT_FOUND,
+      );
+    const evaluation = await this.evaluations
+      .findById(alert.evaluationId)
+      .select(
+        '_id careRuleId severity reasonCodes inputData timeRange evaluatedAt replacesEvaluationId',
+      )
+      .lean()
+      .exec();
+    const timeline = await this.audits
+      .find({
+        domain: 'care',
+        entityType: 'careAlert',
+        entityId: alert._id,
+      })
+      .select('action fromStatus toStatus reason actorId createdAt')
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(10)
+      .lean()
+      .exec();
+    const actions =
+      alert.status === CareAlertStatus.OPEN
+        ? ['acknowledge', 'resolve', 'dismiss']
+        : alert.status === CareAlertStatus.ACKNOWLEDGED
+          ? ['resolve', 'dismiss']
+          : [];
+    return { ...alert, evaluation, timeline, allowedActions: actions };
   }
 }

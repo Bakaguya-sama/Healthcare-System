@@ -107,6 +107,12 @@ import {
   CC003_CC004_EVALUATIONS_ALERTS_NAME,
   CC003_CC004_EVALUATIONS_ALERTS_VERSION,
 } from './202610020900-cc003-cc004-evaluations-alerts';
+import {
+  applyCc005DoctorPriorityInbox,
+  CC005_DOCTOR_PRIORITY_INBOX_CHECKSUM,
+  CC005_DOCTOR_PRIORITY_INBOX_NAME,
+  CC005_DOCTOR_PRIORITY_INBOX_VERSION,
+} from './202610061000-cc005-doctor-priority-inbox';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -216,6 +222,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC003_CC004_EVALUATIONS_ALERTS_NAME,
     checksum: CC003_CC004_EVALUATIONS_ALERTS_CHECKSUM,
     up: applyCc003Cc004EvaluationsAlerts,
+  },
+  {
+    version: CC005_DOCTOR_PRIORITY_INBOX_VERSION,
+    name: CC005_DOCTOR_PRIORITY_INBOX_NAME,
+    checksum: CC005_DOCTOR_PRIORITY_INBOX_CHECKSUM,
+    up: applyCc005DoctorPriorityInbox,
   },
 ];
 

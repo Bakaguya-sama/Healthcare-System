@@ -57,6 +57,10 @@ CareAlertSchema.index(
   { name: 'assignedDoctorId_1_status_1_severity_1_detectedAt_-1' },
 );
 CareAlertSchema.index(
+  { assignedDoctorId: 1, severity: -1, detectedAt: -1, _id: -1 },
+  { name: 'assignedDoctorId_1_severity_-1_detectedAt_-1__id_-1' },
+);
+CareAlertSchema.index(
   { patientCareProgramId: 1, detectedAt: -1 },
   { name: 'patientCareProgramId_1_detectedAt_-1' },
 );

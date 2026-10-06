@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,7 @@ import { UserRole } from '../../../../core/domain/user.enums';
 import type { CareActor } from '../../application/services/care-program-rule.service';
 import { CareAlertService } from '../../application/services/care-alert.service';
 import { EnrollmentReasonDto } from '../dto/care-enrollment.dto';
+import { QueryDoctorCareAlertsDto } from '../dto/care-alert.dto';
 
 @ApiTags('care-alerts')
 @ApiBearerAuth()
@@ -24,6 +26,21 @@ import { EnrollmentReasonDto } from '../dto/care-enrollment.dto';
 @Controller('care-alerts')
 export class CareAlertController {
   constructor(private readonly alerts: CareAlertService) {}
+
+  @Get()
+  @Roles(UserRole.DOCTOR)
+  inbox(
+    @CurrentUser() actor: CareActor,
+    @Query() query: QueryDoctorCareAlertsDto,
+  ) {
+    return this.alerts.listForDoctor(actor, query);
+  }
+
+  @Get(':id/detail')
+  @Roles(UserRole.DOCTOR)
+  doctorDetail(@CurrentUser() actor: CareActor, @Param('id') id: string) {
+    return this.alerts.getForDoctor(actor, id);
+  }
 
   @Get(':id')
   @Roles(UserRole.PATIENT)
