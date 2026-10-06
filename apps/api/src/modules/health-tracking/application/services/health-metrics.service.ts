@@ -1,33 +1,31 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
-  BadRequestException,
   Optional,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
+import { AuditLog } from '../../../platform-audit/public-api';
+import { NotificationsService } from '../../../notifications/public-api';
+import { UsersService } from '../../../users/public-api';
 import {
   HealthMetric,
   HealthMetricDocument,
-  MetricValueDetail,
+  HealthMetricSource,
+  HealthMetricValidationStatus,
   MetricType,
 } from '../../domain/entities/health-metric.entity';
+import { CorrectHealthMetricDto } from '../../presentation/dto/correct-health-metric.dto';
 import { CreateHealthMetricDto } from '../../presentation/dto/create-health-metric.dto';
-import { UpdateHealthMetricDto } from '../../presentation/dto/update-health-metric.dto';
 import { QueryHealthMetricDto } from '../../presentation/dto/query-health-metric.dto';
-import { NotificationsService } from '../../../notifications/public-api';
-import { UsersService } from '../../../users/public-api';
 import type {
   HealthProfileMetric,
   HealthProfilePort,
 } from '../ports/health-profile.port';
-import { HealthMetricQueryService } from './health-metric-query.service';
 import { HealthMetricAlertService } from './health-metric-alert.service';
-
-type MetricEntry = {
-  value: number;
-  recordedAt: Date | string;
-};
+import { HealthMetricQueryService } from './health-metric-query.service';
 
 const BMI_UNIT = 'kg/m2';
 
@@ -80,9 +78,12 @@ export class HealthMetricsService implements HealthProfilePort {
 
   constructor(
     @InjectModel(HealthMetric.name)
-    private healthMetricModel: Model<HealthMetricDocument>,
-    private notificationsService: NotificationsService,
-    private usersService: UsersService,
+    private readonly healthMetricModel: Model<HealthMetricDocument>,
+    @InjectModel(AuditLog.name)
+    private readonly auditLogs: Model<AuditLog>,
+    @InjectConnection() private readonly connection: Connection,
+    notificationsService: NotificationsService,
+    usersService: UsersService,
     @Optional() healthMetricQueries?: HealthMetricQueryService,
     @Optional() healthMetricAlerts?: HealthMetricAlertService,
   ) {
@@ -97,60 +98,57 @@ export class HealthMetricsService implements HealthProfilePort {
       );
   }
 
-  async readRecentMetrics(
+  readRecentMetrics(
     patientId: string,
     limit = 20,
   ): Promise<HealthProfileMetric[]> {
     return this.healthMetricQueries.readRecentMetrics(patientId, limit);
   }
 
-  /**
-   * 📝 TẠO HEALTH METRIC MỚI
-   */
   async create(userId: string, dto: CreateHealthMetricDto) {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new BadRequestException('Invalid user ID');
-    }
-
-    const patientId = new Types.ObjectId(userId);
-
-    this.assertValidValuesForType(dto.type, dto.values);
-    const resolvedUnit = this.resolveUnitForType(dto.type);
-
+    const patientId = this.patientObjectId(userId);
+    this.assertValidValuesForType(dto.metricType, dto.values);
+    const recordedAt = dto.recordedAt ?? new Date();
+    const now = new Date();
     const metric = await this.healthMetricModel.create({
-      patientId,
-      type: dto.type,
+      meta: {
+        patientId,
+        metricType: dto.metricType,
+        unit: this.resolveUnitForType(dto.metricType),
+      },
       values: dto.values,
-      unit: resolvedUnit,
-      source: dto.source?.trim().toLowerCase() || 'manual',
-      timezone: dto.timezone?.trim() || 'UTC',
-      recordedAt: dto.recordedAt || new Date(),
+      source: dto.source ?? HealthMetricSource.MANUAL,
+      sourceRef: {
+        ...dto.sourceRef,
+        enteredBy: patientId,
+      },
+      validationStatus: HealthMetricValidationStatus.VALID,
+      validationReasonCodes: [],
+      recordedTimezone: dto.recordedTimezone ?? 'UTC',
+      recordedAt,
+      ingestedAt: now,
     });
 
-    if (dto.type === MetricType.HEIGHT || dto.type === MetricType.WEIGHT) {
-      await this.upsertBmiFromLatestMetrics(
-        patientId,
-        dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
-      );
-    }
+    if (
+      dto.metricType === MetricType.HEIGHT ||
+      dto.metricType === MetricType.WEIGHT
+    )
+      await this.createBmiFromLatestMetrics(patientId, recordedAt);
 
     await this.healthMetricAlerts.evaluateAndNotify(
       userId,
-      dto.type,
+      dto.metricType,
       dto.values,
+      recordedAt,
     );
-
     return {
       statusCode: 201,
       message: 'Health metric recorded successfully',
-      data: metric,
+      data: this.toDto(metric.toObject()),
     };
   }
 
-  /**
-   * 📊 LẤY TẤT CẢ METRICS CỦA USER
-   */
-  async findAll(
+  findAll(
     userId: string,
     userRole: string | undefined,
     query: QueryHealthMetricDto,
@@ -158,314 +156,357 @@ export class HealthMetricsService implements HealthProfilePort {
     return this.healthMetricQueries.findAll(userId, userRole, query);
   }
 
-  /**
-   * 🔍 LẤY 1 METRIC
-   */
-  async findOne(userId: string, id: string) {
+  findOne(userId: string, id: string) {
     return this.healthMetricQueries.findOne(userId, id);
   }
 
-  /**
-   * ✏️ CẬP NHẬT METRIC
-   */
-  async update(userId: string, id: string, dto: UpdateHealthMetricDto) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid metric ID');
+  async correct(userId: string, id: string, dto: CorrectHealthMetricDto) {
+    const patientId = this.patientObjectId(userId);
+    const metricId = this.metricObjectId(id);
+    const original = await this.healthMetricModel
+      .findOne({ _id: metricId, 'meta.patientId': patientId })
+      .exec();
+    if (!original) throw new NotFoundException('Health metric not found');
+    this.assertValidValuesForType(original.meta.metricType, dto.values);
+
+    const existing = await this.healthMetricModel
+      .findOne({ replacesMetricId: metricId, 'meta.patientId': patientId })
+      .exec();
+    if (existing) {
+      if (this.sameCorrection(existing, dto))
+        return {
+          statusCode: 200,
+          message: 'Health metric correction replayed',
+          data: this.toDto(existing.toObject()),
+        };
+      throw new ConflictException('Health metric already has a correction');
     }
+    if (original.validationStatus !== HealthMetricValidationStatus.VALID)
+      throw new ConflictException('Only a valid metric can be corrected');
 
-    const patientId = new Types.ObjectId(userId);
-
-    const metric = await this.healthMetricModel.findOne({
-      _id: new Types.ObjectId(id),
-      patientId,
-    });
-
-    if (!metric) {
-      throw new NotFoundException('Health metric not found');
-    }
-
-    const effectiveType = dto.type ?? metric.type;
-    const resolvedUnit = this.resolveUnitForType(effectiveType);
-
-    if (dto.values) {
-      this.assertValidValuesForType(
-        effectiveType,
-        dto.values as Record<string, MetricEntry>,
-      );
-    }
-
-    // Update fields
-    Object.assign(metric, {
-      ...dto,
-      unit: resolvedUnit,
-      source: dto.source?.trim().toLowerCase() || metric.source || 'manual',
-      timezone: dto.timezone?.trim() || metric.timezone || 'UTC',
-    });
-    await metric.save();
-
-    if (
-      effectiveType === MetricType.HEIGHT ||
-      effectiveType === MetricType.WEIGHT
-    ) {
-      await this.upsertBmiFromLatestMetrics(
-        patientId,
-        dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
-      );
-    }
-
-    if (dto.values) {
+    const session = await this.connection.startSession();
+    try {
+      let replacement!: HealthMetricDocument;
+      await session.withTransaction(async () => {
+        const superseded = await this.healthMetricModel.findOneAndUpdate(
+          {
+            _id: metricId,
+            'meta.patientId': patientId,
+            validationStatus: HealthMetricValidationStatus.VALID,
+          },
+          {
+            $set: {
+              validationStatus: HealthMetricValidationStatus.SUPERSEDED,
+              validationReasonCodes: ['corrected_by_patient'],
+            },
+          },
+          { returnDocument: 'after', session },
+        );
+        if (!superseded)
+          throw new ConflictException('Health metric changed concurrently');
+        [replacement] = await this.healthMetricModel.create(
+          [
+            {
+              meta: original.meta,
+              values: dto.values,
+              source: original.source,
+              sourceRef: {
+                ...(original.sourceRef?.deviceId
+                  ? { deviceId: original.sourceRef.deviceId }
+                  : {}),
+                ...(original.sourceRef?.importBatchId
+                  ? { importBatchId: original.sourceRef.importBatchId }
+                  : {}),
+                enteredBy: patientId,
+              },
+              validationStatus: HealthMetricValidationStatus.VALID,
+              validationReasonCodes: [],
+              recordedTimezone:
+                dto.recordedTimezone ?? original.recordedTimezone,
+              replacesMetricId: original._id,
+              recordedAt: dto.recordedAt,
+              ingestedAt: new Date(),
+            },
+          ],
+          { session },
+        );
+        await this.auditLogs.create(
+          [
+            {
+              domain: 'health',
+              entityType: 'HealthMetric',
+              entityId: original._id,
+              action: 'correct',
+              userId: patientId,
+              actorId: patientId,
+              fromStatus: HealthMetricValidationStatus.VALID,
+              toStatus: HealthMetricValidationStatus.SUPERSEDED,
+              reason: dto.reason,
+              metadata: { replacementMetricId: String(replacement._id) },
+            },
+          ],
+          { session },
+        );
+      });
       await this.healthMetricAlerts.evaluateAndNotify(
         userId,
-        effectiveType,
-        dto.values as Record<string, MetricEntry>,
+        replacement.meta.metricType,
+        replacement.values,
+        replacement.recordedAt,
       );
+      return {
+        statusCode: 201,
+        message: 'Health metric corrected successfully',
+        data: this.toDto(replacement.toObject()),
+      };
+    } catch (error) {
+      const mongoError = error as {
+        code?: number;
+        hasErrorLabel?: (label: string) => boolean;
+      };
+      const isConcurrentConflict =
+        error instanceof ConflictException ||
+        mongoError.code === 11000 ||
+        mongoError.code === 112 ||
+        mongoError.hasErrorLabel?.('TransientTransactionError') === true;
+      if (isConcurrentConflict) {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const replay = await this.healthMetricModel
+            .findOne({
+              replacesMetricId: metricId,
+              'meta.patientId': patientId,
+            })
+            .exec();
+          if (replay && this.sameCorrection(replay, dto))
+            return {
+              statusCode: 200,
+              message: 'Health metric correction replayed',
+              data: this.toDto(replay.toObject()),
+            };
+          await new Promise<void>((resolve) => setTimeout(resolve, 10));
+        }
+      }
+      throw error;
+    } finally {
+      await session.endSession();
     }
-
-    return {
-      statusCode: 200,
-      message: 'Health metric updated successfully',
-      data: metric,
-    };
   }
 
-  /**
-   * 🗑️ XÓA METRIC
-   */
-  async remove(userId: string, id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid metric ID');
+  async void(userId: string, id: string, reason: string) {
+    const patientId = this.patientObjectId(userId);
+    const metricId = this.metricObjectId(id);
+    const session = await this.connection.startSession();
+    try {
+      let metric: HealthMetricDocument | null = null;
+      await session.withTransaction(async () => {
+        metric = await this.healthMetricModel.findOneAndUpdate(
+          {
+            _id: metricId,
+            'meta.patientId': patientId,
+            validationStatus: HealthMetricValidationStatus.VALID,
+          },
+          {
+            $set: {
+              validationStatus: HealthMetricValidationStatus.VOIDED,
+              validationReasonCodes: ['voided_by_patient'],
+              voidedAt: new Date(),
+              voidedBy: patientId,
+              voidReason: reason,
+            },
+          },
+          { returnDocument: 'after', session },
+        );
+        if (!metric) return;
+        await this.auditLogs.create(
+          [
+            {
+              domain: 'health',
+              entityType: 'HealthMetric',
+              entityId: metricId,
+              action: 'void',
+              userId: patientId,
+              actorId: patientId,
+              fromStatus: HealthMetricValidationStatus.VALID,
+              toStatus: HealthMetricValidationStatus.VOIDED,
+              reason,
+            },
+          ],
+          { session },
+        );
+      });
+      if (!metric) {
+        const current = await this.healthMetricModel.findOne({
+          _id: metricId,
+          'meta.patientId': patientId,
+        });
+        if (!current) throw new NotFoundException('Health metric not found');
+        if (
+          current.validationStatus === HealthMetricValidationStatus.VOIDED &&
+          current.voidReason === reason
+        )
+          metric = current;
+        else throw new ConflictException('Health metric cannot be voided');
+      }
+      return {
+        statusCode: 200,
+        message: 'Health metric voided successfully',
+        data: this.toDto(metric.toObject()),
+      };
+    } finally {
+      await session.endSession();
     }
-
-    const result = await this.healthMetricModel.findOneAndDelete({
-      _id: new Types.ObjectId(id),
-      patientId: new Types.ObjectId(userId),
-    });
-
-    if (!result) {
-      throw new NotFoundException('Health metric not found');
-    }
-
-    return {
-      statusCode: 200,
-      message: 'Health metric deleted successfully',
-    };
   }
 
-  /**
-   * 📈 LẤY STATISTICS
-   */
-  async getStatistics(
+  getStatistics(
     userId: string,
-    type: string,
+    metricType: string,
     query?: QueryHealthMetricDto,
   ) {
-    return this.healthMetricQueries.getStatistics(userId, type, query);
+    return this.healthMetricQueries.getStatistics(userId, metricType, query);
+  }
+
+  getAlerts(userId: string) {
+    return this.healthMetricAlerts.getAlerts(userId);
+  }
+
+  markAsReviewed(userId: string, id: string) {
+    return this.healthMetricAlerts.markAsReviewed(userId, id);
+  }
+
+  private patientObjectId(value: string) {
+    if (!Types.ObjectId.isValid(value))
+      throw new BadRequestException('Invalid user ID');
+    return new Types.ObjectId(value);
+  }
+
+  private metricObjectId(value: string) {
+    if (!Types.ObjectId.isValid(value))
+      throw new BadRequestException('Invalid metric ID');
+    return new Types.ObjectId(value);
   }
 
   private assertValidValuesForType(
-    type: MetricType,
-    values: Record<string, MetricEntry>,
-  ): void {
-    if (!values || typeof values !== 'object' || Array.isArray(values)) {
-      throw new BadRequestException('values must be a valid object');
-    }
-
-    const requiredKeys = REQUIRED_KEYS_BY_TYPE[type] || [];
-    const keys = Object.keys(values);
-    const requiredKeySet = new Set(requiredKeys);
-
-    if (keys.length !== requiredKeys.length) {
+    metricType: MetricType,
+    values: Record<string, number>,
+  ) {
+    const required = REQUIRED_KEYS_BY_TYPE[metricType];
+    const entries = Object.entries(values ?? {});
+    if (
+      !required ||
+      entries.length !== required.length ||
+      !entries.every(
+        ([key, value]) =>
+          required.includes(key) &&
+          typeof value === 'number' &&
+          Number.isFinite(value) &&
+          value >= 0,
+      )
+    )
       throw new BadRequestException(
-        `values for ${type} must contain exactly: ${requiredKeys.join(', ')}`,
+        `values for ${metricType} must contain exactly: ${required?.join(', ') ?? ''}`,
       );
-    }
+  }
 
-    if (!keys.every((key) => requiredKeySet.has(key))) {
-      throw new BadRequestException(
-        `values contains unexpected keys for ${type}`,
-      );
-    }
-
-    for (const [key, detail] of Object.entries(values)) {
-      if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
-        throw new BadRequestException(`values.${key} must be an object`);
-      }
-
-      if (
-        typeof detail.value !== 'number' ||
-        !Number.isFinite(detail.value) ||
-        detail.value < 0
-      ) {
-        throw new BadRequestException(
-          `values.${key}.value must be a non-negative number`,
-        );
-      }
-
-      const recordedDate = new Date(detail.recordedAt);
-      if (!detail.recordedAt || Number.isNaN(recordedDate.getTime())) {
-        throw new BadRequestException(
-          `values.${key}.recordedAt must be a valid date`,
-        );
-      }
-    }
+  private sameCorrection(
+    metric: HealthMetricDocument,
+    dto: CorrectHealthMetricDto,
+  ) {
+    return (
+      metric.recordedAt.getTime() === new Date(dto.recordedAt).getTime() &&
+      JSON.stringify(metric.values) === JSON.stringify(dto.values) &&
+      (metric.recordedTimezone ?? 'UTC') ===
+        (dto.recordedTimezone ?? metric.recordedTimezone ?? 'UTC')
+    );
   }
 
   private extractMetricNumericValue(
-    type: MetricType,
-    values: Record<string, MetricEntry>,
-  ): number {
-    const primaryKey = PRIMARY_VALUE_KEY_BY_TYPE[type];
-    const primaryValue = values?.[primaryKey]?.value;
-
-    if (typeof primaryValue === 'number' && Number.isFinite(primaryValue)) {
-      return primaryValue;
-    }
-
-    for (const detail of Object.values(values ?? {})) {
-      if (!detail || typeof detail !== 'object') {
-        continue;
-      }
-
-      if (typeof detail.value === 'number' && Number.isFinite(detail.value)) {
-        return detail.value;
-      }
-    }
-
-    return 0;
+    metricType: MetricType,
+    values: Record<string, number>,
+  ) {
+    const value = values[PRIMARY_VALUE_KEY_BY_TYPE[metricType]];
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
   }
 
-  private async upsertBmiFromLatestMetrics(
+  private async createBmiFromLatestMetrics(
     patientId: Types.ObjectId,
-    referenceRecordedAt: Date,
-  ): Promise<void> {
-    const [latestHeightMetric, latestWeightMetric] = await Promise.all([
+    recordedAt: Date,
+  ) {
+    const baseFilter = {
+      'meta.patientId': patientId,
+      validationStatus: HealthMetricValidationStatus.VALID,
+    };
+    const [height, weight] = await Promise.all([
       this.healthMetricModel
-        .findOne({
-          patientId,
-          type: MetricType.HEIGHT,
-        })
-        .select('_id values unit recordedAt')
+        .findOne({ ...baseFilter, 'meta.metricType': MetricType.HEIGHT })
         .sort({ recordedAt: -1, _id: -1 })
         .lean()
         .exec(),
       this.healthMetricModel
-        .findOne({
-          patientId,
-          type: MetricType.WEIGHT,
-        })
-        .select('_id values unit recordedAt')
+        .findOne({ ...baseFilter, 'meta.metricType': MetricType.WEIGHT })
         .sort({ recordedAt: -1, _id: -1 })
         .lean()
         .exec(),
     ]);
-
-    if (!latestHeightMetric || !latestWeightMetric) {
-      return;
-    }
-
+    if (!height || !weight) return;
     const rawHeight = this.extractMetricNumericValue(
       MetricType.HEIGHT,
-      latestHeightMetric.values as Record<string, MetricEntry>,
+      height.values,
     );
     const rawWeight = this.extractMetricNumericValue(
       MetricType.WEIGHT,
-      latestWeightMetric.values as Record<string, MetricEntry>,
+      weight.values,
     );
-
-    if (rawHeight <= 0 || rawWeight <= 0) {
-      return;
-    }
-
-    const heightInMeters = this.normalizeHeightToMeters(
-      rawHeight,
-      latestHeightMetric.unit,
-    );
-    const weightInKg = this.normalizeWeightToKg(
-      rawWeight,
-      latestWeightMetric.unit,
-    );
-
-    if (heightInMeters <= 0 || weightInKg <= 0) {
-      return;
-    }
-
-    const bmiValue =
-      Math.round((weightInKg / (heightInMeters * heightInMeters)) * 100) / 100;
-
-    const bmiValues: Record<string, MetricValueDetail> = {
-      value: {
-        value: bmiValue,
-        recordedAt: referenceRecordedAt,
-      },
-    };
-
-    const latestBmiMetric = await this.healthMetricModel
-      .findOne({
-        patientId,
-        type: MetricType.BMI,
-      })
-      .sort({ recordedAt: -1 });
-
-    if (latestBmiMetric) {
-      latestBmiMetric.values = bmiValues;
-      latestBmiMetric.unit = BMI_UNIT;
-      latestBmiMetric.recordedAt = referenceRecordedAt;
-      await latestBmiMetric.save();
-      return;
-    }
-
+    const heightMeters =
+      height.meta.unit.toLowerCase() === 'cm' ? rawHeight / 100 : rawHeight;
+    const weightKg = ['lb', 'lbs'].includes(weight.meta.unit.toLowerCase())
+      ? rawWeight * 0.45359237
+      : rawWeight;
+    if (heightMeters <= 0 || weightKg <= 0) return;
+    const bmi = Math.round((weightKg / heightMeters ** 2) * 100) / 100;
     await this.healthMetricModel.create({
-      patientId,
-      type: MetricType.BMI,
-      values: bmiValues,
-      unit: BMI_UNIT,
-      recordedAt: referenceRecordedAt,
+      meta: { patientId, metricType: MetricType.BMI, unit: BMI_UNIT },
+      values: { value: bmi },
+      source: HealthMetricSource.IMPORT,
+      sourceRef: { enteredBy: patientId },
+      validationStatus: HealthMetricValidationStatus.VALID,
+      validationReasonCodes: ['derived_from_height_weight'],
+      recordedTimezone: 'UTC',
+      recordedAt,
+      ingestedAt: new Date(),
     });
   }
 
-  private normalizeHeightToMeters(value: number, unit?: string): number {
-    const normalizedUnit = (unit || '').toLowerCase().trim();
-
-    if (normalizedUnit === 'cm') {
-      return value / 100;
-    }
-
-    return value;
-  }
-
-  private normalizeWeightToKg(value: number, unit?: string): number {
-    const normalizedUnit = (unit || '').toLowerCase().trim();
-
-    if (normalizedUnit === 'lb' || normalizedUnit === 'lbs') {
-      return value * 0.45359237;
-    }
-
-    return value;
-  }
-
-  private resolveUnitForType(type: MetricType): string {
-    const defaultUnit = DEFAULT_UNIT_BY_TYPE[type];
-
-    if (!defaultUnit) {
+  private resolveUnitForType(metricType: MetricType) {
+    const unit = DEFAULT_UNIT_BY_TYPE[metricType];
+    if (!unit)
       throw new BadRequestException(
-        `No unit configuration found for type ${type}`,
+        `No unit configuration found for type ${metricType}`,
       );
-    }
-
-    return defaultUnit;
+    return unit;
   }
 
-  /**
-   * 🔴 LẤY ALERT METRICS
-   */
-  async getAlerts(userId: string) {
-    return this.healthMetricAlerts.getAlerts(userId);
-  }
-
-  /**
-   * ✅ MARK AS REVIEWED
-   */
-  async markAsReviewed(userId: string, id: string) {
-    return this.healthMetricAlerts.markAsReviewed(userId, id);
+  private toDto(metric: HealthMetric & { _id: Types.ObjectId }) {
+    return {
+      id: String(metric._id),
+      patientId: String(metric.meta.patientId),
+      metricType: metric.meta.metricType,
+      unit: metric.meta.unit,
+      values: metric.values,
+      source: metric.source,
+      ...(metric.sourceRef ? { sourceRef: metric.sourceRef } : {}),
+      validationStatus: metric.validationStatus,
+      validationReasonCodes: metric.validationReasonCodes,
+      ...(metric.recordedTimezone
+        ? { recordedTimezone: metric.recordedTimezone }
+        : {}),
+      ...(metric.replacesMetricId
+        ? { replacesMetricId: String(metric.replacesMetricId) }
+        : {}),
+      recordedAt: metric.recordedAt,
+      ingestedAt: metric.ingestedAt,
+      ...(metric.voidedAt ? { voidedAt: metric.voidedAt } : {}),
+      ...(metric.voidReason ? { voidReason: metric.voidReason } : {}),
+      createdAt: metric.createdAt,
+    };
   }
 }

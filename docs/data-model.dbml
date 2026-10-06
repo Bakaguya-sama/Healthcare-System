@@ -291,9 +291,12 @@ Table HealthMetrics {
   voidedBy ObjectID
   voidReason varchar
   createdAt datetime
+  updatedAt datetime [note: "Lifecycle timestamp for supersede/void transitions; measurement values remain append-only"]
 
   Indexes {
+    ("meta.patientId", recordedAt)
     ("meta.patientId", "meta.metricType", recordedAt)
+    replacesMetricId [unique, note: "Sparse; one direct replacement per metric version"]
   }
 }
 

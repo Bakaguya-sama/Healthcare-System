@@ -21,18 +21,60 @@ import {
   NotificationType,
 } from '../notifications/public-api';
 import { UsersService } from '../users/public-api';
+import type { CareReportConsultationPort } from './application/ports/care-report-consultation.port';
 
 const CONSULTATION_PROJECTION =
   '_id patientId doctorId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes sessionStartedAt completedAt cancelledAt cancellationReason lastMessageAt lastMessageId createdAt updatedAt';
 
 @Injectable()
-export class ConsultationsService {
+export class ConsultationsService implements CareReportConsultationPort {
   constructor(
     @InjectModel(Consultation.name)
     private readonly consultationModel: Model<ConsultationDocument>,
     private readonly notifications: NotificationsService,
     private readonly users: UsersService,
   ) {}
+
+  async listForCareReport(input: {
+    patientCareProgramId: string;
+    patientId: string;
+    from: Date;
+    to: Date;
+    updatedUntil: Date;
+    limit: number;
+  }) {
+    if (
+      !Types.ObjectId.isValid(input.patientCareProgramId) ||
+      !Types.ObjectId.isValid(input.patientId)
+    )
+      return { items: [], truncated: false };
+    const limit = Math.max(1, Math.min(1_000, Math.floor(input.limit)));
+    const rows = await this.consultationModel
+      .find({
+        patientCareProgramId: new Types.ObjectId(input.patientCareProgramId),
+        patientId: new Types.ObjectId(input.patientId),
+        requestedAt: { $gte: input.from, $lt: input.to },
+        updatedAt: { $lte: input.updatedUntil },
+      })
+      .select(
+        '_id careAlertId sessionStatus requestedAt completedAt followUpAt',
+      )
+      .sort({ requestedAt: 1, _id: 1 })
+      .limit(limit + 1)
+      .lean()
+      .exec();
+    return {
+      items: rows.slice(0, limit).map((row) => ({
+        id: String(row._id),
+        ...(row.careAlertId ? { careAlertId: String(row.careAlertId) } : {}),
+        sessionStatus: row.sessionStatus,
+        requestedAt: row.requestedAt,
+        ...(row.completedAt ? { completedAt: row.completedAt } : {}),
+        ...(row.followUpAt ? { followUpAt: row.followUpAt } : {}),
+      })),
+      truncated: rows.length > limit,
+    };
+  }
 
   async create(patientId: string, dto: CreateConsultationDto) {
     this.assertId(patientId, 'patient');

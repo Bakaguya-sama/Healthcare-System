@@ -34,7 +34,7 @@ export class HealthEvaluationService {
     metricId: string;
     values: Record<string, unknown>;
     recordedAt: Date;
-    updatedAt: Date;
+    ingestedAt: Date;
   }) {
     if (
       !Types.ObjectId.isValid(input.enrollmentId) ||
@@ -57,7 +57,7 @@ export class HealthEvaluationService {
       !snapshot.rules.every(isCareRuleNode)
     )
       return null;
-    const uniqueKey = `${enrollment.id}:${snapshot.careRuleId}:${snapshot.revision}:${input.metricId}:${input.updatedAt.toISOString()}`;
+    const uniqueKey = `${enrollment.id}:${snapshot.careRuleId}:${snapshot.revision}:${input.metricId}:${input.ingestedAt.toISOString()}`;
     const existing = await this.evaluations.findOne({ uniqueKey }).exec();
     if (existing) return existing;
     const previous = await this.evaluations
@@ -85,7 +85,7 @@ export class HealthEvaluationService {
         healthMetricId: input.metricId,
         ruleVersion: snapshot.version,
         ruleRevision: snapshot.revision,
-        metricUpdatedAt: input.updatedAt.toISOString(),
+        metricIngestedAt: input.ingestedAt.toISOString(),
         inputKeys: result.inputKeys,
       },
       timeRange: {

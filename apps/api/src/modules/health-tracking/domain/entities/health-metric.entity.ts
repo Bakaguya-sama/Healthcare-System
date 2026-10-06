@@ -17,44 +17,104 @@ export enum MetricType {
   KCAL_INTAKE = 'kcal_intake',
 }
 
-export interface MetricValueDetail {
-  value: number;
-  recordedAt: Date;
+export enum HealthMetricSource {
+  MANUAL = 'manual',
+  DEVICE = 'device',
+  CLINICIAN = 'clinician',
+  IMPORT = 'import',
 }
 
-@Schema({ timestamps: true })
-export class HealthMetric {
+export enum HealthMetricValidationStatus {
+  VALID = 'valid',
+  REJECTED = 'rejected',
+  SUPERSEDED = 'superseded',
+  VOIDED = 'voided',
+}
+
+@Schema({ _id: false })
+export class HealthMetricMetadata {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   patientId: Types.ObjectId;
 
-  @Prop({ enum: MetricType, required: true })
-  type: MetricType;
-
-  // Linh hoat: { systolic: { value, recordedAt }, diastolic: { value, recordedAt } }
-  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
-  values: Record<string, MetricValueDetail>;
+  @Prop({ type: String, enum: MetricType, required: true })
+  metricType: MetricType;
 
   @Prop({ required: true })
-  unit: string; // e.g., 'mmHg', 'bpm', 'mg/dL', 'kg', '°C', '%', 'L'
+  unit: string;
+}
 
-  @Prop({ type: String, required: true, default: 'manual', maxlength: 40 })
-  source: string;
+const HealthMetricMetadataSchema =
+  SchemaFactory.createForClass(HealthMetricMetadata);
 
-  @Prop({ type: String, required: true, default: 'UTC', maxlength: 64 })
-  timezone: string;
+@Schema({ _id: false })
+export class HealthMetricSourceReference {
+  @Prop({ maxlength: 120 }) deviceId?: string;
+  @Prop({ maxlength: 120 }) importBatchId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'User' }) enteredBy?: Types.ObjectId;
+}
 
-  @Prop({ type: Date, default: () => new Date() })
-  recordedAt: Date;
+const HealthMetricSourceReferenceSchema = SchemaFactory.createForClass(
+  HealthMetricSourceReference,
+);
+
+@Schema({ timestamps: true, collection: 'healthmetrics' })
+export class HealthMetric {
+  @Prop({ type: HealthMetricMetadataSchema, required: true })
+  meta: HealthMetricMetadata;
+
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  values: Record<string, number>;
+
+  @Prop({
+    type: String,
+    enum: HealthMetricSource,
+    required: true,
+    default: HealthMetricSource.MANUAL,
+  })
+  source: HealthMetricSource;
+
+  @Prop({ type: HealthMetricSourceReferenceSchema })
+  sourceRef?: HealthMetricSourceReference;
+
+  @Prop({
+    type: String,
+    enum: HealthMetricValidationStatus,
+    required: true,
+    default: HealthMetricValidationStatus.VALID,
+  })
+  validationStatus: HealthMetricValidationStatus;
+
+  @Prop({ type: [String], required: true, default: [] })
+  validationReasonCodes: string[];
+
+  @Prop({ maxlength: 64 }) recordedTimezone?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'HealthMetric' })
+  replacesMetricId?: Types.ObjectId;
+
+  @Prop({ type: Date, required: true }) recordedAt: Date;
+  @Prop({ type: Date, required: true, default: () => new Date() })
+  ingestedAt: Date;
+  @Prop({ type: Date }) voidedAt?: Date;
+  @Prop({ type: Types.ObjectId, ref: 'User' }) voidedBy?: Types.ObjectId;
+  @Prop({ maxlength: 500 }) voidReason?: string;
+
+  // Added by Mongoose timestamps; declared so projections stay type-safe.
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const HealthMetricSchema = SchemaFactory.createForClass(HealthMetric);
 
-// Index for better query performance
 HealthMetricSchema.index(
-  { patientId: 1, recordedAt: -1, _id: -1 },
-  { name: 'patientId_1_recordedAt_-1__id_-1' },
+  { 'meta.patientId': 1, recordedAt: -1, _id: -1 },
+  { name: 'meta.patientId_1_recordedAt_-1__id_-1' },
 );
 HealthMetricSchema.index(
-  { patientId: 1, type: 1, recordedAt: -1, _id: -1 },
-  { name: 'patientId_1_type_1_recordedAt_-1__id_-1' },
+  { 'meta.patientId': 1, 'meta.metricType': 1, recordedAt: -1, _id: -1 },
+  { name: 'meta.patientId_1_meta.metricType_1_recordedAt_-1__id_-1' },
+);
+HealthMetricSchema.index(
+  { replacesMetricId: 1 },
+  { name: 'replacesMetricId_1', unique: true, sparse: true },
 );

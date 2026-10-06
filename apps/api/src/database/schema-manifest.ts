@@ -21,6 +21,14 @@ import {
   CC002_CARE_TASK_INDEXES,
 } from './migrations/202609301000-cc002-care-tasks';
 import { CC005_DOCTOR_PRIORITY_INBOX_INDEX } from './migrations/202610061000-cc005-doctor-priority-inbox';
+import {
+  CC006_CARE_REPORT_COLLECTION,
+  CC006_CARE_REPORT_INDEXES,
+} from './migrations/202610061100-cc006-care-reports';
+import {
+  HEALTH_METRIC_COLLECTION,
+  HEALTH_METRIC_INDEXES,
+} from './migrations/202610061200-health-metric-contract-alignment';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -89,6 +97,8 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
     validator: NOTIFICATION_CAMPAIGN_RECIPIENT_VALIDATOR,
   },
   CC002_CARE_TASK_COLLECTION,
+  CC006_CARE_REPORT_COLLECTION,
+  HEALTH_METRIC_COLLECTION,
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
@@ -112,6 +122,7 @@ export const MANAGED_DATABASE_INDEXES = [
   },
   ...RF2D_QUERY_INDEXES.filter(
     (index) =>
+      index.collection !== 'healthmetrics' &&
       !['sessions', 'messages'].includes(index.collection) &&
       !RETIRED_AI_CONVERSATION_INDEX_NAMES.includes(
         index.name as (typeof RETIRED_AI_CONVERSATION_INDEX_NAMES)[number],
@@ -200,11 +211,7 @@ export const MANAGED_DATABASE_INDEXES = [
     unique: true,
     sparse: true,
   },
-  {
-    collection: 'healthmetrics',
-    name: 'patientId_1_type_1_recordedAt_-1__id_-1',
-    key: { patientId: 1, type: 1, recordedAt: -1, _id: -1 },
-  },
+  ...HEALTH_METRIC_INDEXES,
   {
     collection: 'aiconversations',
     name: 'userId_1_lastMessageAt_-1__id_-1',
@@ -253,6 +260,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...CC001A_INDEXES,
   ...CC002_CARE_TASK_INDEXES,
   CC005_DOCTOR_PRIORITY_INBOX_INDEX,
+  ...CC006_CARE_REPORT_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

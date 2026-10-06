@@ -44,12 +44,20 @@ import {
 } from './domain/entities/care-alert.entity';
 import { CareAlertService } from './application/services/care-alert.service';
 import { CareAlertController } from './presentation/controllers/care-alert.controller';
+import {
+  CareReport,
+  CareReportSchema,
+} from './domain/entities/care-report.entity';
+import { CareReportService } from './application/services/care-report.service';
+import { CareReportController } from './presentation/controllers/care-report.controller';
+import { ConsultationsModule } from '../consultations/consultations.module';
 
 @Module({
   imports: [
     PlatformAuditModule,
     OutboxModule,
     HealthTrackingModule,
+    ConsultationsModule,
     UsersModule,
     MongooseModule.forFeature([
       { name: CareProgram.name, schema: CareProgramSchema },
@@ -58,6 +66,7 @@ import { CareAlertController } from './presentation/controllers/care-alert.contr
       { name: CareTask.name, schema: CareTaskSchema },
       { name: HealthEvaluation.name, schema: HealthEvaluationSchema },
       { name: CareAlert.name, schema: CareAlertSchema },
+      { name: CareReport.name, schema: CareReportSchema },
       {
         name: CareCommandIdempotency.name,
         schema: CareCommandIdempotencySchema,
@@ -69,6 +78,7 @@ import { CareAlertController } from './presentation/controllers/care-alert.contr
     CareEnrollmentController,
     CareTaskController,
     CareAlertController,
+    CareReportController,
   ],
   providers: [
     CareProgramRuleService,
@@ -77,6 +87,7 @@ import { CareAlertController } from './presentation/controllers/care-alert.contr
     CareTaskProgressService,
     HealthEvaluationService,
     CareAlertService,
+    CareReportService,
     OutboxCareTaskQueue,
     {
       provide: CARE_TASK_QUEUE,

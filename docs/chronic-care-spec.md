@@ -78,6 +78,14 @@ If any guard fails, the enrollment remains `pending`; it returns a stable blocki
 
 `taskTemplates` is also snapshotted inside `programConfig`. The current P0 contract accepts only a unique snake_case `key`, a supported type (`metric`, `check_in`, `education`, `appointment`, `doctor_review`), and `schedule: { frequency: "daily", time: "HH:mm", windowMinutes }`. The scheduler resolves that IANA-local time to UTC, creates tasks for a rolling seven-day window, and uses `enrollment + template + scheduleVersion + local date` as its idempotent unique key. A task moves `scheduled → due → completed|missed|cancelled`; terminal tasks are never reopened by late metric input. Metric tasks query Health Tracking through its public `HEALTH_METRIC` port and persist only the matching metric ID. Reminder work is an idempotent outbox event, never a provider call in the task transaction.
 
+#### Deterministic care report v1
+
+`weekly` and `thirty_day` reports contain the last 7 or 30 complete calendar days in the enrollment IANA timezone. Local-midnight boundaries are converted independently to UTC, so a DST transition may make the UTC duration differ from `days × 24h`. `dataUntil` is an explicit UTC cutoff. For every logical measurement, Health Tracking returns the effective append-only version as of that cutoff by using `ingestedAt`, `replacesMetricId` and `voidedAt`; a correction or void recorded after the cutoff cannot rewrite an older report input. Tasks, metrics, evaluations, alerts and linked consultations are read through bounded projections; Health Tracking and Consultations are accessed only through public query ports.
+
+The backend calculates expected/completed/missed tasks, monitoring adherence, min/max/average/median, first/latest/delta, direction, missing task windows, severity/reason counts and bounded source references. The canonical input hash covers the window, cutoff, facts, source IDs and source revisions. Repeating the same input returns the existing report; a correction changes the hash, creates a new immutable `reportVersion`, links `replacesReportId` and marks the previous version `superseded`.
+
+`SummaryInput v1` is a projection of these persisted facts, not AI output. Patient and Doctor receive the same numerical facts; Patient provenance contains source counts only, while the assigned Doctor may receive bounded opaque source IDs. No LLM/provider, token quota or narrative text is required for report generation or reading.
+
 Only the assigned Doctor performs clinical workflow transitions. Admin may audit and administer Program/Rule lifecycle but may not acknowledge/resolve clinical alerts or alter a Patient enrollment as a substitute for the assigned Doctor. Patient may submit consent/baseline, withdraw consent and request a pause; a pause request is not itself a state transition.
 
 ### 4. Bounded-context ownership and public ports

@@ -24,7 +24,7 @@ export class QueryHealthMetricDto extends PageSortQueryDto {
   @ApiProperty({ enum: MetricType, required: false })
   @IsEnum(MetricType)
   @IsOptional()
-  type?: MetricType;
+  metricType?: MetricType;
 
   @ApiProperty({ example: '2026-01-01T00:00:00Z', required: false })
   @IsDateString()

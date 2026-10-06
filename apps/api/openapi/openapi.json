@@ -6548,7 +6548,7 @@
             }
           },
           {
-            "name": "type",
+            "name": "metricType",
             "required": false,
             "in": "query",
             "schema": {
@@ -6750,7 +6750,7 @@
             }
           },
           {
-            "name": "type",
+            "name": "metricType",
             "required": false,
             "in": "query",
             "schema": {
@@ -7083,9 +7083,11 @@
         "tags": [
           "health-metrics"
         ]
-      },
-      "patch": {
-        "operationId": "HealthMetrics_update",
+      }
+    },
+    "/api/v1/health-metrics/{id}/corrections": {
+      "post": {
+        "operationId": "HealthMetrics_correct",
         "parameters": [
           {
             "name": "id",
@@ -7101,13 +7103,13 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateHealthMetricDto"
+                "$ref": "#/components/schemas/CorrectHealthMetricDto"
               }
             }
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": ""
           },
           "400": {
@@ -7186,104 +7188,7 @@
             "bearer": []
           }
         ],
-        "summary": "Cập nhật chỉ số sức khỏe",
-        "tags": [
-          "health-metrics"
-        ]
-      },
-      "delete": {
-        "operationId": "HealthMetrics_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          },
-          "400": {
-            "description": "HTTP 400 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "HTTP 401 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "HTTP 403 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "HTTP 404 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "HTTP 409 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "HTTP 429 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "HTTP 500 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Xóa chỉ số sức khỏe",
+        "summary": "Tạo bản ghi hiệu chỉnh chỉ số sức khỏe",
         "tags": [
           "health-metrics"
         ]
@@ -7383,6 +7288,115 @@
           }
         ],
         "summary": "Đánh dấu chỉ số đã review",
+        "tags": [
+          "health-metrics"
+        ]
+      }
+    },
+    "/api/v1/health-metrics/{id}/void": {
+      "post": {
+        "operationId": "HealthMetrics_void",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidHealthMetricDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Đánh dấu chỉ số sức khỏe không còn hợp lệ",
         "tags": [
           "health-metrics"
         ]
@@ -19524,6 +19538,320 @@
           "care-alerts"
         ]
       }
+    },
+    "/api/v1/care-enrollments/{id}/reports": {
+      "post": {
+        "operationId": "CareReport_generate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateCareReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "care-reports"
+        ]
+      },
+      "get": {
+        "operationId": "CareReport_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reportType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "weekly",
+                "thirty_day"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "care-reports"
+        ]
+      }
+    },
+    "/api/v1/care-reports/{id}": {
+      "get": {
+        "operationId": "CareReport_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "care-reports"
+        ]
+      }
     }
   },
   "info": {
@@ -20073,10 +20401,21 @@
           }
         }
       },
+      "HealthMetricSourceRefDto": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "importBatchId": {
+            "type": "string"
+          }
+        }
+      },
       "CreateHealthMetricDto": {
         "type": "object",
         "properties": {
-          "type": {
+          "metricType": {
             "type": "string",
             "enum": [
               "blood_pressure",
@@ -20096,27 +20435,24 @@
           "values": {
             "type": "object",
             "example": {
-              "systolic": {
-                "value": 120,
-                "recordedAt": "2026-03-16T08:00:00Z"
-              },
-              "diastolic": {
-                "value": 80,
-                "recordedAt": "2026-03-16T08:05:00Z"
-              }
+              "systolic": 120,
+              "diastolic": 80
             },
-            "description": "Dynamic object by metric type. Each key must be { value: number, recordedAt: ISO date }"
-          },
-          "unit": {
-            "type": "string",
-            "example": "mmHg"
+            "description": "Canonical numeric values keyed by metric type"
           },
           "source": {
             "type": "string",
-            "example": "manual",
-            "description": "Origin of the reading (manual, device, import)"
+            "enum": [
+              "manual",
+              "device",
+              "clinician",
+              "import"
+            ]
           },
-          "timezone": {
+          "sourceRef": {
+            "$ref": "#/components/schemas/HealthMetricSourceRefDto"
+          },
+          "recordedTimezone": {
             "type": "string",
             "example": "Asia/Ho_Chi_Minh"
           },
@@ -20127,13 +20463,51 @@
           }
         },
         "required": [
-          "type",
+          "metricType",
           "values"
         ]
       },
-      "UpdateHealthMetricDto": {
+      "CorrectHealthMetricDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "values": {
+            "type": "object",
+            "example": {
+              "systolic": 118,
+              "diastolic": 78
+            }
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-03-16T20:30:00Z"
+          },
+          "recordedTimezone": {
+            "type": "string",
+            "example": "Asia/Ho_Chi_Minh"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Corrected an input mistake"
+          }
+        },
+        "required": [
+          "values",
+          "recordedAt",
+          "reason"
+        ]
+      },
+      "VoidHealthMetricDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Measurement was entered for the wrong patient"
+          }
+        },
+        "required": [
+          "reason"
+        ]
       },
       "CreateConsultationDto": {
         "type": "object",
@@ -20673,6 +21047,26 @@
         "required": [
           "expectedRevision",
           "reason"
+        ]
+      },
+      "GenerateCareReportDto": {
+        "type": "object",
+        "properties": {
+          "reportType": {
+            "type": "string",
+            "enum": [
+              "weekly",
+              "thirty_day"
+            ]
+          },
+          "dataUntil": {
+            "type": "string",
+            "description": "UTC cutoff; sources updated after this instant are excluded"
+          }
+        },
+        "required": [
+          "reportType",
+          "dataUntil"
         ]
       },
       "ErrorResponse": {

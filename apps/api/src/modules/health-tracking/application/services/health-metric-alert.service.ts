@@ -12,6 +12,7 @@ import {
 import {
   HealthMetric,
   HealthMetricDocument,
+  HealthMetricValidationStatus,
   MetricType,
 } from '../../domain/entities/health-metric.entity';
 import {
@@ -20,18 +21,19 @@ import {
 } from '../../../notifications/public-api';
 import { UsersService } from '../../../users/public-api';
 
-type MetricEntry = {
-  value: number;
-  recordedAt: Date | string;
-};
-
 type DailyTotalAlertMetricType =
   | MetricType.WATER_INTAKE
   | MetricType.KCAL_INTAKE;
 
+type AlertEvaluationInput = {
+  value?: number;
+  systolic?: number;
+  diastolic?: number;
+};
+
 const WATER_INTAKE_CUTOFF_HOUR = 21;
 const HEALTH_METRIC_READ_PROJECTION =
-  '_id patientId type values unit recordedAt createdAt updatedAt source timezone';
+  '_id meta values source sourceRef validationStatus validationReasonCodes recordedTimezone replacesMetricId recordedAt ingestedAt voidedAt voidReason createdAt';
 const LOW_STATUS_KEYWORDS = ['low', 'hypo', 'under', 'below'];
 const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'systolic',
@@ -82,15 +84,13 @@ export class HealthMetricAlertService {
     private readonly usersService: UsersService,
   ) {}
 
-  private toEvaluationInput(values: Record<string, MetricEntry>): {
-    value?: number;
-    systolic?: number;
-    diastolic?: number;
-  } {
+  private toEvaluationInput(
+    values: Record<string, number>,
+  ): AlertEvaluationInput {
     return {
-      value: values?.value?.value ?? values?.amount?.value,
-      systolic: values?.systolic?.value,
-      diastolic: values?.diastolic?.value,
+      value: values.value ?? values.amount,
+      systolic: values.systolic,
+      diastolic: values.diastolic,
     };
   }
 
@@ -125,21 +125,14 @@ export class HealthMetricAlertService {
 
   private extractMetricNumericValue(
     type: MetricType,
-    values: Record<string, MetricEntry>,
+    values: Record<string, number>,
   ): number {
-    const primaryValue = values?.[PRIMARY_VALUE_KEY_BY_TYPE[type]]?.value;
+    const primaryValue = values[PRIMARY_VALUE_KEY_BY_TYPE[type]];
     if (typeof primaryValue === 'number' && Number.isFinite(primaryValue)) {
       return primaryValue;
     }
-    for (const detail of Object.values(values ?? {})) {
-      if (
-        detail &&
-        typeof detail === 'object' &&
-        typeof detail.value === 'number' &&
-        Number.isFinite(detail.value)
-      ) {
-        return detail.value;
-      }
+    for (const value of Object.values(values)) {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
     }
     return 0;
   }
@@ -157,17 +150,28 @@ export class HealthMetricAlertService {
   async evaluateAndNotify(
     userId: string,
     metricType: MetricType,
-    values: Record<string, MetricEntry>,
+    values: Record<string, number>,
+    recordedAt: Date,
   ) {
     const evaluatorType = this.toSupportedEvaluatorType(metricType);
     if (!evaluatorType) {
       return null;
     }
 
-    const { evaluationInput, referenceRecordedAt } =
-      await this.resolveAlertEvaluationInput(userId, metricType, values);
+    const resolved: {
+      evaluationInput: AlertEvaluationInput;
+      referenceRecordedAt: Date;
+    } = await this.resolveAlertEvaluationInput(
+      userId,
+      metricType,
+      values,
+      recordedAt,
+    );
+    const { evaluationInput, referenceRecordedAt } = resolved;
 
-    const userInfo = await this.usersService.findById(userId);
+    const userInfo = (await this.usersService.findById(userId)) as unknown as {
+      gender?: string;
+    };
     const dailyTotalValue = evaluationInput.value ?? 0;
     const waterIntakeMax = this.resolveWaterIntakeMax(userInfo.gender);
     const isWaterIntakeOverMax =
@@ -260,34 +264,6 @@ export class HealthMetricAlertService {
     return now.getHours() >= WATER_INTAKE_CUTOFF_HOUR;
   }
 
-  private resolveReferenceRecordedAt(
-    values: Record<string, MetricEntry>,
-    metricType: MetricType,
-  ): Date {
-    const primaryKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
-    const primaryRecordedAt = values?.[primaryKey]?.recordedAt;
-
-    if (primaryRecordedAt) {
-      const parsed = new Date(primaryRecordedAt);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-
-    for (const detail of Object.values(values ?? {})) {
-      if (!detail || typeof detail !== 'object') {
-        continue;
-      }
-
-      const parsed = new Date(detail.recordedAt);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-
-    return new Date();
-  }
-
   private getUtcDayRange(date: Date): { start: Date; end: Date } {
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth();
@@ -318,15 +294,13 @@ export class HealthMetricAlertService {
   private async resolveAlertEvaluationInput(
     userId: string,
     metricType: MetricType,
-    values: Record<string, MetricEntry>,
+    values: Record<string, number>,
+    recordedAt: Date,
   ): Promise<{
-    evaluationInput: ReturnType<typeof this.toEvaluationInput>;
+    evaluationInput: AlertEvaluationInput;
     referenceRecordedAt: Date;
   }> {
-    const referenceRecordedAt = this.resolveReferenceRecordedAt(
-      values,
-      metricType,
-    );
+    const referenceRecordedAt = recordedAt;
 
     if (!this.isDailyTotalAlertMetricType(metricType)) {
       return {
@@ -342,8 +316,9 @@ export class HealthMetricAlertService {
     const [result] = await this.healthMetricModel.aggregate<{ total: number }>([
       {
         $match: {
-          patientId,
-          type: metricType,
+          'meta.patientId': patientId,
+          'meta.metricType': metricType,
+          validationStatus: HealthMetricValidationStatus.VALID,
           recordedAt: {
             $gte: start,
             $lte: end,
@@ -354,7 +329,7 @@ export class HealthMetricAlertService {
         $group: {
           _id: null,
           total: {
-            $sum: `$values.${primaryKey}.value`,
+            $sum: `$values.${primaryKey}`,
           },
         },
       },
@@ -363,21 +338,22 @@ export class HealthMetricAlertService {
     const rawDailyTotal = result?.total ?? 0;
     const latestMetric = await this.healthMetricModel
       .findOne({
-        patientId,
-        type: metricType,
+        'meta.patientId': patientId,
+        'meta.metricType': metricType,
+        validationStatus: HealthMetricValidationStatus.VALID,
         recordedAt: {
           $gte: start,
           $lte: end,
         },
       })
       .sort({ recordedAt: -1 })
-      .select('unit')
-      .lean<{ unit?: string }>();
+      .select('meta.unit')
+      .lean<{ meta?: { unit?: string } }>();
 
     const normalizedDailyTotal = this.normalizeDailyAlertValue(
       metricType,
       rawDailyTotal,
-      latestMetric?.unit,
+      latestMetric?.meta?.unit,
     );
 
     return {
@@ -395,7 +371,8 @@ export class HealthMetricAlertService {
 
     const alerts = await this.healthMetricModel
       .find({
-        patientId: new Types.ObjectId(userId),
+        'meta.patientId': new Types.ObjectId(userId),
+        validationStatus: HealthMetricValidationStatus.VALID,
       })
       .select(HEALTH_METRIC_READ_PROJECTION)
       .sort({ recordedAt: -1, _id: -1 })
@@ -419,7 +396,7 @@ export class HealthMetricAlertService {
     const metric = await this.healthMetricModel.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
-        patientId: new Types.ObjectId(userId),
+        'meta.patientId': new Types.ObjectId(userId),
       },
       {},
       { new: true },

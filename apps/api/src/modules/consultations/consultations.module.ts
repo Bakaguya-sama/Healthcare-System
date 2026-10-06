@@ -20,6 +20,7 @@ import { ReviewsController } from './reviews/reviews.controller';
 import { ReviewsService } from './reviews/reviews.service';
 import { Review, ReviewSchema } from './reviews/entities/review.entity';
 import { ConsultationHeartbeatService } from './consultation-heartbeat.service';
+import { CARE_REPORT_CONSULTATION } from './application/ports/care-report-consultation.port';
 
 @Module({
   imports: [
@@ -42,7 +43,16 @@ import { ConsultationHeartbeatService } from './consultation-heartbeat.service';
     ChatGateway,
     ReviewsService,
     WsThrottleGuard,
+    {
+      provide: CARE_REPORT_CONSULTATION,
+      useExisting: ConsultationsService,
+    },
   ],
-  exports: [ConsultationsService, ChatService, ReviewsService],
+  exports: [
+    ConsultationsService,
+    ChatService,
+    ReviewsService,
+    CARE_REPORT_CONSULTATION,
+  ],
 })
 export class ConsultationsModule {}

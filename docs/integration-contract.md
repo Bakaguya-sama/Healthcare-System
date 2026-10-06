@@ -902,10 +902,10 @@ interface AdminDashboardDto {
 
 | ID | Method + path | Role | Request/query | Response | Status |
 |---|---|---|---|---|---|
-| HLTH-01 | `GET /health-metrics` | Patient owner | metricType, from/to, page | `PageResult<HealthMetricDto>` | Current/normalize |
-| HLTH-02 | `POST /health-metrics` | Patient owner | metric payload | metric + alert summary | Current |
-| HLTH-03 | `POST /health-metrics/:id/corrections` | Patient owner | giá trị/thời gian đúng, lý do + idempotency | bản ghi mới có `replacesMetricId`; bản cũ `superseded` | Target P0; thay PATCH ghi đè |
-| HLTH-04 | `POST /health-metrics/:id/void` | Patient owner | lý do + idempotency | metric `voided` | Target P0; thay DELETE cứng |
+| HLTH-01 | `GET /health-metrics` | Patient owner | metricType, startDate/endDate, cursor/page | bounded `HealthMetricDto` page | CC-006 alignment; normalized `meta`, numeric `values`, lifecycle timestamps |
+| HLTH-02 | `POST /health-metrics` | Patient owner | metricType, unit, numeric values, source, recordedAt/timezone | normalized metric + alert summary | CC-006 alignment |
+| HLTH-03 | `POST /health-metrics/:id/corrections` | Patient owner | giá trị/thời gian đúng, lý do | bản ghi mới có `replacesMetricId`; bản cũ `superseded` | CC-006 alignment; append-only, concurrent replay-safe |
+| HLTH-04 | `POST /health-metrics/:id/void` | Patient owner | lý do | metric `voided`, không xóa document | CC-006 alignment; replay-safe |
 | HLTH-05 | `GET /consultations/:id/health-context` | Doctor participant | metric types/range | metrics + summary | Target P0 |
 | AI-01 | `GET /ai/quota` | Patient | none | `AiQuotaDto` | Target P0 |
 | AI-02 | `POST /ai/conversations` | Patient | initialQuestion/tags | conversation + messages | Target P0; legacy `/ai-assistant/.../start` |
@@ -930,7 +930,7 @@ interface AdminDashboardDto {
 | CARE-08 | `POST /care-enrollments/:id/consent` | Patient owner | policyVersion, purposes, baseline answers + idempotency | updated enrollment | Target P0 |
 | CARE-09 | `GET /care-enrollments/:id/tasks` | Participant | status, type, from/to, page | `PageResult<CareTaskDto>` | Target P0 |
 | CARE-10 | `POST /care-tasks/:id/responses` | Authorized task actor | structured response + idempotency | updated task | Target P0; metric task hoàn thành từ HLTH-02 |
-| CARE-11 | `GET /care-enrollments/:id/reports` | Participant | reportType, page | reports + summaries | Target P0 |
+| CARE-11 | `GET /care-enrollments/:id/reports` | Patient owner/Assigned Doctor | reportType | bounded deterministic reports + role-scoped `SummaryInput v1` | CC-006 |
 | CARE-12 | `GET /care-alerts` | Assigned Doctor | cursor, limit, severity, status | cursor page of bounded alert summaries | CC-005; stable `severity DESC, detectedAt DESC, _id DESC` |
 | CARE-13 | `POST /care-alerts/:id/acknowledge` | Assigned Doctor | note? + idempotency | updated alert | Target P0 |
 | CARE-14 | `POST /care-alerts/:id/resolve` | Assigned Doctor | reason/note + idempotency | updated alert | Target P0 |
@@ -947,12 +947,13 @@ interface AdminDashboardDto {
 | CARE-25 | `GET /care-alerts/:id/detail` | Assigned Doctor | none | alert + bounded evaluation/timeline context + `allowedActions` | CC-005; Patient summary remains `GET /care-alerts/:id`, Admin audit remains `GET /care-alerts/:id/audit` |
 | CARE-26 | `GET /care-tasks/:id` | Authorized task actor | none | `CareTaskDto` + type-specific approved content/form/action | Target P0 |
 | CARE-27 | `GET /care-programs/:id` | Patient/Doctor/Admin theo scope | none | `CareProgramDto` + form/template/source projection phù hợp role | Target P0 |
-| CARE-28 | `GET /care-reports/:id` | Enrollment participant | none | `CareReportDto` + authorized `CareSummaryDto[]` | Target P0 |
+| CARE-28 | `GET /care-reports/:id` | Patient owner/Assigned Doctor | none | immutable `CareReportDto` + role-scoped `SummaryInput v1` | CC-006 |
 | CARE-29 | `POST /care-summaries/:id/review` | Assigned Doctor | `review|reject`, note + idempotency | updated Doctor-audience summary | Target P0 khi Doctor review được bật |
 | CARE-30 | `PATCH /care-programs/:id/rules/:ruleId` | Admin có rule-management permission | declarative draft changes + version | updated draft rule | Target P1 Builder Lite; draft only |
 | CARE-31 | `POST /care-reports/:id/exports` | Enrollment participant có entitlement | `pdf|csv` + idempotency | export job hoặc short-lived download URL | Target P0 cho quyền lợi export |
 | CARE-32 | `GET /care-report-exports/:id` | Export owner | none | export status + short-lived download URL | Target P0 |
 | CARE-33 | `GET /care-tasks` | Patient/Doctor theo scope | enrollmentId?, type/status/from/to/page | cross-enrollment `PageResult<CareTaskDto>` | Target P1 cho trang medication; P0 có thể chỉ dùng CARE-09 |
+| CARE-34 | `POST /care-enrollments/:id/reports` | Assigned Doctor | reportType `weekly|thirty_day`, UTC `dataUntil` | immutable CareReport version + Doctor `SummaryInput v1` | CC-006; same input hash replays, correction creates a new version |
 | FAM-01 | `GET /family-links` | Patient/linked family user | direction, status, page | `PageResult<FamilyLinkDto>` | Target P1 sau P0 |
 | FAM-02 | `POST /family-links` | Patient | family email/userId, relationship + idempotency | pending link | Target P1; enforce `familyLinkLimit`; revoked/declined/expired pair increments invitationVersion |
 | FAM-03 | `POST /family-links/:id/accept` | Invited family user | consent version + idempotency | active link | Target P1 |
@@ -1161,7 +1162,7 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CARE-08 | Patient chấp nhận consent version/purpose/channel và gửi baseline; chỉ activate khi toàn bộ guard 1A cùng hợp lệ. |
 | CARE-09 | Liệt kê task của một enrollment theo status/type/time range, bảo toàn timezone và terminal states. |
 | CARE-10 | Ghi response hoặc tiến độ cho task phù hợp type/completionRule; chống submit lặp và không cho hoàn thành task missed/terminal. |
-| CARE-11 | Liệt kê các report và summary của enrollment theo reportType; lọc audience để Patient không thấy nội dung chỉ dành Doctor. |
+| CARE-11 | Liệt kê tối đa 100 deterministic report của enrollment theo reportType; Patient không nhận source IDs, Doctor nhận bounded provenance để điều tra. |
 | CARE-12 | Trả Priority Inbox của assigned Doctor bằng cursor; sort ổn định theo severity–detectedAt–id, filter status/severity và chỉ projection summary bounded. |
 | CARE-13 | Doctor acknowledge alert open, ghi actor/time/note; gọi lặp không tạo thêm transition hoặc notification trùng. |
 | CARE-14 | Doctor resolve alert open/acknowledged với reason/follow-up; resolve trực tiếp tự ghi implicit acknowledge theo quyết định 3A. |
@@ -1178,12 +1179,13 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CARE-25 | Doctor detail chỉ trả alert được gán cho chính Doctor, bounded evaluation context và action allowlist; Patient chỉ nhận safe summary, Admin chỉ nhận audit projection. |
 | CARE-26 | Trả chi tiết task cùng form/content/action theo taskType; chỉ cung cấp nội dung approved và `allowedActions` ở thời điểm đọc. |
 | CARE-27 | Trả chi tiết Program và projection schema/template/source theo role; Patient không nhận rule nội bộ hoặc draft content. |
-| CARE-28 | Trả một deterministic report và summary đúng audience; report facts vẫn có dù AI summary failed/fallback. |
+| CARE-28 | Trả immutable deterministic report và `SummaryInput v1` đúng audience; facts hoạt động độc lập dù AI chưa bật hoặc failed/fallback. |
 | CARE-29 | Assigned Doctor review/reject Doctor-audience AI summary, ghi reviewer/note/version; không thay đổi statistics hoặc alert severity. |
 | CARE-30 | Sửa CareRule còn draft với version check và operator allowlist; rule active/retired không được chỉnh tại chỗ. |
 | CARE-31 | Tạo PDF/CSV export từ report đã authorize sau khi kiểm tra entitlement; file/job có TTL và không chứa field ngoài audience scope. |
 | CARE-32 | Trả trạng thái report export và URL tải ngắn hạn cho đúng owner; không trả storage key nội bộ. |
 | CARE-33 | Liệt kê task xuyên nhiều enrollment trong scope, dùng cho medication/today view; vẫn bounded và giữ enrollmentId để mở đúng context. |
+| CARE-34 | Assigned Doctor tạo report trên 7/30 ngày địa phương hoàn chỉnh và UTC cutoff; replay cùng sources trả report cũ, late correction đổi input hash và tạo version mới. |
 
 #### Người thân đồng hành
 

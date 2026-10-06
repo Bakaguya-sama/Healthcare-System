@@ -8,13 +8,14 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Patch,
-  Delete,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { HealthMetricsService } from '../../application/services/health-metrics.service';
 import { CreateHealthMetricDto } from '../dto/create-health-metric.dto';
-import { UpdateHealthMetricDto } from '../dto/update-health-metric.dto';
+import {
+  CorrectHealthMetricDto,
+  VoidHealthMetricDto,
+} from '../dto/correct-health-metric.dto';
 import { QueryHealthMetricDto } from '../dto/query-health-metric.dto';
 import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
@@ -92,19 +93,15 @@ export class HealthMetricsController {
     return this.healthMetricsService.findOne(userId, id);
   }
 
-  /**
-   * ✏️ PATCH /health-metrics/:id
-   * Cập nhật chỉ số sức khỏe
-   */
-  @Patch(':id')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Cập nhật chỉ số sức khỏe' })
-  async update(
+  @Post(':id/corrections')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Tạo bản ghi hiệu chỉnh chỉ số sức khỏe' })
+  correct(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
-    @Body() dto: UpdateHealthMetricDto,
+    @Body() dto: CorrectHealthMetricDto,
   ) {
-    return this.healthMetricsService.update(userId, id, dto);
+    return this.healthMetricsService.correct(userId, id, dto);
   }
 
   /**
@@ -121,14 +118,14 @@ export class HealthMetricsController {
     return this.healthMetricsService.markAsReviewed(userId, id);
   }
 
-  /**
-   * 🗑️ DELETE /health-metrics/:id
-   * Xóa chỉ số sức khỏe
-   */
-  @Delete(':id')
+  @Post(':id/void')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xóa chỉ số sức khỏe' })
-  async remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.healthMetricsService.remove(userId, id);
+  @ApiOperation({ summary: 'Đánh dấu chỉ số sức khỏe không còn hợp lệ' })
+  void(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: VoidHealthMetricDto,
+  ) {
+    return this.healthMetricsService.void(userId, id, dto.reason);
   }
 }

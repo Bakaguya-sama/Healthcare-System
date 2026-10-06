@@ -5,5 +5,6 @@ export {
 } from './application/ports/health-profile.port';
 export {
   HEALTH_METRIC,
+  type HealthMetricReportItem,
   type HealthMetricPort,
 } from './application/ports/health-metric.port';

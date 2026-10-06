@@ -61,7 +61,11 @@ export class CareTaskSchedulerService {
     const templates = validateCareTaskTemplates(snapshot.taskTemplates);
     if (!templates || enrollment.status !== PatientCareProgramStatus.ACTIVE)
       return 0;
-    const scheduleVersion = String(snapshot.programVersion ?? 'v1');
+    const programVersion = snapshot.programVersion;
+    const scheduleVersion =
+      typeof programVersion === 'string' || typeof programVersion === 'number'
+        ? String(programVersion)
+        : 'v1';
     let day = localDate(now, enrollment.timezone);
     let created = 0;
     for (let index = 0; index < horizonDays; index += 1) {
@@ -195,7 +199,7 @@ export class CareTaskSchedulerService {
         metricId: metric.id,
         values: metric.values,
         recordedAt: metric.recordedAt,
-        updatedAt: metric.updatedAt,
+        ingestedAt: metric.ingestedAt,
       });
     }
   }

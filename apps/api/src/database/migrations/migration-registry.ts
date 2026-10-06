@@ -113,6 +113,18 @@ import {
   CC005_DOCTOR_PRIORITY_INBOX_NAME,
   CC005_DOCTOR_PRIORITY_INBOX_VERSION,
 } from './202610061000-cc005-doctor-priority-inbox';
+import {
+  applyCc006CareReports,
+  CC006_CARE_REPORTS_CHECKSUM,
+  CC006_CARE_REPORTS_NAME,
+  CC006_CARE_REPORTS_VERSION,
+} from './202610061100-cc006-care-reports';
+import {
+  applyHealthMetricContractAlignment,
+  HEALTH_METRIC_ALIGNMENT_CHECKSUM,
+  HEALTH_METRIC_ALIGNMENT_NAME,
+  HEALTH_METRIC_ALIGNMENT_VERSION,
+} from './202610061200-health-metric-contract-alignment';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -228,6 +240,18 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC005_DOCTOR_PRIORITY_INBOX_NAME,
     checksum: CC005_DOCTOR_PRIORITY_INBOX_CHECKSUM,
     up: applyCc005DoctorPriorityInbox,
+  },
+  {
+    version: CC006_CARE_REPORTS_VERSION,
+    name: CC006_CARE_REPORTS_NAME,
+    checksum: CC006_CARE_REPORTS_CHECKSUM,
+    up: applyCc006CareReports,
+  },
+  {
+    version: HEALTH_METRIC_ALIGNMENT_VERSION,
+    name: HEALTH_METRIC_ALIGNMENT_NAME,
+    checksum: HEALTH_METRIC_ALIGNMENT_CHECKSUM,
+    up: applyHealthMetricContractAlignment,
   },
 ];
 

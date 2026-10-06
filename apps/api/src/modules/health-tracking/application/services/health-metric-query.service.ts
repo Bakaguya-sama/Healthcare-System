@@ -10,22 +10,23 @@ import {
   encodeCursor,
   InvalidCursorError,
 } from '../../../../common/pagination';
-import { QueryHealthMetricDto } from '../../presentation/dto/query-health-metric.dto';
 import {
   HealthMetric,
   HealthMetricDocument,
+  HealthMetricValidationStatus,
   MetricType,
 } from '../../domain/entities/health-metric.entity';
+import { QueryHealthMetricDto } from '../../presentation/dto/query-health-metric.dto';
+import type {
+  HealthMetricPort,
+  HealthMetricReportItem,
+} from '../ports/health-metric.port';
 import type {
   HealthProfileMetric,
   HealthProfilePort,
 } from '../ports/health-profile.port';
-import type { HealthMetricPort } from '../ports/health-metric.port';
 
-type MetricEntry = {
-  value: number;
-  recordedAt: Date | string;
-};
+type HealthMetricReadRow = HealthMetric & { _id: Types.ObjectId };
 
 type HealthMetricStatisticsAggregation = {
   stats: Array<{ count: number }>;
@@ -34,20 +35,11 @@ type HealthMetricStatisticsAggregation = {
     minimum: number;
     maximum: number;
   }>;
-  latest: Array<{
-    _id: Types.ObjectId;
-    patientId: Types.ObjectId;
-    type: MetricType;
-    values: Record<string, MetricEntry>;
-    unit: string;
-    recordedAt: Date;
-    createdAt?: Date;
-    updatedAt?: Date;
-  }>;
+  latest: HealthMetricReadRow[];
 };
 
 const HEALTH_METRIC_READ_PROJECTION =
-  '_id patientId type values unit recordedAt createdAt updatedAt source timezone';
+  '_id meta values source sourceRef validationStatus validationReasonCodes recordedTimezone replacesMetricId recordedAt ingestedAt voidedAt voidReason createdAt';
 
 const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
   [MetricType.BLOOD_PRESSURE]: 'systolic',
@@ -62,6 +54,7 @@ const PRIMARY_VALUE_KEY_BY_TYPE: Record<MetricType, string> = {
   [MetricType.WATER_INTAKE]: 'amount',
   [MetricType.KCAL_INTAKE]: 'amount',
 };
+const METRIC_TYPE_VALUES: readonly string[] = Object.values(MetricType);
 
 @Injectable()
 export class HealthMetricQueryService
@@ -78,14 +71,24 @@ export class HealthMetricQueryService
   ): Promise<HealthProfileMetric[]> {
     if (!Types.ObjectId.isValid(patientId))
       throw new BadRequestException('Invalid patient ID');
-    const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-    return this.healthMetricModel
-      .find({ patientId: new Types.ObjectId(patientId) })
-      .select('_id type values unit source timezone recordedAt')
+    const rows = await this.healthMetricModel
+      .find({
+        'meta.patientId': new Types.ObjectId(patientId),
+        validationStatus: HealthMetricValidationStatus.VALID,
+      })
+      .select(HEALTH_METRIC_READ_PROJECTION)
       .sort({ recordedAt: -1, _id: -1 })
-      .limit(boundedLimit)
-      .lean<HealthProfileMetric[]>()
+      .limit(Math.max(1, Math.min(100, Math.floor(limit))))
+      .lean()
       .exec();
+    return rows.map((row) => ({
+      metricType: row.meta.metricType,
+      values: row.values,
+      unit: row.meta.unit,
+      source: row.source,
+      recordedTimezone: row.recordedTimezone,
+      recordedAt: row.recordedAt,
+    }));
   }
 
   async findFirstRecordedInWindow(input: {
@@ -97,21 +100,75 @@ export class HealthMetricQueryService
     if (!Types.ObjectId.isValid(input.patientId)) return null;
     const metric = await this.healthMetricModel
       .findOne({
-        patientId: new Types.ObjectId(input.patientId),
-        type: input.metricType,
+        'meta.patientId': new Types.ObjectId(input.patientId),
+        'meta.metricType': input.metricType,
+        validationStatus: HealthMetricValidationStatus.VALID,
         recordedAt: { $gte: input.from, $lte: input.to },
       })
       .sort({ recordedAt: 1, _id: 1 })
-      .select('_id recordedAt updatedAt values')
+      .select('_id recordedAt ingestedAt values')
       .lean()
       .exec();
-    if (!metric) return null;
-    const updatedAt = (metric as unknown as { updatedAt?: Date }).updatedAt;
+    return metric
+      ? {
+          id: String(metric._id),
+          recordedAt: metric.recordedAt,
+          ingestedAt: metric.ingestedAt,
+          values: metric.values,
+        }
+      : null;
+  }
+
+  async listRecordedInWindow(input: {
+    patientId: string;
+    from: Date;
+    to: Date;
+    ingestedUntil: Date;
+    limit: number;
+  }) {
+    if (!Types.ObjectId.isValid(input.patientId))
+      return { items: [], truncated: false };
+    const limit = Math.max(1, Math.min(5_000, Math.floor(input.limit)));
+    const rows = await this.healthMetricModel
+      .find({
+        'meta.patientId': new Types.ObjectId(input.patientId),
+        recordedAt: { $gte: input.from, $lt: input.to },
+        ingestedAt: { $lte: input.ingestedUntil },
+        validationStatus: {
+          $ne: HealthMetricValidationStatus.REJECTED,
+        },
+      })
+      .select(HEALTH_METRIC_READ_PROJECTION)
+      .sort({ recordedAt: 1, _id: 1 })
+      .limit(limit + 1)
+      .lean()
+      .exec();
+    const replacementRows = rows.length
+      ? await this.healthMetricModel
+          .find({
+            replacesMetricId: { $in: rows.map((row) => row._id) },
+            ingestedAt: { $lte: input.ingestedUntil },
+          })
+          .select('replacesMetricId')
+          .limit(limit + 1)
+          .lean()
+          .exec()
+      : [];
+    const replacedIds = new Set(
+      replacementRows.map((row) => String(row.replacesMetricId)),
+    );
+    const effective = rows.filter(
+      (row) =>
+        !replacedIds.has(String(row._id)) &&
+        !(
+          row.validationStatus === HealthMetricValidationStatus.VOIDED &&
+          row.voidedAt &&
+          row.voidedAt <= input.ingestedUntil
+        ),
+    );
     return {
-      id: String(metric._id),
-      recordedAt: metric.recordedAt,
-      updatedAt: updatedAt ?? metric.recordedAt,
-      values: metric.values,
+      items: effective.slice(0, limit).map((row) => this.toReportItem(row)),
+      truncated: rows.length > limit || replacementRows.length > limit,
     };
   }
 
@@ -120,49 +177,25 @@ export class HealthMetricQueryService
     userRole: string | undefined,
     query: QueryHealthMetricDto,
   ) {
-    if (!Types.ObjectId.isValid(userId)) {
+    if (!Types.ObjectId.isValid(userId))
       throw new BadRequestException('Invalid user ID');
-    }
-
     let patientId = userId;
     if (query.patientId) {
-      if (!Types.ObjectId.isValid(query.patientId)) {
+      if (!Types.ObjectId.isValid(query.patientId))
         throw new BadRequestException('Invalid patient ID');
-      }
-
-      if (userRole !== 'doctor' && userRole !== 'admin') {
+      if (userRole !== 'doctor' && userRole !== 'admin')
         throw new BadRequestException('Not allowed to view patient metrics');
-      }
-
       patientId = query.patientId;
     }
-
-    const filter: {
-      patientId: Types.ObjectId;
-      type?: MetricType;
-      recordedAt?: {
-        $gte?: Date;
-        $lte?: Date;
-      };
-    } = {
-      patientId: new Types.ObjectId(patientId),
+    const filter: Record<string, unknown> = {
+      'meta.patientId': new Types.ObjectId(patientId),
     };
-
-    // Apply filters
-    if (query.type) {
-      filter.type = query.type;
-    }
-    if (query.startDate || query.endDate) {
-      filter.recordedAt = {};
-      if (query.startDate) {
-        filter.recordedAt.$gte = new Date(query.startDate);
-      }
-      if (query.endDate) {
-        filter.recordedAt.$lte = new Date(query.endDate);
-      }
-    }
-
-    // Calculate pagination
+    if (query.metricType) filter['meta.metricType'] = query.metricType;
+    if (query.startDate || query.endDate)
+      filter.recordedAt = {
+        ...(query.startDate ? { $gte: new Date(query.startDate) } : {}),
+        ...(query.endDate ? { $lte: new Date(query.endDate) } : {}),
+      };
     const cursorFilter: Record<string, unknown> = { ...filter };
     const sortField = query.sortBy || 'recordedAt';
     const sortOrder = query.sortOrder || -1;
@@ -186,34 +219,25 @@ export class HealthMetricQueryService
       }
     }
     const skip = query.cursor ? 0 : (query.page - 1) * query.limit;
-    const sort = {
-      [sortField]: sortOrder,
-      _id: sortOrder,
-    };
-
-    // Execute query
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.healthMetricModel
         .find(cursorFilter)
         .select(HEALTH_METRIC_READ_PROJECTION)
-        .sort(sort)
+        .sort({ [sortField]: sortOrder, _id: sortOrder })
         .skip(skip)
         .limit(query.limit + 1)
         .lean()
         .exec(),
       this.healthMetricModel.countDocuments(filter),
     ]);
-    const hasNextPage = data.length > query.limit;
-    const items = hasNextPage ? data.slice(0, query.limit) : data;
-    const last = items.at(-1) as
-      | { recordedAt?: Date; createdAt?: Date; _id?: Types.ObjectId }
-      | undefined;
+    const hasNextPage = rows.length > query.limit;
+    const items = rows.slice(0, query.limit);
+    const last = items.at(-1);
     const lastSortValue = last?.[sortField];
-
     return {
       statusCode: 200,
       message: 'Health metrics retrieved successfully',
-      data: items,
+      data: items.map((row) => this.toDto(row)),
       nextCursor:
         hasNextPage && lastSortValue && last?._id
           ? encodeCursor({
@@ -232,49 +256,34 @@ export class HealthMetricQueryService
   }
 
   async findOne(userId: string, id: string) {
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(userId))
       throw new BadRequestException('Invalid metric ID');
-    }
-
     const metric = await this.healthMetricModel
       .findOne({
         _id: new Types.ObjectId(id),
-        patientId: new Types.ObjectId(userId),
+        'meta.patientId': new Types.ObjectId(userId),
       })
       .select(HEALTH_METRIC_READ_PROJECTION)
       .lean()
       .exec();
-
-    if (!metric) {
-      throw new NotFoundException('Health metric not found');
-    }
-
+    if (!metric) throw new NotFoundException('Health metric not found');
     return {
       statusCode: 200,
       message: 'Health metric retrieved successfully',
-      data: metric,
+      data: this.toDto(metric),
     };
   }
 
   async getStatistics(
     userId: string,
-    type: string,
+    metricTypeValue: string,
     query?: QueryHealthMetricDto,
   ) {
-    if (!Types.ObjectId.isValid(userId)) {
+    if (!Types.ObjectId.isValid(userId))
       throw new BadRequestException('Invalid user ID');
-    }
-
-    if (!Object.values(MetricType).includes(type as MetricType)) {
+    if (!METRIC_TYPE_VALUES.includes(metricTypeValue))
       throw new BadRequestException('Invalid metric type');
-    }
-
-    const metricType = type as MetricType;
-    const primaryValueKey = PRIMARY_VALUE_KEY_BY_TYPE[metricType];
-    const statisticsMatch: Record<string, unknown> = {
-      patientId: new Types.ObjectId(userId),
-      type: metricType,
-    };
+    const metricType = metricTypeValue as MetricType;
     const endDate = query?.endDate ? new Date(query.endDate) : new Date();
     const startDate = query?.startDate
       ? new Date(query.startDate)
@@ -282,21 +291,20 @@ export class HealthMetricQueryService
     if (
       Number.isNaN(startDate.getTime()) ||
       Number.isNaN(endDate.getTime()) ||
-      startDate > endDate
-    ) {
+      startDate > endDate ||
+      endDate.getTime() - startDate.getTime() > 366 * 24 * 60 * 60 * 1000
+    )
       throw new BadRequestException('Invalid statistics date range');
-    }
-    if (endDate.getTime() - startDate.getTime() > 366 * 24 * 60 * 60 * 1000) {
-      throw new BadRequestException(
-        'Statistics date range must not exceed 366 days',
-      );
-    }
-    statisticsMatch.recordedAt = { $gte: startDate, $lte: endDate };
     const [result] =
       await this.healthMetricModel.aggregate<HealthMetricStatisticsAggregation>(
         [
           {
-            $match: statisticsMatch,
+            $match: {
+              'meta.patientId': new Types.ObjectId(userId),
+              'meta.metricType': metricType,
+              validationStatus: HealthMetricValidationStatus.VALID,
+              recordedAt: { $gte: startDate, $lte: endDate },
+            },
           },
           { $sort: { recordedAt: -1, _id: -1 } },
           {
@@ -304,65 +312,78 @@ export class HealthMetricQueryService
               stats: [{ $count: 'count' }],
               numericStats: [
                 {
-                  $project: {
-                    numericValue: `$values.${primaryValueKey}.value`,
-                  },
-                },
-                {
-                  $match: {
-                    numericValue: { $type: 'number', $gt: 0 },
-                  },
-                },
-                {
                   $group: {
                     _id: null,
-                    average: { $avg: '$numericValue' },
-                    minimum: { $min: '$numericValue' },
-                    maximum: { $max: '$numericValue' },
+                    average: {
+                      $avg: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[metricType]}`,
+                    },
+                    minimum: {
+                      $min: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[metricType]}`,
+                    },
+                    maximum: {
+                      $max: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[metricType]}`,
+                    },
                   },
                 },
                 { $project: { _id: 0 } },
               ],
-              latest: [
-                { $limit: 1 },
-                {
-                  $project: {
-                    _id: 1,
-                    patientId: 1,
-                    type: 1,
-                    values: 1,
-                    unit: 1,
-                    recordedAt: 1,
-                    createdAt: 1,
-                    updatedAt: 1,
-                  },
-                },
-              ],
+              latest: [{ $limit: 1 }],
             },
           },
         ],
       );
-
-    if (!result?.latest.length) {
+    if (!result?.latest.length)
       throw new NotFoundException('No metrics found for this type');
-    }
-
     const stats = result.numericStats[0];
-    if (!stats) {
+    if (!stats)
       throw new BadRequestException('No numeric values found in metrics');
-    }
-
     return {
       statusCode: 200,
       message: 'Statistics retrieved successfully',
       data: {
-        type: metricType,
-        count: result.stats[0].count,
+        metricType,
+        count: result.stats[0]?.count ?? 0,
         average: Math.round(stats.average * 100) / 100,
         minimum: stats.minimum,
         maximum: stats.maximum,
-        latest: result.latest[0],
+        latest: this.toDto(result.latest[0]),
       },
+    };
+  }
+
+  private toReportItem(row: HealthMetricReadRow): HealthMetricReportItem {
+    return {
+      id: String(row._id),
+      metricType: row.meta.metricType,
+      unit: row.meta.unit,
+      values: row.values,
+      recordedAt: row.recordedAt,
+      ingestedAt: row.ingestedAt,
+    };
+  }
+
+  private toDto(row: HealthMetricReadRow) {
+    return {
+      id: String(row._id),
+      patientId: String(row.meta.patientId),
+      metricType: row.meta.metricType,
+      unit: row.meta.unit,
+      values: row.values,
+      source: row.source,
+      ...(row.sourceRef ? { sourceRef: row.sourceRef } : {}),
+      validationStatus: row.validationStatus,
+      validationReasonCodes: row.validationReasonCodes,
+      ...(row.recordedTimezone
+        ? { recordedTimezone: row.recordedTimezone }
+        : {}),
+      ...(row.replacesMetricId
+        ? { replacesMetricId: String(row.replacesMetricId) }
+        : {}),
+      recordedAt: row.recordedAt,
+      ingestedAt: row.ingestedAt,
+      ...(row.voidedAt ? { voidedAt: row.voidedAt } : {}),
+      ...(row.voidReason ? { voidReason: row.voidReason } : {}),
+      createdAt: row.createdAt,
     };
   }
 }

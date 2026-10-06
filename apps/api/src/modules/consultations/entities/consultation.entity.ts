@@ -32,6 +32,12 @@ export class Consultation {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   doctorId!: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'PatientCareProgram' })
+  patientCareProgramId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'CareAlert' })
+  careAlertId?: Types.ObjectId;
+
   @Prop({
     type: String,
     enum: ConsultationMode,
@@ -72,6 +78,7 @@ export class Consultation {
   @Prop() doctorNotes?: string;
   @Prop() sessionStartedAt?: Date;
   @Prop() completedAt?: Date;
+  @Prop() followUpAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) completedBy?: Types.ObjectId;
   @Prop() cancelledAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) cancelledBy?: Types.ObjectId;
@@ -111,3 +118,7 @@ ConsultationSchema.index(
   },
 );
 ConsultationSchema.index({ roomId: 1 }, { unique: true, sparse: true });
+ConsultationSchema.index(
+  { patientCareProgramId: 1, requestedAt: 1, _id: 1 },
+  { name: 'patientCareProgramId_1_requestedAt_1__id_1' },
+);

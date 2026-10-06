@@ -17,6 +17,7 @@ type ManagedIndexInfo = {
   name?: string;
   key: Record<string, unknown>;
   unique?: boolean;
+  sparse?: boolean;
   expireAfterSeconds?: number;
   partialFilterExpression?: Record<string, unknown>;
 };
@@ -63,6 +64,11 @@ export async function verifyDatabase(
     if ('unique' in expected && actual.unique !== expected.unique) {
       errors.push(
         `index unique drift on ${expected.collection}.${expected.name}`,
+      );
+    }
+    if ('sparse' in expected && actual.sparse !== expected.sparse) {
+      errors.push(
+        `index sparse drift on ${expected.collection}.${expected.name}`,
       );
     }
     if (

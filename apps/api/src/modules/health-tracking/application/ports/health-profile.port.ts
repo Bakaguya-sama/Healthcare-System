@@ -3,11 +3,11 @@ import { MetricType } from '../../domain/entities/health-metric.entity';
 export const HEALTH_PROFILE = Symbol('HEALTH_PROFILE');
 
 export type HealthProfileMetric = {
-  type: MetricType;
-  values: Record<string, unknown>;
+  metricType: MetricType;
+  values: Record<string, number>;
   unit: string;
   source: string;
-  timezone: string;
+  recordedTimezone?: string;
   recordedAt: Date;
 };
 

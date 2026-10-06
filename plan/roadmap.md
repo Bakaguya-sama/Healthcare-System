@@ -518,18 +518,20 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 
 Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request phải tạo được một lát chạy/test được, cập nhật migration/verifier/contract cùng code và không inject Mongoose model xuyên module.
 
-**Tiến độ hiện tại (30/09/2026, source review):** `CC-000A/B`, `CC-001A`, `CC-001B`, `CC-014` và `CC-002` đều đã có artefact trong source. Tuy nhiên, chỉ được ghi `DONE` khi exit gate có evidence chạy được; “đã có code/migration” không đồng nghĩa đã đóng gate. `CC-001B` còn thiếu E2E authorization/state/concurrency-idempotency. `CC-002` đã được mở và có migration/schema/scheduler/port/outbox, nhưng chưa đủ test duplicate/retry, DST, late-input/correction và authorization/query evidence. Vì vậy Phase 2 vẫn **OPEN — evidence pending**, không được dùng làm dependency xanh cho `CC-003+`.
+**Gate đồng bộ persistence bắt buộc cho mọi slice:** với từng collection được đọc hoặc sửa, phải đối chiếu bốn lớp `docs/data-model.dbml` ↔ Mongoose entity/schema ↔ migration validator/index ↔ DTO/projection/public port. Test phải chứng minh tên field, kiểu, required/nullable, timestamp và index quan trọng khớp nhau. `database:verify` chỉ so live database với migration manifest; nó **không tự chứng minh Mongoose entity hoặc query projection khớp DBML**, vì vậy verify pass một mình không đủ để đóng gate.
 
-#### Kết quả rà soát `CC-002` trở về trước — 30/09/2026
+**Tiến độ hiện tại (06/10/2026):** Phase 0–3 và deterministic report `CC-006` đã có exit-gate evidence; `CC-006` đồng thời sửa contract HealthMetrics legacy để khớp target DBML. Bước kế tiếp theo dependency là `CC-007`; không mở AI narrative nếu schema/projection alignment test, migrate → verify → no-op và report regression chưa xanh.
+
+#### Kết quả rà soát `CC-002` trở về trước — cập nhật 06/10/2026
 
 | Slice | Kết quả | Evidence đã kiểm tra | Phần còn thiếu để đóng exit gate |
 | --- | --- | --- | --- |
 | `CC-000A` | **DONE (contract)** | `docs/chronic-care-spec.md` là ADR-0002: lifecycle, permission, error code, idempotency và public-port boundary đã được mô tả; `chronic-care` có các port tương ứng. | Không có code gate còn lại; mọi thay đổi contract phải cập nhật ADR trước implementation. |
-| `CC-000B` | **DONE (source evidence)** | Module `chronic-care`, entity/index validator, migration `202609281000-cc000-chronic-care-foundation.ts`, migration registry và seed/verify harness đều tồn tại; `chronic-care-indexes.spec.ts` kiểm tra các unique index cốt lõi. | Khi chuẩn bị release/DB mới phải chạy lại migrate → `database:verify` → migrate `--expect-noop` trên Mongo mục tiêu và lưu log evidence. |
-| `CC-001A` | **OPEN — implementation complete, exit gate incomplete** | `CareProgramRuleService`, controller/DTO, `CareCommandIdempotency`, transaction/audit và Program/Rule lifecycle đã tồn tại. | Chưa có test chuyên biệt cho permission matrix, immutable published version, version conflict, active-rule uniqueness, audit/transaction và same-key replay/different-payload conflict. |
-| `CC-001B` | **OPEN — implementation complete, exit gate incomplete** | `CareEnrollmentService`, controller/DTO, enrollment state machine, activation guards, audit/idempotency và migration `202609291100-cc001-enrollments.ts` đã tồn tại. | Thiếu `care-enrollment.e2e-spec.ts`: authorization/ownership, toàn bộ state matrix, entitlement allow/deny adapter, concurrent activate/resume và idempotency replay/conflict. |
+| `CC-000B` | **DONE** | Module `chronic-care`, entity/index validator, migration `202609281000-cc000-chronic-care-foundation.ts`, migration registry, seed/verify harness và unique-index tests đã qua gate. | Chạy lại migrate/verify/no-op khi persistence contract thay đổi. |
+| `CC-001A` | **DONE** | Program/Rule lifecycle, permission/version/idempotency, immutable published/active records, audit/transaction và active-rule uniqueness đã có test evidence. | Duy trì regression khi đổi lifecycle hoặc permission. |
+| `CC-001B` | **DONE** | Enrollment state machine, ownership/authorization, activation guard, entitlement adapter, audit và concurrent idempotency đã có E2E evidence. | Duy trì regression khi thêm transition. |
 | `CC-014` *(dependency của CC-002)* | **DONE (unit/source evidence)** | Baseline validator v1, enrollment snapshot, migration `202609291300`/`202609300900`, DTO/OpenAPI integration và `baseline-form.validator.spec.ts` đã tồn tại. | Duy trì test contract/privacy khi thay đổi schema; không phải blocker code cho CC-002, nhưng gate E2E của CC-001B vẫn độc lập. |
-| `CC-002` | **OPEN — implementation started before its gate** | Migration `202609301000-cc002-care-tasks.ts`, `CareTask` schema/index, scheduler rolling window, IANA timezone helper/test, Health Metric public port, completion/missed/cancelled flow, adherence query và Outbox queue adapter đã tồn tại. | Thiếu test/evidence cho duplicate/retry outbox, DST materialization, late input/correction, authorization/query indexes; cần chạy lại DB migrate/verify/no-op. Không mở `CC-003+` dựa trên CC-002 cho tới khi các evidence này xanh. |
+| `CC-002` | **DONE** | CareTask rolling window, IANA/DST, Health Metric port, completion/missed/cancelled, adherence, reminder outbox, duplicate/retry, late-input/correction, authorization/query và DB evidence đã qua gate. | Public Health Metric port phải tiếp tục dùng target field names và append-only lifecycle. |
 
 ### 9.1.0 Phase map — đọc trước khi code
 
@@ -554,7 +556,7 @@ rule + alert + inbox    deterministic facts + AI    entitlement + payment + evid
 | 4 — Report + reuse | Report deterministic trước, AI có guard/fallback, diabetes dùng chung engine | Task/alert facts có snapshot | Gửi raw history vào model hoặc fork engine theo bệnh |
 | 5 — Commercial + release | Entitlement/payment chính xác, consultation link, E2E/demo/release evidence | Core clinical flow xanh | Refund/P1/WebRTC/OAuth nếu chưa còn buffer |
 
-**Bạn đang ở Phase 1, bước đóng gate `CC-001B`.** Không nhận thêm persistence/feature mới trước khi E2E authorization, state matrix và concurrent idempotency xanh. Sau đó thực hiện `CC-014`; chỉ mở `CC-002` khi schema baseline và metric/unit/timezone contract đã chốt.
+**Bạn đang ở Phase 4: `CC-006` đã hoàn tất implementation và đang tái xác nhận persistence-alignment evidence; bước kế tiếp là `CC-007`.**
 
 | PR/Slice      | Phạm vi bắt buộc                                                                                                                                                                                                           | Không làm trong slice                                                  | Exit gate                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -758,6 +760,8 @@ Không thuộc slice: lời văn AI, provider SDK, AI quota.
 Exit gate: fixed dataset numerical/timezone/provenance/idempotency tests pass; report vẫn hoạt động khi AI tắt.
 
 Ước lượng: **5-7 person-days**.
+
+**Exit gate: CLOSED (2026-10-06).** Đã có `CareReports` migration/schema/index, report window 7/30 ngày theo enrollment timezone và UTC cutoff, deterministic task/metric/evaluation/alert/consultation aggregation, immutable versioning theo canonical input hash, `SummaryInput v1` và Patient/Doctor projection. Fixed dataset unit tests chạy xanh cho numerical facts, missing windows và DST; integration chạy xanh cho replay idempotency (kể cả hai request đồng thời), late correction tạo version mới/supersede version cũ, provenance, authorization, export-safe Patient projection và hoạt động không có AI provider. HealthMetrics đã được đối chiếu và sửa đồng bộ DBML ↔ entity ↔ validator/index migration ↔ DTO/query/public port/client; correction/void dùng append-only lifecycle và report chọn đúng version hiệu lực tại `dataUntil`. Migration đã qua migrate → `database:verify` → migrate lần hai no-op tại schema version `202610061200`; schema-alignment, lifecycle và report integration chạy xanh 7/7.
 
 #### `CC-007` — AI narrative, output guard và fallback
 

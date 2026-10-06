@@ -12,11 +12,13 @@ import { HEALTH_PROFILE } from './application/ports/health-profile.port';
 import { HealthMetricQueryService } from './application/services/health-metric-query.service';
 import { HealthMetricAlertService } from './application/services/health-metric-alert.service';
 import { HEALTH_METRIC } from './application/ports/health-metric.port';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 
 @Module({
   imports: [
     NotificationsModule,
     UsersModule,
+    PlatformAuditModule,
     MongooseModule.forFeature([
       { name: HealthMetric.name, schema: HealthMetricSchema },
     ]),
