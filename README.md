@@ -5,9 +5,9 @@ HealthAI là nền tảng theo dõi và hỗ trợ chăm sóc bệnh mạn từ 
 Repository hiện là Turborepo gồm:
 
 - `apps/api`: NestJS modular monolith và worker;
-- `apps/client`: Web cho Patient/Doctor;
-- `apps/admin`: Web Admin;
-- `packages/*`: UI, shared types và cấu hình dùng chung.
+- `packages/*`: thư viện dùng chung và cấu hình có thể tái sử dụng.
+
+Hai frontend DA1 cũ (`apps/client` và `apps/admin`) đã được loại khỏi repository ngày 06/10/2026. Web Patient/Doctor và Web Admin mới phải được xây từ OpenAPI cùng realtime contract canonical; không sao chép lại transport DTO hoặc endpoint legacy từ source DA1.
 
 Refactor backend RF-0..RF-13 đã hoàn tất. Chronic Care/Billing là phase feature tiếp theo và chưa được xem là đã triển khai chỉ vì schema DB v8 đã được duyệt.
 

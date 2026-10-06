@@ -1899,9 +1899,9 @@ Plans/payment có thể mở Web flow an toàn trong giai đoạn đầu nếu d
 
 Session endpoint/event legacy đã bị xóa vì frontend được xây mới ở repository khác. Web Client và Web Admin phải sinh client/contract test từ OpenAPI và realtime artifact canonical.
 
-### 14.1 Kết quả rà soát source frontend hiện tại
+### 14.1 Kết quả rà soát frontend DA1 đã loại bỏ
 
-Kết luận: source trong `apps/client`, `apps/admin` và `packages/ui` vẫn chủ yếu là FE DA1. Nó có thể dùng làm tham khảo UI, nhưng **không được xem là đã khớp contract DA2**. Các sai lệch cần xử lý theo thứ tự sau:
+Source legacy trong `apps/client` và `apps/admin` đã được xóa khỏi repository ngày 06/10/2026; `packages/ui` được giữ lại như thư viện dùng chung cho tới khi có quyết định riêng. Bảng dưới đây là audit lịch sử và checklist bắt buộc cho frontend DA2 ở repository mới, không mô tả các path source còn tồn tại trong repository backend này.
 
 | Mức | Khu vực source hiện tại | Sai lệch so với contract DA2 | Cách chuyển đổi bắt buộc |
 |---|---|---|---|
@@ -1917,7 +1917,7 @@ Kết luận: source trong `apps/client`, `apps/admin` và `packages/ui` vẫn c
 | Trung bình | `my-doctor.service.ts` | Chuyên khoa hard-code bằng tiếng Anh, doctor list không phân trang, rating đổi thành string, presence dùng boolean | Danh mục/label tách khỏi transport DTO; DOC-01 paginated; giữ rating là number; presence dùng `online|offline|unknown` |
 | Trung bình | review/profile/report services ở cả Client và Admin | Endpoint và mapper cũ được lặp lại giữa nhiều feature | Một generated client; shared query keys/error mapper; feature hook chỉ compose dữ liệu cho page, không khai báo lại API contract |
 
-### 14.2 Cấu trúc DTO/API frontend đích
+### 14.2 Cấu trúc DTO/API frontend đích ở repository riêng
 
 ```text
 packages/
