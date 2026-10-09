@@ -14,12 +14,12 @@ import {
 import {
   CareTaskTemplate,
   validateCareTaskTemplates,
-} from '../../utils/care-task-template.validator';
+} from '../../domain/tasks/care-task-template.validator';
 import {
   localDate,
   localDateTimeToUtc,
   nextLocalDate,
-} from '../../utils/care-task-timezone';
+} from '../../domain/tasks/care-task-timezone';
 import {
   HEALTH_METRIC,
   type HealthMetricPort,

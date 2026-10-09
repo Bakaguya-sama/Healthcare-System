@@ -1,19 +1,19 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { AdminService } from '../modules/administration/application/services/admin.service';
-import { AiAssistantService } from '../modules/ai-advisory/conversations/ai-assistant.service';
+import { AiAssistantService } from '../modules/ai-advisory/application/services/conversations/ai-assistant.service';
 import {
   ConversationType,
   MessageRole,
-} from '../modules/ai-advisory/conversations/entities/ai-conversation.entity';
-import { ChatService } from '../modules/consultations/messaging/chat.service';
-import { SenderType } from '../modules/consultations/messaging/entities/message.entity';
+} from '../modules/ai-advisory/domain/entities/conversations/ai-conversation.entity';
+import { ChatService } from '../modules/consultations/application/services/messaging/chat.service';
+import { SenderType } from '../modules/consultations/domain/entities/messaging/message.entity';
 import { HealthMetricsService } from '../modules/health-tracking/application/services/health-metrics.service';
 import { MetricType } from '../modules/health-tracking/domain/entities/health-metric.entity';
 import { NotificationsService } from '../modules/notifications/application/services/notifications.service';
 import { NotificationType } from '../modules/notifications/domain/entities/notification.entity';
-import { RagRetrievalService } from '../modules/ai-advisory/retrieval/services/rag-retrieval.service';
-import { ReviewsService } from '../modules/consultations/reviews/reviews.service';
+import { RagRetrievalService } from '../modules/ai-advisory/application/services/retrieval/rag-retrieval.service';
+import { ReviewsService } from '../modules/consultations/application/services/reviews/reviews.service';
 import { DoctorVerificationStatus } from '../core/domain/user.enums';
 
 describe('legacy critical-flow characterization', () => {

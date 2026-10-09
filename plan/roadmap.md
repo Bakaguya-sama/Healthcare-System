@@ -763,6 +763,29 @@ Exit gate: fixed dataset numerical/timezone/provenance/idempotency tests pass; r
 
 **Exit gate: CLOSED (2026-10-06).** Đã có `CareReports` migration/schema/index, report window 7/30 ngày theo enrollment timezone và UTC cutoff, deterministic task/metric/evaluation/alert/consultation aggregation, immutable versioning theo canonical input hash, `SummaryInput v1` và Patient/Doctor projection. Fixed dataset unit tests chạy xanh cho numerical facts, missing windows và DST; integration chạy xanh cho replay idempotency (kể cả hai request đồng thời), late correction tạo version mới/supersede version cũ, provenance, authorization, export-safe Patient projection và hoạt động không có AI provider. HealthMetrics đã được đối chiếu và sửa đồng bộ DBML ↔ entity ↔ validator/index migration ↔ DTO/query/public port/client; correction/void dùng append-only lifecycle và report chọn đúng version hiệu lực tại `dataUntil`. Migration đã qua migrate → `database:verify` → migrate lần hai no-op tại schema version `202610061200`; schema-alignment, lifecycle và report integration chạy xanh 7/7.
 
+#### `ARCH-001` — Module source-layout consolidation
+
+Mục tiêu: làm cho source tree phản ánh ownership và trách nhiệm runtime, để một capability có thể được tìm, review và thay đổi trong phạm vi module của nó mà không phải đoán từ thư mục legacy.
+
+Quy ước đích cho mỗi bounded context:
+
+- `application/`: orchestration, use-case service, query, validator, evaluator và port.
+- `domain/`: entity/schema sở hữu dữ liệu, pure rule, report/calculation và type nghiệp vụ.
+- `infrastructure/`: adapter/provider/strategy phụ thuộc framework hoặc hệ thống bên ngoài.
+- `presentation/`: HTTP controller, WebSocket gateway và DTO/request-response contract.
+- `public-api.ts`: bề mặt cross-context duy nhất ngoài module composition; không deep-import implementation.
+
+Kế hoạch thực hiện:
+
+1. Lập inventory tất cả `src/modules/*` và code platform lân cận; phân loại từng file theo owner/layer, đánh dấu file sai chỗ, tên mơ hồ hoặc typo.
+2. Chuyển `ai-advisory`, `consultations`, `users`, `authentication` và các context còn lại về layout đích; giữ capability con như messaging/reviews chỉ khi chúng làm rõ ownership.
+3. Chuẩn hóa các utility thuần của `chronic-care` vào `domain` theo capability; di chuyển controller/DTO/gateway của platform adapter vào `presentation` hoặc service vào `application` khi phù hợp.
+4. Đổi tên file/interface sai chính tả hoặc dùng hậu tố không phản ánh vai trò (`*.interface` contract injection → `*.port`); không đổi route, event name, DI token hoặc public API chỉ vì tái cấu trúc.
+5. Cập nhật mọi import, module composition, test path và tài liệu; mở rộng `boundary:check` để chặn legacy layout quay lại.
+6. Exit gate: `typecheck`, unit/integration suites liên quan, `boundary:check`, lint và `git diff --check` xanh; roadmap ghi rõ inventory, quyết định và completion evidence.
+
+**Exit gate: CLOSED (2026-10-09).** Inventory xác nhận các bounded context đã có layout nhất quán; `administration`, `health-tracking`, `moderation`, `notifications`, `platform-audit` đã đúng layer nên không di chuyển chỉ để đổi tên. Đã chuyển **100 file** phân tán của `ai-advisory`, `consultations`, `users`, `authentication` và `chronic-care`: controller/DTO/gateway vào `presentation`, orchestration/query vào `application`, Mongoose entity/schema và calculation thuần vào `domain`, provider/adapter AI vào `infrastructure`. Đã sửa typo `prompt-buidler.interface.ts` thành `prompt-builder.port.ts` và chuẩn hóa retrieval contracts từ `*.interface.ts` thành `*.port.ts`; route, event name, DI token và public API không đổi. `infrastructure/*` được giữ là platform ownership, không phải implementation lạc ngoài bounded context. `boundary:check` hiện chặn các legacy directory/file layout đã loại bỏ. Evidence: typecheck pass; boundary check pass; unit suite pass; lint pass; `git diff --check` pass.
+
 #### `CC-007` — AI narrative, output guard và fallback
 
 Mục tiêu: diễn đạt `SummaryInput v1` an toàn; không tính lại facts hoặc thay severity.

@@ -1,4 +1,4 @@
-export { DoctorDirectoryService } from './doctors/doctor-directory.service';
-export type { DoctorApplicationQuery } from './application/doctor-application.query';
-export { UserAdministrationService } from './user-administration.service';
-export { UsersService } from './users.service';
+export { DoctorDirectoryService } from './application/services/doctors/doctor-directory.service';
+export type { DoctorApplicationQuery } from './application/queries/doctor-application.query';
+export { UserAdministrationService } from './application/services/user-administration.service';
+export { UsersService } from './application/services/users.service';

@@ -5,21 +5,21 @@ import { UsersModule } from '../users/users.module';
 import {
   Consultation,
   ConsultationSchema,
-} from './entities/consultation.entity';
-import { ConsultationsService } from './consultations.service';
-import { ConsultationsController } from './consultations.controller';
-import { ConsultationsGateway } from './consultations.gateway';
+} from './domain/entities/consultations/consultation.entity';
+import { ConsultationsService } from './application/services/consultations/consultations.service';
+import { ConsultationsController } from './presentation/controllers/consultations/consultations.controller';
+import { ConsultationsGateway } from './presentation/gateways/consultations/consultations.gateway';
 import { FilesModule } from '../../infrastructure/files/files.module';
 import { PresenceModule } from '../../infrastructure/realtime/presence/presence.module';
 import { WsThrottleGuard } from '../../core/throttling/ws-throttle.guard';
-import { ChatController } from './messaging/chat.controller';
-import { ChatGateway } from './messaging/chat.gateway';
-import { ChatService } from './messaging/chat.service';
-import { Message, MessageSchema } from './messaging/entities/message.entity';
-import { ReviewsController } from './reviews/reviews.controller';
-import { ReviewsService } from './reviews/reviews.service';
-import { Review, ReviewSchema } from './reviews/entities/review.entity';
-import { ConsultationHeartbeatService } from './consultation-heartbeat.service';
+import { ChatController } from './presentation/controllers/messaging/chat.controller';
+import { ChatGateway } from './presentation/gateways/messaging/chat.gateway';
+import { ChatService } from './application/services/messaging/chat.service';
+import { Message, MessageSchema } from './domain/entities/messaging/message.entity';
+import { ReviewsController } from './presentation/controllers/reviews/reviews.controller';
+import { ReviewsService } from './application/services/reviews/reviews.service';
+import { Review, ReviewSchema } from './domain/entities/reviews/review.entity';
+import { ConsultationHeartbeatService } from './application/services/consultations/consultation-heartbeat.service';
 import { CARE_REPORT_CONSULTATION } from './application/ports/care-report-consultation.port';
 
 @Module({

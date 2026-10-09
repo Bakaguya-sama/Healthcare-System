@@ -21,7 +21,7 @@ import {
 import { DOCTOR_REPOSITORY_PORT } from '../ports/doctor.repository.port';
 import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 import { validateBaselineForm } from '../validators/baseline-form.validator';
-import { validateCareTaskTemplates } from '../../utils/care-task-template.validator';
+import { validateCareTaskTemplates } from '../../domain/tasks/care-task-template.validator';
 import { isCareRuleNode } from '../../domain/rules/care-rule-interpreter';
 
 export type CareActor = { id: string; role: UserRole };

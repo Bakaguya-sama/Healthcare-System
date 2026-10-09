@@ -41,7 +41,7 @@ import {
 import {
   resolveCareReportWindow,
   resolveCareTaskStatusAtCutoff,
-} from '../../utils/care-report-window';
+} from '../../domain/reports/care-report-window';
 import type { CareActor } from './care-program-rule.service';
 
 const REPORT_PROJECTION =

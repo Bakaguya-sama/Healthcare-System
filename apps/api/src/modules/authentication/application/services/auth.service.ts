@@ -15,7 +15,7 @@ import { Model, Types } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID, createHash } from 'node:crypto';
-import { User, UserDocument } from '../../../users/entities/user.schema';
+import { User, UserDocument } from '../../../users/domain/entities/users/user.schema';
 import {
   AuthSession,
   AuthSessionDocument,
