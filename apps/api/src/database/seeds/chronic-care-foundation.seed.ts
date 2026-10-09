@@ -1,10 +1,14 @@
 import { ObjectId, type Db } from 'mongodb';
+import {
+  findStandardCareProgram,
+  STANDARD_CARE_PROGRAMS,
+  type StandardCareProgram,
+} from '../../modules/chronic-care/domain/catalog/standard-care-programs';
 import { withDatabase } from './seed-utils';
 
 export type ChronicCareFoundationSeedInput = {
   createdBy: ObjectId;
   programCode?: string;
-  diseaseKey?: string;
 };
 
 /**
@@ -15,29 +19,63 @@ export async function seedChronicCareFoundation(
   db: Db,
   input: ChronicCareFoundationSeedInput,
 ): Promise<{ careProgramId: ObjectId; careRuleId: ObjectId }> {
+  const program = findStandardCareProgram(
+    input.programCode ?? 'demo-hypertension',
+  );
+  if (!program)
+    throw new Error(`unknown standard care program: ${input.programCode}`);
+  return seedStandardCareProgram(db, input.createdBy, program);
+}
+
+/** Seeds both supported P0 programs. Safe to run repeatedly in local development. */
+export async function seedChronicCareProgramCatalog(
+  db: Db,
+  createdBy: ObjectId,
+): Promise<Record<string, { careProgramId: ObjectId; careRuleId: ObjectId }>> {
+  const entries = await Promise.all(
+    STANDARD_CARE_PROGRAMS.map(
+      async (program) =>
+        [
+          program.programCode,
+          await seedStandardCareProgram(db, createdBy, program),
+        ] as const,
+    ),
+  );
+  return Object.fromEntries(entries);
+}
+
+async function seedStandardCareProgram(
+  db: Db,
+  createdBy: ObjectId,
+  program: StandardCareProgram,
+): Promise<{ careProgramId: ObjectId; careRuleId: ObjectId }> {
   const now = new Date();
-  const programCode = input.programCode ?? 'demo-hypertension';
-  const diseaseKey = input.diseaseKey ?? 'hypertension';
   const programResult = await db.collection('careprograms').findOneAndUpdate(
-    { programCode, version: 1 },
+    { programCode: program.programCode, version: 1 },
     {
-      $setOnInsert: {
-        programCode,
-        version: 1,
-        name: 'Demo hypertension care program',
-        diseaseKey,
+      // These two catalog codes are reserved for local development fixtures.
+      // Re-applying them deliberately converges old placeholder seed data to
+      // the current deterministic configuration; production publishing uses
+      // the audited command handlers instead.
+      $set: {
+        name: program.name,
+        diseaseKey: program.diseaseKey,
         status: 'published',
         revision: 1,
         eligibilityForm: { all: [] },
-        baselineForm: { schemaVersion: 'v1', fields: [] },
-        taskTemplates: [],
-        reminderPolicy: { channels: [] },
+        baselineForm: program.baselineForm,
+        taskTemplates: program.taskTemplates,
+        reminderPolicy: { channels: ['in_app'] },
         dataSources: [],
-        createdBy: input.createdBy,
-        publishedBy: input.createdBy,
+        publishedBy: createdBy,
         publishedAt: now,
-        createdAt: now,
         updatedAt: now,
+      },
+      $setOnInsert: {
+        programCode: program.programCode,
+        version: 1,
+        createdAt: now,
+        createdBy,
       },
     },
     { upsert: true, returnDocument: 'after' },
@@ -49,18 +87,20 @@ export async function seedChronicCareFoundation(
   const ruleResult = await db.collection('carerules').findOneAndUpdate(
     { careProgramId, version: 1 },
     {
+      $set: {
+        status: 'active',
+        revision: 1,
+        rules: program.rules,
+        dataSources: [],
+        activatedBy: createdBy,
+        activatedAt: now,
+        updatedAt: now,
+      },
       $setOnInsert: {
         careProgramId,
         version: 1,
-        status: 'active',
-        revision: 1,
-        rules: [{ operator: 'all' }],
-        dataSources: [],
-        createdBy: input.createdBy,
-        activatedBy: input.createdBy,
-        activatedAt: now,
+        createdBy,
         createdAt: now,
-        updatedAt: now,
       },
     },
     { upsert: true, returnDocument: 'after' },
@@ -76,9 +116,9 @@ if (require.main === module) {
     throw new Error('CHRONIC_CARE_SEED_CREATED_BY must be a valid ObjectId');
   }
   void withDatabase(async (db) => {
-    await seedChronicCareFoundation(db, { createdBy: new ObjectId(createdBy) });
+    await seedChronicCareProgramCatalog(db, new ObjectId(createdBy));
   })
-    .then(() => console.log('chronic-care foundation seed applied'))
+    .then(() => console.log('chronic-care program catalog seed applied'))
     .catch((error: unknown) => {
       console.error(error);
       process.exitCode = 1;

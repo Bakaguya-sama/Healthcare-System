@@ -164,7 +164,9 @@ export class CareTaskSchedulerService {
         status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
         windowStart: { $lte: now },
       })
-      .select('_id patientId windowStart windowEnd completionRule')
+      .select(
+        '_id patientCareProgramId patientId windowStart windowEnd completionRule',
+      )
       .exec();
     for (const task of tasks) {
       const metricType = (task.completionRule as Record<string, unknown>)

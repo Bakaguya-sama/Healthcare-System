@@ -828,6 +828,8 @@ Deliverables: seed idempotent, E2E fixture và reuse evidence.
 
 Exit gate: E2E hai Program pass, không có disease-specific fork của core flow.
 
+**Exit gate: CLOSED (2026-10-09).** Local catalog seed nay converge idempotent hai fixture `demo-hypertension` và `demo-diabetes` về cùng Program/Rule schema, có baseline form, metric task template và threshold rule data riêng. `chronic-care-program-reuse.integration-spec.ts` tạo hai enrollment và chạy chung `CareTaskSchedulerService` → `HealthEvaluationService` → `CareReportService`; cả hai đều materialize task, complete theo metric, tạo urgent evaluation và weekly report. Không có entity, repository hay service theo diabetes; khác biệt chỉ nằm trong `programConfig` snapshot/rule data. Đã sửa projection của scheduler để giữ `patientCareProgramId` khi metric auto-completion gọi evaluation. Typecheck, unit catalog test, CC-011 Mongo integration test và `git diff --check` pass.
+
 Ước lượng: **2-3 person-days**.
 
 #### `CC-012` — Free/Plus/Care Program access
