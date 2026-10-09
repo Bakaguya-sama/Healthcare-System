@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsOptional } from 'class-validator';
+import { IsDateString, IsEnum, IsIn, IsOptional } from 'class-validator';
 import { CareReportType } from '../../domain/entities/care-report.entity';
 
 export class GenerateCareReportDto {
@@ -19,4 +19,11 @@ export class QueryCareReportDto {
   @IsOptional()
   @IsEnum(CareReportType)
   reportType?: CareReportType;
+}
+
+export class GenerateCareSummaryDto {
+  @ApiPropertyOptional({ enum: ['patient', 'doctor'] })
+  @IsOptional()
+  @IsIn(['patient', 'doctor'])
+  audience?: 'patient' | 'doctor';
 }

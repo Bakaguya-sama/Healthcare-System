@@ -809,6 +809,8 @@ Exit gate: numerical grounding/safety/privacy/fallback/idempotency pass trên fi
 
 Ước lượng: **5-8 person-days**.
 
+**Exit gate: CLOSED (2026-10-09).** Đã thêm `CareSummaries` immutable persistence + migration/index, endpoint tạo summary theo report authorization, AI Advisory public narrative port và Gemini JSON adapter. Chỉ `SummaryInput v1` theo audience được gửi; source references/IDs và raw history không đi qua provider. Output bị kiểm tra shape, forbidden medical language và mọi literal number phải xuất hiện trong facts; provider/schema/guard failure lưu deterministic fallback thay vì làm hỏng report. Fixed unit suite (8 tests) chứng minh Patient/Doctor audience authorization, idempotent replay, provider timeout, safety rejection và numerical grounding. Typecheck, lint, boundary check và `git diff --check` pass. Mongo rehearsal đã chạy `migrate → database:verify → migrate --expect-noop` tại schema version `202610091200` (26 collections, 69 managed indexes).
+
 #### `CC-011` — Diabetes reuse proof
 
 Mục tiêu: chứng minh chương trình tiểu đường dùng chung Program/Task/Rule/Report engine.

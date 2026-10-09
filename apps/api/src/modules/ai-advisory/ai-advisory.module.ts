@@ -47,6 +47,8 @@ import { EmbeddingService } from './infrastructure/adapters/retrieval/google-emb
 import { RagIngestionService } from './application/services/retrieval/rag-ingestion.service';
 import { RagRetrievalService } from './application/services/retrieval/rag-retrieval.service';
 import { TextExtractionService } from './application/services/retrieval/text-extraction.service';
+import { CareSummaryNarrativeService } from './application/services/care-summary/care-summary-narrative.service';
+import { CARE_SUMMARY_NARRATIVE_PORT } from './application/ports/care-summary/care-summary-narrative.port';
 
 @Module({
   imports: [
@@ -85,18 +87,21 @@ import { TextExtractionService } from './application/services/retrieval/text-ext
     AiSafetyService,
     ChunkingService,
     TextExtractionService,
+    CareSummaryNarrativeService,
     RagIngestionService,
     RagRetrievalService,
     ContextBuilderService,
     EmbeddingService,
     AtlasVectorStoreService,
     { provide: VECTOR_SEARCH_PORT, useExisting: AtlasVectorStoreService },
+    { provide: CARE_SUMMARY_NARRATIVE_PORT, useExisting: CareSummaryNarrativeService },
   ],
   exports: [
     AiAssistantService,
     AiFeedbacksService,
     RagIngestionService,
     RagRetrievalService,
+    CARE_SUMMARY_NARRATIVE_PORT,
   ],
 })
 export class AiAdvisoryModule {}

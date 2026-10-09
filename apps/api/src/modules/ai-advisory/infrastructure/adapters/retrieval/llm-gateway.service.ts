@@ -39,6 +39,12 @@ export type GenerateTopicSummaryInput = {
   text: string;
 };
 
+export type GenerateJsonInput = {
+  modelName: string;
+  systemInstruction: string;
+  prompt: string;
+};
+
 export type GenerateHealthMetricNotiInput = {
   modelName: string;
   metricType: string;
@@ -73,6 +79,19 @@ export class LlmGatewayService {
   private genAI: GoogleGenerativeAI | null = null;
 
   constructor(private readonly configService: ConfigService) {}
+
+  async generateJson(input: GenerateJsonInput): Promise<string> {
+    const model = this.getClient().getGenerativeModel({
+      model: input.modelName,
+      systemInstruction: input.systemInstruction,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent(input.prompt);
+    const text = result.response.text();
+    if (!text?.trim())
+      throw new BadRequestException('LLM returned an empty JSON response');
+    return text;
+  }
 
   async generateMedicalAnswer(
     input: GenerateMedicalAnswerInput,

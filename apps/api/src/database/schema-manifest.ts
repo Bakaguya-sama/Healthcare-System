@@ -29,6 +29,10 @@ import {
   HEALTH_METRIC_COLLECTION,
   HEALTH_METRIC_INDEXES,
 } from './migrations/202610061200-health-metric-contract-alignment';
+import {
+  CC007_CARE_SUMMARIES_COLLECTION,
+  CC007_CARE_SUMMARIES_INDEXES,
+} from './migrations/202610091200-cc007-care-summaries';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -98,6 +102,7 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   },
   CC002_CARE_TASK_COLLECTION,
   CC006_CARE_REPORT_COLLECTION,
+  CC007_CARE_SUMMARIES_COLLECTION,
   HEALTH_METRIC_COLLECTION,
 ] as const;
 
@@ -261,6 +266,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...CC002_CARE_TASK_INDEXES,
   CC005_DOCTOR_PRIORITY_INBOX_INDEX,
   ...CC006_CARE_REPORT_INDEXES,
+  ...CC007_CARE_SUMMARIES_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

@@ -51,6 +51,9 @@ import {
 import { CareReportService } from './application/services/care-report.service';
 import { CareReportController } from './presentation/controllers/care-report.controller';
 import { ConsultationsModule } from '../consultations/consultations.module';
+import { AiAdvisoryModule } from '../ai-advisory/ai-advisory.module';
+import { CareSummary, CareSummarySchema } from './domain/entities/care-summary.entity';
+import { CareSummaryService } from './application/services/care-summary.service';
 
 @Module({
   imports: [
@@ -58,6 +61,7 @@ import { ConsultationsModule } from '../consultations/consultations.module';
     OutboxModule,
     HealthTrackingModule,
     ConsultationsModule,
+    AiAdvisoryModule,
     UsersModule,
     MongooseModule.forFeature([
       { name: CareProgram.name, schema: CareProgramSchema },
@@ -67,6 +71,7 @@ import { ConsultationsModule } from '../consultations/consultations.module';
       { name: HealthEvaluation.name, schema: HealthEvaluationSchema },
       { name: CareAlert.name, schema: CareAlertSchema },
       { name: CareReport.name, schema: CareReportSchema },
+      { name: CareSummary.name, schema: CareSummarySchema },
       {
         name: CareCommandIdempotency.name,
         schema: CareCommandIdempotencySchema,
@@ -88,6 +93,7 @@ import { ConsultationsModule } from '../consultations/consultations.module';
     HealthEvaluationService,
     CareAlertService,
     CareReportService,
+    CareSummaryService,
     OutboxCareTaskQueue,
     {
       provide: CARE_TASK_QUEUE,

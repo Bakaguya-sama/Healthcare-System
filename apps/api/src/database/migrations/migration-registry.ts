@@ -125,6 +125,12 @@ import {
   HEALTH_METRIC_ALIGNMENT_NAME,
   HEALTH_METRIC_ALIGNMENT_VERSION,
 } from './202610061200-health-metric-contract-alignment';
+import {
+  applyCc007CareSummaries,
+  CC007_CARE_SUMMARIES_CHECKSUM,
+  CC007_CARE_SUMMARIES_NAME,
+  CC007_CARE_SUMMARIES_VERSION,
+} from './202610091200-cc007-care-summaries';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -252,6 +258,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: HEALTH_METRIC_ALIGNMENT_NAME,
     checksum: HEALTH_METRIC_ALIGNMENT_CHECKSUM,
     up: applyHealthMetricContractAlignment,
+  },
+  {
+    version: CC007_CARE_SUMMARIES_VERSION,
+    name: CC007_CARE_SUMMARIES_NAME,
+    checksum: CC007_CARE_SUMMARIES_CHECKSUM,
+    up: applyCc007CareSummaries,
   },
 ];
 
