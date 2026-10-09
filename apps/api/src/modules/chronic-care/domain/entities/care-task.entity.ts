@@ -49,6 +49,10 @@ export class CareTask {
   @Prop() cancelledAt?: Date;
   @Prop({ maxlength: 500 }) cancellationReason?: string;
   @Prop({ required: true, unique: true, maxlength: 240 }) uniqueKey: string;
+
+  // Added by Mongoose timestamps; declared for type-safe cutoff queries.
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const CareTaskSchema = SchemaFactory.createForClass(CareTask);

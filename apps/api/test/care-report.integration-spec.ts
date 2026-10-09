@@ -96,6 +96,8 @@ describe('CC-006 deterministic CareReport', () => {
         completionRule: {},
         reminderPolicy: {},
         uniqueKey: 'cc006-task-1',
+        completedAt: new Date('2026-10-01T01:30:00.000Z'),
+        createdAt: new Date('2026-09-30T00:00:00.000Z'),
       },
       {
         patientCareProgramId: enrollmentId,
@@ -112,6 +114,8 @@ describe('CC-006 deterministic CareReport', () => {
         completionRule: {},
         reminderPolicy: {},
         uniqueKey: 'cc006-task-2',
+        missedAt: new Date('2026-10-02T02:00:00.000Z'),
+        createdAt: new Date('2026-09-30T00:00:00.000Z'),
       },
     ]);
     metricItems = [
@@ -248,6 +252,47 @@ describe('CC-006 deterministic CareReport', () => {
     expect(reports[0].sourceData).toBeUndefined();
     expect(reports[0].summaryInput.provenance.sourceReferences).toBeUndefined();
     expect(reports[0].summaryInput.facts.statistics).toBeDefined();
+    expect(reports[0].summaryInput.facts.healthEvaluations).not.toHaveProperty(
+      'reasonCodes',
+    );
+    expect(reports[0].summaryInput.facts.healthEvaluations).not.toHaveProperty(
+      'evaluationIds',
+    );
+  });
+
+  it('derives task status at the cutoff instead of using later terminal transitions', async () => {
+    await connection.db!.collection('caretasks').updateOne(
+      { uniqueKey: 'cc006-task-1' },
+      {
+        $set: {
+          status: 'completed',
+          completedAt: new Date('2026-10-07T09:00:00.000Z'),
+        },
+      },
+    );
+    await connection.db!.collection('caretasks').updateOne(
+      { uniqueKey: 'cc006-task-2' },
+      {
+        $set: {
+          status: 'cancelled',
+          cancelledAt: new Date('2026-10-07T09:00:00.000Z'),
+        },
+      },
+    );
+
+    const report = await service.generate(
+      { id: doctorId.toHexString(), role: UserRole.DOCTOR },
+      enrollmentId.toHexString(),
+      CareReportType.WEEKLY,
+      cutoff,
+    );
+
+    expect(report.summaryInput.facts.statistics.tasks).toEqual({
+      expected: 2,
+      completed: 0,
+      missed: 2,
+      adherence: 0,
+    });
   });
 
   it('returns one report when identical generation requests race', async () => {

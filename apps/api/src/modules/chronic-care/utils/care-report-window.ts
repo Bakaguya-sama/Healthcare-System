@@ -26,3 +26,19 @@ export function resolveCareReportWindow(input: {
   );
   return { windowStart, windowEnd };
 }
+
+export function resolveCareTaskStatusAtCutoff(input: {
+  windowEnd: Date;
+  completedAt?: Date;
+  missedAt?: Date;
+  cancelledAt?: Date;
+  dataUntil: Date;
+}): 'scheduled' | 'completed' | 'missed' | 'cancelled' {
+  if (input.cancelledAt && input.cancelledAt <= input.dataUntil)
+    return 'cancelled';
+  if (input.completedAt && input.completedAt <= input.dataUntil)
+    return 'completed';
+  if (input.missedAt && input.missedAt <= input.dataUntil) return 'missed';
+  if (input.windowEnd <= input.dataUntil) return 'missed';
+  return 'scheduled';
+}

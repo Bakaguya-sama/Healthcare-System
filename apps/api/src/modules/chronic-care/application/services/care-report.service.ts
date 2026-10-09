@@ -38,7 +38,10 @@ import {
   SUMMARY_INPUT_VERSION_V1,
   type SummaryInputV1,
 } from '../../domain/reports/summary-input-v1';
-import { resolveCareReportWindow } from '../../utils/care-report-window';
+import {
+  resolveCareReportWindow,
+  resolveCareTaskStatusAtCutoff,
+} from '../../utils/care-report-window';
 import type { CareActor } from './care-program-rule.service';
 
 const REPORT_PROJECTION =
@@ -104,6 +107,15 @@ function numberRecord(value: unknown): Record<string, number> {
       (entry): entry is [string, number] => typeof entry[1] === 'number',
     ),
   );
+}
+
+export function projectPatientHealthEvaluationSummary(
+  summary: Record<string, unknown>,
+) {
+  return {
+    total: typeof summary.total === 'number' ? summary.total : 0,
+    bySeverity: numberRecord(summary.bySeverity),
+  };
 }
 
 @Injectable()
@@ -204,11 +216,12 @@ export class CareReportService {
           .find({
             patientCareProgramId: enrollment._id,
             required: true,
+            createdAt: { $lte: dataUntil },
             windowStart: { $gte: windowStart },
             windowEnd: { $lte: windowEnd },
           })
           .select(
-            '_id templateKey status scheduledFor windowStart windowEnd updatedAt',
+            '_id templateKey scheduledFor windowStart windowEnd completedAt missedAt cancelledAt createdAt',
           )
           .sort({ scheduledFor: 1, _id: 1 })
           .lean()
@@ -259,7 +272,13 @@ export class CareReportService {
       tasks: tasks.map((task) => ({
         id: String(task._id),
         templateKey: task.templateKey,
-        status: task.status,
+        status: resolveCareTaskStatusAtCutoff({
+          windowEnd: task.windowEnd,
+          ...(task.completedAt ? { completedAt: task.completedAt } : {}),
+          ...(task.missedAt ? { missedAt: task.missedAt } : {}),
+          ...(task.cancelledAt ? { cancelledAt: task.cancelledAt } : {}),
+          dataUntil,
+        }),
         scheduledFor: task.scheduledFor,
         windowStart: task.windowStart,
         windowEnd: task.windowEnd,
@@ -466,14 +485,9 @@ export class CareReportService {
 
   private project(report: CareReportReadModel, role: UserRole): CareReportView {
     const sourceData = report.sourceData;
-    const patientEvaluationSummary = {
-      total:
-        typeof report.healthEvaluationSummary.total === 'number'
-          ? report.healthEvaluationSummary.total
-          : 0,
-      bySeverity: numberRecord(report.healthEvaluationSummary.bySeverity),
-      reasonCodes: numberRecord(report.healthEvaluationSummary.reasonCodes),
-    };
+    const patientEvaluationSummary = projectPatientHealthEvaluationSummary(
+      report.healthEvaluationSummary,
+    );
     const audience = role === UserRole.DOCTOR ? 'doctor' : 'patient';
     const summaryInput: SummaryInputV1 = {
       schemaVersion: SUMMARY_INPUT_VERSION_V1,
