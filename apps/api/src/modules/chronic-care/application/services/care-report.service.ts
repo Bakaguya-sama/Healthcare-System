@@ -4,8 +4,8 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { UserRole } from '../../../../core/domain/user.enums';
 import {
-  CARE_REPORT_CONSULTATION,
-  type CareReportConsultationPort,
+  CARE_REPORT_PORT,
+  type CareReportPort,
 } from '../../../consultations/public-api';
 import {
   HEALTH_METRIC,
@@ -131,8 +131,8 @@ export class CareReportService {
     @InjectModel(CareAlert.name)
     private readonly alerts: Model<CareAlertDocument>,
     @Inject(HEALTH_METRIC) private readonly metrics: HealthMetricPort,
-    @Inject(CARE_REPORT_CONSULTATION)
-    private readonly consultations: CareReportConsultationPort,
+    @Inject(CARE_REPORT_PORT)
+    private readonly consultations: CareReportPort,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 

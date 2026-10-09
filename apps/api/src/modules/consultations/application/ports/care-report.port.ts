@@ -1,6 +1,6 @@
-export const CARE_REPORT_CONSULTATION = Symbol('CARE_REPORT_CONSULTATION');
+export const CARE_REPORT_PORT = Symbol('CARE_REPORT_PORT');
 
-export type CareReportConsultationItem = {
+export type CareReportItem = {
   id: string;
   careAlertId?: string;
   sessionStatus: string;
@@ -9,7 +9,7 @@ export type CareReportConsultationItem = {
   followUpAt?: Date;
 };
 
-export interface CareReportConsultationPort {
+export interface CareReportPort {
   listForCareReport(input: {
     patientCareProgramId: string;
     patientId: string;
@@ -17,5 +17,5 @@ export interface CareReportConsultationPort {
     to: Date;
     updatedUntil: Date;
     limit: number;
-  }): Promise<{ items: CareReportConsultationItem[]; truncated: boolean }>;
+  }): Promise<{ items: CareReportItem[]; truncated: boolean }>;
 }

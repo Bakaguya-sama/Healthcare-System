@@ -21,13 +21,13 @@ import {
   NotificationType,
 } from '../../../../notifications/public-api';
 import { UsersService } from '../../../../users/public-api';
-import type { CareReportConsultationPort } from '../../ports/care-report-consultation.port';
+import type { CareReportPort } from '../../ports/care-report.port';
 
 const CONSULTATION_PROJECTION =
   '_id patientId doctorId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes sessionStartedAt completedAt cancelledAt cancellationReason lastMessageAt lastMessageId createdAt updatedAt';
 
 @Injectable()
-export class ConsultationsService implements CareReportConsultationPort {
+export class ConsultationsService implements CareReportPort {
   constructor(
     @InjectModel(Consultation.name)
     private readonly consultationModel: Model<ConsultationDocument>,
