@@ -74,6 +74,97 @@ export class CareEnrollmentService {
     return createHash('sha256').update(JSON.stringify(value)).digest('hex');
   }
 
+  private admittedStatuses() {
+    return [
+      PatientCareProgramStatus.PENDING,
+      PatientCareProgramStatus.ACTIVE,
+      PatientCareProgramStatus.PAUSED,
+    ];
+  }
+
+  private async checkProgramAccess(
+    patientId: Types.ObjectId,
+    programCode: string,
+    session: any,
+    excludingEnrollmentId?: Types.ObjectId,
+  ) {
+    const filter: Record<string, unknown> = {
+      patientId,
+      status: { $in: this.admittedStatuses() },
+    };
+    if (excludingEnrollmentId) filter._id = { $ne: excludingEnrollmentId };
+    const activeProgramCount = await this.enrollments
+      .countDocuments(filter)
+      .session(session)
+      .exec();
+    return this.programAccess.check({
+      patientId: String(patientId),
+      programCode,
+      activeProgramCount,
+    });
+  }
+
+  private async reserveProgramAccessSlot(
+    patientId: Types.ObjectId,
+    limit: number,
+    session: any,
+    excludingEnrollmentId?: Types.ObjectId,
+  ) {
+    const filter: Record<string, unknown> = {
+      patientId,
+      status: { $in: this.admittedStatuses() },
+      programAccessSlot: { $exists: true },
+    };
+    if (excludingEnrollmentId) filter._id = { $ne: excludingEnrollmentId };
+    const enrolled = await this.enrollments
+      .find(filter)
+      .select('programAccessSlot')
+      .session(session)
+      .lean()
+      .exec();
+    const occupied = new Set(
+      enrolled.flatMap((enrollment) =>
+        Number.isInteger(enrollment.programAccessSlot)
+          ? [enrollment.programAccessSlot]
+          : [],
+      ),
+    );
+    for (let slot = 0; slot < limit; slot += 1)
+      if (!occupied.has(slot)) return slot;
+    return null;
+  }
+
+  private async reserveAccessForEnrollment(
+    enrollment: PatientCareProgramDocument,
+    session: any,
+  ): Promise<string | undefined> {
+    const programCode = (enrollment.programConfig as Record<string, unknown>)
+      .programCode;
+    if (typeof programCode !== 'string' || !programCode)
+      return 'program_snapshot_invalid';
+    const entitlement = await this.checkProgramAccess(
+      enrollment.patientId,
+      programCode,
+      session,
+      enrollment._id,
+    );
+    if (!entitlement.eligible) return entitlement.reasonCode;
+    if (
+      Number.isInteger(enrollment.programAccessSlot) &&
+      enrollment.programAccessSlot! < entitlement.activeCareProgramLimit
+    )
+      return undefined;
+    const slot = await this.reserveProgramAccessSlot(
+      enrollment.patientId,
+      entitlement.activeCareProgramLimit,
+      session,
+      enrollment._id,
+    );
+    if (slot === null) return 'active_care_program_limit_reached';
+    enrollment.programAccessSlot = slot;
+    return undefined;
+  }
+
   private async audit(
     e: PatientCareProgramDocument,
     actor: CareActor,
@@ -164,7 +255,10 @@ export class CareEnrollmentService {
     }
   }
 
-  private async guard(e: PatientCareProgramDocument): Promise<string[]> {
+  private async guard(
+    e: PatientCareProgramDocument,
+    session: any,
+  ): Promise<string[]> {
     const p = await this.programs.findById(e.careProgramId).exec(),
       r = await this.rules.findById(e.careRuleId).exec();
     const reasons: string[] = [];
@@ -176,12 +270,6 @@ export class CareEnrollmentService {
       reasons.push('program_not_published');
     if (!r || r.status !== CareRuleStatus.ACTIVE)
       reasons.push('rule_not_active');
-    const entitlement = await this.programAccess.check(
-      String(e.patientId),
-      String((e.programConfig as any).programCode),
-    );
-    if (!entitlement.eligible)
-      reasons.push(entitlement.reasonCode ?? 'entitlement_missing');
     const consent = e.consent as any;
     if (
       !consent?.acceptedAt ||
@@ -194,10 +282,37 @@ export class CareEnrollmentService {
       e.baselineAnswers ?? {},
     );
     if (!baseline.valid) reasons.push('baseline_incomplete');
+    if (!reasons.length) {
+      const accessReason = await this.reserveAccessForEnrollment(e, session);
+      if (accessReason) reasons.push(accessReason);
+    }
     return reasons;
   }
 
   async create(actor: CareActor, input: any, key: string) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await this.createOnce(actor, input, key);
+      } catch (error) {
+        if ((error as { code?: number }).code !== 11000) throw error;
+        if (attempt === 1)
+          this.fail(
+            'CARE_PROGRAM_ACCESS_DENIED',
+            HttpStatus.CONFLICT,
+            'Patient is not eligible for another care program',
+            { reasons: ['active_care_program_limit_reached'] },
+          );
+      }
+    }
+    this.fail(
+      'CARE_PROGRAM_ACCESS_DENIED',
+      HttpStatus.CONFLICT,
+      'Patient is not eligible for another care program',
+      { reasons: ['active_care_program_limit_reached'] },
+    );
+  }
+
+  private async createOnce(actor: CareActor, input: any, key: string) {
     if (
       actor.role !== UserRole.DOCTOR ||
       !(await this.doctors.isActiveAndApproved(actor.id))
@@ -254,17 +369,44 @@ export class CareEnrollmentService {
             HttpStatus.FORBIDDEN,
             'Custom setting is not allowed',
           );
+        const programCode = p.programCode;
+        const entitlement = await this.checkProgramAccess(
+          this.id(input.patientId, 'CARE_PATIENT_NOT_ACTIVE'),
+          programCode,
+          s,
+        );
+        if (!entitlement.eligible)
+          this.fail(
+            'CARE_PROGRAM_ACCESS_DENIED',
+            HttpStatus.CONFLICT,
+            'Patient is not eligible for another care program',
+            { reasons: [entitlement.reasonCode] },
+          );
+        const patientId = this.id(input.patientId, 'CARE_PATIENT_NOT_ACTIVE');
+        const accessSlot = await this.reserveProgramAccessSlot(
+          patientId,
+          entitlement.activeCareProgramLimit,
+          s,
+        );
+        if (accessSlot === null)
+          this.fail(
+            'CARE_PROGRAM_ACCESS_DENIED',
+            HttpStatus.CONFLICT,
+            'Patient is not eligible for another care program',
+            { reasons: ['active_care_program_limit_reached'] },
+          );
         const e = new this.enrollments({
-          patientId: this.id(input.patientId, 'CARE_PATIENT_NOT_ACTIVE'),
+          patientId,
           doctorId: this.id(actor.id, 'CARE_FORBIDDEN'),
           careProgramId: p._id,
           careRuleId: r._id,
+          programAccessSlot: accessSlot,
           timezone: input.timezone,
           customSettings: input.customSettings,
           revision: 1,
           consent: {},
           programConfig: {
-            programCode: p.programCode,
+            programCode,
             programVersion: p.version,
             baselineSchemaVersion:
               (p.baselineForm as any)?.schemaVersion ??
@@ -289,7 +431,7 @@ export class CareEnrollmentService {
           e,
           actor,
           'care_enrollment_created',
-          undefined,
+          'care_program_access_granted',
           undefined,
           s,
         );
@@ -327,7 +469,7 @@ export class CareEnrollmentService {
           );
         e.consent = { ...dto, acceptedAt: new Date() };
         e.revision++;
-        const reasons = await this.guard(e);
+        const reasons = await this.guard(e, s);
         if (!reasons.length) {
           e.status = PatientCareProgramStatus.ACTIVE;
           e.startedAt = new Date();
@@ -384,7 +526,7 @@ export class CareEnrollmentService {
         e.baselineAnswers = dto.answers;
         e.baselineCompletedAt = new Date();
         e.revision++;
-        const reasons = await this.guard(e);
+        const reasons = await this.guard(e, s);
         if (!reasons.length) {
           e.status = PatientCareProgramStatus.ACTIVE;
           e.startedAt = new Date();
@@ -483,7 +625,7 @@ export class CareEnrollmentService {
           action === 'resume' &&
           from === PatientCareProgramStatus.PAUSED
         ) {
-          const reasons = await this.guard(e);
+          const reasons = await this.guard(e, s);
           if (reasons.length)
             this.fail(
               'CARE_ENROLLMENT_ACTIVATION_BLOCKED',

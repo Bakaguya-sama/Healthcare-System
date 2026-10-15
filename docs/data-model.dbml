@@ -616,6 +616,7 @@ Table PatientCarePrograms {
   doctorId ObjectID [not null, note: "Must be active + approved before enrollment becomes active"]
   careProgramId ObjectID [not null]
   careRuleId ObjectID [not null]
+  programAccessSlot int [note: "Admission slot allocated from the effective Subscription snapshot; partial unique while pending|active|paused"]
   status varchar [not null, note: "pending, active, paused, completed, cancelled"]
   timezone varchar [not null, note: "IANA timezone snapshot used for schedules/report windows"]
   consent json [not null, note: "{ policyVersion, acceptedAt, purposes[], channels[] }"]
@@ -645,6 +646,7 @@ Table PatientCarePrograms {
     (doctorId, status, updatedAt)
     (careProgramId, status)
     (patientId, careProgramId) [note: "Partial unique for statuses pending|active|paused; terminal enrollment history may coexist"]
+    (patientId, programAccessSlot) [unique, note: "Partial unique for statuses pending|active|paused and slot exists; prevents concurrent limit bypass"]
   }
 }
 

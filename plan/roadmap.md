@@ -854,6 +854,8 @@ Exit gate: grant/expiry/downgrade/limit/race/safety tests pass; không có fail-
 
 Ước lượng: **5-7 person-days**.
 
+**Exit gate: CLOSED (2026-10-15).** Đã thêm Billing bounded context với `Plans`/`Subscriptions` schema, validator/index migration và public access port. Chronic Care chỉ dùng adapter qua `billing/public-api.ts`, không inject Billing model hay nhận Plan/tier/limit từ client. Billing resolve Subscription `active` theo effective window và immutable `planSnapshot`; snapshot malformed/missing/expired fail-closed. Khi không có paid Subscription hiệu lực, Billing cấp hoặc renew cùng `free_grant` 30 ngày từ published `FREE` Plan, không tạo PaymentOrder. `pending|active|paused` enrollment giữ `programAccessSlot`; partial unique index `(patientId, programAccessSlot)` ngăn race vượt active-program limit. Create, activation và resume đều recheck access; expiry/downgrade chỉ chặn action mới, không đụng HealthMetrics/report/alert hoặc clinical severity. Unit policy (2 tests), Mongo integration grant/snapshot/renewal/expiry/concurrent-race (3 tests), typecheck, lint, boundary check và `git diff --check` pass. Mongo rehearsal `migrate → database:verify → migrate --expect-noop` pass tại version `202610151000` (28 collections, 78 managed indexes).
+
 #### `CC-013` — Consultation usage reservation ledger
 
 Mục tiêu: reserve/count/release consultation quota chính xác cho scheduled và on-demand.

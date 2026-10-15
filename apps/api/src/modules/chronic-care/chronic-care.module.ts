@@ -23,6 +23,8 @@ import { PATIENT_REPOSITORY_PORT } from './application/ports/patient.repository.
 import { CARE_PROGRAM_ACCESS_PORT } from './application/ports/care-program-access.port';
 import { UsersPatientAdapter } from './infrastructure/adapters/patient.adapter';
 import { NoEntitlementAdapter } from './infrastructure/adapters/no-entitlement.adapter';
+import { BillingModule } from '../billing/billing.module';
+import { BillingCareProgramAccessAdapter } from './infrastructure/adapters/billing-care-program-access.adapter';
 import { CareEnrollmentService } from './application/services/care-enrollment.service';
 import { CareEnrollmentController } from './presentation/controllers/care-enrollment.controller';
 import { CareTask, CareTaskSchema } from './domain/entities/care-task.entity';
@@ -52,7 +54,10 @@ import { CareReportService } from './application/services/care-report.service';
 import { CareReportController } from './presentation/controllers/care-report.controller';
 import { ConsultationsModule } from '../consultations/consultations.module';
 import { AiAdvisoryModule } from '../ai-advisory/ai-advisory.module';
-import { CareSummary, CareSummarySchema } from './domain/entities/care-summary.entity';
+import {
+  CareSummary,
+  CareSummarySchema,
+} from './domain/entities/care-summary.entity';
 import { CareSummaryService } from './application/services/care-summary.service';
 
 @Module({
@@ -62,6 +67,7 @@ import { CareSummaryService } from './application/services/care-summary.service'
     HealthTrackingModule,
     ConsultationsModule,
     AiAdvisoryModule,
+    BillingModule,
     UsersModule,
     MongooseModule.forFeature([
       { name: CareProgram.name, schema: CareProgramSchema },
@@ -101,13 +107,19 @@ import { CareSummaryService } from './application/services/care-summary.service'
     },
     UsersDoctorAdapter,
     UsersPatientAdapter,
+    // Retained as an explicit deny-by-default fallback for isolated tests;
+    // production composition always receives Billing-backed access decisions.
     NoEntitlementAdapter,
+    BillingCareProgramAccessAdapter,
     {
       provide: DOCTOR_REPOSITORY_PORT,
       useExisting: UsersDoctorAdapter,
     },
     { provide: PATIENT_REPOSITORY_PORT, useExisting: UsersPatientAdapter },
-    { provide: CARE_PROGRAM_ACCESS_PORT, useExisting: NoEntitlementAdapter },
+    {
+      provide: CARE_PROGRAM_ACCESS_PORT,
+      useExisting: BillingCareProgramAccessAdapter,
+    },
   ],
   exports: [MongooseModule, CareProgramRuleService],
 })

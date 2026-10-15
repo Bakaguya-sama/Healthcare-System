@@ -22,6 +22,7 @@ export class PatientCareProgram {
   careProgramId: Types.ObjectId;
   @Prop({ type: Types.ObjectId, ref: 'CareRule', required: true })
   careRuleId: Types.ObjectId;
+  @Prop({ min: 0, max: 99 }) programAccessSlot?: number;
   @Prop({
     required: true,
     enum: PatientCareProgramStatus,
@@ -68,6 +69,23 @@ export const PatientCareProgramSchema =
 PatientCareProgramSchema.index(
   { patientId: 1, status: 1, createdAt: -1 },
   { name: 'patientId_1_status_1_createdAt_-1' },
+);
+PatientCareProgramSchema.index(
+  { patientId: 1, programAccessSlot: 1 },
+  {
+    name: 'patientId_1_programAccessSlot_admitted_unique',
+    unique: true,
+    partialFilterExpression: {
+      status: {
+        $in: [
+          PatientCareProgramStatus.PENDING,
+          PatientCareProgramStatus.ACTIVE,
+          PatientCareProgramStatus.PAUSED,
+        ],
+      },
+      programAccessSlot: { $exists: true },
+    },
+  },
 );
 PatientCareProgramSchema.index(
   { doctorId: 1, status: 1, updatedAt: -1 },

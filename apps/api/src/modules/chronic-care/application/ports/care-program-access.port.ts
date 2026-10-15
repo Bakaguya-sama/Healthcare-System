@@ -1,6 +1,14 @@
 export const CARE_PROGRAM_ACCESS_PORT = Symbol('CARE_PROGRAM_ACCESS_PORT');
-export type CareEntitlement = { eligible: boolean; reasonCode?: string };
+export type CareProgramAccessRequest = {
+  patientId: string;
+  programCode: string;
+  activeProgramCount: number;
+};
+
+export type CareEntitlement =
+  | { eligible: true; activeCareProgramLimit: number }
+  | { eligible: false; reasonCode: string };
 
 export interface CareProgramAccessPort {
-  check(patientId: string, programCode: string): Promise<CareEntitlement>;
+  check(input: CareProgramAccessRequest): Promise<CareEntitlement>;
 }

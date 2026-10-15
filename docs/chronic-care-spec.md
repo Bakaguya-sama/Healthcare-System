@@ -70,6 +70,12 @@ The application, not a client-supplied `status`, performs transitions. `pending 
 
 If any guard fails, the enrollment remains `pending`; it returns a stable blocking reason and does not create tasks, evaluations, alerts or reminders. Resume repeats the same guards. Consent withdrawal changes a non-terminal enrollment to `cancelled` immediately and prevents new processing.
 
+#### Program-access entitlement
+
+Chronic Care asks Billing through a public port; it neither imports a Billing model nor accepts a tier, Plan code, price, limit or entitlement from the client. Billing resolves one effective `Subscription` using `status = active`, its effective period and `expiresAt`, then evaluates the immutable `planSnapshot.activeCareProgramLimit`. A missing, expired or malformed subscription fails closed with a stable reason code. If no effective paid subscription exists, Billing renews the same `free_grant` record for its next 30-day cycle, or creates one from the currently published `FREE` Plan; it never creates a PaymentOrder for this path.
+
+`pending`, `active` and `paused` enrollments all consume an admission slot. The slot is allocated under a partial unique `(patientId, programAccessSlot)` index, so two concurrent creates cannot exceed the snapshot limit; a duplicate-key race is rejected rather than granted. Create, activation and resume re-evaluate access. Expiry or downgrade blocks only new paid/program actions: it does not delete HealthMetrics, reports, CareAlerts, or change clinical alert severity/priority.
+
 #### Baseline schema v1
 
 `baselineForm` is an allowlisted, versioned contract: `{ schemaVersion: "v1", fields[] }`. Every field has a unique snake_case `key`, a primitive `type` (`number`, `integer`, `boolean`, `string`, or `date`), optional `unit` and numeric `range`, `required`, and `visibility` (`patient` or `care_team`). Executable expressions, unknown properties, nested workflow definitions and arbitrary fields are rejected. At enrollment creation, the complete form and `baselineSchemaVersion` are copied inside `programConfig`; later Program drafts do not affect its validation. Validation errors expose only field keys and stable reason codes, while audit records never contain answer values or consent payloads. A patient-facing projection excludes `care_team` fields.
@@ -98,6 +104,7 @@ Only the assigned Doctor performs clinical workflow transitions. Admin may audit
 | Health Tracking  | Authorized, normalized metric values required by a Rule plus metric-change notification by opaque IDs              | `HealthMetric` model/schema or direct collection query             |
 | Notifications    | Queue an idempotent notification/outbox command                                                                    | `Notification` model/schema or Gateway as a persistence dependency |
 | Consultations    | Verify/link an authorized consultation; receive lifecycle notification by opaque ID                                | `Consultation` model/schema or direct collection query             |
+| Billing          | Opaque effective Program-access decision and safe reason code                                                      | `Plan`/`Subscription` models, prices, provider/order payloads      |
 
 The reverse direction follows the same rule: another context accesses Care Enrollment only through `chronic-care/public-api.ts`, never through a future `PatientCareProgram` model. Cross-context source imports must pass the existing `boundary:check` rule.
 

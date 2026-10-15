@@ -33,6 +33,10 @@ import {
   CC007_CARE_SUMMARIES_COLLECTION,
   CC007_CARE_SUMMARIES_INDEXES,
 } from './migrations/202610091200-cc007-care-summaries';
+import {
+  CC012_BILLING_COLLECTIONS,
+  CC012_BILLING_INDEXES,
+} from './migrations/202610151000-cc012-billing-access';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -104,6 +108,7 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   CC006_CARE_REPORT_COLLECTION,
   CC007_CARE_SUMMARIES_COLLECTION,
   HEALTH_METRIC_COLLECTION,
+  ...CC012_BILLING_COLLECTIONS,
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
@@ -267,6 +272,7 @@ export const MANAGED_DATABASE_INDEXES = [
   CC005_DOCTOR_PRIORITY_INBOX_INDEX,
   ...CC006_CARE_REPORT_INDEXES,
   ...CC007_CARE_SUMMARIES_INDEXES,
+  ...CC012_BILLING_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

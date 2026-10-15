@@ -131,6 +131,12 @@ import {
   CC007_CARE_SUMMARIES_NAME,
   CC007_CARE_SUMMARIES_VERSION,
 } from './202610091200-cc007-care-summaries';
+import {
+  applyCc012BillingAccess,
+  CC012_BILLING_ACCESS_CHECKSUM,
+  CC012_BILLING_ACCESS_NAME,
+  CC012_BILLING_ACCESS_VERSION,
+} from './202610151000-cc012-billing-access';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -264,6 +270,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC007_CARE_SUMMARIES_NAME,
     checksum: CC007_CARE_SUMMARIES_CHECKSUM,
     up: applyCc007CareSummaries,
+  },
+  {
+    version: CC012_BILLING_ACCESS_VERSION,
+    name: CC012_BILLING_ACCESS_NAME,
+    checksum: CC012_BILLING_ACCESS_CHECKSUM,
+    up: applyCc012BillingAccess,
   },
 ];
 
