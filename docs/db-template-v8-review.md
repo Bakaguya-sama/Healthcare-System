@@ -2,10 +2,10 @@
 
 ## Trạng thái
 
-- File thiết kế: `docs/db-template-v8.dbml`.
+- File thiết kế: `docs/data-model.dbml`.
 - Trạng thái: **Approved target design**.
 - Ngày ghi nhận phê duyệt: **25/09/2026**.
-- `db-template-v8.dbml` là nguồn chuẩn cho target schema DA2 và có thể dùng để vẽ ERD, viết model cũng như thiết kế migration.
+- `data-model.dbml` là nguồn chuẩn cho target schema DA2 và có thể dùng để vẽ ERD, viết model cũng như thiết kế migration.
 - `db-template-v7.dbml` vẫn mô tả baseline đã triển khai trước migration. Việc duyệt v8 không khẳng định collection/index đã tồn tại trong database; mọi thay đổi vật lý phải đi qua migration có version và `database:verify`.
 
 ## Thay đổi chính so với v7

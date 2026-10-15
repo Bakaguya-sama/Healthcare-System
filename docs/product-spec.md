@@ -354,10 +354,10 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 
 Tài liệu mô tả phạm vi sản phẩm, nghiệp vụ, kiến trúc và trạng thái chuyển đổi của Healthcare Application từ DA1 sang DA2. Nguồn chuẩn đi kèm:
 
-- Nghiệp vụ/command contract Chronic Care: ADR-0002, sau đó là `docs/BUSINESS_RULES.md`.
-- Dữ liệu đã triển khai trước migration: `docs/db-template-v7.dbml`; target schema DA2 đã duyệt: `docs/db-template-v8.dbml`.
-- Kế hoạch implementation Chronic Care: `plan/chronic-care-plan.md`; `plan/refactor-plan.md` chỉ giữ dependency/refactor/cut-line tổng quan.
-- Hợp đồng tích hợp frontend: `docs/fe-integration.md`.
+- Nghiệp vụ/command contract Chronic Care: `docs/chronic-care-spec.md` (ADR-0002).
+- Dữ liệu đã triển khai trước migration: `docs/db-template-v7.dbml`; target schema DA2 đã duyệt: `docs/data-model.dbml`.
+- Kế hoạch implementation Chronic Care: `plan/roadmap.md`; `plan/archive/refactor-history.md` chỉ giữ dependency/refactor/cut-line lịch sử.
+- Hợp đồng tích hợp frontend: `docs/integration-contract.md`.
 
 DA2 được triển khai trong giai đoạn 09/2026–12/2026, deadline mục tiêu 31/12/2026. Những chức năng được mô tả là **mục tiêu của phiên bản DA2**, không mặc định đã tồn tại trong code DA1.
 
@@ -658,7 +658,7 @@ Mongoose là ODM chính. Mỗi collection có một canonical model thuộc modu
 
 ## 7. Dữ liệu
 
-DB v7 gồm 27 collections và vẫn là baseline đã triển khai trước migration. `docs/db-template-v8.dbml` gồm 42 collections, trong đó có hai collection hạ tầng migration/lock, và đã được duyệt làm target schema DA2. V8 bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 có thể dùng làm nguồn vẽ ERD và triển khai model, nhưng chưa được xem là đã triển khai vật lý cho tới khi có migration, verifier và kiểm thử tương ứng.
+DB v7 gồm 27 collections và vẫn là baseline đã triển khai trước migration. `docs/data-model.dbml` gồm 42 collections, trong đó có hai collection hạ tầng migration/lock, và đã được duyệt làm target schema DA2. V8 bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 có thể dùng làm nguồn vẽ ERD và triển khai model, nhưng chưa được xem là đã triển khai vật lý cho tới khi có migration, verifier và kiểm thử tương ứng.
 
 Nguyên tắc:
 
@@ -676,7 +676,7 @@ Nguyên tắc:
 - Pagination chuẩn: `items`, `page`, `limit`, `total`, `hasNext`.
 - Command có nguy cơ retry như booking, message, create order, cancel và refund dùng `Idempotency-Key` hoặc conditional transition.
 - Socket event có version, ví dụ `consultation.v1.updated`, `message.v1.created`, `queue.v1.changed`, `notification.v1.created`.
-- Frontend integration chi tiết theo từng page nằm trong `docs/fe-integration.md`.
+- Frontend integration chi tiết theo từng page nằm trong `docs/integration-contract.md`.
 
 ## 9. Công nghệ
 
@@ -707,9 +707,9 @@ Nguyên tắc:
 | Notification side effect trực tiếp | Notification + transactional outbox + worker |
 | Chưa có billing implementation | Plans, payment/IPN, cancel, Subscription grant và refund P1 |
 | Health Metrics mới dừng ở ghi nhận/cảnh báo đơn lẻ | Care Program, monitoring adherence, rule evaluation, Care Alert và Doctor Priority Inbox |
-| Frontend/backend cùng monorepo | Backend repo riêng; frontend monorepo riêng; OpenAPI contract |
+| Frontend/backend cùng monorepo | API là package hiện hành; không còn frontend source trong repository này, mọi consumer dùng OpenAPI/realtime contract |
 
-Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/fe-integration.md`. Frontend repo mới chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
+Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/integration-contract.md`. Consumer chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
 
 ## 11. Phạm vi theo deadline
 
@@ -755,5 +755,5 @@ Full refund mặc định không thuộc committed scope. Chỉ nhận trước 
 - Database rỗng được tạo lại từ migration files và `database:verify` pass.
 - Không log dữ liệu nhạy cảm; room/file/API đều authorize phía server.
 - Demo không cần sửa tay database.
-- README, OpenAPI, realtime events và `fe-integration.md` khớp release thực tế.
+- README, OpenAPI, realtime events và `integration-contract.md` khớp release thực tế.
 

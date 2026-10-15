@@ -23,6 +23,9 @@ describe('RF-2D index schema synchronization', () => {
       ({ collection, name }) =>
         collection !== 'sessions' &&
         collection !== 'doctors' &&
+        // CC-006 replaces the legacy top-level HealthMetric indexes with the
+        // target `meta.*` indexes and drops the old names during migration.
+        collection !== 'healthmetrics' &&
         name !== 'doctorSessionId_1_sentAt_-1__id_-1' &&
         !RETIRED_AI_CONVERSATION_INDEX_NAMES.includes(
           name as (typeof RETIRED_AI_CONVERSATION_INDEX_NAMES)[number],

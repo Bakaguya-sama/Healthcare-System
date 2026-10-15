@@ -6,10 +6,10 @@ Tài liệu mô tả dữ liệu, REST API, realtime event, cache và trạng th
 
 Nguồn thiết kế:
 
-- `docs/overview.md` — phạm vi sản phẩm.
-- `docs/BUSINESS_RULES.md` — quy tắc nghiệp vụ.
-- `docs/db-template-v8.dbml` — target schema DA2 đã duyệt; v7 chỉ là baseline migration.
-- `plan/refactor-plan.md` — kiến trúc, thứ tự refactor và cut-line.
+- `docs/product-spec.md` — phạm vi sản phẩm, safety và business invariants.
+- `docs/chronic-care-spec.md` — command contract Chronic Care.
+- `docs/data-model.dbml` — target schema DA2 đã duyệt; v7 chỉ là baseline migration.
+- `plan/roadmap.md` — thứ tự implementation, exit gate và cut-line hiện hành.
 
 Đây là **target integration contract**. Endpoint gắn nhãn Current đã tồn tại trong code; endpoint Target phải được đưa vào OpenAPI trước khi frontend triển khai. Tên endpoint trong tài liệu có thể chỉnh trước khi khóa contract, nhưng sau khi frontend pin OpenAPI version thì breaking change phải dùng compatibility adapter hoặc API version mới.
 

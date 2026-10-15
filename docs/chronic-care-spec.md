@@ -3,11 +3,11 @@
 - Status: Accepted
 - Date: 2026-09-29
 - Scope: `BE-CC-000A`; prerequisite for `BE-CC-000B` and `BE-CC-001`
-- Related: `docs/BUSINESS_RULES.md`, `docs/db-template-v8.dbml`, `plan/chronic-care-plan.md`
+- Related: `docs/product-spec.md`, `docs/data-model.dbml`, `plan/roadmap.md`
 
 ## Context
 
-DA2 adds Chronic Care to a backend that already owns Users, HealthMetrics, Notifications and Consultations in separate bounded contexts. The target schema is approved, but no Chronic Care collection, module, migration or public contract exists in runtime source yet.
+DA2 adds Chronic Care to a backend that already owns Users, HealthMetrics, Notifications and Consultations in separate bounded contexts. At the time this ADR was accepted, the target schema had been approved but no Chronic Care runtime implementation existed. The completed roadmap slices now own the current migration and test evidence; this historical context does not override them.
 
 The implementation must preserve three invariants:
 

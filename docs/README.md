@@ -15,10 +15,11 @@ Read these documents in order. Do not use the legacy refactor history or a backl
 | Document | Role | Use it for |
 | --- | --- | --- |
 | `adr/0002-*` | Accepted decision and command contract | behavior, authorization, state, transaction, idempotency, ports |
-| `BUSINESS_RULES.md` | Product/safety rules | invariants and prohibited behavior |
-| `db-template-v8.dbml` | Target schema | fields, relations and indexes |
-| `overview.md` | Architecture/product orientation | onboarding only; it does not override ADR-0002 |
-| `fe-integration.md` | Consumer integration design | route/page/DTO planning |
+| `chronic-care-spec.md` | Chronic Care command contract | behavior, authorization, state, transaction, idempotency, ports |
+| `product-spec.md` | Product/safety rules | invariants and prohibited behavior |
+| `data-model.dbml` | Target schema | fields, relations and indexes |
+| `architecture.md` | Architecture orientation | bounded contexts and cross-context rules |
+| `integration-contract.md` | Consumer integration design | route/page/DTO planning |
 | `current-state/` | Historical refactor evidence | investigation and release evidence, never new feature design |
 | `local-development.md`, `redis-key-policy.md`, `realtime-events.md` | Operational contracts | local runbook and platform behavior |
 
