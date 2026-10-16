@@ -137,6 +137,12 @@ import {
   CC012_BILLING_ACCESS_NAME,
   CC012_BILLING_ACCESS_VERSION,
 } from './202610151000-cc012-billing-access';
+import {
+  applyData001aConsultationContract,
+  DATA001A_CONSULTATION_CONTRACT_CHECKSUM,
+  DATA001A_CONSULTATION_CONTRACT_NAME,
+  DATA001A_CONSULTATION_CONTRACT_VERSION,
+} from './202610152000-data001a-consultation-contract';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -276,6 +282,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC012_BILLING_ACCESS_NAME,
     checksum: CC012_BILLING_ACCESS_CHECKSUM,
     up: applyCc012BillingAccess,
+  },
+  {
+    version: DATA001A_CONSULTATION_CONTRACT_VERSION,
+    name: DATA001A_CONSULTATION_CONTRACT_NAME,
+    checksum: DATA001A_CONSULTATION_CONTRACT_CHECKSUM,
+    up: applyData001aConsultationContract,
   },
 ];
 

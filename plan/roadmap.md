@@ -549,6 +549,8 @@ Audit này đối chiếu `docs/data-model.dbml`, business rules, roadmap, Mongo
 
 **`BE-DATA-001` execution rules:** không chạy một migration “big-bang”, không đổi tên collection bằng auto-create/Mongoose và không xoá legacy data. Mỗi context làm một slice additive: (1) chốt mapping source → target và compatibility window, (2) migration/validator/index/manifest, (3) entity + DTO/projection/port, (4) backfill/reconciliation có idempotency, (5) migrate → verify → no-op và authorization/query regression. `BE-DATA-001-A` chỉ bao phủ Consultation/Billing cần cho `CC-008/013`; AI/identity/notification không chặn hai slice này.
 
+**`BE-DATA-001-A` exit gate: CLOSED (16/10/2026).** Migration `202610152000-data001a-consultation-contract` maps legacy Consultation session values `confirmed → waiting`, `in_progress → in_consultation`, `cancelled → not_started`, backfills missing `expectedDurationMinutes = 30`, then applies the target validator and slot/queue indexes. The Consultation entity, list projection, create DTO/service, heartbeat, chat guard and state-machine tests use the same target vocabulary; a request with `scheduledStartAt` now persists `mode = scheduled` plus deterministic `scheduledEndAt`. Billing `Plans`/`Subscriptions` was rechecked and remains aligned with its CC-012A validator/manifest; no payment, quota or Plan-management behavior was smuggled into this reconciliation slice. The migration/verifier CLI now loads `apps/api/.env` while preserving CI-injected environment values. Typecheck, lint and unit suite (29 suites/103 tests) pass. Mongo rehearsal passed `migrate → database:verify → migrate --expect-noop` at schema version `202610152000` with 34 collections and 80 managed indexes.
+
 ### 9.1.0 Phase map — đọc trước khi code
 
 ```text

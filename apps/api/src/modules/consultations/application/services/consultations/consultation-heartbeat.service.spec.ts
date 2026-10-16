@@ -39,7 +39,7 @@ describe('ConsultationHeartbeatService', () => {
     jest
       .mocked(consultations.findAccessible)
       .mockResolvedValue({
-        sessionStatus: ConsultationSessionStatus.IN_PROGRESS,
+        sessionStatus: ConsultationSessionStatus.IN_CONSULTATION,
       } as never);
 
     const result = await service.record('consultation-1', 'user-1');

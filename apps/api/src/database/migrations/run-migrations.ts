@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { MongoClient, type Db } from 'mongodb';
+import { loadDatabaseEnvironment } from '../load-database-environment';
 import {
   ensureInfrastructureCollections,
   MIGRATION_LOCK_COLLECTION,
@@ -171,6 +172,7 @@ export async function runMigrations(uri: string): Promise<MigrationRunResult> {
 }
 
 async function main(): Promise<void> {
+  loadDatabaseEnvironment();
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI is required to run migrations');
   const result = await runMigrations(uri);

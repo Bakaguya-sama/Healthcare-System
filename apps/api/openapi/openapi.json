@@ -7572,10 +7572,11 @@
               "type": "string",
               "enum": [
                 "not_started",
-                "confirmed",
-                "in_progress",
+                "waiting",
+                "in_consultation",
+                "interrupted",
                 "completed",
-                "cancelled"
+                "no_show"
               ]
             }
           },
@@ -11162,10 +11163,11 @@
               "type": "string",
               "enum": [
                 "not_started",
-                "confirmed",
-                "in_progress",
+                "waiting",
+                "in_consultation",
+                "interrupted",
                 "completed",
-                "cancelled"
+                "no_show"
               ]
             }
           },
@@ -19852,6 +19854,114 @@
           "care-reports"
         ]
       }
+    },
+    "/api/v1/care-reports/{id}/summaries": {
+      "post": {
+        "operationId": "CareReport_generateSummary",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateCareSummaryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "care-reports"
+        ]
+      }
     }
   },
   "info": {
@@ -20526,6 +20636,10 @@
             "minimum": 5,
             "maximum": 180
           },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Ho_Chi_Minh"
+          },
           "patientNotes": {
             "type": "string",
             "example": "I need advice about recurring headaches."
@@ -21068,6 +21182,18 @@
           "reportType",
           "dataUntil"
         ]
+      },
+      "GenerateCareSummaryDto": {
+        "type": "object",
+        "properties": {
+          "audience": {
+            "type": "string",
+            "enum": [
+              "patient",
+              "doctor"
+            ]
+          }
+        }
       },
       "ErrorResponse": {
         "type": "object",

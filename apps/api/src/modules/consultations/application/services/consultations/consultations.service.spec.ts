@@ -15,6 +15,7 @@ describe('ConsultationsService state machine', () => {
       doctorId,
       requestStatus: ConsultationRequestStatus.PENDING,
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
+      interruptionReason: undefined as string | undefined,
       save: jest.fn().mockResolvedValue(undefined),
       toObject: jest.fn(function (this: unknown) {
         return this;
@@ -46,12 +47,12 @@ describe('ConsultationsService state machine', () => {
     await service.accept(doctorId.toString(), consultation._id.toString());
     expect(consultation.requestStatus).toBe(ConsultationRequestStatus.ACCEPTED);
     expect(consultation.sessionStatus).toBe(
-      ConsultationSessionStatus.CONFIRMED,
+      ConsultationSessionStatus.WAITING,
     );
 
     await service.start(doctorId.toString(), consultation._id.toString());
     expect(consultation.sessionStatus).toBe(
-      ConsultationSessionStatus.IN_PROGRESS,
+      ConsultationSessionStatus.IN_CONSULTATION,
     );
 
     await service.complete(
@@ -69,6 +70,24 @@ describe('ConsultationsService state machine', () => {
     await expect(
       service.start(doctorId.toString(), consultation._id.toString()),
     ).rejects.toThrow('Consultation must be accepted before starting');
+  });
+
+  it('records cancellation of an active call as interrupted', async () => {
+    const { service, consultation, doctorId } = createService();
+    consultation.requestStatus = ConsultationRequestStatus.ACCEPTED;
+    consultation.sessionStatus = ConsultationSessionStatus.IN_CONSULTATION;
+
+    await service.cancel(doctorId.toString(), consultation._id.toString(), {
+      reason: 'Connection ended',
+    });
+
+    expect(consultation.requestStatus).toBe(
+      ConsultationRequestStatus.CANCELLED,
+    );
+    expect(consultation.sessionStatus).toBe(
+      ConsultationSessionStatus.INTERRUPTED,
+    );
+    expect(consultation.interruptionReason).toBe('cancelled');
   });
 
   it('returns canonical fields without legacy session aliases', async () => {

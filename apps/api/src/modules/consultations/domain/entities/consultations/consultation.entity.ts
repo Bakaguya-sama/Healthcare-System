@@ -18,10 +18,11 @@ export enum ConsultationRequestStatus {
 
 export enum ConsultationSessionStatus {
   NOT_STARTED = 'not_started',
-  CONFIRMED = 'confirmed',
-  IN_PROGRESS = 'in_progress',
+  WAITING = 'waiting',
+  IN_CONSULTATION = 'in_consultation',
+  INTERRUPTED = 'interrupted',
   COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  NO_SHOW = 'no_show',
 }
 
 @Schema({ timestamps: true, collection: 'consultations' })
@@ -37,6 +38,9 @@ export class Consultation {
 
   @Prop({ type: Types.ObjectId, ref: 'CareAlert' })
   careAlertId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'AvailabilitySlot' })
+  availabilitySlotId?: Types.ObjectId;
 
   @Prop({
     type: String,
@@ -70,22 +74,38 @@ export class Consultation {
   @Prop() declinedReason?: string;
   @Prop() scheduledStartAt?: Date;
   @Prop() scheduledEndAt?: Date;
+  @Prop({ maxlength: 64 }) timezone?: string;
   @Prop({ type: Number, required: true, default: 30, min: 1 })
   expectedDurationMinutes!: number;
   @Prop({ type: Number, min: 0 }) estimatedWaitMinutes?: number;
   @Prop() overtimeStartedAt?: Date;
+  @Prop({ type: Object }) bookingSettingsSnapshot?: Record<string, unknown>;
   @Prop() patientNotes?: string;
   @Prop() doctorNotes?: string;
+  @Prop({ type: Object }) followUp?: Record<string, unknown>;
+  @Prop() queueJoinedAt?: Date;
+  @Prop() queuePriorityAt?: Date;
+  @Prop() calledAt?: Date;
   @Prop() sessionStartedAt?: Date;
+  @Prop() interruptedAt?: Date;
+  @Prop({ maxlength: 64 }) interruptionReason?: string;
+  @Prop() resumedAt?: Date;
   @Prop() completedAt?: Date;
   @Prop() followUpAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) completedBy?: Types.ObjectId;
+  @Prop() noShowAt?: Date;
+  @Prop({ maxlength: 500 }) noShowReason?: string;
   @Prop() cancelledAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) cancelledBy?: Types.ObjectId;
   @Prop() cancellationReason?: string;
   @Prop() lastMessageAt?: Date;
   @Prop() lastMessageId?: string;
   @Prop() roomId?: string;
+  @Prop() callStartedAt?: Date;
+  @Prop() callEndedAt?: Date;
+  @Prop({ maxlength: 64 }) callEndReason?: string;
+  @Prop({ type: Object }) consultationConsent?: Record<string, unknown>;
+  @Prop({ type: Object }) aiConsultationBrief?: Record<string, unknown>;
 }
 
 export const ConsultationSchema = SchemaFactory.createForClass(Consultation);
@@ -118,6 +138,20 @@ ConsultationSchema.index(
   },
 );
 ConsultationSchema.index({ roomId: 1 }, { unique: true, sparse: true });
+ConsultationSchema.index(
+  { availabilitySlotId: 1 },
+  { name: 'availabilitySlotId_1', unique: true, sparse: true },
+);
+ConsultationSchema.index(
+  {
+    doctorId: 1,
+    sessionStatus: 1,
+    scheduledStartAt: 1,
+    queuePriorityAt: 1,
+    _id: 1,
+  },
+  { name: 'doctorId_1_sessionStatus_1_scheduledStartAt_1_queuePriorityAt_1__id_1' },
+);
 ConsultationSchema.index(
   { patientCareProgramId: 1, requestedAt: 1, _id: 1 },
   { name: 'patientCareProgramId_1_requestedAt_1__id_1' },

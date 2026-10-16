@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { MongoClient, type Db } from 'mongodb';
+import { loadDatabaseEnvironment } from './load-database-environment';
 import { DATABASE_MIGRATIONS } from './migrations/migration-registry';
 import {
   EXPECTED_DATABASE_COLLECTIONS,
@@ -141,6 +142,7 @@ export async function verifyDatabase(
 }
 
 async function main(): Promise<void> {
+  loadDatabaseEnvironment();
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI is required to verify the database');
   const minimum = Number(process.env.MIN_SCHEMA_VERSION ?? 0);

@@ -32,7 +32,10 @@ export class ConsultationHeartbeatService {
     if (!consultation) {
       throw new ForbiddenException('Consultation is not accessible');
     }
-    if (consultation.sessionStatus !== ConsultationSessionStatus.IN_PROGRESS) {
+    if (
+      consultation.sessionStatus !==
+      ConsultationSessionStatus.IN_CONSULTATION
+    ) {
       throw new BadRequestException('Consultation is not in progress');
     }
 

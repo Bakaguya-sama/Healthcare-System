@@ -13,7 +13,10 @@ import {
 } from '../../../presentation/dto/messaging/send-message.dto';
 import { QueryMessageDto } from '../../../presentation/dto/messaging/query-message.dto';
 import { CloudinaryService } from 'src/infrastructure/files/cloudinary.service';
-import { ConsultationSessionStatus } from '../../../domain/entities/consultations/consultation.entity';
+import {
+  ConsultationRequestStatus,
+  ConsultationSessionStatus,
+} from '../../../domain/entities/consultations/consultation.entity';
 import { ConsultationsService } from '../consultations/consultations.service';
 import {
   decodeCursor,
@@ -198,7 +201,7 @@ export class ChatService {
     const isCompleted =
       consultation.sessionStatus === ConsultationSessionStatus.COMPLETED;
     const isClosed =
-      consultation.sessionStatus === ConsultationSessionStatus.CANCELLED;
+      consultation.requestStatus === ConsultationRequestStatus.CANCELLED;
     if (isCompleted)
       throw new BadRequestException(
         'Cannot send message in completed consultation',

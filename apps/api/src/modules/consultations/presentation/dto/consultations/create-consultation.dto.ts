@@ -5,6 +5,7 @@ import {
   IsMongoId,
   IsOptional,
   IsString,
+  MaxLength,
   Max,
   Min,
 } from 'class-validator';
@@ -25,6 +26,12 @@ export class CreateConsultationDto {
   @Min(5)
   @Max(180)
   expectedDurationMinutes?: number;
+
+  @ApiProperty({ required: false, example: 'Asia/Ho_Chi_Minh' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  timezone?: string;
 
   @ApiProperty({
     required: false,

@@ -24,7 +24,7 @@ import { UsersService } from '../../../../users/public-api';
 import type { CareReportPort } from '../../ports/care-report.port';
 
 const CONSULTATION_PROJECTION =
-  '_id patientId doctorId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes sessionStartedAt completedAt cancelledAt cancellationReason lastMessageAt lastMessageId createdAt updatedAt';
+  '_id patientId doctorId patientCareProgramId careAlertId availabilitySlotId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
 
 @Injectable()
 export class ConsultationsService implements CareReportPort {
@@ -84,15 +84,26 @@ export class ConsultationsService implements CareReportPort {
       : undefined;
     if (scheduledStartAt && scheduledStartAt < new Date())
       throw new BadRequestException('Cannot schedule consultation in the past');
+    const expectedDurationMinutes = dto.expectedDurationMinutes ?? 30;
     const consultation = await this.consultationModel.create({
       patientId: new Types.ObjectId(patientId),
       doctorId: new Types.ObjectId(dto.doctorId),
-      mode: ConsultationMode.ON_DEMAND,
+      mode: scheduledStartAt
+        ? ConsultationMode.SCHEDULED
+        : ConsultationMode.ON_DEMAND,
       requestStatus: ConsultationRequestStatus.PENDING,
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
       requestedAt: new Date(),
       scheduledStartAt,
-      expectedDurationMinutes: dto.expectedDurationMinutes ?? 30,
+      ...(scheduledStartAt
+        ? {
+            scheduledEndAt: new Date(
+              scheduledStartAt.getTime() + expectedDurationMinutes * 60_000,
+            ),
+          }
+        : {}),
+      timezone: dto.timezone,
+      expectedDurationMinutes,
       patientNotes: dto.patientNotes,
     });
     const patient = await this.users.findById(patientId);
@@ -172,7 +183,6 @@ export class ConsultationsService implements CareReportPort {
     if (
       [
         ConsultationSessionStatus.COMPLETED,
-        ConsultationSessionStatus.CANCELLED,
       ].includes(consultation.sessionStatus)
     )
       throw new BadRequestException(
@@ -230,7 +240,7 @@ export class ConsultationsService implements CareReportPort {
     consultation.respondedAt = new Date();
     consultation.declinedReason = reason;
     if (status === ConsultationRequestStatus.ACCEPTED)
-      consultation.sessionStatus = ConsultationSessionStatus.CONFIRMED;
+      consultation.sessionStatus = ConsultationSessionStatus.WAITING;
     await consultation.save();
     await this.notifications.create(consultation.patientId.toString(), {
       userId: consultation.patientId.toString(),
@@ -250,12 +260,12 @@ export class ConsultationsService implements CareReportPort {
       throw new ForbiddenException('Only doctor can start consultation');
     if (
       consultation.requestStatus !== ConsultationRequestStatus.ACCEPTED ||
-      consultation.sessionStatus !== ConsultationSessionStatus.CONFIRMED
+      consultation.sessionStatus !== ConsultationSessionStatus.WAITING
     )
       throw new BadRequestException(
         'Consultation must be accepted before starting',
       );
-    consultation.sessionStatus = ConsultationSessionStatus.IN_PROGRESS;
+    consultation.sessionStatus = ConsultationSessionStatus.IN_CONSULTATION;
     consultation.sessionStartedAt = new Date();
     await consultation.save();
     return this.response('Consultation started successfully', consultation);
@@ -265,7 +275,9 @@ export class ConsultationsService implements CareReportPort {
     const consultation = await this.load(id);
     if (!this.same(consultation.doctorId, userId))
       throw new ForbiddenException('Only doctor can complete consultation');
-    if (consultation.sessionStatus !== ConsultationSessionStatus.IN_PROGRESS)
+    if (
+      consultation.sessionStatus !== ConsultationSessionStatus.IN_CONSULTATION
+    )
       throw new BadRequestException('Consultation is not in progress');
     consultation.sessionStatus = ConsultationSessionStatus.COMPLETED;
     consultation.completedAt = new Date();
@@ -281,7 +293,18 @@ export class ConsultationsService implements CareReportPort {
     if (consultation.sessionStatus === ConsultationSessionStatus.COMPLETED)
       throw new BadRequestException('Cannot cancel completed consultation');
     consultation.requestStatus = ConsultationRequestStatus.CANCELLED;
-    consultation.sessionStatus = ConsultationSessionStatus.CANCELLED;
+    // Cancellation is expressed by requestStatus. Preserve that a live call
+    // was interrupted instead of inventing the retired `cancelled` session
+    // state; a request cancelled before start remains `not_started`.
+    if (
+      consultation.sessionStatus === ConsultationSessionStatus.IN_CONSULTATION
+    ) {
+      consultation.sessionStatus = ConsultationSessionStatus.INTERRUPTED;
+      consultation.interruptedAt = new Date();
+      consultation.interruptionReason = 'cancelled';
+    } else {
+      consultation.sessionStatus = ConsultationSessionStatus.NOT_STARTED;
+    }
     consultation.cancelledAt = new Date();
     consultation.cancelledBy = new Types.ObjectId(userId);
     consultation.cancellationReason = dto.reason;
@@ -301,8 +324,8 @@ export class ConsultationsService implements CareReportPort {
         requestStatus: ConsultationRequestStatus.ACCEPTED,
         sessionStatus: {
           $in: [
-            ConsultationSessionStatus.CONFIRMED,
-            ConsultationSessionStatus.IN_PROGRESS,
+            ConsultationSessionStatus.WAITING,
+            ConsultationSessionStatus.IN_CONSULTATION,
           ],
         },
         scheduledStartAt: {
