@@ -522,7 +522,7 @@ Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request
 
 **Gate đồng bộ persistence bắt buộc cho mọi slice:** với từng collection được đọc hoặc sửa, phải đối chiếu bốn lớp `docs/data-model.dbml` ↔ Mongoose entity/schema ↔ migration validator/index ↔ DTO/projection/public port. Test phải chứng minh tên field, kiểu, required/nullable, timestamp và index quan trọng khớp nhau. `database:verify` chỉ so live database với migration manifest; nó **không tự chứng minh Mongoose entity hoặc query projection khớp DBML**, vì vậy verify pass một mình không đủ để đóng gate.
 
-**Tiến độ hiện tại (15/10/2026):** `CC-000..007` (trừ các slice chưa mở `CC-008..010`), `CC-011`, `CC-014` và phần Care Program access của `CC-012A` đã có exit-gate evidence. Source audit chạy `typecheck`, `openapi:check`, `realtime:check`, `boundary:check` và unit suite 29 suites/102 tests đều xanh. Audit cũng sửa test index để không coi hai HealthMetric index legacy đã bị migration `202610061200` drop là runtime contract. Bước tiếp theo không phải tạo thêm collection theo DBML hàng loạt: đóng `BE-DATA-001-A` cho Consultation/Billing, rồi làm `CC-008` và `CC-013`; `CC-012B` chạy sau khi contract quota/Plan operations có owner.
+**Tiến độ hiện tại (16/10/2026):** `CC-000..008`, `CC-011`, `CC-014` và phần Care Program access của `CC-012A` đã có exit-gate evidence. Source audit chạy `typecheck`, `openapi:check`, `realtime:check`, `boundary:check` và unit suite 29 suites/102 tests đều xanh. Audit cũng sửa test index để không coi hai HealthMetric index legacy đã bị migration `202610061200` drop là runtime contract. Bước tiếp theo sau CC-008 là `CC-013`; `CC-012B` chạy sau khi contract quota/Plan operations có owner.
 
 #### Kết quả rà soát `CC-002` trở về trước — cập nhật 06/10/2026
 
@@ -543,7 +543,7 @@ Audit này đối chiếu `docs/data-model.dbml`, business rules, roadmap, Mongo
 | --- | --- | --- |
 | Chronic Care đã đóng (`CC-000..007`, `CC-011`, `CC-014`) | **Aligned trong phạm vi slice.** Program/Rule/Enrollment/Task/Evaluation/Alert/Report/Summary có entity, migration/manifest và evidence riêng. | Giữ bốn-lớp alignment khi sửa field hoặc projection. |
 | Billing `Plans`/`Subscriptions` (`CC-012A`) | **Aligned nhưng chỉ là Care Program access.** Snapshot và Free grant tồn tại; không có PaymentOrder, quota usage hay Plan management API/seed deployment. | `CC-012B`: Plan lifecycle/deployment + public quota port/usage store/enforcement; không được gọi đây là entitlement hoàn chỉnh. |
-| Consultation | **Partially aligned.** Source đã có `patientCareProgramId`/`careAlertId`, nhưng chưa có command authorized alert-link/follow-up (`CC-008`), `AvailabilitySlots` hay usage ledger (`CC-013`). | `BE-DATA-001-A` chốt state/field/index/DTO migration của Consultation rồi mới nối alert hoặc reserve quota. |
+| Consultation | **Aligned for alert link.** Command authorized alert-link/follow-up, one-alert/one-consultation invariant và realtime contract đã có; `AvailabilitySlots` và usage ledger (`CC-013`) chưa mở. | `BE-DATA-001-A` chốt state/field/index/DTO migration; `CC-008` bổ sung unique link migration. `CC-013` mới được reserve quota. |
 | AI Advisory/identity/notification legacy | **Không được xem là v8 physical schema đã xác minh.** Source còn dùng các projection/collection legacy như `aiconversationmessages`, `messages`, `auth_events`, `patients`; DBML target có OAuthAccounts, UserDevices, AiUsageDaily và campaign model chưa có source/migration tương ứng. | Tách `BE-DATA-001-B..D` theo bounded context; mỗi PR phải có mapping/retention migration, manifest và DTO compatibility evidence. |
 | P1 target (`Family*`, facilities, disease specialties) | **Chưa implement, đúng backlog P1.** | Không tạo model/collection placeholder trước slice `CC-015..018`. |
 
@@ -932,6 +932,8 @@ Deliverables: link commands, public events, authorization E2E và OpenAPI/realti
 Exit gate: alert → consultation → follow-up critical journey E2E pass.
 
 Ước lượng: **3-5 person-days**.
+
+**Exit gate: CLOSED (16/10/2026).** `POST /care-alerts/:id/consultations` chỉ nhận Doctor và service kiểm tra alert được gán cho đúng Doctor, còn `open|acknowledged`, trước khi gửi opaque IDs sang `CareAlertConsultationPort`. Consultation module tự tạo scheduled hoặc on-demand consultation, ghi `followUp.note`/`nextAction`, AuditLog và outbox `care.alert.consultation-linked` trong cùng Mongo transaction; Chronic Care không truy vấn hay ghi trực tiếp Consultation model. Migration `202610161000-cc008-care-alert-consultation-link` kiểm tra legacy duplicate rồi tạo unique sparse index `careAlertId_1_unique`, vì vậy retry/concurrent request chỉ có một consultation. OpenAPI và realtime contract (`care_alert_consultation_linked`) đã được regenerate. E2E `care-alert-consultation.e2e-spec.ts` chạy xanh 3/3 cho role/cross-doctor denial, scheduled + follow-up, replay idempotent và on-demand. Mongo rehearsal đã chạy `migrate → database:verify → migrate --expect-noop` tại schema version `202610161000` (34 collections, 81 managed indexes). Typecheck, lint, OpenAPI, realtime, boundary và `git diff --check` xanh.
 
 #### `CC-7` — VNPAY Sandbox và subscription grant
 

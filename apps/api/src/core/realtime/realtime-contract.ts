@@ -148,7 +148,7 @@ export const realtimeContract = {
       },
       notificationChanged: {
         description:
-          'For action care_alerts_invalidated, refetch the Doctor priority inbox and alert detail before rendering another action.',
+          'For care_alerts_invalidated, refetch the Doctor priority inbox and alert detail. For care_alert_consultation_linked, navigate to or refetch the linked consultation.',
         payload: {
           type: 'object',
           required: ['userId', 'action'],
@@ -162,9 +162,11 @@ export const realtimeContract = {
                 'mark_all_read',
                 'deleted',
                 'care_alerts_invalidated',
+                'care_alert_consultation_linked',
               ],
             },
             alertId: { type: 'string' },
+            consultationId: { type: 'string' },
             revision: { type: 'integer', minimum: 1 },
           },
         },

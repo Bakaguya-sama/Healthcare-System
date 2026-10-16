@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { OutboxService } from '../../../../infrastructure/outbox/outbox.service';
@@ -25,6 +31,10 @@ import {
   normalizeCursorRequest,
 } from '../../../../common/pagination';
 import type { QueryDoctorCareAlertsDto } from '../../presentation/dto/care-alert.dto';
+import {
+  CARE_ALERT_CONSULTATION_PORT,
+  type CareAlertConsultationPort,
+} from '../../../consultations/public-api';
 
 @Injectable()
 export class CareAlertService {
@@ -38,7 +48,78 @@ export class CareAlertService {
     @InjectModel(AuditLog.name) private readonly audits: Model<AuditLog>,
     @InjectConnection() private readonly connection: Connection,
     private readonly outbox: OutboxService,
+    @Optional()
+    @Inject(CARE_ALERT_CONSULTATION_PORT)
+    private readonly consultations?: CareAlertConsultationPort,
   ) {}
+
+  async createConsultation(
+    actor: CareActor,
+    alertId: string,
+    input: {
+      scheduledStartAt?: string;
+      timezone?: string;
+      expectedDurationMinutes?: number;
+      followUpNote?: string;
+      nextAction?: string;
+    },
+  ) {
+    if (!Types.ObjectId.isValid(alertId) || !Types.ObjectId.isValid(actor.id)) {
+      throw new HttpException(
+        { code: 'CARE_ALERT_NOT_FOUND', message: 'Alert not found' },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    const alert = await this.alerts
+      .findOne({
+        _id: new Types.ObjectId(alertId),
+        assignedDoctorId: new Types.ObjectId(actor.id),
+        status: { $in: [CareAlertStatus.OPEN, CareAlertStatus.ACKNOWLEDGED] },
+      })
+      .lean()
+      .exec();
+    if (!alert) {
+      throw new HttpException(
+        {
+          code: 'CARE_FORBIDDEN',
+          message: 'Alert cannot be linked to a consultation',
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    const scheduledStartAt = input.scheduledStartAt
+      ? new Date(input.scheduledStartAt)
+      : undefined;
+    if (scheduledStartAt && scheduledStartAt <= new Date()) {
+      throw new HttpException(
+        {
+          code: 'CARE_CONSULTATION_SCHEDULE_INVALID',
+          message: 'Scheduled consultation must be in the future',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!this.consultations) {
+      throw new HttpException(
+        {
+          code: 'CARE_DEPENDENCY_UNAVAILABLE',
+          message: 'Consultation capability is unavailable',
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+    return this.consultations.createFromCareAlert({
+      careAlertId: alertId,
+      patientCareProgramId: String(alert.patientCareProgramId),
+      patientId: String(alert.patientId),
+      doctorId: actor.id,
+      scheduledStartAt,
+      timezone: input.timezone,
+      expectedDurationMinutes: input.expectedDurationMinutes ?? 30,
+      followUpNote: input.followUpNote,
+      nextAction: input.nextAction,
+    });
+  }
 
   async createForEvaluation(evaluation: HealthEvaluationDocument) {
     if (evaluation.severity === HealthEvaluationSeverity.NORMAL) return null;

@@ -18,7 +18,7 @@ import { UserRole } from '../../../../core/domain/user.enums';
 import type { CareActor } from '../../application/services/care-program-rule.service';
 import { CareAlertService } from '../../application/services/care-alert.service';
 import { EnrollmentReasonDto } from '../dto/care-enrollment.dto';
-import { QueryDoctorCareAlertsDto } from '../dto/care-alert.dto';
+import { CreateConsultationFromCareAlertDto, QueryDoctorCareAlertsDto } from '../dto/care-alert.dto';
 
 @ApiTags('care-alerts')
 @ApiBearerAuth()
@@ -103,5 +103,15 @@ export class CareAlertController {
       dto.expectedRevision,
       dto.reason,
     );
+  }
+
+  @Post(':id/consultations')
+  @Roles(UserRole.DOCTOR)
+  createConsultation(
+    @CurrentUser() actor: CareActor,
+    @Param('id') id: string,
+    @Body() dto: CreateConsultationFromCareAlertDto,
+  ) {
+    return this.alerts.createConsultation(actor, id, dto);
   }
 }

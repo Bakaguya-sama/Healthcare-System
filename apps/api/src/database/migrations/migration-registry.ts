@@ -143,6 +143,12 @@ import {
   DATA001A_CONSULTATION_CONTRACT_NAME,
   DATA001A_CONSULTATION_CONTRACT_VERSION,
 } from './202610152000-data001a-consultation-contract';
+import {
+  applyCc008CareAlertConsultationLink,
+  CC008_CARE_ALERT_CONSULTATION_LINK_CHECKSUM,
+  CC008_CARE_ALERT_CONSULTATION_LINK_NAME,
+  CC008_CARE_ALERT_CONSULTATION_LINK_VERSION,
+} from './202610161000-cc008-care-alert-consultation-link';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -288,6 +294,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: DATA001A_CONSULTATION_CONTRACT_NAME,
     checksum: DATA001A_CONSULTATION_CONTRACT_CHECKSUM,
     up: applyData001aConsultationContract,
+  },
+  {
+    version: CC008_CARE_ALERT_CONSULTATION_LINK_VERSION,
+    name: CC008_CARE_ALERT_CONSULTATION_LINK_NAME,
+    checksum: CC008_CARE_ALERT_CONSULTATION_LINK_CHECKSUM,
+    up: applyCc008CareAlertConsultationLink,
   },
 ];
 

@@ -21,6 +21,10 @@ import { ReviewsService } from './application/services/reviews/reviews.service';
 import { Review, ReviewSchema } from './domain/entities/reviews/review.entity';
 import { ConsultationHeartbeatService } from './application/services/consultations/consultation-heartbeat.service';
 import { CARE_REPORT_PORT } from './application/ports/care-report.port';
+import { CARE_ALERT_CONSULTATION_PORT } from './application/ports/care-alert-consultation.port';
+import { CareAlertConsultationService } from './application/services/consultations/care-alert-consultation.service';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 
 @Module({
   imports: [
@@ -28,6 +32,8 @@ import { CARE_REPORT_PORT } from './application/ports/care-report.port';
     NotificationsModule,
     FilesModule,
     PresenceModule,
+    PlatformAuditModule,
+    OutboxModule,
     MongooseModule.forFeature([
       { name: Consultation.name, schema: ConsultationSchema },
       { name: Message.name, schema: MessageSchema },
@@ -39,6 +45,7 @@ import { CARE_REPORT_PORT } from './application/ports/care-report.port';
     ConsultationsService,
     ConsultationsGateway,
     ConsultationHeartbeatService,
+    CareAlertConsultationService,
     ChatService,
     ChatGateway,
     ReviewsService,
@@ -47,12 +54,17 @@ import { CARE_REPORT_PORT } from './application/ports/care-report.port';
       provide: CARE_REPORT_PORT,
       useExisting: ConsultationsService,
     },
+    {
+      provide: CARE_ALERT_CONSULTATION_PORT,
+      useExisting: CareAlertConsultationService,
+    },
   ],
   exports: [
     ConsultationsService,
     ChatService,
     ReviewsService,
     CARE_REPORT_PORT,
+    CARE_ALERT_CONSULTATION_PORT,
   ],
 })
 export class ConsultationsModule {}

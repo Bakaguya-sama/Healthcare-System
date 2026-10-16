@@ -6,3 +6,7 @@ export {
   type CareReportItem,
   type CareReportPort,
 } from './application/ports/care-report.port';
+export {
+  CARE_ALERT_CONSULTATION_PORT,
+  type CareAlertConsultationPort,
+} from './application/ports/care-alert-consultation.port';

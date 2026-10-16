@@ -41,6 +41,7 @@ import {
   DATA001A_CONSULTATION_COLLECTION,
   DATA001A_CONSULTATION_INDEXES,
 } from './migrations/202610152000-data001a-consultation-contract';
+import { CC008_CARE_ALERT_CONSULTATION_INDEX } from './migrations/202610161000-cc008-care-alert-consultation-link';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -278,6 +279,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...CC006_CARE_REPORT_INDEXES,
   ...CC007_CARE_SUMMARIES_INDEXES,
   ...DATA001A_CONSULTATION_INDEXES,
+  CC008_CARE_ALERT_CONSULTATION_INDEX,
   ...CC012_BILLING_INDEXES,
 ] as const;
 

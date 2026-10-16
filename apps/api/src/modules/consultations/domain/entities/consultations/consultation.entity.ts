@@ -139,6 +139,10 @@ ConsultationSchema.index(
 );
 ConsultationSchema.index({ roomId: 1 }, { unique: true, sparse: true });
 ConsultationSchema.index(
+  { careAlertId: 1 },
+  { name: 'careAlertId_1_unique', unique: true, sparse: true },
+);
+ConsultationSchema.index(
   { availabilitySlotId: 1 },
   { name: 'availabilitySlotId_1', unique: true, sparse: true },
 );
