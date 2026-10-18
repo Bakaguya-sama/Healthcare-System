@@ -40,6 +40,9 @@ export class Subscription {
   @Prop({ required: true }) currentPeriodEnd: Date;
   @Prop({ required: true }) startedAt: Date;
   @Prop({ required: true }) expiresAt: Date;
+  /** Atomic counters for the current subscription cycle's consultation ledger. */
+  @Prop({ required: true, min: 0, default: 0 }) consultationUsageReserved: number;
+  @Prop({ required: true, min: 0, default: 0 }) consultationUsageCounted: number;
   @Prop() cancelledAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) cancelledBy?: Types.ObjectId;
   @Prop({ maxlength: 64 }) cancellationReason?: string;

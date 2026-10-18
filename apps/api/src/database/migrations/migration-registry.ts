@@ -149,6 +149,24 @@ import {
   CC008_CARE_ALERT_CONSULTATION_LINK_NAME,
   CC008_CARE_ALERT_CONSULTATION_LINK_VERSION,
 } from './202610161000-cc008-care-alert-consultation-link';
+import {
+  applyCc013ConsultationUsageLedger,
+  CC013_CONSULTATION_USAGE_LEDGER_CHECKSUM,
+  CC013_CONSULTATION_USAGE_LEDGER_NAME,
+  CC013_CONSULTATION_USAGE_LEDGER_VERSION,
+} from './202610161100-cc013-consultation-usage-ledger';
+import {
+  applyCc013BookingPolicy,
+  CC013_BOOKING_POLICY_VERSION,
+  CC013_BOOKING_POLICY_NAME,
+  CC013_BOOKING_POLICY_CHECKSUM,
+} from './202610181000-cc013-booking-policy-snapshot';
+import {
+  applyCc013LegacyExemption,
+  CC013_LEGACY_EXEMPTION_VERSION,
+  CC013_LEGACY_EXEMPTION_NAME,
+  CC013_LEGACY_EXEMPTION_CHECKSUM,
+} from './202610181100-cc013-legacy-quota-exemption';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -300,6 +318,24 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC008_CARE_ALERT_CONSULTATION_LINK_NAME,
     checksum: CC008_CARE_ALERT_CONSULTATION_LINK_CHECKSUM,
     up: applyCc008CareAlertConsultationLink,
+  },
+  {
+    version: CC013_CONSULTATION_USAGE_LEDGER_VERSION,
+    name: CC013_CONSULTATION_USAGE_LEDGER_NAME,
+    checksum: CC013_CONSULTATION_USAGE_LEDGER_CHECKSUM,
+    up: applyCc013ConsultationUsageLedger,
+  },
+  {
+    version: CC013_BOOKING_POLICY_VERSION,
+    name: CC013_BOOKING_POLICY_NAME,
+    checksum: CC013_BOOKING_POLICY_CHECKSUM,
+    up: applyCc013BookingPolicy,
+  },
+  {
+    version: CC013_LEGACY_EXEMPTION_VERSION,
+    name: CC013_LEGACY_EXEMPTION_NAME,
+    checksum: CC013_LEGACY_EXEMPTION_CHECKSUM,
+    up: applyCc013LegacyExemption,
   },
 ];
 

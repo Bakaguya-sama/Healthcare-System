@@ -65,6 +65,10 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
   let app: INestApplication<App>;
   let connection: Connection;
   const outbox = { enqueue: jest.fn().mockResolvedValue({}) };
+  const usage = {
+    prepare: jest.fn().mockResolvedValue(undefined),
+    reserve: jest.fn().mockResolvedValue({ status: 'reserved', created: true }),
+  };
   const doctorId = new ObjectId();
   const otherDoctorId = new ObjectId();
   const patientId = new ObjectId();
@@ -117,12 +121,16 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
       PatientCareProgramSchema,
     );
     const audits = connection.model(AuditLog.name, AuditLogSchema);
-    const consultations = connection.model(Consultation.name, ConsultationSchema);
+    const consultations = connection.model(
+      Consultation.name,
+      ConsultationSchema,
+    );
     const consultationPort = new CareAlertConsultationService(
       consultations as never,
       audits,
       connection,
       outbox as never,
+      usage as never,
     );
     const service = new CareAlertService(
       alerts as never,
@@ -141,7 +149,9 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
       .useClass(HeaderAuthenticationGuard)
       .compile();
     app = module.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
   });
 
@@ -186,8 +196,8 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
       .expect(201);
     expect(retry.body).toEqual({ id: first.body.id, created: false });
 
-    const consultation = await connection.db!
-      .collection('consultations')
+    const consultation = await connection
+      .db!.collection('consultations')
       .findOne({ _id: new ObjectId(first.body.id) });
     expect(consultation).toMatchObject({
       careAlertId: alertId,
@@ -212,8 +222,8 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
       .set(asActor(doctorId, UserRole.DOCTOR))
       .send({ expectedDurationMinutes: 30 })
       .expect(201);
-    const consultation = await connection.db!
-      .collection('consultations')
+    const consultation = await connection
+      .db!.collection('consultations')
       .findOne({ _id: new ObjectId(response.body.id) });
     expect(consultation).toMatchObject({
       careAlertId: onDemandAlertId,

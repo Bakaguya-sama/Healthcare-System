@@ -110,6 +110,17 @@ export class ConsultationsController {
     return result;
   }
 
+  @Post(':id/no-show')
+  async markNoShow(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateConsultationDto,
+  ) {
+    const result = await this.consultations.markNoShow(userId, id, dto.reason);
+    this.emit('no_show', result.data);
+    return result;
+  }
+
   @Post(':id/cancel')
   async cancel(
     @CurrentUser('sub') userId: string,

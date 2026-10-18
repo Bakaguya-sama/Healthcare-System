@@ -140,6 +140,7 @@ Table Consultations {
   timezone varchar
   expectedDurationMinutes int [not null, note: "Expected operational duration; never auto-completes the consultation"]
   bookingSettingsSnapshot json [note: "Applied bookingPolicy, duration/buffer, notice, cancellation, check-in and no-show values captured at booking/acceptance"]
+  legacyQuotaExempt boolean [note: "Explicitly audited exemption for identified pre-CC-013 accepted bookings; not a general fallback for missing ledger"]
   patientNotes text
   doctorNotes text
   followUpAt datetime
@@ -486,6 +487,8 @@ Table Subscriptions {
   currentPeriodEnd datetime [not null]
   startedAt datetime [not null]
   expiresAt datetime [not null]
+  consultationUsageReserved int [not null, default: 0, note: "Atomic active reservations in the current cycle"]
+  consultationUsageCounted int [not null, default: 0, note: "Atomic counted consultations in the current cycle"]
   cancelledAt datetime
   cancelledBy ObjectID
   cancellationReason varchar [note: "user_cancelled, payment_refunded, admin_revoked"]
@@ -841,7 +844,7 @@ Table ConsultationUsages {
   countedAt datetime
   releasedAt datetime
   releaseReason varchar
-  expiresAt datetime
+  expiresAt datetime [note: "Legacy reservation expiry metadata; confirmed bookings do not automatically expire"]
   createdAt datetime
   updatedAt datetime
 

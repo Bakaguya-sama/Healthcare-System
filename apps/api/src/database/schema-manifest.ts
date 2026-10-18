@@ -37,11 +37,13 @@ import {
   CC012_BILLING_COLLECTIONS,
   CC012_BILLING_INDEXES,
 } from './migrations/202610151000-cc012-billing-access';
-import {
-  DATA001A_CONSULTATION_COLLECTION,
-  DATA001A_CONSULTATION_INDEXES,
-} from './migrations/202610152000-data001a-consultation-contract';
+import { DATA001A_CONSULTATION_INDEXES } from './migrations/202610152000-data001a-consultation-contract';
+import { CC013_CONSULTATION_COLLECTION } from './migrations/202610181100-cc013-legacy-quota-exemption';
 import { CC008_CARE_ALERT_CONSULTATION_INDEX } from './migrations/202610161000-cc008-care-alert-consultation-link';
+import {
+  CC013_CONSULTATION_USAGE_COLLECTION,
+  CC013_CONSULTATION_USAGE_INDEXES,
+} from './migrations/202610161100-cc013-consultation-usage-ledger';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -113,8 +115,9 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   CC006_CARE_REPORT_COLLECTION,
   CC007_CARE_SUMMARIES_COLLECTION,
   HEALTH_METRIC_COLLECTION,
-  DATA001A_CONSULTATION_COLLECTION,
+  CC013_CONSULTATION_COLLECTION,
   ...CC012_BILLING_COLLECTIONS,
+  CC013_CONSULTATION_USAGE_COLLECTION,
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
@@ -281,6 +284,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...DATA001A_CONSULTATION_INDEXES,
   CC008_CARE_ALERT_CONSULTATION_INDEX,
   ...CC012_BILLING_INDEXES,
+  ...CC013_CONSULTATION_USAGE_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

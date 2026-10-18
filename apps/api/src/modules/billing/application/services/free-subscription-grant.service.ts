@@ -116,6 +116,8 @@ export class FreeSubscriptionGrantService {
             currentPeriodStart: now,
             currentPeriodEnd: periodEnd,
             expiresAt: periodEnd,
+            consultationUsageReserved: 0,
+            consultationUsageCounted: 0,
           },
           $inc: { cycleNumber: 1 },
         },

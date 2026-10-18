@@ -25,6 +25,7 @@ import { CARE_ALERT_CONSULTATION_PORT } from './application/ports/care-alert-con
 import { CareAlertConsultationService } from './application/services/consultations/care-alert-consultation.service';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
     PresenceModule,
     PlatformAuditModule,
     OutboxModule,
+    BillingModule,
     MongooseModule.forFeature([
       { name: Consultation.name, schema: ConsultationSchema },
       { name: Message.name, schema: MessageSchema },

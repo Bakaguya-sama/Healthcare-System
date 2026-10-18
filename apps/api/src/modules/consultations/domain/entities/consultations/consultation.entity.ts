@@ -80,6 +80,8 @@ export class Consultation {
   @Prop({ type: Number, min: 0 }) estimatedWaitMinutes?: number;
   @Prop() overtimeStartedAt?: Date;
   @Prop({ type: Object }) bookingSettingsSnapshot?: Record<string, unknown>;
+  /** Administrative exemption for explicitly identified pre-ledger bookings. */
+  @Prop({ type: Boolean }) legacyQuotaExempt?: boolean;
   @Prop() patientNotes?: string;
   @Prop() doctorNotes?: string;
   @Prop({ type: Object }) followUp?: Record<string, unknown>;
@@ -154,7 +156,9 @@ ConsultationSchema.index(
     queuePriorityAt: 1,
     _id: 1,
   },
-  { name: 'doctorId_1_sessionStatus_1_scheduledStartAt_1_queuePriorityAt_1__id_1' },
+  {
+    name: 'doctorId_1_sessionStatus_1_scheduledStartAt_1_queuePriorityAt_1__id_1',
+  },
 );
 ConsultationSchema.index(
   { patientCareProgramId: 1, requestedAt: 1, _id: 1 },

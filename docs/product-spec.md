@@ -167,6 +167,10 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 
 Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Doctor không được đặt số âm hoặc vượt giới hạn vận hành.
 
+**CC-013 MVP:** Cho đến khi cấu hình `bookingSettings` của Doctor được triển khai, khi xác nhận lịch scheduled backend snapshot `cancellationDeadlineMinutes = 60` và `noShowAfterMinutes = 10`. Patient không được hủy sau hạn; Doctor vẫn có thể hủy trước khi bắt đầu. Chưa hỗ trợ đánh dấu no-show cho on-demand. Reservation của lịch đã xác nhận không tự hết hạn khi qua giờ khám hoặc qua chu kỳ subscription: chỉ count khi bắt đầu/no-show hợp lệ, hoặc release khi hủy hợp lệ. Reservation và lượt đã count thuộc về chu kỳ tạo reservation; không làm thay đổi counter của chu kỳ mới.
+
+Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được miễn quota nếu được xác định rõ và gắn `legacyQuotaExempt` qua thao tác có audit; thiếu ledger đơn thuần không đồng nghĩa được miễn. Lịch đã hoàn tất trước CC-013 không tự tạo quota lịch sử.
+
 1. Bác sĩ tạo AvailabilitySlots với start time, end time và timezone. Một bác sĩ không được có hai slot cùng start time.
 2. Slot có các trạng thái available, booked, blocked hoặc expired.
 3. Mặc định booking policy là instant: bệnh nhân đặt thành công thì lịch được xác nhận ngay, không cần bác sĩ duyệt lại.

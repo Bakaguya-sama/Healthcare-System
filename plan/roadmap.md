@@ -522,7 +522,7 @@ Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request
 
 **Gate đồng bộ persistence bắt buộc cho mọi slice:** với từng collection được đọc hoặc sửa, phải đối chiếu bốn lớp `docs/data-model.dbml` ↔ Mongoose entity/schema ↔ migration validator/index ↔ DTO/projection/public port. Test phải chứng minh tên field, kiểu, required/nullable, timestamp và index quan trọng khớp nhau. `database:verify` chỉ so live database với migration manifest; nó **không tự chứng minh Mongoose entity hoặc query projection khớp DBML**, vì vậy verify pass một mình không đủ để đóng gate.
 
-**Tiến độ hiện tại (16/10/2026):** `CC-000..008`, `CC-011`, `CC-014` và phần Care Program access của `CC-012A` đã có exit-gate evidence. Source audit chạy `typecheck`, `openapi:check`, `realtime:check`, `boundary:check` và unit suite 29 suites/102 tests đều xanh. Audit cũng sửa test index để không coi hai HealthMetric index legacy đã bị migration `202610061200` drop là runtime contract. Bước tiếp theo sau CC-008 là `CC-013`; `CC-012B` chạy sau khi contract quota/Plan operations có owner.
+**Tiến độ hiện tại (18/10/2026):** `CC-013` đã hoàn tất và đóng exit gate sau khi xác minh transaction, policy đặt lịch, reconciliation và xử lý lịch legacy. Phần Plan operations/quota AI thuộc `CC-012B` vẫn là công việc tiếp theo theo roadmap.
 
 #### Kết quả rà soát `CC-002` trở về trước — cập nhật 06/10/2026
 
@@ -543,7 +543,7 @@ Audit này đối chiếu `docs/data-model.dbml`, business rules, roadmap, Mongo
 | --- | --- | --- |
 | Chronic Care đã đóng (`CC-000..007`, `CC-011`, `CC-014`) | **Aligned trong phạm vi slice.** Program/Rule/Enrollment/Task/Evaluation/Alert/Report/Summary có entity, migration/manifest và evidence riêng. | Giữ bốn-lớp alignment khi sửa field hoặc projection. |
 | Billing `Plans`/`Subscriptions` (`CC-012A`) | **Aligned nhưng chỉ là Care Program access.** Snapshot và Free grant tồn tại; không có PaymentOrder, quota usage hay Plan management API/seed deployment. | `CC-012B`: Plan lifecycle/deployment + public quota port/usage store/enforcement; không được gọi đây là entitlement hoàn chỉnh. |
-| Consultation | **Aligned for alert link.** Command authorized alert-link/follow-up, one-alert/one-consultation invariant và realtime contract đã có; `AvailabilitySlots` và usage ledger (`CC-013`) chưa mở. | `BE-DATA-001-A` chốt state/field/index/DTO migration; `CC-008` bổ sung unique link migration. `CC-013` mới được reserve quota. |
+| Consultation | **CC-013 hoàn tất.** Alert link, quota ledger, scheduled no-show và reconciliation đã kiểm thử; `AvailabilitySlots` và no-show on-demand chưa mở. | `BE-DATA-001-A` chốt state/field/index/DTO migration; `CC-008` bổ sung unique link migration; `CC-013` sở hữu quota theo immutable Subscription snapshot. |
 | AI Advisory/identity/notification legacy | **Không được xem là v8 physical schema đã xác minh.** Source còn dùng các projection/collection legacy như `aiconversationmessages`, `messages`, `auth_events`, `patients`; DBML target có OAuthAccounts, UserDevices, AiUsageDaily và campaign model chưa có source/migration tương ứng. | Tách `BE-DATA-001-B..D` theo bounded context; mỗi PR phải có mapping/retention migration, manifest và DTO compatibility evidence. |
 | P1 target (`Family*`, facilities, disease specialties) | **Chưa implement, đúng backlog P1.** | Không tạo model/collection placeholder trước slice `CC-015..018`. |
 
@@ -902,7 +902,7 @@ Entry gate: `CC-012A` và Consultation state contract xanh.
 
 Các bước:
 
-1. Tạo `ConsultationUsages` lifecycle `reserved → counted|released|expired` với unique request key.
+1. Tạo `ConsultationUsages` lifecycle `reserved → counted|released` với unique request key; `expired` chỉ là trạng thái legacy, không tự expire lịch đã xác nhận.
 2. Reserve atomic khi booking xác nhận; không vượt limit dưới concurrent requests.
 3. Count khi `in_consultation`; xử lý no-show/cancel/release theo policy snapshot.
 4. Retry/event duplicate không count/release hai lần; reconciliation sửa trạng thái treo.
@@ -913,6 +913,8 @@ Deliverables: migration, ledger service, Consultation public integration events 
 Exit gate: limit/reserve/count/release/no-show/race/idempotency tests pass.
 
 Ước lượng: **4-6 person-days**.
+
+**Exit gate: CLOSED (18/10/2026).** Accept/start/cancel/no-show dùng chung transaction với ledger; Free grant được chuẩn bị trước transaction; usage chu kỳ cũ không sửa counter chu kỳ mới. Reservation của lịch đã xác nhận được giữ qua chu kỳ; snapshot scheduled mặc định hạn hủy 60 phút, no-show sau 10 phút; chưa hỗ trợ no-show on-demand. Reconciliation xử lý ledger reserved bị lệch lifecycle và sửa counter theo ledger, không tự expire lịch; orphan/conflict được báo để xử lý thủ công. Hai lịch waiting legacy thiếu ledger trên Atlas được miễn quota theo quyết định của người dùng và đánh dấu, ghi audit trong transaction; 20 lịch completed legacy giữ nguyên, không tạo lại quota lịch sử. Migration `202610181000` và `202610181100` đã áp dụng qua `MONGODB_URI` trong `.env` (Atlas), rehearsal MongoDB Docker migrate/verify/no-op. Test: 11 integration CC-013 (gồm rollback, race, cycle, reconciliation, exemption), 9 unit consultation, 108 unit toàn repo và 3 E2E care-alert pass; typecheck, boundary, OpenAPI và realtime check pass. Lint toàn repo chưa xanh do 4 lỗi `unbound-method` tại test heartbeat và warning vượt ngưỡng; đây là khoản nợ riêng, không báo là pass.
 
 #### `CC-008` — Consultation link và follow-up
 

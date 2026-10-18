@@ -21,6 +21,7 @@ export type ConsultationChangedAction =
   | 'declined'
   | 'started'
   | 'completed'
+  | 'no_show'
   | 'cancelled';
 
 interface AuthSocket extends Socket {
