@@ -499,6 +499,7 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 | BE-CC-001 | Care Program + Enrollment + consent                   |      P0 | BE-CC-000, Identity, Doctor capability | State/authorization E2E pass                                                               |
 | BE-CC-002 | Monitoring schedule/tasks                             |      P0 | BE-CC-001, Health Tracking             | Timezone/idempotent generation pass                                                        |
 | BE-CC-003 | Versioned rule engine/evaluation                      |      P0 | BE-CC-001, Health Tracking             | Boundary/repeat/missing-data tests pass                                                    |
+| BE-CC-003A | Automated metric-to-alert pipeline and recovery      |      P0 | BE-CC-002/003/004, Health Tracking     | Scheduled/event jobs, retry/recovery and reminder delivery E2E pass                         |
 | BE-CC-004 | Care Alert lifecycle                                  |      P0 | BE-CC-003, Outbox                      | Dedupe/audit/retry tests pass                                                              |
 | BE-CC-005 | Doctor Priority Inbox                                 |      P0 | BE-CC-004                              | Auth/pagination/sort/query plan pass                                                       |
 | BE-CC-006 | Deterministic 7/30-day report + SummaryInput snapshot |      P0 | BE-CC-002, BE-CC-004                   | Normalization/aggregation/timezone/provenance tests pass                                   |
@@ -510,6 +511,8 @@ Mọi list endpoint có pagination/hard limit/stable sort. Doctor access phải 
 | BE-CC-012A | Care Program access entitlement                      |      P0 | Plans/Subscriptions                    | Backend Care Program access/downgrade/safety tests pass                                    |
 | BE-CC-012B | AI quota enforcement + Plan operations               |      P0 | BE-CC-012A, AI Advisory, BE-DATA-001   | AI request/token quota, Plan publication/deployment and downgrade tests pass              |
 | BE-CC-013 | Consultation usage/reservation ledger                 |      P0 | BE-CC-012A, Consultations              | Limit/count/reserve/release/idempotency tests pass                                         |
+| BE-CC-013A | Urgent Care Alert consultation benefit               |      P0 | BE-CC-008/013; pricing contract        | Backend `quotaPolicy`, urgent free/no-quota, attention standard, migration and race tests  |
+| BE-CC-013B | Stale consultation/reservation handling              |      P0 | BE-CC-013; timeout policy approved     | Atomic lifecycle/ledger handling, no-show/on-demand policy and worker recovery E2E pass   |
 | BE-CC-014 | Baseline/check-in schema engine                       |      P0 | BE-CC-001                              | Validation/version/privacy tests pass                                                      |
 | BE-CC-015 | Program Builder Lite + simulation                     |      P1 | BE-CC-001/003/014                      | Draft/publish/preview/audit tests pass                                                     |
 | BE-CC-016 | Education journey/content progress                    |      P1 | BE-CC-001, AI/RAG                      | Approved-content/auth/progress tests pass                                                  |
@@ -522,7 +525,7 @@ Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request
 
 **Gate đồng bộ persistence bắt buộc cho mọi slice:** với từng collection được đọc hoặc sửa, phải đối chiếu bốn lớp `docs/data-model.dbml` ↔ Mongoose entity/schema ↔ migration validator/index ↔ DTO/projection/public port. Test phải chứng minh tên field, kiểu, required/nullable, timestamp và index quan trọng khớp nhau. `database:verify` chỉ so live database với migration manifest; nó **không tự chứng minh Mongoose entity hoặc query projection khớp DBML**, vì vậy verify pass một mình không đủ để đóng gate.
 
-**Tiến độ hiện tại (18/10/2026):** `CC-013` đã hoàn tất và đóng exit gate sau khi xác minh transaction, policy đặt lịch, reconciliation và xử lý lịch legacy. Phần Plan operations/quota AI thuộc `CC-012B` vẫn là công việc tiếp theo theo roadmap.
+**Tiến độ hiện tại (18/10/2026):** `CC-013` đã đóng trong phạm vi ledger hiện tại. Audit source phát hiện metric → task → evaluation → alert chưa có pipeline tự động/retry-safe hoàn chỉnh (`CC-003A`), và reminder event chưa được worker hỗ trợ. Quyền lợi consultation từ urgent alert miễn quota/miễn phí là target mới chưa implement (`CC-013A`); chính sách chính xử lý lịch/reservation bị treo đã thống nhất nhưng chưa triển khai (`CC-013B`), vẫn còn các quyết định riêng ghi ở phase này. `CC-012B` vẫn cần hoàn tất cho Plan operations/quota AI.
 
 #### Kết quả rà soát `CC-002` trở về trước — cập nhật 06/10/2026
 
@@ -533,7 +536,7 @@ Không mở đồng thời toàn bộ collection trong DB v8. Mỗi pull request
 | `CC-001A` | **DONE** | Program/Rule lifecycle, permission/version/idempotency, immutable published/active records, audit/transaction và active-rule uniqueness đã có test evidence. | Duy trì regression khi đổi lifecycle hoặc permission. |
 | `CC-001B` | **DONE** | Enrollment state machine, ownership/authorization, activation guard, entitlement adapter, audit và concurrent idempotency đã có E2E evidence. | Duy trì regression khi thêm transition. |
 | `CC-014` *(dependency của CC-002)* | **DONE (unit/source evidence)** | Baseline validator v1, enrollment snapshot, migration `202609291300`/`202609300900`, DTO/OpenAPI integration và `baseline-form.validator.spec.ts` đã tồn tại. | Duy trì test contract/privacy khi thay đổi schema; không phải blocker code cho CC-002, nhưng gate E2E của CC-001B vẫn độc lập. |
-| `CC-002` | **DONE** | CareTask rolling window, IANA/DST, Health Metric port, completion/missed/cancelled, adherence, reminder outbox, duplicate/retry, late-input/correction, authorization/query và DB evidence đã qua gate. | Public Health Metric port phải tiếp tục dùng target field names và append-only lifecycle. |
+| `CC-002` | **DONE trong phạm vi service/test trước đây; automation OPEN** | CareTask rolling window, IANA/DST, Health Metric port, completion/missed/cancelled, adherence và reminder outbox có implementation. | Hiện schedule chỉ được gọi qua Admin endpoint; worker chưa xử lý `care.task.reminder`. `CC-003A` phải chứng minh tự động hóa, delivery, late-input/correction và recovery end-to-end. |
 
 #### Kết quả source audit ↔ target contract — 15/10/2026
 
@@ -541,7 +544,7 @@ Audit này đối chiếu `docs/data-model.dbml`, business rules, roadmap, Mongo
 
 | Phạm vi | Kết luận hiện tại | Việc bắt buộc trước khi mở rộng |
 | --- | --- | --- |
-| Chronic Care đã đóng (`CC-000..007`, `CC-011`, `CC-014`) | **Aligned trong phạm vi slice.** Program/Rule/Enrollment/Task/Evaluation/Alert/Report/Summary có entity, migration/manifest và evidence riêng. | Giữ bốn-lớp alignment khi sửa field hoặc projection. |
+| Chronic Care (`CC-000..007`, `CC-011`, `CC-014`) | **Có implementation theo slice; pipeline tự động chưa hoàn chỉnh.** Task/evaluation/alert có service; chỉ outbox notification có worker. | `CC-003A` bổ sung trigger/worker/recovery và reminder delivery; giữ bốn-lớp alignment khi sửa field hoặc projection. |
 | Billing `Plans`/`Subscriptions` (`CC-012A`) | **Aligned nhưng chỉ là Care Program access.** Snapshot và Free grant tồn tại; không có PaymentOrder, quota usage hay Plan management API/seed deployment. | `CC-012B`: Plan lifecycle/deployment + public quota port/usage store/enforcement; không được gọi đây là entitlement hoàn chỉnh. |
 | Consultation | **CC-013 hoàn tất.** Alert link, quota ledger, scheduled no-show và reconciliation đã kiểm thử; `AvailabilitySlots` và no-show on-demand chưa mở. | `BE-DATA-001-A` chốt state/field/index/DTO migration; `CC-008` bổ sung unique link migration; `CC-013` sở hữu quota theo immutable Subscription snapshot. |
 | AI Advisory/identity/notification legacy | **Không được xem là v8 physical schema đã xác minh.** Source còn dùng các projection/collection legacy như `aiconversationmessages`, `messages`, `auth_events`, `patients`; DBML target có OAuthAccounts, UserDevices, AiUsageDaily và campaign model chưa có source/migration tương ứng. | Tách `BE-DATA-001-B..D` theo bounded context; mỗi PR phải có mapping/retention migration, manifest và DTO compatibility evidence. |
@@ -574,7 +577,7 @@ rule + alert + inbox    deterministic facts + AI    entitlement + payment + evid
 | 4 — Report + reuse | Report deterministic trước, AI có guard/fallback, diabetes dùng chung engine | Task/alert facts có snapshot | Gửi raw history vào model hoặc fork engine theo bệnh |
 | 5 — Commercial + release | Entitlement/payment chính xác, consultation link, E2E/demo/release evidence | Core clinical flow xanh | Refund/P1/WebRTC/OAuth nếu chưa còn buffer |
 
-**Bạn đang ở Phase 5 với core clinical/report flow đã hoàn tất. Thứ tự thực thi đề xuất là `BE-DATA-001-A` (Consultation/Billing reconciliation) → `CC-008` (alert-to-consultation) → `CC-013` (reservation ledger); `CC-012B` phải hoàn tất trước khi tuyên bố entitlement Free/Plus/Care đầy đủ.**
+**Ưu tiên sau audit 18/10/2026:** `CC-003A` khép pipeline metric → evaluation → alert/notification và xử lý retry; tiếp theo `CC-013A` triển khai quyền lợi urgent đã chốt; `CC-013B` triển khai policy timeout đã thống nhất, đồng thời chốt các điểm còn mở trước khi mở các luồng liên quan. `CC-012B` vẫn phải hoàn tất trước khi tuyên bố entitlement Free/Plus/Care đầy đủ.**
 
 | PR/Slice      | Phạm vi bắt buộc                                                                                                                                                                                                           | Không làm trong slice                                                  | Exit gate                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -706,6 +709,17 @@ Không thuộc slice: CareAlert, Doctor Inbox, AI explanation.
 Exit gate: deterministic fixture pass; duplicate/retry/correction không tạo evaluation sai; boundary check và authorization integration pass.
 
 Ước lượng: **4-6 person-days**.
+
+#### `CC-003A` — Tự động hóa metric → evaluation → alert và recovery
+
+**Trạng thái: OPEN — chưa implement.** Source audit 18/10/2026: `CareTaskSchedulerService.scheduleActiveEnrollments()` chỉ có caller là Admin `POST /care-tasks/schedule`; `completeMetricTasks()` dùng metric đầu tiên khớp window và gọi `evaluateMetric()`. Worker hiện tại chạy BullMQ dispatch outbox định kỳ 5 giây, xử lý `care.alert.opened` để tạo notification và các notification/realtime event, nhưng không gọi scheduler/evaluation và không hỗ trợ event `care.task.reminder`. `HealthEvaluationService` persist evaluation trước khi tạo alert; nếu tạo alert thất bại, retry cùng unique key trả evaluation sẵn có mà không thử tạo lại alert. Task cũng có thể đã chuyển completed trước lỗi evaluation; không tuyên bố pipeline này tự động hoặc retry-safe.
+
+1. Chốt trigger cho metric mới/correction, task matching và rolling-window scheduler: durable event/outbox hoặc job định kỳ có cursor/bounded batch, không dựa vào Admin gọi tay. Quy định rõ late metric và các metric ngoài task window; không bỏ sót urgent chỉ vì task đã terminal.
+2. Thiết kế idempotency, retry, lease/claim, backoff, dead-letter, alerting và recovery cho từng bước; tránh mất việc giữa task completion, evaluation persistence và alert creation. Bảo đảm duplicate/concurrent/correction không tạo sai hoặc bỏ sót alert; chốt xử lý khi evaluation mới `urgent` trùng dedupe window của alert `attention`.
+3. Implement/kiểm thử delivery `care.task.reminder` đúng scheduled time và contract notification; không đưa raw health metrics vào outbox/log. Giữ giao tiếp qua public ports và tránh provider call trong transaction.
+4. E2E dùng MongoDB + Redis + worker thật: metric ingestion → evaluation → normal không alert / attention hoặc urgent có alert → notification; restart/crash ở từng ranh giới, retry, late/correction, race, DLQ/replay, reminder đúng hạn và authorization. Kiểm thử ngưỡng demo không được trình bày như hướng dẫn lâm sàng.
+
+Exit gate: trigger chạy tự động trong deployment, retry/recovery không bỏ sót và không nhân bản side effect, alert/notification đúng severity; metrics/lag và runbook có evidence. Đến khi đó không quảng bá giám sát realtime hoặc bảo đảm phát hiện mọi metric.
 
 #### `CC-004` — CareAlert lifecycle và notification outbox
 
@@ -915,6 +929,24 @@ Exit gate: limit/reserve/count/release/no-show/race/idempotency tests pass.
 Ước lượng: **4-6 person-days**.
 
 **Exit gate: CLOSED (18/10/2026).** Accept/start/cancel/no-show dùng chung transaction với ledger; Free grant được chuẩn bị trước transaction; usage chu kỳ cũ không sửa counter chu kỳ mới. Reservation của lịch đã xác nhận được giữ qua chu kỳ; snapshot scheduled mặc định hạn hủy 60 phút, no-show sau 10 phút; chưa hỗ trợ no-show on-demand. Reconciliation xử lý ledger reserved bị lệch lifecycle và sửa counter theo ledger, không tự expire lịch; orphan/conflict được báo để xử lý thủ công. Hai lịch waiting legacy thiếu ledger trên Atlas được miễn quota theo quyết định của người dùng và đánh dấu, ghi audit trong transaction; 20 lịch completed legacy giữ nguyên, không tạo lại quota lịch sử. Migration `202610181000` và `202610181100` đã áp dụng qua `MONGODB_URI` trong `.env` (Atlas), rehearsal MongoDB Docker migrate/verify/no-op. Test: 11 integration CC-013 (gồm rollback, race, cycle, reconciliation, exemption), 9 unit consultation, 108 unit toàn repo và 3 E2E care-alert pass; typecheck, boundary, OpenAPI và realtime check pass. Lint toàn repo chưa xanh do 4 lỗi `unbound-method` tại test heartbeat và warning vượt ngưỡng; đây là khoản nợ riêng, không báo là pass.
+
+#### `CC-013A` — Quyền lợi consultation từ urgent Care Alert
+
+**Trạng thái: OPEN — product decision, chưa implement.** Assigned Doctor tạo consultation từ alert `urgent` hợp lệ: không tiêu thụ quota consultation thông thường và không thu phí riêng. Alert `attention` giữ quota/giá thông thường. Hiện source vẫn reserve quota cho cả hai.
+
+1. Chốt guard Care Program/enrollment khi tạo và policy khi hết hạn/downgrade; eligibility phải dùng dữ liệu server-side, không tin severity/quotaPolicy từ client. Không thay đổi severity hoặc xử lý cấp cứu theo gói.
+2. Thêm snapshot `Consultation.quotaPolicy = consultation_limit | care_program_included`, model/validator/migration/manifest/DTO và public contract; không tái sử dụng `legacyQuotaExempt`. Xác định rõ backfill/compatibility cho pending, accepted, counted/released và các lịch exempt hiện hữu; không tự thay đổi quota/giá lịch cũ.
+3. Tại luồng `createFromCareAlert`, snapshot `care_program_included` chỉ khi alert `urgent` đủ guard, lưu nguồn alert/enrollment và audit trong cùng transaction; `attention` dùng `consultation_limit`. Start/cancel/no-show xử lý theo snapshot, không reserve/count/release ledger quota thông thường đối với included, giữ idempotency một alert/một consultation và an toàn dưới race/correction.
+4. Thiết kế/tích hợp pricing/payment contract để phiên included không phát sinh phí riêng; việc không reserve quota **không đủ** để chứng minh không thu tiền. Xác định behavior trong khi payment/price flow chưa implement; không hứa tính năng đã hoạt động.
+5. Regression/E2E: urgent hết quota vẫn tạo/bắt đầu/hủy/no-show hợp lệ và phí 0; attention vẫn bị quota thông thường ràng buộc; giả mạo severity/policy bị từ chối; concurrency/retry, expiry/downgrade, lịch đã snapshot, audit, migration/verify/no-op và tương tác với legacy đều đúng.
+
+#### `CC-013B` — Xử lý lịch/reservation bị treo
+
+**Trạng thái: OPEN — chính sách chính đã thống nhất, chưa implement.** Hiện confirmed reservation không tự hết hạn theo giờ hẹn hoặc chu kỳ; scheduled no-show là thao tác Doctor sau snapshot 10 phút, on-demand chưa có no-show, late patient cancellation bị từ chối.
+
+1. Triển khai policy tại `docs/product-spec.md`: on-demand cảnh báo sau 45 phút từ `respondedAt`, tự hủy sau 60 phút và ít nhất 15 phút kể từ khi ghi cảnh báo, gia hạn tối đa một lần 10 phút nếu đang kết nối; system cancel release thay vì no-show/count; Patient có thể gửi request mới ngay sau hủy. Scheduled quá 24 giờ thì cảnh báo/review, không tự no-show/hủy/release. Các mốc này **chưa áp dụng trong source**. Chốt riêng quota cho lịch đặt ở chu kỳ sau, thông số rate limit và chính sách tạo lại từ cùng Care Alert với unique link hiện tại.
+2. Bổ sung job phát hiện, warning và xử lý theo batch/cursor, kèm tín hiệu phòng chờ xác thực, TTL và gia hạn một lần; không dùng heartbeat chỉ hoạt động sau start làm bằng chứng pre-start. Dùng conditional transition cùng transaction Consultation + ledger nếu có + audit/outbox; nếu không ghi được warning hoặc không xác minh được kết nối thì retry/review, không tự xóa reservation độc lập.
+3. Test mốc 45/60 phút, notification trễ/lỗi, gia hạn/Redis lỗi, retry request thông thường và alert unique link, race với start/cancel/no-show, retry, worker restart/DLQ, timezone, expiry/downgrade, phiên urgent included và dữ liệu legacy; có metrics/runbook và evidence job chạy thực tế.
 
 #### `CC-008` — Consultation link và follow-up
 

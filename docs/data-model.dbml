@@ -140,6 +140,7 @@ Table Consultations {
   timezone varchar
   expectedDurationMinutes int [not null, note: "Expected operational duration; never auto-completes the consultation"]
   bookingSettingsSnapshot json [note: "Applied bookingPolicy, duration/buffer, notice, cancellation, check-in and no-show values captured at booking/acceptance"]
+  quotaPolicy varchar [note: "TARGET, not implemented: consultation_limit | care_program_included; backend-owned immutable policy snapshot. care_program_included only for qualifying urgent Care Alert consultation; included session has no separate patient charge. Legacy/missing values need explicit migration policy"]
   legacyQuotaExempt boolean [note: "Explicitly audited exemption for identified pre-CC-013 accepted bookings; not a general fallback for missing ledger"]
   patientNotes text
   doctorNotes text
