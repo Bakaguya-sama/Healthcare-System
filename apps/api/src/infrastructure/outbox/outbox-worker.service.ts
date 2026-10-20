@@ -18,6 +18,8 @@ import { CareMetricEvaluationService } from '../../modules/chronic-care/applicat
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
 const CARE_TASK_SCHEDULE_JOB = 'schedule-care-tasks';
+const OUTBOX_OBSERVATION_INTERVAL_MS = 60_000;
+const OUTBOX_PENDING_LAG_WARNING_MS = 5 * 60_000;
 export const NOTIFICATION_REALTIME_CHANNEL = 'healthcare:notification-events';
 
 @Injectable()
@@ -27,6 +29,7 @@ export class OutboxWorkerService
   private readonly logger = new Logger(OutboxWorkerService.name);
   private queue?: Queue;
   private worker?: Worker;
+  private lastObservedAt = 0;
   private readonly careAutomationEnabled: boolean;
   constructor(
     private readonly config: ConfigService,
@@ -106,6 +109,38 @@ export class OutboxWorkerService
         },
       );
     }
+    await this.observeOutbox();
+  }
+
+  /**
+   * Emits bounded, structured operational signals without exposing outbox
+   * payloads. Deployment log collection alerts on dead events or sustained lag.
+   */
+  private async observeOutbox() {
+    if (Date.now() - this.lastObservedAt < OUTBOX_OBSERVATION_INTERVAL_MS)
+      return;
+    this.lastObservedAt = Date.now();
+    const metrics = await this.outbox.getMetrics();
+    const counts = Object.fromEntries(
+      metrics.byStatus.map((entry) => [entry._id, entry.count]),
+    );
+    const fields = {
+      event: 'outbox.health',
+      pending: counts.pending ?? 0,
+      processing: counts.processing ?? 0,
+      delivered: counts.delivered ?? 0,
+      dead: counts.dead ?? 0,
+      oldestPendingAgeMs: metrics.oldestPendingAgeMs,
+    };
+    if (fields.dead > 0) {
+      this.logger.error(fields);
+      return;
+    }
+    if (fields.oldestPendingAgeMs >= OUTBOX_PENDING_LAG_WARNING_MS) {
+      this.logger.warn(fields);
+      return;
+    }
+    this.logger.debug(fields);
   }
 
   private async deliverEvent(

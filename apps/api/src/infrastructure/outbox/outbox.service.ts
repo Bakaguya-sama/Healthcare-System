@@ -193,9 +193,16 @@ export class OutboxService {
         },
       },
     ]);
+    const oldestPending = result?.oldestPending?.[0] ?? null;
     return {
       byStatus: result?.byStatus ?? [],
-      oldestPending: result?.oldestPending?.[0] ?? null,
+      oldestPending,
+      oldestPendingAgeMs: oldestPending
+        ? Math.max(
+            0,
+            Date.now() - new Date(oldestPending.nextAttemptAt).getTime(),
+          )
+        : 0,
     };
   }
 }

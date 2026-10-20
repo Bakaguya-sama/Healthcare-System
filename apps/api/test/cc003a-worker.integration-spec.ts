@@ -349,6 +349,37 @@ describe('CC-003A worker pipeline', () => {
         .countDocuments({ healthMetricId: new Types.ObjectId(metric.data.id) }),
     ).toBe(1);
   });
+
+  it('recovers an event left in processing after a worker crash', async () => {
+    await worker.onApplicationShutdown();
+    const metric = await metrics.create(String(patientId), {
+      metricType: MetricType.BLOOD_PRESSURE,
+      values: { systolic: 150, diastolic: 90 },
+    });
+    const key = `health.metric.recorded.${metric.data.id}`;
+    const [claimed] = await outbox.claimBatch(1, 30_000);
+    expect(claimed.idempotencyKey).toBe(key);
+    await connection
+      .model<OutboxEvent>(OutboxEvent.name)
+      .updateOne(
+        { _id: claimed._id },
+        { $set: { lockExpiresAt: new Date(Date.now() - 1) } },
+      );
+
+    await worker.onModuleInit();
+    await waitFor(async () =>
+      Boolean(
+        await connection
+          .model<OutboxEvent>(OutboxEvent.name)
+          .exists({ idempotencyKey: key, status: 'delivered' }),
+      ),
+    );
+    expect(
+      await connection
+        .model(HealthEvaluation.name)
+        .countDocuments({ healthMetricId: new Types.ObjectId(metric.data.id) }),
+    ).toBe(1);
+  });
 });
 
 async function waitFor(check: () => Promise<boolean>) {
