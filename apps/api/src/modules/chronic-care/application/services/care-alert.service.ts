@@ -114,6 +114,10 @@ export class CareAlertService {
       patientCareProgramId: String(alert.patientCareProgramId),
       patientId: String(alert.patientId),
       doctorId: actor.id,
+      quotaPolicy:
+        alert.severity === HealthEvaluationSeverity.URGENT
+          ? 'care_program_included'
+          : 'consultation_limit',
       scheduledStartAt,
       timezone: input.timezone,
       expectedDurationMinutes: input.expectedDurationMinutes ?? 30,

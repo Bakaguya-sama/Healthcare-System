@@ -11,6 +11,7 @@ import {
   Consultation,
   ConsultationDocument,
   ConsultationMode,
+  ConsultationQuotaPolicy,
   ConsultationRequestStatus,
   ConsultationSessionStatus,
 } from '../../../domain/entities/consultations/consultation.entity';
@@ -38,7 +39,8 @@ export class CareAlertConsultationService implements CareAlertConsultationPort {
       .lean()
       .exec();
     if (existing) return { id: String(existing._id), created: false };
-    await this.usage.prepare(input.patientId);
+    if (input.quotaPolicy === ConsultationQuotaPolicy.CONSULTATION_LIMIT)
+      await this.usage.prepare(input.patientId);
     const session = await this.connection.startSession();
     try {
       let consultation!: ConsultationDocument;
@@ -63,6 +65,7 @@ export class CareAlertConsultationService implements CareAlertConsultationPort {
             : ConsultationMode.ON_DEMAND,
           requestStatus: ConsultationRequestStatus.ACCEPTED,
           sessionStatus: ConsultationSessionStatus.WAITING,
+          quotaPolicy: input.quotaPolicy,
           requestedAt: new Date(),
           respondedAt: new Date(),
           ...(input.scheduledStartAt
@@ -88,13 +91,15 @@ export class CareAlertConsultationService implements CareAlertConsultationPort {
               }
             : {}),
         });
-        const reservation = await this.usage.reserve({
-          consultationId: String(consultation._id),
-          patientId: input.patientId,
-          session,
-        });
-        if (reservation.status !== 'reserved')
-          throw new Error('Consultation quota is not reserved');
+        if (input.quotaPolicy === ConsultationQuotaPolicy.CONSULTATION_LIMIT) {
+          const reservation = await this.usage.reserve({
+            consultationId: String(consultation._id),
+            patientId: input.patientId,
+            session,
+          });
+          if (reservation.status !== 'reserved')
+            throw new Error('Consultation quota is not reserved');
+        }
         await consultation.save({ session });
         created = true;
         await this.audits.create(
@@ -108,6 +113,7 @@ export class CareAlertConsultationService implements CareAlertConsultationPort {
               metadata: {
                 careAlertId: String(careAlertId),
                 patientCareProgramId: input.patientCareProgramId,
+                quotaPolicy: input.quotaPolicy,
               },
             },
           ],

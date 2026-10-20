@@ -16,6 +16,7 @@ import { RolesGuard } from '../src/core/guards/roles.guard';
 import { applyCc003Cc004EvaluationsAlerts } from '../src/database/migrations/202610020900-cc003-cc004-evaluations-alerts';
 import { applyData001aConsultationContract } from '../src/database/migrations/202610152000-data001a-consultation-contract';
 import { applyCc008CareAlertConsultationLink } from '../src/database/migrations/202610161000-cc008-care-alert-consultation-link';
+import { applyCc013aUrgentAlertBenefit } from '../src/database/migrations/202610201000-cc013a-urgent-alert-consultation-benefit';
 import { CareAlertService } from '../src/modules/chronic-care/application/services/care-alert.service';
 import {
   CareAlert,
@@ -75,6 +76,7 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
   const enrollmentId = new ObjectId();
   const alertId = new ObjectId();
   const onDemandAlertId = new ObjectId();
+  const attentionAlertId = new ObjectId();
 
   const asActor = (id: ObjectId, role: UserRole) => ({
     'x-user-id': id.toHexString(),
@@ -92,17 +94,18 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
     await applyCc003Cc004EvaluationsAlerts(database);
     await applyData001aConsultationContract(database);
     await applyCc008CareAlertConsultationLink(database);
+    await applyCc013aUrgentAlertBenefit(database);
 
     const now = new Date();
     await database.collection('carealerts').insertMany(
-      [alertId, onDemandAlertId].map((id, index) => ({
+      [alertId, onDemandAlertId, attentionAlertId].map((id, index) => ({
         _id: id,
         revision: new Int32(1),
         patientCareProgramId: enrollmentId,
         evaluationId: new ObjectId(),
         patientId,
         assignedDoctorId: doctorId,
-        severity: 'urgent',
+        severity: index === 2 ? 'attention' : 'urgent',
         status: 'open',
         reasonCodes: [`cc008-${index}`],
         uniqueKey: `cc008-alert-${index}`,
@@ -163,6 +166,8 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
     }
   });
 
+  beforeEach(() => jest.clearAllMocks());
+
   it('rejects a patient and a doctor who is not assigned to the alert', async () => {
     await request(app.getHttpServer())
       .post(`/care-alerts/${alertId}/consultations`)
@@ -207,12 +212,15 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
       mode: 'scheduled',
       requestStatus: 'accepted',
       sessionStatus: 'waiting',
+      quotaPolicy: 'care_program_included',
       expectedDurationMinutes: 45,
       followUp: {
         note: body.followUpNote,
         nextAction: body.nextAction,
       },
     });
+    expect(usage.prepare).not.toHaveBeenCalled();
+    expect(usage.reserve).not.toHaveBeenCalled();
     expect(outbox.enqueue).toHaveBeenCalledTimes(1);
   });
 
@@ -229,7 +237,22 @@ describe('CC-008 Care alert consultation link (e2e)', () => {
       careAlertId: onDemandAlertId,
       mode: 'on_demand',
       expectedDurationMinutes: 30,
+      quotaPolicy: 'care_program_included',
     });
     expect(consultation?.scheduledStartAt).toBeUndefined();
+  });
+
+  it('keeps ordinary quota treatment for an attention alert', async () => {
+    const response = await request(app.getHttpServer())
+      .post(`/care-alerts/${attentionAlertId}/consultations`)
+      .set(asActor(doctorId, UserRole.DOCTOR))
+      .send({ expectedDurationMinutes: 30 })
+      .expect(201);
+    const consultation = await connection
+      .db!.collection('consultations')
+      .findOne({ _id: new ObjectId(response.body.id) });
+    expect(consultation?.quotaPolicy).toBe('consultation_limit');
+    expect(usage.prepare).toHaveBeenCalledWith(patientId.toHexString());
+    expect(usage.reserve).toHaveBeenCalledTimes(1);
   });
 });

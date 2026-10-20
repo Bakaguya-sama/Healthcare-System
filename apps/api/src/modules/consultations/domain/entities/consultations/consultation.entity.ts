@@ -25,6 +25,12 @@ export enum ConsultationSessionStatus {
   NO_SHOW = 'no_show',
 }
 
+/** Immutable server-owned billing treatment captured when a consultation is created. */
+export enum ConsultationQuotaPolicy {
+  CONSULTATION_LIMIT = 'consultation_limit',
+  CARE_PROGRAM_INCLUDED = 'care_program_included',
+}
+
 @Schema({ timestamps: true, collection: 'consultations' })
 export class Consultation {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
@@ -80,6 +86,12 @@ export class Consultation {
   @Prop({ type: Number, min: 0 }) estimatedWaitMinutes?: number;
   @Prop() overtimeStartedAt?: Date;
   @Prop({ type: Object }) bookingSettingsSnapshot?: Record<string, unknown>;
+  @Prop({
+    type: String,
+    enum: ConsultationQuotaPolicy,
+    default: ConsultationQuotaPolicy.CONSULTATION_LIMIT,
+  })
+  quotaPolicy?: ConsultationQuotaPolicy;
   /** Administrative exemption for explicitly identified pre-ledger bookings. */
   @Prop({ type: Boolean }) legacyQuotaExempt?: boolean;
   @Prop() patientNotes?: string;

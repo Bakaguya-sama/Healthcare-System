@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { ConsultationsService } from './consultations.service';
 import {
   ConsultationMode,
+  ConsultationQuotaPolicy,
   ConsultationRequestStatus,
   ConsultationSessionStatus,
 } from '../../../domain/entities/consultations/consultation.entity';
@@ -191,6 +192,20 @@ describe('ConsultationsService state machine', () => {
       service.markNoShow(doctorId.toString(), consultation._id.toString()),
     ).rejects.toThrow('No-show policy is unavailable');
     expect(usage.count).not.toHaveBeenCalled();
+  });
+
+  it('does not count or release an included care-program consultation', async () => {
+    const { service, consultation, doctorId, patientId, usage } =
+      createService();
+    Object.assign(consultation, {
+      quotaPolicy: ConsultationQuotaPolicy.CARE_PROGRAM_INCLUDED,
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING,
+    });
+    await service.start(doctorId.toString(), consultation._id.toString());
+    expect(usage.count).not.toHaveBeenCalled();
+    await service.cancel(patientId.toString(), consultation._id.toString(), {});
+    expect(usage.release).not.toHaveBeenCalled();
   });
 
   it('returns canonical fields without legacy session aliases', async () => {

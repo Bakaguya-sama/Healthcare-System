@@ -15,6 +15,7 @@ import {
   Consultation,
   ConsultationDocument,
   ConsultationMode,
+  ConsultationQuotaPolicy,
   ConsultationRequestStatus,
   ConsultationSessionStatus,
 } from '../../../domain/entities/consultations/consultation.entity';
@@ -30,7 +31,7 @@ import type { CareReportPort } from '../../ports/care-report.port';
 import { defaultBookingSettingsSnapshot } from './booking-policy';
 
 const CONSULTATION_PROJECTION =
-  '_id patientId doctorId patientCareProgramId careAlertId availabilitySlotId mode requestStatus sessionStatus requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
+  '_id patientId doctorId patientCareProgramId careAlertId availabilitySlotId mode requestStatus sessionStatus quotaPolicy requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
 
 @Injectable()
 export class ConsultationsService implements CareReportPort {
@@ -102,6 +103,7 @@ export class ConsultationsService implements CareReportPort {
         : ConsultationMode.ON_DEMAND,
       requestStatus: ConsultationRequestStatus.PENDING,
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
+      quotaPolicy: ConsultationQuotaPolicy.CONSULTATION_LIMIT,
       requestedAt: new Date(),
       scheduledStartAt,
       ...(scheduledStartAt
@@ -310,7 +312,7 @@ export class ConsultationsService implements CareReportPort {
         throw new BadRequestException(
           'Consultation must be accepted before starting',
         );
-      if (!consultation.legacyQuotaExempt) {
+      if (this.usesConsultationQuota(consultation)) {
         const status = await this.usage.count({
           consultationId: String(consultation._id),
           session,
@@ -368,7 +370,7 @@ export class ConsultationsService implements CareReportPort {
         consultation.scheduledStartAt.getTime() + minutes * 60_000
       )
         throw new BadRequestException('No-show waiting period has not elapsed');
-      if (!consultation.legacyQuotaExempt) {
+      if (this.usesConsultationQuota(consultation)) {
         const status = await this.usage.count({
           consultationId: String(consultation._id),
           session,
@@ -421,7 +423,7 @@ export class ConsultationsService implements CareReportPort {
       if (
         consultation.requestStatus === ConsultationRequestStatus.ACCEPTED &&
         consultation.sessionStatus === ConsultationSessionStatus.WAITING &&
-        !consultation.legacyQuotaExempt
+        this.usesConsultationQuota(consultation)
       ) {
         const status = await this.usage.release({
           consultationId: String(consultation._id),
@@ -463,6 +465,8 @@ export class ConsultationsService implements CareReportPort {
         .findById(id)
         .session(session);
       if (!consultation) return 'missing_consultation' as const;
+      if (!this.usesConsultationQuota(consultation))
+        return 'unchanged' as const;
       if (
         [
           ConsultationSessionStatus.IN_CONSULTATION,
@@ -655,6 +659,17 @@ export class ConsultationsService implements CareReportPort {
   }
   private same(value: Types.ObjectId, id: string) {
     return Types.ObjectId.isValid(id) && value.equals(new Types.ObjectId(id));
+  }
+  /**
+   * Historic documents without quotaPolicy preserve ordinary ledger treatment.
+   * legacyQuotaExempt is an independent audited compatibility exemption.
+   */
+  private usesConsultationQuota(consultation: ConsultationDocument) {
+    return (
+      consultation.quotaPolicy !==
+        ConsultationQuotaPolicy.CARE_PROGRAM_INCLUDED &&
+      !consultation.legacyQuotaExempt
+    );
   }
   private assertParticipant(item: ConsultationDocument, userId: string) {
     if (!this.same(item.patientId, userId) && !this.same(item.doctorId, userId))

@@ -38,7 +38,7 @@ import {
   CC012_BILLING_INDEXES,
 } from './migrations/202610151000-cc012-billing-access';
 import { DATA001A_CONSULTATION_INDEXES } from './migrations/202610152000-data001a-consultation-contract';
-import { CC013_CONSULTATION_COLLECTION } from './migrations/202610181100-cc013-legacy-quota-exemption';
+import { CC013A_CONSULTATION_COLLECTION } from './migrations/202610201000-cc013a-urgent-alert-consultation-benefit';
 import { CC008_CARE_ALERT_CONSULTATION_INDEX } from './migrations/202610161000-cc008-care-alert-consultation-link';
 import {
   CC003A_ALERT_DEDUP_INDEXES,
@@ -120,7 +120,7 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   CC006_CARE_REPORT_COLLECTION,
   CC007_CARE_SUMMARIES_COLLECTION,
   HEALTH_METRIC_COLLECTION,
-  CC013_CONSULTATION_COLLECTION,
+  CC013A_CONSULTATION_COLLECTION,
   ...CC012_BILLING_COLLECTIONS,
   CC013_CONSULTATION_USAGE_COLLECTION,
 ] as const;

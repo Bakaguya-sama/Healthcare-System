@@ -173,6 +173,12 @@ import {
   CC003A_ALERT_DEDUP_NAME,
   CC003A_ALERT_DEDUP_CHECKSUM,
 } from './202610191000-cc003a-alert-deduplication';
+import {
+  applyCc013aUrgentAlertBenefit,
+  CC013A_URGENT_ALERT_BENEFIT_CHECKSUM,
+  CC013A_URGENT_ALERT_BENEFIT_NAME,
+  CC013A_URGENT_ALERT_BENEFIT_VERSION,
+} from './202610201000-cc013a-urgent-alert-consultation-benefit';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -348,6 +354,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC003A_ALERT_DEDUP_NAME,
     checksum: CC003A_ALERT_DEDUP_CHECKSUM,
     up: applyCc003aAlertDedup,
+  },
+  {
+    version: CC013A_URGENT_ALERT_BENEFIT_VERSION,
+    name: CC013A_URGENT_ALERT_BENEFIT_NAME,
+    checksum: CC013A_URGENT_ALERT_BENEFIT_CHECKSUM,
+    up: applyCc013aUrgentAlertBenefit,
   },
 ];
 
