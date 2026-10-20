@@ -13,12 +13,14 @@ import { HealthMetricQueryService } from './application/services/health-metric-q
 import { HealthMetricAlertService } from './application/services/health-metric-alert.service';
 import { HEALTH_METRIC } from './application/ports/health-metric.port';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 
 @Module({
   imports: [
     NotificationsModule,
     UsersModule,
     PlatformAuditModule,
+    OutboxModule,
     MongooseModule.forFeature([
       { name: HealthMetric.name, schema: HealthMetricSchema },
     ]),

@@ -26,6 +26,8 @@ import type {
 } from '../ports/health-profile.port';
 import { HealthMetricAlertService } from './health-metric-alert.service';
 import { HealthMetricQueryService } from './health-metric-query.service';
+import { OutboxService } from '../../../../infrastructure/outbox/outbox.service';
+import type { ClientSession } from 'mongoose';
 
 const BMI_UNIT = 'kg/m2';
 
@@ -86,6 +88,7 @@ export class HealthMetricsService implements HealthProfilePort {
     usersService: UsersService,
     @Optional() healthMetricQueries?: HealthMetricQueryService,
     @Optional() healthMetricAlerts?: HealthMetricAlertService,
+    private readonly outbox?: OutboxService,
   ) {
     this.healthMetricQueries =
       healthMetricQueries ?? new HealthMetricQueryService(healthMetricModel);
@@ -110,7 +113,7 @@ export class HealthMetricsService implements HealthProfilePort {
     this.assertValidValuesForType(dto.metricType, dto.values);
     const recordedAt = dto.recordedAt ?? new Date();
     const now = new Date();
-    const metric = await this.healthMetricModel.create({
+    const metricData = {
       meta: {
         patientId,
         metricType: dto.metricType,
@@ -127,7 +130,24 @@ export class HealthMetricsService implements HealthProfilePort {
       recordedTimezone: dto.recordedTimezone ?? 'UTC',
       recordedAt,
       ingestedAt: now,
-    });
+    };
+    let metric!: HealthMetricDocument;
+    if (this.outbox) {
+      const session = await this.connection.startSession();
+      try {
+        await session.withTransaction(async () => {
+          [metric] = await this.healthMetricModel.create([metricData], {
+            session,
+          });
+          await this.enqueueCareEvaluation(metric._id, session);
+        });
+      } finally {
+        await session.endSession();
+      }
+    } else {
+      // Compatibility for isolated callers that construct the service without Nest.
+      metric = await this.healthMetricModel.create(metricData);
+    }
 
     if (
       dto.metricType === MetricType.HEIGHT ||
@@ -230,6 +250,7 @@ export class HealthMetricsService implements HealthProfilePort {
           ],
           { session },
         );
+        await this.enqueueCareEvaluation(replacement._id, session);
         await this.auditLogs.create(
           [
             {
@@ -379,6 +400,23 @@ export class HealthMetricsService implements HealthProfilePort {
     return new Types.ObjectId(value);
   }
 
+  private async enqueueCareEvaluation(
+    metricId: Types.ObjectId,
+    session: ClientSession,
+  ) {
+    if (!this.outbox) return;
+    await this.outbox.enqueue(
+      {
+        eventType: 'health.metric.recorded',
+        aggregateType: 'healthMetric',
+        aggregateId: metricId,
+        idempotencyKey: `health.metric.recorded.${metricId}`,
+        payload: { metricId: String(metricId) },
+      },
+      session,
+    );
+  }
+
   private metricObjectId(value: string) {
     if (!Types.ObjectId.isValid(value))
       throw new BadRequestException('Invalid metric ID');
@@ -463,7 +501,7 @@ export class HealthMetricsService implements HealthProfilePort {
       : rawWeight;
     if (heightMeters <= 0 || weightKg <= 0) return;
     const bmi = Math.round((weightKg / heightMeters ** 2) * 100) / 100;
-    await this.healthMetricModel.create({
+    const metricData = {
       meta: { patientId, metricType: MetricType.BMI, unit: BMI_UNIT },
       values: { value: bmi },
       source: HealthMetricSource.IMPORT,
@@ -473,7 +511,22 @@ export class HealthMetricsService implements HealthProfilePort {
       recordedTimezone: 'UTC',
       recordedAt,
       ingestedAt: new Date(),
-    });
+    };
+    if (!this.outbox) {
+      await this.healthMetricModel.create(metricData);
+      return;
+    }
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const [metric] = await this.healthMetricModel.create([metricData], {
+          session,
+        });
+        await this.enqueueCareEvaluation(metric._id, session);
+      });
+    } finally {
+      await session.endSession();
+    }
   }
 
   private resolveUnitForType(metricType: MetricType) {

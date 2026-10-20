@@ -40,7 +40,7 @@ export class HealthEvaluationService {
       !Types.ObjectId.isValid(input.enrollmentId) ||
       !Types.ObjectId.isValid(input.metricId)
     )
-      return null;
+      throw new Error('Invalid enrollment or metric ID');
     const enrollment = await this.enrollments
       .findOne({
         _id: input.enrollmentId,
@@ -56,10 +56,13 @@ export class HealthEvaluationService {
       !Array.isArray(snapshot.rules) ||
       !snapshot.rules.every(isCareRuleNode)
     )
-      return null;
+      throw new Error('Invalid care rule snapshot');
     const uniqueKey = `${enrollment.id}:${snapshot.careRuleId}:${snapshot.revision}:${input.metricId}:${input.ingestedAt.toISOString()}`;
     const existing = await this.evaluations.findOne({ uniqueKey }).exec();
-    if (existing) return existing;
+    if (existing) {
+      await this.alerts.createForEvaluation(existing);
+      return existing;
+    }
     const previous = await this.evaluations
       .findOne({
         patientCareProgramId: enrollment._id,
@@ -71,7 +74,7 @@ export class HealthEvaluationService {
       snapshot.rules as CareRuleNode[],
       input.values,
     );
-    const evaluation = await this.evaluations.create({
+    const evaluationData = {
       patientCareProgramId: enrollment._id,
       patientId: enrollment.patientId,
       ...(input.careTaskId && Types.ObjectId.isValid(input.careTaskId)
@@ -96,7 +99,16 @@ export class HealthEvaluationService {
       uniqueKey,
       evaluatedAt: new Date(),
       ...(previous ? { replacesEvaluationId: previous._id } : {}),
-    });
+    };
+    let evaluation: HealthEvaluationDocument;
+    try {
+      evaluation = await this.evaluations.create(evaluationData);
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+      const concurrent = await this.evaluations.findOne({ uniqueKey }).exec();
+      if (!concurrent) throw error;
+      evaluation = concurrent;
+    }
     await this.alerts.createForEvaluation(evaluation);
     return evaluation;
   }

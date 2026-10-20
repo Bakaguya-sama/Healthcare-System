@@ -24,6 +24,7 @@ import {
   PatientCareProgramDocument,
 } from '../../domain/entities/patient-care-program.entity';
 import type { CareActor } from './care-program-rule.service';
+import { localDate } from '../../domain/tasks/care-task-timezone';
 import {
   decodeCursor,
   encodeCursor,
@@ -121,26 +122,140 @@ export class CareAlertService {
     });
   }
 
-  async createForEvaluation(evaluation: HealthEvaluationDocument) {
+  async createForEvaluation(
+    evaluation: HealthEvaluationDocument,
+    retry = 0,
+  ): Promise<CareAlertDocument | null> {
     if (evaluation.severity === HealthEvaluationSeverity.NORMAL) return null;
     const enrollment = await this.enrollments
       .findById(evaluation.patientCareProgramId)
       .exec();
     if (!enrollment) return null;
-    const windowStart = String(
-      (evaluation.timeRange as Record<string, unknown>).startAt,
-    );
-    const uniqueKey = `${enrollment.id}:${evaluation.careRuleId}:${windowStart}`;
+    const rawStart = (evaluation.timeRange as Record<string, unknown>).startAt;
+    const recordedAt = new Date(rawStart as string | Date);
+    if (Number.isNaN(recordedAt.getTime()))
+      throw new Error('Invalid evaluation time');
+    const activeDeduplicationKey = `cc003a:${enrollment.id}:${evaluation.careRuleId}:${localDate(recordedAt, enrollment.timezone)}`;
     const session = await this.connection.startSession();
     try {
       let alert!: CareAlertDocument;
       await session.withTransaction(async () => {
+        const applied = await this.audits
+          .findOne({
+            domain: 'care',
+            entityType: 'careAlert',
+            action: 'care_alert_evaluation_applied',
+            'metadata.evaluationId': String(evaluation._id),
+          })
+          .session(session)
+          .exec();
+        if (applied?.entityId) {
+          const recordedAlert = await this.alerts
+            .findById(applied.entityId)
+            .session(session)
+            .exec();
+          if (!recordedAlert)
+            throw new Error('Applied evaluation alert is missing');
+          alert = recordedAlert;
+          return;
+        }
+        const legacy = await this.alerts
+          .findOne({ evaluationId: evaluation._id })
+          .session(session)
+          .exec();
+        if (legacy) {
+          alert = legacy;
+          return;
+        }
         const existing = await this.alerts
-          .findOne({ uniqueKey })
+          .findOne({ activeDeduplicationKey })
           .session(session)
           .exec();
         if (existing) {
           alert = existing;
+          if (
+            evaluation.severity === HealthEvaluationSeverity.URGENT &&
+            existing.severity === HealthEvaluationSeverity.ATTENTION
+          ) {
+            const upgraded = await this.alerts
+              .findOneAndUpdate(
+                {
+                  _id: existing._id,
+                  activeDeduplicationKey,
+                  revision: existing.revision,
+                },
+                {
+                  $set: {
+                    severity: HealthEvaluationSeverity.URGENT,
+                    evaluationId: evaluation._id,
+                    reasonCodes: evaluation.reasonCodes,
+                  },
+                  $inc: { revision: 1 },
+                },
+                { new: true, session },
+              )
+              .exec();
+            if (!upgraded)
+              throw new Error('Care alert changed during escalation');
+            alert = upgraded;
+            await this.audits.create(
+              [
+                {
+                  domain: 'care',
+                  entityType: 'careAlert',
+                  entityId: alert._id,
+                  action: 'care_alert_escalated',
+                  metadata: {
+                    severity: 'urgent',
+                    evaluationId: String(evaluation._id),
+                  },
+                },
+              ],
+              { session },
+            );
+            await this.outbox.enqueue(
+              {
+                eventType: 'care.alert.escalated',
+                aggregateType: 'careAlert',
+                aggregateId: alert._id,
+                idempotencyKey: `care.alert.escalated.${evaluation._id}`,
+                payload: {
+                  alertId: String(alert._id),
+                  patientId: String(alert.patientId),
+                  severity: 'urgent',
+                  evaluationId: String(evaluation._id),
+                },
+              },
+              session,
+            );
+            await this.outbox.enqueue(
+              {
+                eventType: 'care.alert.inbox-invalidated',
+                aggregateType: 'careAlert',
+                aggregateId: alert._id,
+                idempotencyKey: `care.alert.inbox-invalidated.${alert._id}.${alert.revision}`,
+                payload: {
+                  userId: String(alert.assignedDoctorId),
+                  action: 'care_alerts_invalidated',
+                  alertId: String(alert._id),
+                  revision: alert.revision,
+                },
+              },
+              session,
+            );
+          }
+          await this.audits.create(
+            [
+              {
+                domain: 'care',
+                entityType: 'careAlert',
+                entityId: alert._id,
+                action: 'care_alert_evaluation_applied',
+                metadata: { evaluationId: String(evaluation._id) },
+              },
+            ],
+            { session },
+          );
           return;
         }
         alert = new this.alerts({
@@ -150,11 +265,24 @@ export class CareAlertService {
           assignedDoctorId: enrollment.doctorId,
           severity: evaluation.severity,
           reasonCodes: evaluation.reasonCodes,
-          uniqueKey,
+          uniqueKey: `care.alert.evaluation.${evaluation._id}`,
+          activeDeduplicationKey,
           detectedAt: evaluation.evaluatedAt,
           revision: 1,
         });
         await alert.save({ session });
+        await this.audits.create(
+          [
+            {
+              domain: 'care',
+              entityType: 'careAlert',
+              entityId: alert._id,
+              action: 'care_alert_evaluation_applied',
+              metadata: { evaluationId: String(evaluation._id) },
+            },
+          ],
+          { session },
+        );
         await this.audits.create(
           [
             {
@@ -193,8 +321,7 @@ export class CareAlertService {
       return alert;
     } catch (error) {
       if ((error as { code?: number }).code === 11000) {
-        const existing = await this.alerts.findOne({ uniqueKey }).exec();
-        if (existing) return existing;
+        if (retry < 3) return this.createForEvaluation(evaluation, retry + 1);
       }
       throw error;
     } finally {
@@ -287,7 +414,13 @@ export class CareAlertService {
               revision: expectedRevision,
               status: { $in: statuses },
             },
-            { $set: update, $inc: { revision: 1 } },
+            {
+              $set: update,
+              $inc: { revision: 1 },
+              ...(action !== 'acknowledge'
+                ? { $unset: { activeDeduplicationKey: '' } }
+                : {}),
+            },
             { new: true, session },
           )
           .exec();
@@ -323,7 +456,7 @@ export class CareAlertService {
           reason,
           metadata: { revision: updated.revision },
         });
-        await this.audits.create(auditRows, { session });
+        await this.audits.create(auditRows, { session, ordered: true });
         await this.outbox.enqueue(
           {
             eventType: 'care.alert.inbox-invalidated',

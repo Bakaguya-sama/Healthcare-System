@@ -35,6 +35,7 @@ export class CareAlert {
   status: CareAlertStatus;
   @Prop({ type: [String], required: true, default: [] }) reasonCodes: string[];
   @Prop({ required: true }) uniqueKey: string;
+  @Prop({ type: String }) activeDeduplicationKey?: string;
   @Prop({ required: true }) detectedAt: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) acknowledgedBy?: Types.ObjectId;
   @Prop({ type: Date }) acknowledgedAt?: Date;
@@ -52,6 +53,10 @@ CareAlertSchema.index(
   { name: 'evaluationId_1', unique: true },
 );
 CareAlertSchema.index({ uniqueKey: 1 }, { name: 'uniqueKey_1', unique: true });
+CareAlertSchema.index(
+  { activeDeduplicationKey: 1 },
+  { name: 'activeDeduplicationKey_1_unique', unique: true, sparse: true },
+);
 CareAlertSchema.index(
   { assignedDoctorId: 1, status: 1, severity: 1, detectedAt: -1 },
   { name: 'assignedDoctorId_1_status_1_severity_1_detectedAt_-1' },

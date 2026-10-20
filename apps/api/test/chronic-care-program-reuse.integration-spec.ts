@@ -6,6 +6,7 @@ import { CareReportService } from '../src/modules/chronic-care/application/servi
 import { CareTaskSchedulerService } from '../src/modules/chronic-care/application/services/care-task-scheduler.service';
 import { HealthEvaluationService } from '../src/modules/chronic-care/application/services/health-evaluation.service';
 import { STANDARD_CARE_PROGRAMS } from '../src/modules/chronic-care/domain/catalog/standard-care-programs';
+import { localDate } from '../src/modules/chronic-care/domain/tasks/care-task-timezone';
 import {
   CareAlert,
   CareAlertSchema,
@@ -42,7 +43,10 @@ describe('CC-011 standard program reuse', () => {
   const diabetesEnrollmentId = new ObjectId();
   const hypertensionRuleId = new ObjectId();
   const diabetesRuleId = new ObjectId();
-  const now = new Date('2026-10-06T00:30:00.000Z');
+  const today = localDate(new Date(), 'Asia/Saigon');
+  const now = new Date(
+    new Date(`${today}T00:30:00.000Z`).getTime() - 24 * 60 * 60 * 1_000,
+  );
 
   beforeAll(async () => {
     const uri = new URL(baseMongoUri);
@@ -106,11 +110,11 @@ describe('CC-011 standard program reuse', () => {
     ]);
 
     const metricByType = {
-      blood_pressure: metric('blood_pressure', {
+      blood_pressure: metric(now, 'blood_pressure', {
         systolic: 180,
         diastolic: 110,
       }),
-      blood_glucose: metric('blood_glucose', { value: 250 }),
+      blood_glucose: metric(now, 'blood_glucose', { value: 250 }),
     } as const;
     const metricPort = {
       findFirstRecordedInWindow: async ({
@@ -248,13 +252,13 @@ function enrollment(
   };
 }
 
-function metric(metricType: string, values: Record<string, number>) {
+function metric(now: Date, metricType: string, values: Record<string, number>) {
   return {
     id: new ObjectId().toHexString(),
     metricType,
     unit: metricType === 'blood_pressure' ? 'mmHg' : 'mg/dL',
-    recordedAt: new Date('2026-10-06T00:15:00.000Z'),
-    ingestedAt: new Date('2026-10-06T00:20:00.000Z'),
+    recordedAt: new Date(now.getTime() - 15 * 60_000),
+    ingestedAt: new Date(now.getTime() - 10 * 60_000),
     values,
   };
 }

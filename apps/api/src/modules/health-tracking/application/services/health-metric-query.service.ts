@@ -65,6 +65,33 @@ export class HealthMetricQueryService
     private readonly healthMetricModel: Model<HealthMetricDocument>,
   ) {}
 
+  async findForCareEvaluation(metricId: string) {
+    if (!Types.ObjectId.isValid(metricId))
+      throw new BadRequestException('Invalid metric ID');
+    const metric = await this.healthMetricModel
+      .findOne({
+        _id: new Types.ObjectId(metricId),
+        validationStatus: {
+          $in: [
+            HealthMetricValidationStatus.VALID,
+            HealthMetricValidationStatus.SUPERSEDED,
+          ],
+        },
+      })
+      .select('_id meta.patientId meta.metricType values recordedAt ingestedAt')
+      .lean()
+      .exec();
+    if (!metric) return null;
+    return {
+      id: String(metric._id),
+      patientId: String(metric.meta.patientId),
+      metricType: metric.meta.metricType,
+      values: metric.values,
+      recordedAt: metric.recordedAt,
+      ingestedAt: metric.ingestedAt,
+    };
+  }
+
   async readRecentMetrics(
     patientId: string,
     limit = 20,

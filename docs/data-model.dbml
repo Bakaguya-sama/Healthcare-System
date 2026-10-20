@@ -739,7 +739,8 @@ Table CareAlerts {
   severity varchar [not null, note: "attention, urgent; copied from deterministic evaluation"]
   reasonCodes json [not null]
   status varchar [not null, note: "open, acknowledged, resolved, dismissed"]
-  uniqueKey varchar [not null, unique, note: "Prevents duplicate alert for the same evaluation window"]
+  uniqueKey varchar [not null, unique, note: "Stable initial evaluation identity; legacy alerts retain their existing key"]
+  activeDeduplicationKey varchar [unique, note: "CC-003A target: sparse unique key for one active alert per enrollment, rule and local calendar day; removed on resolution/dismissal. Legacy alerts are not rewritten at cutover"]
   detectedAt datetime [not null]
   acknowledgedAt datetime
   acknowledgedBy ObjectID

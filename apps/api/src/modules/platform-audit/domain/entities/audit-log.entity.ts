@@ -28,6 +28,10 @@ export class AuditLog {
 
 export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);
 AuditLogSchema.index(
+  { action: 1, 'metadata.evaluationId': 1 },
+  { name: 'action_1_metadata.evaluationId_1' },
+);
+AuditLogSchema.index(
   { domain: 1, entityType: 1, entityId: 1, createdAt: -1 },
   { name: 'domain_1_entityType_1_entityId_1_createdAt_-1' },
 );

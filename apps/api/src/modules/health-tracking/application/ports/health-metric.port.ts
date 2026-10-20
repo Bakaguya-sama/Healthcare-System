@@ -10,6 +10,14 @@ export type HealthMetricReportItem = {
 };
 
 export interface HealthMetricPort {
+  findForCareEvaluation?(metricId: string): Promise<{
+    id: string;
+    patientId: string;
+    metricType: string;
+    values: Record<string, number>;
+    recordedAt: Date;
+    ingestedAt: Date;
+  } | null>;
   findFirstRecordedInWindow(input: {
     patientId: string;
     metricType: string;

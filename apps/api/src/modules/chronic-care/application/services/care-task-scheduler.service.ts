@@ -43,13 +43,25 @@ export class CareTaskSchedulerService {
 
   async scheduleActiveEnrollments(now = new Date(), horizonDays = 7) {
     await this.advanceTaskStatuses(now);
-    const enrollments = await this.enrollments
-      .find({ status: PatientCareProgramStatus.ACTIVE })
-      .exec();
     let created = 0;
-    for (const enrollment of enrollments)
-      created += await this.scheduleEnrollment(enrollment, now, horizonDays);
-    return { enrollments: enrollments.length, created };
+    let enrollmentCount = 0;
+    let after: Types.ObjectId | undefined;
+    for (;;) {
+      const enrollments = await this.enrollments
+        .find({
+          status: PatientCareProgramStatus.ACTIVE,
+          ...(after ? { _id: { $gt: after } } : {}),
+        })
+        .sort({ _id: 1 })
+        .limit(100)
+        .exec();
+      for (const enrollment of enrollments)
+        created += await this.scheduleEnrollment(enrollment, now, horizonDays);
+      enrollmentCount += enrollments.length;
+      if (enrollments.length < 100) break;
+      after = enrollments[enrollments.length - 1]._id;
+    }
+    return { enrollments: enrollmentCount, created };
   }
 
   async scheduleEnrollment(
@@ -158,51 +170,61 @@ export class CareTaskSchedulerService {
   }
 
   private async completeMetricTasks(now: Date) {
-    const tasks = await this.tasks
-      .find({
-        taskType: 'metric',
-        status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
-        windowStart: { $lte: now },
-      })
-      .select(
-        '_id patientCareProgramId patientId windowStart windowEnd completionRule',
-      )
-      .exec();
-    for (const task of tasks) {
-      const metricType = (task.completionRule as Record<string, unknown>)
-        .metricType;
-      if (typeof metricType !== 'string') continue;
-      const metric = await this.metrics.findFirstRecordedInWindow({
-        patientId: String(task.patientId),
-        metricType,
-        from: task.windowStart,
-        to: task.windowEnd,
-      });
-      if (!metric || !Types.ObjectId.isValid(metric.id)) continue;
-      await this.tasks
-        .updateOne(
-          {
-            _id: task._id,
-            status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
-          },
-          {
-            $set: {
-              status: CareTaskStatus.COMPLETED,
-              completionSourceType: 'healthMetric',
-              completionSourceId: new Types.ObjectId(metric.id),
-              completedAt: metric.recordedAt,
-            },
-          },
+    let after: Types.ObjectId | undefined;
+    for (;;) {
+      const tasks = await this.tasks
+        .find({
+          taskType: 'metric',
+          status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
+          windowStart: { $lte: now },
+          ...(after ? { _id: { $gt: after } } : {}),
+        })
+        .select(
+          '_id patientCareProgramId patientId windowStart windowEnd completionRule',
         )
+        .sort({ _id: 1 })
+        .limit(100)
         .exec();
-      await this.evaluations.evaluateMetric({
-        enrollmentId: String(task.patientCareProgramId),
-        careTaskId: String(task._id),
-        metricId: metric.id,
-        values: metric.values,
-        recordedAt: metric.recordedAt,
-        ingestedAt: metric.ingestedAt,
-      });
+      for (const task of tasks) {
+        const metricType = (task.completionRule as Record<string, unknown>)
+          .metricType;
+        if (typeof metricType !== 'string') continue;
+        const metric = await this.metrics.findFirstRecordedInWindow({
+          patientId: String(task.patientId),
+          metricType,
+          from: task.windowStart,
+          to: task.windowEnd,
+        });
+        if (!metric || !Types.ObjectId.isValid(metric.id)) continue;
+        // Keep the task eligible for retry until evaluation and alert creation succeed.
+        const evaluated = await this.evaluations.evaluateMetric({
+          enrollmentId: String(task.patientCareProgramId),
+          careTaskId: String(task._id),
+          metricId: metric.id,
+          values: metric.values,
+          recordedAt: metric.recordedAt,
+          ingestedAt: metric.ingestedAt,
+        });
+        if (!evaluated) continue;
+        await this.tasks
+          .updateOne(
+            {
+              _id: task._id,
+              status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
+            },
+            {
+              $set: {
+                status: CareTaskStatus.COMPLETED,
+                completionSourceType: 'healthMetric',
+                completionSourceId: new Types.ObjectId(metric.id),
+                completedAt: metric.recordedAt,
+              },
+            },
+          )
+          .exec();
+      }
+      if (tasks.length < 100) break;
+      after = tasks[tasks.length - 1]._id;
     }
   }
 

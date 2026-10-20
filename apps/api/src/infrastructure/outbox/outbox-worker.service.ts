@@ -5,14 +5,19 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, Worker } from 'bullmq';
+import { createNodeRedisClient, Queue, Worker } from 'bullmq';
 import { RedisService } from '../redis/redis.service';
 import { OutboxService } from './outbox.service';
 import { NotificationsService } from '../../modules/notifications/application/services/notifications.service';
 import { renderCareAlertNotification } from './care-alert-notification.template';
+import { CareTaskSchedulerService } from '../../modules/chronic-care/application/services/care-task-scheduler.service';
+import { CareTaskReminderService } from '../../modules/chronic-care/application/services/care-task-reminder.service';
+import { NotificationType } from '../../modules/notifications/domain/entities/notification.entity';
+import { CareMetricEvaluationService } from '../../modules/chronic-care/application/services/care-metric-evaluation.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
+const CARE_TASK_SCHEDULE_JOB = 'schedule-care-tasks';
 export const NOTIFICATION_REALTIME_CHANNEL = 'healthcare:notification-events';
 
 @Injectable()
@@ -22,29 +27,39 @@ export class OutboxWorkerService
   private readonly logger = new Logger(OutboxWorkerService.name);
   private queue?: Queue;
   private worker?: Worker;
+  private readonly careAutomationEnabled: boolean;
   constructor(
     private readonly config: ConfigService,
     private readonly outbox: OutboxService,
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
-  ) {}
+    private readonly careTasks: CareTaskSchedulerService,
+    private readonly reminders: CareTaskReminderService,
+    private readonly careMetrics: CareMetricEvaluationService,
+  ) {
+    this.careAutomationEnabled =
+      this.config.get<boolean>('CARE_MONITORING_AUTOMATION_ENABLED') === true;
+  }
 
   async onModuleInit() {
-    const connection = {
-      url: this.config.getOrThrow<string>('REDIS_URL'),
-    } as any;
-    this.queue = new Queue(OUTBOX_QUEUE, { connection });
+    const connection = createNodeRedisClient(this.redis.client as never);
+    const prefix = this.config.get<string>('OUTBOX_QUEUE_PREFIX') ?? 'bull';
+    this.queue = new Queue(OUTBOX_QUEUE, { connection, prefix });
     this.worker = new Worker(
       OUTBOX_QUEUE,
       async (job) =>
         job.name === DISPATCH_JOB
           ? this.dispatchOnce()
-          : this.deliverEvent(
-              String(job.data.eventId),
-              job.attemptsMade,
-              job.opts.attempts ?? 1,
-            ),
-      { connection, concurrency: 4 },
+          : job.name === CARE_TASK_SCHEDULE_JOB
+            ? this.careAutomationEnabled
+              ? this.careTasks.scheduleActiveEnrollments()
+              : undefined
+            : this.deliverEvent(
+                String(job.data.eventId),
+                job.attemptsMade,
+                job.opts.attempts ?? 1,
+              ),
+      { connection, prefix, concurrency: 4 },
     );
     await this.queue.upsertJobScheduler(
       'outbox-dispatch-schedule',
@@ -55,10 +70,29 @@ export class OutboxWorkerService
         opts: { removeOnComplete: 100, removeOnFail: 100 },
       },
     );
+    if (this.careAutomationEnabled) {
+      await this.queue.upsertJobScheduler(
+        'care-task-schedule',
+        { every: 60_000 },
+        {
+          name: CARE_TASK_SCHEDULE_JOB,
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 100 },
+        },
+      );
+    } else {
+      await this.queue.removeJobScheduler('care-task-schedule');
+    }
   }
 
   private async dispatchOnce() {
-    const events = await this.outbox.claimBatch(50);
+    const events = await this.outbox.claimBatch(
+      50,
+      30_000,
+      this.careAutomationEnabled
+        ? []
+        : ['health.metric.recorded', 'care.task.reminder'],
+    );
     for (const event of events) {
       await this.queue!.add(
         'deliver-event',
@@ -81,14 +115,67 @@ export class OutboxWorkerService
   ) {
     const event = await this.outbox.getProcessing(eventId);
     if (!event) return;
+    if (
+      !this.careAutomationEnabled &&
+      ['health.metric.recorded', 'care.task.reminder'].includes(event.eventType)
+    ) {
+      await this.outbox.deferUntil(event._id, new Date(Date.now() + 60_000));
+      return;
+    }
     try {
-      if (event.eventType === 'care.alert.opened') {
+      if (event.eventType === 'health.metric.recorded') {
+        const payload = event.payload as { metricId?: string };
+        if (!payload.metricId) throw new Error('Invalid care metric event');
+        await this.careMetrics.evaluateRecordedMetric(payload.metricId);
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'care.task.reminder') {
+        const payload = event.payload as {
+          taskId?: string;
+          patientId?: string;
+          scheduledFor?: string;
+        };
+        if (!payload.taskId || !payload.patientId || !payload.scheduledFor)
+          throw new Error('Invalid care task reminder payload');
+        const scheduledFor = new Date(payload.scheduledFor);
+        if (Number.isNaN(scheduledFor.getTime()))
+          throw new Error('Invalid care task reminder time');
+        if (scheduledFor > new Date()) {
+          await this.outbox.deferUntil(event._id, scheduledFor);
+          return;
+        }
+        if (
+          await this.reminders.shouldNotify(payload.taskId, payload.patientId)
+        ) {
+          await this.notifications.create(payload.patientId, {
+            userId: payload.patientId,
+            type: NotificationType.INFO,
+            title: 'Nhắc nhiệm vụ theo dõi',
+            message:
+              'Bạn có nhiệm vụ theo dõi sức khỏe cần thực hiện. Hãy xem chi tiết trong ứng dụng.',
+            idempotencyKey: `care.task.reminder.${payload.taskId}`,
+          });
+        }
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (
+        event.eventType === 'care.alert.opened' ||
+        event.eventType === 'care.alert.escalated'
+      ) {
         const payload = event.payload as {
           alertId?: string;
           patientId?: string;
           severity?: 'attention' | 'urgent';
+          evaluationId?: string;
         };
-        if (!payload.alertId || !payload.patientId || !payload.severity)
+        if (
+          !payload.alertId ||
+          !payload.patientId ||
+          !payload.severity ||
+          (event.eventType === 'care.alert.escalated' && !payload.evaluationId)
+        )
           throw new Error('Invalid care alert payload');
         const template = renderCareAlertNotification({
           severity: payload.severity,
@@ -96,7 +183,10 @@ export class OutboxWorkerService
         await this.notifications.create(payload.patientId, {
           userId: payload.patientId,
           ...template,
-          idempotencyKey: `care.alert.notification.${payload.alertId}`,
+          idempotencyKey:
+            event.eventType === 'care.alert.escalated'
+              ? `care.alert.notification.${payload.alertId}.${payload.evaluationId}`
+              : `care.alert.notification.${payload.alertId}`,
         });
         await this.outbox.markDelivered(event._id);
         return;

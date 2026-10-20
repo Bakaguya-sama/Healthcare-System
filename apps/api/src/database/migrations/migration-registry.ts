@@ -167,6 +167,12 @@ import {
   CC013_LEGACY_EXEMPTION_NAME,
   CC013_LEGACY_EXEMPTION_CHECKSUM,
 } from './202610181100-cc013-legacy-quota-exemption';
+import {
+  applyCc003aAlertDedup,
+  CC003A_ALERT_DEDUP_VERSION,
+  CC003A_ALERT_DEDUP_NAME,
+  CC003A_ALERT_DEDUP_CHECKSUM,
+} from './202610191000-cc003a-alert-deduplication';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -336,6 +342,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC013_LEGACY_EXEMPTION_NAME,
     checksum: CC013_LEGACY_EXEMPTION_CHECKSUM,
     up: applyCc013LegacyExemption,
+  },
+  {
+    version: CC003A_ALERT_DEDUP_VERSION,
+    name: CC003A_ALERT_DEDUP_NAME,
+    checksum: CC003A_ALERT_DEDUP_CHECKSUM,
+    up: applyCc003aAlertDedup,
   },
 ];
 

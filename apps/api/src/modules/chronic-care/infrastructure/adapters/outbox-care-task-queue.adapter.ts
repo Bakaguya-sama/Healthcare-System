@@ -17,6 +17,7 @@ export class OutboxCareTaskQueue implements CareTaskQueue {
       aggregateType: 'careTask',
       aggregateId: new Types.ObjectId(input.taskId),
       idempotencyKey: `care.task.reminder.${input.taskId}`,
+      availableAt: input.scheduledFor,
       payload: {
         taskId: input.taskId,
         patientId: input.patientId,
