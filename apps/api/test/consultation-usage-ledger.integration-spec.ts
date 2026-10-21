@@ -6,6 +6,7 @@ import { applyCc013ConsultationUsageLedger } from '../src/database/migrations/20
 import { applyCc013BookingPolicy } from '../src/database/migrations/202610181000-cc013-booking-policy-snapshot';
 import { applyCc013LegacyExemption } from '../src/database/migrations/202610181100-cc013-legacy-quota-exemption';
 import { applyCc013aUrgentAlertBenefit } from '../src/database/migrations/202610201000-cc013a-urgent-alert-consultation-benefit';
+import { applyCc013bStaleConsultationRecovery } from '../src/database/migrations/202610201100-cc013b-stale-consultation-recovery';
 import { ConsultationUsageService } from '../src/modules/billing/application/services/consultation-usage.service';
 import { FreeSubscriptionGrantService } from '../src/modules/billing/application/services/free-subscription-grant.service';
 import { ConsultationsService } from '../src/modules/consultations/application/services/consultations/consultations.service';
@@ -38,6 +39,12 @@ import {
   AuditLogSchema,
 } from '../src/modules/platform-audit/domain/entities/audit-log.entity';
 import { CareAlertConsultationService } from '../src/modules/consultations/application/services/consultations/care-alert-consultation.service';
+import { ConsultationStaleRecoveryService } from '../src/modules/consultations/application/services/consultations/consultation-stale-recovery.service';
+import {
+  OutboxEvent,
+  OutboxEventSchema,
+} from '../src/infrastructure/outbox/entities/outbox-event.entity';
+import { OutboxService } from '../src/infrastructure/outbox/outbox.service';
 
 jest.setTimeout(30_000);
 
@@ -61,6 +68,7 @@ describe('CC-013 consultation usage ledger', () => {
     await applyCc013ConsultationUsageLedger(connection.db!);
     await connection.db!.createCollection('consultations');
     await applyCc013aUrgentAlertBenefit(connection.db!);
+    await applyCc013bStaleConsultationRecovery(connection.db!);
     const plans = connection.model(Plan.name, PlanSchema);
     const subscriptions = connection.model(
       Subscription.name,
@@ -71,7 +79,9 @@ describe('CC-013 consultation usage ledger', () => {
       ConsultationUsageSchema,
     );
     const audits = connection.model(AuditLog.name, AuditLogSchema);
+    const events = connection.model(OutboxEvent.name, OutboxEventSchema);
     connection.model(Consultation.name, ConsultationSchema);
+    await events.init();
     planId = new ObjectId();
     const now = new Date();
     await connection.db!.collection('plans').insertOne({
@@ -599,6 +609,126 @@ describe('CC-013 consultation usage ledger', () => {
     ).toMatchObject({
       metadata: { normalizedNullFields: ['completedAt', 'sessionStartedAt'] },
     });
+  });
+
+  it('warns, honors the durable grace period, then atomically system-cancels and releases a normal reservation', async () => {
+    const patientId = await activeSubscription(1);
+    const doctorId = new ObjectId();
+    const model = connection.model(Consultation.name);
+    const respondedAt = new Date('2026-10-21T00:00:00.000Z');
+    const consultation = await model.create({
+      patientId: new ObjectId(patientId),
+      doctorId,
+      mode: ConsultationMode.ON_DEMAND,
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING,
+      requestedAt: respondedAt,
+      respondedAt,
+    });
+    await usage.reserve({ consultationId: String(consultation._id), patientId });
+    const recovery = new ConsultationStaleRecoveryService(
+      model as never,
+      connection.model(AuditLog.name) as never,
+      connection,
+      { run: async <T>(operation: Promise<T>) => operation, client: { get: jest.fn().mockResolvedValue(null) } } as never,
+      { build: (...parts: string[]) => parts.join(':') } as never,
+      new OutboxService(connection.model(OutboxEvent.name) as never),
+      usage,
+    );
+
+    await recovery.recover(new Date(respondedAt.getTime() + 46 * 60_000));
+    expect(await model.findById(consultation._id).lean()).toMatchObject({
+      onDemandTimeoutWarningQueuedAt: expect.any(Date),
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+    });
+    expect(await connection.model(OutboxEvent.name).countDocuments({ eventType: 'consultation.on-demand-timeout-warning' })).toBe(1);
+
+    await recovery.recover(new Date(respondedAt.getTime() + 60 * 60_000));
+    expect(await model.findById(consultation._id).lean()).toMatchObject({ requestStatus: ConsultationRequestStatus.ACCEPTED });
+
+    await recovery.recover(new Date(respondedAt.getTime() + 61 * 60_000));
+    expect(await model.findById(consultation._id).lean()).toMatchObject({
+      requestStatus: ConsultationRequestStatus.CANCELLED,
+      sessionStatus: ConsultationSessionStatus.NOT_STARTED,
+      cancellationReason: 'system_timeout',
+    });
+    expect(await connection.db!.collection('consultationusages').findOne({ consultationId: consultation._id })).toMatchObject({ status: 'released' });
+    expect(await connection.model(AuditLog.name).countDocuments({ entityId: consultation._id, action: 'on_demand_timeout_cancelled' })).toBe(1);
+  });
+
+  it('extends once for waiting-room presence, never creates a ledger for included care, and queues scheduled review without release', async () => {
+    const model = connection.model(Consultation.name);
+    const now = new Date('2026-10-21T00:00:00.000Z');
+    const included = await model.create({
+      patientId: new ObjectId(), doctorId: new ObjectId(), mode: ConsultationMode.ON_DEMAND,
+      requestStatus: ConsultationRequestStatus.ACCEPTED, sessionStatus: ConsultationSessionStatus.WAITING,
+      quotaPolicy: ConsultationQuotaPolicy.CARE_PROGRAM_INCLUDED, requestedAt: now, respondedAt: new Date(now.getTime() - 61 * 60_000),
+      onDemandTimeoutWarningQueuedAt: new Date(now.getTime() - 16 * 60_000),
+    });
+    const scheduled = await model.create({
+      patientId: new ObjectId(), doctorId: new ObjectId(), mode: ConsultationMode.SCHEDULED,
+      requestStatus: ConsultationRequestStatus.ACCEPTED, sessionStatus: ConsultationSessionStatus.WAITING,
+      requestedAt: now, scheduledStartAt: new Date(now.getTime() - 25 * 60 * 60_000),
+    });
+    const redisGet = jest.fn().mockResolvedValue('1');
+    const recovery = new ConsultationStaleRecoveryService(
+      model as never, connection.model(AuditLog.name) as never, connection,
+      { run: async <T>(operation: Promise<T>) => operation, client: { get: redisGet } } as never,
+      { build: (...parts: string[]) => parts.join(':') } as never,
+      new OutboxService(connection.model(OutboxEvent.name) as never), usage,
+    );
+    await recovery.recover(now);
+    expect(await model.findById(included._id).lean()).toMatchObject({ onDemandTimeoutExtensionExpiresAt: new Date(now.getTime() + 10 * 60_000) });
+    expect(await model.findById(scheduled._id).lean()).toMatchObject({ scheduledStaleReviewQueuedAt: expect.any(Date), requestStatus: ConsultationRequestStatus.ACCEPTED });
+    await recovery.recover(new Date(now.getTime() + 11 * 60_000));
+    expect(await model.findById(included._id).lean()).toMatchObject({ requestStatus: ConsultationRequestStatus.CANCELLED });
+    expect(await connection.db!.collection('consultationusages').countDocuments({ consultationId: included._id })).toBe(0);
+  });
+
+  it('defers cancellation when Redis cannot verify waiting-room presence, and remains consistent when recovery races Doctor start', async () => {
+    const patientId = await activeSubscription(2);
+    const doctorId = new ObjectId();
+    const model = connection.model(Consultation.name);
+    const now = new Date('2026-10-21T02:00:00.000Z');
+    const create = () => model.create({
+      patientId: new ObjectId(patientId), doctorId,
+      mode: ConsultationMode.ON_DEMAND, requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING, requestedAt: now,
+      respondedAt: new Date(now.getTime() - 61 * 60_000),
+      onDemandTimeoutWarningQueuedAt: new Date(now.getTime() - 16 * 60_000),
+    });
+    const deferred = await create();
+    await usage.reserve({ consultationId: String(deferred._id), patientId });
+    const unavailableRecovery = new ConsultationStaleRecoveryService(
+      model as never, connection.model(AuditLog.name) as never, connection,
+      { run: async <T>(operation: Promise<T>) => operation, client: { get: jest.fn().mockRejectedValue(new Error('Redis unavailable')) } } as never,
+      { build: (...parts: string[]) => parts.join(':') } as never,
+      new OutboxService(connection.model(OutboxEvent.name) as never), usage,
+    );
+    await unavailableRecovery.recover(now);
+    expect(await model.findById(deferred._id).lean()).toMatchObject({ requestStatus: ConsultationRequestStatus.ACCEPTED, sessionStatus: ConsultationSessionStatus.WAITING });
+
+    const raced = await create();
+    await usage.reserve({ consultationId: String(raced._id), patientId });
+    const recovery = new ConsultationStaleRecoveryService(
+      model as never, connection.model(AuditLog.name) as never, connection,
+      { run: async <T>(operation: Promise<T>) => operation, client: { get: jest.fn().mockResolvedValue(null) } } as never,
+      { build: (...parts: string[]) => parts.join(':') } as never,
+      new OutboxService(connection.model(OutboxEvent.name) as never), usage,
+    );
+    const consultations = new ConsultationsService(model as never, { create: jest.fn() } as never, {} as never, usage, connection);
+    await Promise.allSettled([recovery.recover(now), consultations.start(String(doctorId), String(raced._id))]);
+    const result = (await model.findById(raced._id).lean()) as {
+      requestStatus?: ConsultationRequestStatus;
+      sessionStatus?: ConsultationSessionStatus;
+    } | null;
+    const ledger = await connection.db!.collection('consultationusages').findOne({ consultationId: raced._id });
+    if (result?.requestStatus === ConsultationRequestStatus.CANCELLED) {
+      expect(ledger?.status).toBe('released');
+    } else {
+      expect(result?.sessionStatus).toBe(ConsultationSessionStatus.IN_CONSULTATION);
+      expect(ledger?.status).toBe('counted');
+    }
   });
 
   async function activeSubscription(limit: number) {

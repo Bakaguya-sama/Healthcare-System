@@ -309,6 +309,41 @@ describe('CC-003A worker pipeline', () => {
     ).toBe(0);
   });
 
+  it('delivers durable CC-013B timeout warnings to both consultation participants', async () => {
+    const consultationId = new Types.ObjectId();
+    const warningPatientId = new Types.ObjectId();
+    const warningDoctorId = new Types.ObjectId();
+    await outbox.enqueue({
+      eventType: 'consultation.on-demand-timeout-warning',
+      aggregateType: 'Consultation',
+      aggregateId: consultationId,
+      idempotencyKey: `consultation.timeout-warning:${String(consultationId)}`,
+      payload: {
+        consultationId: String(consultationId),
+        patientId: String(warningPatientId),
+        doctorId: String(warningDoctorId),
+      },
+    });
+    await waitFor(async () =>
+      Boolean(
+        await connection.model<OutboxEvent>(OutboxEvent.name).exists({
+          idempotencyKey: `consultation.timeout-warning:${String(consultationId)}`,
+          status: 'delivered',
+        }),
+      ),
+    );
+    expect(
+      await connection.model(Notification.name).countDocuments({
+        idempotencyKey: {
+          $in: [
+            `consultation.on-demand-timeout-warning.${String(consultationId)}.${String(warningPatientId)}`,
+            `consultation.on-demand-timeout-warning.${String(consultationId)}.${String(warningDoctorId)}`,
+          ],
+        },
+      }),
+    ).toBe(2);
+  });
+
   it('replays a dead metric event without duplicating its evaluation', async () => {
     await worker.onApplicationShutdown();
     const metric = await metrics.create(String(patientId), {
