@@ -179,6 +179,12 @@ import {
   CC013A_URGENT_ALERT_BENEFIT_NAME,
   CC013A_URGENT_ALERT_BENEFIT_VERSION,
 } from './202610201000-cc013a-urgent-alert-consultation-benefit';
+import {
+  applyCc013bStaleConsultationRecovery,
+  CC013B_STALE_CONSULTATION_RECOVERY_CHECKSUM,
+  CC013B_STALE_CONSULTATION_RECOVERY_NAME,
+  CC013B_STALE_CONSULTATION_RECOVERY_VERSION,
+} from './202610201100-cc013b-stale-consultation-recovery';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -360,6 +366,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CC013A_URGENT_ALERT_BENEFIT_NAME,
     checksum: CC013A_URGENT_ALERT_BENEFIT_CHECKSUM,
     up: applyCc013aUrgentAlertBenefit,
+  },
+  {
+    version: CC013B_STALE_CONSULTATION_RECOVERY_VERSION,
+    name: CC013B_STALE_CONSULTATION_RECOVERY_NAME,
+    checksum: CC013B_STALE_CONSULTATION_RECOVERY_CHECKSUM,
+    up: applyCc013bStaleConsultationRecovery,
   },
 ];
 

@@ -14,10 +14,12 @@ import { CareTaskSchedulerService } from '../../modules/chronic-care/application
 import { CareTaskReminderService } from '../../modules/chronic-care/application/services/care-task-reminder.service';
 import { NotificationType } from '../../modules/notifications/domain/entities/notification.entity';
 import { CareMetricEvaluationService } from '../../modules/chronic-care/application/services/care-metric-evaluation.service';
+import { ConsultationStaleRecoveryService } from '../../modules/consultations/application/services/consultations/consultation-stale-recovery.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
 const CARE_TASK_SCHEDULE_JOB = 'schedule-care-tasks';
+const CONSULTATION_STALE_RECOVERY_JOB = 'recover-stale-consultations';
 const OUTBOX_OBSERVATION_INTERVAL_MS = 60_000;
 const OUTBOX_PENDING_LAG_WARNING_MS = 5 * 60_000;
 export const NOTIFICATION_REALTIME_CHANNEL = 'healthcare:notification-events';
@@ -31,6 +33,7 @@ export class OutboxWorkerService
   private worker?: Worker;
   private lastObservedAt = 0;
   private readonly careAutomationEnabled: boolean;
+  private readonly consultationRecoveryEnabled: boolean;
   constructor(
     private readonly config: ConfigService,
     private readonly outbox: OutboxService,
@@ -39,9 +42,12 @@ export class OutboxWorkerService
     private readonly careTasks: CareTaskSchedulerService,
     private readonly reminders: CareTaskReminderService,
     private readonly careMetrics: CareMetricEvaluationService,
+    private readonly staleConsultations: ConsultationStaleRecoveryService,
   ) {
     this.careAutomationEnabled =
       this.config.get<boolean>('CARE_MONITORING_AUTOMATION_ENABLED') === true;
+    this.consultationRecoveryEnabled =
+      this.config.get<boolean>('CONSULTATION_STALE_RECOVERY_ENABLED') === true;
   }
 
   async onModuleInit() {
@@ -57,11 +63,15 @@ export class OutboxWorkerService
             ? this.careAutomationEnabled
               ? this.careTasks.scheduleActiveEnrollments()
               : undefined
-            : this.deliverEvent(
-                String(job.data.eventId),
-                job.attemptsMade,
-                job.opts.attempts ?? 1,
-              ),
+            : job.name === CONSULTATION_STALE_RECOVERY_JOB
+              ? this.consultationRecoveryEnabled
+                ? this.staleConsultations.recover()
+                : undefined
+              : this.deliverEvent(
+                  String(job.data.eventId),
+                  job.attemptsMade,
+                  job.opts.attempts ?? 1,
+                ),
       { connection, prefix, concurrency: 4 },
     );
     await this.queue.upsertJobScheduler(
@@ -85,6 +95,19 @@ export class OutboxWorkerService
       );
     } else {
       await this.queue.removeJobScheduler('care-task-schedule');
+    }
+    if (this.consultationRecoveryEnabled) {
+      await this.queue.upsertJobScheduler(
+        'consultation-stale-recovery',
+        { every: 60_000 },
+        {
+          name: CONSULTATION_STALE_RECOVERY_JOB,
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 100 },
+        },
+      );
+    } else {
+      await this.queue.removeJobScheduler('consultation-stale-recovery');
     }
   }
 
@@ -223,6 +246,62 @@ export class OutboxWorkerService
               ? `care.alert.notification.${payload.alertId}.${payload.evaluationId}`
               : `care.alert.notification.${payload.alertId}`,
         });
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (
+        [
+          'consultation.on-demand-timeout-warning',
+          'consultation.on-demand-timeout-extended',
+          'consultation.on-demand-timeout-cancelled',
+          'consultation.scheduled-stale-review',
+        ].includes(event.eventType)
+      ) {
+        const payload = event.payload as {
+          consultationId?: string;
+          patientId?: string;
+          doctorId?: string;
+        };
+        if (!payload.consultationId || !payload.patientId || !payload.doctorId)
+          throw new Error('Invalid consultation recovery payload');
+        const message =
+          event.eventType === 'consultation.on-demand-timeout-warning'
+            ? {
+                type: NotificationType.WARNING,
+                title: 'Lịch tư vấn sắp tự hủy',
+                message:
+                  'Lịch tư vấn đang chờ sẽ tự hủy nếu không bắt đầu kịp thời.',
+              }
+            : event.eventType === 'consultation.on-demand-timeout-extended'
+              ? {
+                  type: NotificationType.WARNING,
+                  title: 'Lịch tư vấn được gia hạn chờ',
+                  message:
+                    'Hệ thống ghi nhận kết nối phòng chờ và gia hạn một lần.',
+                }
+              : event.eventType === 'consultation.on-demand-timeout-cancelled'
+                ? {
+                    type: NotificationType.INFO,
+                    title: 'Lịch tư vấn đã tự hủy',
+                    message:
+                      'Lịch tư vấn chưa bắt đầu đã được hệ thống tự hủy; lượt giữ đã được hoàn lại nếu có.',
+                  }
+                : {
+                    type: NotificationType.WARNING,
+                    title: 'Cần rà soát lịch tư vấn',
+                    message:
+                      'Lịch hẹn đã quá 24 giờ nhưng chưa kết thúc. Vui lòng rà soát.',
+                  };
+        const recipients =
+          event.eventType === 'consultation.scheduled-stale-review'
+            ? [payload.doctorId]
+            : [payload.patientId, payload.doctorId];
+        for (const userId of recipients)
+          await this.notifications.create(userId, {
+            userId,
+            ...message,
+            idempotencyKey: `${event.eventType}.${payload.consultationId}.${userId}`,
+          });
         await this.outbox.markDelivered(event._id);
         return;
       }

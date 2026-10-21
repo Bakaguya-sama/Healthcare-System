@@ -179,6 +179,7 @@ describe('CC-003A worker pipeline', () => {
       scheduler,
       reminders,
       careMetrics,
+      { recover: async () => undefined } as never,
     );
     await worker.onModuleInit();
   });

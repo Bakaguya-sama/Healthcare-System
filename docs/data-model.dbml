@@ -134,6 +134,9 @@ Table Consultations {
   requestedAt datetime [not null]
   respondedAt datetime
   requestExpiresAt datetime
+  onDemandTimeoutWarningQueuedAt datetime [note: "Durable outbox warning was queued after 45 minutes. System cancellation waits until at least 15 minutes after this timestamp."]
+  onDemandTimeoutExtensionExpiresAt datetime [note: "Single 10-minute extension granted only when authenticated waiting-room presence is observed at cancellation time; its existence means this extension has been consumed."]
+  scheduledStaleReviewQueuedAt datetime [note: "Scheduled consultation older than 24 hours was queued for Doctor/operations review. This never auto-cancels, no-shows, or releases quota."]
   declinedReason varchar
   scheduledStartAt datetime [note: "Required for scheduled mode"]
   scheduledEndAt datetime

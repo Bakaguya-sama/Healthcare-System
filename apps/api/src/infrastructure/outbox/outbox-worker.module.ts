@@ -41,6 +41,10 @@ import { CareAlertService } from '../../modules/chronic-care/application/service
 import { CareTaskSchedulerService } from '../../modules/chronic-care/application/services/care-task-scheduler.service';
 import { CareTaskReminderService } from '../../modules/chronic-care/application/services/care-task-reminder.service';
 import { CareMetricEvaluationService } from '../../modules/chronic-care/application/services/care-metric-evaluation.service';
+import { BillingModule } from '../../modules/billing/billing.module';
+import { Consultation, ConsultationSchema } from '../../modules/consultations/domain/entities/consultations/consultation.entity';
+import { AuditLog, AuditLogSchema } from '../../modules/platform-audit/domain/entities/audit-log.entity';
+import { ConsultationStaleRecoveryService } from '../../modules/consultations/application/services/consultations/consultation-stale-recovery.service';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -52,6 +56,7 @@ import { CareMetricEvaluationService } from '../../modules/chronic-care/applicat
     RedisModule,
     OutboxModule,
     PlatformAuditModule,
+    BillingModule,
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
       { name: HealthMetric.name, schema: HealthMetricSchema },
@@ -59,6 +64,8 @@ import { CareMetricEvaluationService } from '../../modules/chronic-care/applicat
       { name: PatientCareProgram.name, schema: PatientCareProgramSchema },
       { name: HealthEvaluation.name, schema: HealthEvaluationSchema },
       { name: CareAlert.name, schema: CareAlertSchema },
+      { name: Consultation.name, schema: ConsultationSchema },
+      { name: AuditLog.name, schema: AuditLogSchema },
     ]),
   ],
   providers: [
@@ -73,6 +80,7 @@ import { CareMetricEvaluationService } from '../../modules/chronic-care/applicat
     CareTaskSchedulerService,
     CareTaskReminderService,
     CareMetricEvaluationService,
+    ConsultationStaleRecoveryService,
   ],
 })
 export class OutboxWorkerModule {}

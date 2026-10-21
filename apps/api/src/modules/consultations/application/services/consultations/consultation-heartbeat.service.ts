@@ -57,6 +57,29 @@ export class ConsultationHeartbeatService {
     };
   }
 
+  /**
+   * A short-lived, authenticated waiting-room signal.  It deliberately does
+   * not reuse the in-consultation heartbeat: before `start`, the latter would
+   * falsely imply that a clinical session exists.
+   */
+  async recordWaitingRoomPresence(consultationId: string, userId: string) {
+    const consultation = await this.consultations.findAccessible(
+      consultationId,
+      userId,
+    );
+    if (!consultation) throw new ForbiddenException('Consultation is not accessible');
+    if (consultation.sessionStatus !== ConsultationSessionStatus.WAITING) {
+      throw new BadRequestException('Consultation is not waiting');
+    }
+    const recordedAt = new Date();
+    await this.redis.run(
+      this.redis.client.set(this.waitingRoomKey(consultationId, userId), '1', {
+        EX: this.ttlSeconds,
+      }),
+    );
+    return { consultationId, recordedAt: recordedAt.toISOString() };
+  }
+
   private key(consultationId: string, userId: string) {
     return this.redisKeys.build(
       'consultation',
@@ -64,5 +87,9 @@ export class ConsultationHeartbeatService {
       consultationId,
       userId,
     );
+  }
+
+  private waitingRoomKey(consultationId: string, userId: string) {
+    return this.redisKeys.build('consultation', 'waiting-room', consultationId, userId);
   }
 }

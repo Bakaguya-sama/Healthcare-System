@@ -224,6 +224,16 @@ export const MANAGED_DATABASE_INDEXES = [
     unique: true,
   },
   {
+    collection: 'consultations',
+    name: 'stale_on_demand_recovery',
+    key: { mode: 1, requestStatus: 1, sessionStatus: 1, respondedAt: 1, _id: 1 },
+  },
+  {
+    collection: 'consultations',
+    name: 'stale_scheduled_review',
+    key: { mode: 1, requestStatus: 1, sessionStatus: 1, scheduledStartAt: 1, _id: 1 },
+  },
+  {
     collection: 'messages',
     name: 'consultationId_1_sentAt_-1__id_-1',
     key: { consultationId: 1, sentAt: -1, _id: -1 },

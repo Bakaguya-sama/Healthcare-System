@@ -83,4 +83,34 @@ describe('ConsultationHeartbeatService', () => {
     );
     expect(set).not.toHaveBeenCalled();
   });
+
+  it('stores an authorized waiting-room signal separately from heartbeat', async () => {
+    jest
+      .mocked(consultations.findAccessible)
+      .mockResolvedValue({ sessionStatus: ConsultationSessionStatus.WAITING } as never);
+
+    await service.recordWaitingRoomPresence('consultation-1', 'user-1');
+
+    expect(redisKeys.build).toHaveBeenCalledWith(
+      'consultation',
+      'waiting-room',
+      'consultation-1',
+      'user-1',
+    );
+    expect(set).toHaveBeenCalledWith(
+      'consultation:waiting-room:consultation-1:user-1',
+      '1',
+      { EX: 90 },
+    );
+  });
+
+  it('rejects waiting-room signals after the consultation has started', async () => {
+    jest
+      .mocked(consultations.findAccessible)
+      .mockResolvedValue({ sessionStatus: ConsultationSessionStatus.IN_CONSULTATION } as never);
+
+    await expect(
+      service.recordWaitingRoomPresence('consultation-1', 'user-1'),
+    ).rejects.toThrow(BadRequestException);
+  });
 });

@@ -149,6 +149,11 @@ export function validateEnvironment(
       'CARE_MONITORING_AUTOMATION_ENABLED',
       false,
     ),
+    CONSULTATION_STALE_RECOVERY_ENABLED: boolean(
+      config,
+      'CONSULTATION_STALE_RECOVERY_ENABLED',
+      false,
+    ),
     NODE_ENV: nodeEnv,
     PORT: integer(config, 'PORT', 3000, 1, 65_535),
     API_PREFIX: normalizePath(config, 'API_PREFIX', 'api'),

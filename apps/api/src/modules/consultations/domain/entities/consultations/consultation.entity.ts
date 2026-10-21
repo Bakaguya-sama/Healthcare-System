@@ -77,6 +77,12 @@ export class Consultation {
 
   @Prop() respondedAt?: Date;
   @Prop() requestExpiresAt?: Date;
+  /** Timestamp when the durable pre-cancellation warning was enqueued. */
+  @Prop() onDemandTimeoutWarningQueuedAt?: Date;
+  /** The sole connection-based extension; its presence means it was consumed. */
+  @Prop() onDemandTimeoutExtensionExpiresAt?: Date;
+  /** Scheduled consultations are reviewed, never auto-cancelled, after 24 hours. */
+  @Prop() scheduledStaleReviewQueuedAt?: Date;
   @Prop() declinedReason?: string;
   @Prop() scheduledStartAt?: Date;
   @Prop() scheduledEndAt?: Date;
@@ -129,6 +135,14 @@ ConsultationSchema.index({
   requestedAt: -1,
   _id: -1,
 });
+ConsultationSchema.index(
+  { mode: 1, requestStatus: 1, sessionStatus: 1, respondedAt: 1, _id: 1 },
+  { name: 'stale_on_demand_recovery' },
+);
+ConsultationSchema.index(
+  { mode: 1, requestStatus: 1, sessionStatus: 1, scheduledStartAt: 1, _id: 1 },
+  { name: 'stale_scheduled_review' },
+);
 ConsultationSchema.index({
   patientId: 1,
   requestStatus: 1,

@@ -16,6 +16,7 @@ import {
   ConsultationsGateway,
 } from '../../gateways/consultations/consultations.gateway';
 import { ConsultationsService } from '../../../application/services/consultations/consultations.service';
+import { ConsultationHeartbeatService } from '../../../application/services/consultations/consultation-heartbeat.service';
 import { CreateConsultationDto } from '../../dto/consultations/create-consultation.dto';
 import { QueryConsultationDto } from '../../dto/consultations/query-consultation.dto';
 import { UpdateConsultationDto } from '../../dto/consultations/update-consultation.dto';
@@ -27,6 +28,7 @@ import { UpdateConsultationDto } from '../../dto/consultations/update-consultati
 export class ConsultationsController {
   constructor(
     private readonly consultations: ConsultationsService,
+    private readonly heartbeat: ConsultationHeartbeatService,
     private readonly gateway: ConsultationsGateway,
   ) {}
 
@@ -97,6 +99,14 @@ export class ConsultationsController {
     const result = await this.consultations.start(userId, id);
     this.emit('started', result.data);
     return result;
+  }
+
+  @Post(':id/waiting-room-presence')
+  recordWaitingRoomPresence(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.heartbeat.recordWaitingRoomPresence(id, userId);
   }
 
   @Post(':id/complete')
