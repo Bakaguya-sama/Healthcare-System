@@ -264,11 +264,14 @@ Table AiMessages {
 Table AiUsageDaily {
   id ObjectID [pk]
   userId ObjectID [not null, note: "Quota owner/requester; scheduled Patient summary is attributed by explicit policy"]
-  usageDate date [not null]
+  periodStart datetime [not null, note: "UTC day for day plans, or subscription currentPeriodStart for cycle plans"]
+  periodType varchar [not null, note: "day, subscription_cycle"]
   chatRequestCount int [not null, default: 0, note: "Secondary abuse/rate cap; token usage is the primary subscription quota"]
-  chatInputTokens bigint [not null, default: 0]
-  chatOutputTokens bigint [not null, default: 0]
-  chatTotalTokens bigint [not null, default: 0, note: "Committed input + output tokens for interactive AI requests"]
+  chatInputTokens bigint [not null, default: 0, note: "Committed provider-reported promptTokenCount; never a text-length estimate"]
+  chatOutputTokens bigint [not null, default: 0, note: "Committed provider-reported candidatesTokenCount; never a text-length estimate"]
+  chatTotalTokens bigint [not null, default: 0, note: "Committed input + output tokens, accumulated across all provider calls for one interactive request"]
+  reservedRequestCount int [not null, default: 0, note: "In-flight interactive requests; used in atomic quota admission"]
+  reservedTokens bigint [not null, default: 0, note: "Conservative token envelope reserved before provider call"]
   summaryGenerationCount int [not null, default: 0, note: "Tracked separately; governed by summary budget/policy"]
   summaryInputTokens bigint [not null, default: 0]
   summaryOutputTokens bigint [not null, default: 0]
@@ -276,7 +279,31 @@ Table AiUsageDaily {
   updatedAt datetime
 
   Indexes {
-    (userId, usageDate) [unique]
+      (userId, periodType, periodStart) [unique]
+  }
+}
+
+Table AiQuotaReservations {
+  id ObjectID [pk]
+  userId ObjectID [not null]
+  subscriptionId ObjectID [not null]
+  periodType varchar [not null, note: "day, subscription_cycle; copied from immutable subscription planSnapshot"]
+  periodStart datetime [not null]
+  idempotencyKey varchar [not null, note: "HTTP Idempotency-Key; unique per user"]
+  status varchar [not null, note: "reserved, committed, released, usage_reconciliation_required"]
+  reservedTokens bigint [not null]
+  estimatedInputTokens bigint [not null]
+  maxOutputTokens bigint [not null]
+  committedInputTokens bigint [note: "Actual provider-reported prompt tokens accumulated across request calls"]
+  committedOutputTokens bigint [note: "Actual provider-reported candidate tokens accumulated across request calls"]
+  releasedAt datetime
+  usageReconciliationRequiredAt datetime [note: "Provider returned a response without usage metadata; held for operator reconciliation"]
+  settlementFailureReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (userId, idempotencyKey) [unique]
   }
 }
 

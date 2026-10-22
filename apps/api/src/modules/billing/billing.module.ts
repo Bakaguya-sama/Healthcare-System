@@ -15,6 +15,11 @@ import {
   ConsultationUsageSchema,
 } from './domain/entities/consultation-usage.entity';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { AiQuotaService } from './application/services/ai-quota.service';
+import { PlanAdministrationService } from './application/services/plan-administration.service';
+import { PlansController } from './presentation/controllers/plans.controller';
+import { AI_QUOTA_PORT } from './application/ports/ai-quota.port';
+import { AiUsageDaily, AiUsageDailySchema, AiQuotaReservation, AiQuotaReservationSchema } from './domain/entities/ai-usage.entity';
 
 @Module({
   imports: [
@@ -23,12 +28,17 @@ import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
       { name: Plan.name, schema: PlanSchema },
       { name: Subscription.name, schema: SubscriptionSchema },
       { name: ConsultationUsage.name, schema: ConsultationUsageSchema },
+      { name: AiUsageDaily.name, schema: AiUsageDailySchema },
+      { name: AiQuotaReservation.name, schema: AiQuotaReservationSchema },
     ]),
   ],
+  controllers: [PlansController],
   providers: [
     FreeSubscriptionGrantService,
     SubscriptionCareProgramAccessService,
     ConsultationUsageService,
+    AiQuotaService,
+    PlanAdministrationService,
     {
       provide: BILLING_CARE_PROGRAM_ACCESS,
       useExisting: SubscriptionCareProgramAccessService,
@@ -37,7 +47,8 @@ import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
       provide: CONSULTATION_USAGE_PORT,
       useExisting: ConsultationUsageService,
     },
+    { provide: AI_QUOTA_PORT, useExisting: AiQuotaService },
   ],
-  exports: [BILLING_CARE_PROGRAM_ACCESS, CONSULTATION_USAGE_PORT],
+  exports: [BILLING_CARE_PROGRAM_ACCESS, CONSULTATION_USAGE_PORT, AI_QUOTA_PORT],
 })
 export class BillingModule {}

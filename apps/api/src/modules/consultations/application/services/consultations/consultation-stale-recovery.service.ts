@@ -6,8 +6,10 @@ import { RedisKeyService } from '../../../../../infrastructure/redis/redis-key.s
 import { OutboxService } from '../../../../../infrastructure/outbox/outbox.service';
 import { AuditLog as AuditLogEntity } from '../../../../platform-audit/public-api';
 import type { AuditLog } from '../../../../platform-audit/public-api';
-import { CONSULTATION_USAGE_PORT } from '../../../../billing/application/ports/consultation-usage.port';
-import type { ConsultationUsagePort } from '../../../../billing/application/ports/consultation-usage.port';
+import {
+  CONSULTATION_USAGE_PORT,
+  type ConsultationUsagePort,
+} from '../../../../billing/public-api';
 import {
   Consultation,
   ConsultationDocument,

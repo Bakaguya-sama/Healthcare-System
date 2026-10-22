@@ -1,4 +1,12 @@
-import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  Injectable,
+  Logger,
+  Optional,
+  Inject,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -33,9 +41,14 @@ import {
   HEALTH_PROFILE,
   type HealthProfilePort,
 } from '../../../../health-tracking/public-api';
+import {
+  AI_QUOTA_PORT,
+  type AiQuotaPort,
+} from '../../../../billing/public-api';
 import { AiConversationQueryService } from './ai-conversation-query.service';
 import { AiConversationManagementService } from './ai-conversation-management.service';
 import { AiMessageOrchestrationService } from './ai-message-orchestration.service';
+import { isProviderUsageMetadataMissing } from '../../errors/provider-usage-metadata-missing.exception';
 
 type UploadedMedicalImage = {
   mimetype?: string;
@@ -71,6 +84,7 @@ export class AiAssistantService {
     @Optional() conversationQueries?: AiConversationQueryService,
     @Optional() conversationManagement?: AiConversationManagementService,
     @Optional() messageOrchestration?: AiMessageOrchestrationService,
+    @Optional() @Inject(AI_QUOTA_PORT) private readonly aiQuota?: AiQuotaPort,
   ) {
     this.conversationQueries =
       conversationQueries ??
@@ -125,13 +139,58 @@ export class AiAssistantService {
     conversationId: string,
     dto: AiSendMessageDto,
     imageFiles: UploadedMedicalImage[] = [],
+    idempotencyKey?: string,
   ) {
-    return this.messageOrchestration.sendMessage(
+    if (!idempotencyKey?.trim()) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+    if (!this.aiQuota) {
+      throw new HttpException('AI quota service is unavailable', 503);
+    }
+    const quota = this.aiQuota;
+    const reservation = await quota.reserve({
       userId,
-      conversationId,
-      dto,
-      imageFiles,
-    );
+      idempotencyKey: idempotencyKey.trim(),
+      // Conservative admission envelope only. Settlement always uses provider
+      // usage metadata returned by the orchestration boundary.
+      estimatedInputTokens:
+        Math.ceil((dto.message?.length ?? 0) / 4) +
+        1_800 +
+        (imageFiles.length > 0 ? 2_000 : 0),
+      maxOutputTokens: 1_536,
+    });
+    if (reservation.status !== 'reserved') {
+      throw new ConflictException(
+        reservation.status === 'committed'
+          ? 'This idempotency key has already completed; retrieve the conversation result instead.'
+          : 'This idempotency key cannot be processed again.',
+      );
+    }
+    try {
+      const result = await this.messageOrchestration.sendMessage(
+        userId,
+        conversationId,
+        dto,
+        imageFiles,
+      );
+      const { quotaUsage, ...response } = result;
+      await quota.commit({
+        reservationId: reservation.reservationId,
+        inputTokens: quotaUsage.inputTokens,
+        outputTokens: quotaUsage.outputTokens,
+      });
+      return response;
+    } catch (error) {
+      if (isProviderUsageMetadataMissing(error)) {
+        await quota.markUsageReconciliationRequired(
+          reservation.reservationId,
+          'provider_usage_metadata_missing',
+        );
+        throw error;
+      }
+      await quota.release(reservation.reservationId);
+      throw error;
+    }
   }
 
   async getHealthProfileSummary(

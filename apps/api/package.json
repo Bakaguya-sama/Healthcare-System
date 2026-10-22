@@ -46,6 +46,7 @@
     "seed:build": "npm run build && node dist/database/seeds/demo.seed.js"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
     "@google/generative-ai": "^0.24.1",
     "@keyv/redis": "5.1.6",
     "@langchain/classic": "^1.0.24",

@@ -9,3 +9,7 @@ export {
   type ConsultationUsagePort,
   type ConsultationUsageStatus,
 } from './application/ports/consultation-usage.port';
+export {
+  AI_QUOTA_PORT,
+  type AiQuotaPort,
+} from './application/ports/ai-quota.port';

@@ -7,6 +7,9 @@ import { applyCc013BookingPolicy } from '../src/database/migrations/202610181000
 import { applyCc013LegacyExemption } from '../src/database/migrations/202610181100-cc013-legacy-quota-exemption';
 import { applyCc013aUrgentAlertBenefit } from '../src/database/migrations/202610201000-cc013a-urgent-alert-consultation-benefit';
 import { applyCc013bStaleConsultationRecovery } from '../src/database/migrations/202610201100-cc013b-stale-consultation-recovery';
+import { applyCc012bAiQuota } from '../src/database/migrations/202610211000-cc012b-ai-quota';
+import { applyCc012bAiQuotaSettlement } from '../src/database/migrations/202610221000-cc012b-ai-quota-settlement';
+import { applyCc012bUsageReconciliationName } from '../src/database/migrations/202610221100-cc012b-usage-reconciliation-name';
 import { ConsultationUsageService } from '../src/modules/billing/application/services/consultation-usage.service';
 import { FreeSubscriptionGrantService } from '../src/modules/billing/application/services/free-subscription-grant.service';
 import { ConsultationsService } from '../src/modules/consultations/application/services/consultations/consultations.service';
@@ -45,6 +48,8 @@ import {
   OutboxEventSchema,
 } from '../src/infrastructure/outbox/entities/outbox-event.entity';
 import { OutboxService } from '../src/infrastructure/outbox/outbox.service';
+import { AiQuotaService } from '../src/modules/billing/application/services/ai-quota.service';
+import { AiQuotaReservation, AiQuotaReservationSchema, AiUsageDaily, AiUsageDailySchema } from '../src/modules/billing/domain/entities/ai-usage.entity';
 
 jest.setTimeout(30_000);
 
@@ -69,6 +74,9 @@ describe('CC-013 consultation usage ledger', () => {
     await connection.db!.createCollection('consultations');
     await applyCc013aUrgentAlertBenefit(connection.db!);
     await applyCc013bStaleConsultationRecovery(connection.db!);
+    await applyCc012bAiQuota(connection.db!);
+    await applyCc012bAiQuotaSettlement(connection.db!);
+    await applyCc012bUsageReconciliationName(connection.db!);
     const plans = connection.model(Plan.name, PlanSchema);
     const subscriptions = connection.model(
       Subscription.name,
@@ -80,6 +88,8 @@ describe('CC-013 consultation usage ledger', () => {
     );
     const audits = connection.model(AuditLog.name, AuditLogSchema);
     const events = connection.model(OutboxEvent.name, OutboxEventSchema);
+    connection.model(AiUsageDaily.name, AiUsageDailySchema);
+    connection.model(AiQuotaReservation.name, AiQuotaReservationSchema);
     connection.model(Consultation.name, ConsultationSchema);
     await events.init();
     planId = new ObjectId();
@@ -729,6 +739,35 @@ describe('CC-013 consultation usage ledger', () => {
       expect(result?.sessionStatus).toBe(ConsultationSessionStatus.IN_CONSULTATION);
       expect(ledger?.status).toBe('counted');
     }
+  });
+
+  it('enforces AI token/request quota atomically, commits once for retry, and releases provider failures', async () => {
+    const patientId = await activeSubscription(10);
+    const quota = new AiQuotaService(
+      connection.model(AiUsageDaily.name) as never,
+      connection.model(AiQuotaReservation.name) as never,
+      connection.model(AuditLog.name) as never,
+      connection,
+      new FreeSubscriptionGrantService(connection.model(Plan.name) as never, connection.model(Subscription.name) as never),
+    );
+    const first = await quota.reserve({ userId: patientId, idempotencyKey: 'chat-one', estimatedInputTokens: 100, maxOutputTokens: 500 });
+    const replay = await quota.reserve({ userId: patientId, idempotencyKey: 'chat-one', estimatedInputTokens: 100, maxOutputTokens: 500 });
+    expect(replay.reservationId).toBe(first.reservationId);
+    await quota.commit({ reservationId: first.reservationId, inputTokens: 100, outputTokens: 200 });
+    await quota.release(first.reservationId);
+    expect(await connection.model(AiUsageDaily.name).findOne({ userId: new ObjectId(patientId) }).lean()).toMatchObject({ chatRequestCount: 1, chatTotalTokens: 300, reservedTokens: 0 });
+
+    const failed = await quota.reserve({ userId: patientId, idempotencyKey: 'provider-failed', estimatedInputTokens: 100, maxOutputTokens: 500 });
+    await quota.release(failed.reservationId);
+    expect(await connection.model(AiQuotaReservation.name).findById(failed.reservationId).lean()).toMatchObject({ status: 'released' });
+
+    const missingUsage = await quota.reserve({ userId: patientId, idempotencyKey: 'usage-missing', estimatedInputTokens: 10, maxOutputTokens: 20 });
+    await quota.markUsageReconciliationRequired(missingUsage.reservationId, 'provider_usage_metadata_missing');
+    expect(await connection.model(AiQuotaReservation.name).findById(missingUsage.reservationId).lean()).toMatchObject({ status: 'usage_reconciliation_required', settlementFailureReason: 'provider_usage_metadata_missing' });
+    expect(await connection.db!.collection('auditlogs').countDocuments({ action: 'ai_quota_usage_reconciliation_required' })).toBe(1);
+
+    const results = await Promise.allSettled(Array.from({ length: 12 }, (_, index) => quota.reserve({ userId: patientId, idempotencyKey: `race-${index}`, estimatedInputTokens: 1, maxOutputTokens: 1 })));
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(8);
   });
 
   async function activeSubscription(limit: number) {

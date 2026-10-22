@@ -49,12 +49,14 @@ import { RagRetrievalService } from './application/services/retrieval/rag-retrie
 import { TextExtractionService } from './application/services/retrieval/text-extraction.service';
 import { CareSummaryNarrativeService } from './application/services/care-summary/care-summary-narrative.service';
 import { CARE_SUMMARY_NARRATIVE_PORT } from './application/ports/care-summary/care-summary-narrative.port';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
     FilesModule,
     HealthTrackingModule,
     ModerationModule,
+    BillingModule,
     MongooseModule.forFeature([
       { name: AiConversation.name, schema: AiConversationSchema },
       {

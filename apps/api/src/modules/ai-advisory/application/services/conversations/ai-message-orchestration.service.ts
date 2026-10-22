@@ -33,6 +33,8 @@ import { Citation } from '../../ports/retrieval/context-builder.port';
 import { MedicalAnsweringService } from './medical-answering.service';
 import { PromptBuilderService } from './prompt-builder.service';
 import { LlmGatewayService } from '../../../infrastructure/adapters/retrieval/llm-gateway.service';
+import type { AiProviderUsage } from '../../../infrastructure/adapters/retrieval/llm-gateway.service';
+import { isProviderUsageMetadataMissing } from '../../errors/provider-usage-metadata-missing.exception';
 import { CloudinaryService } from '../../../../../infrastructure/files/cloudinary.service';
 import { AiResponseOrchestrator } from './ai-response-orchestrator.service';
 import { AiSafetyService } from './ai-safety.service';
@@ -61,6 +63,11 @@ type UploadedImageMetadata = {
 const AI_MESSAGE_READ_PROJECTION =
   '_id conversationId role content timestamp attachments sentiment tokens createdAt updatedAt';
 
+export type AiRequestUsage = {
+  inputTokens: number;
+  outputTokens: number;
+};
+
 @Injectable()
 export class AiMessageOrchestrationService {
   private readonly logger = new Logger(AiMessageOrchestrationService.name);
@@ -86,6 +93,14 @@ export class AiMessageOrchestrationService {
 
   private get responseGateway(): AiResponseOrchestrator | LlmGatewayService {
     return this.responseOrchestrator ?? this.llmGatewayService;
+  }
+
+  private addProviderUsage(
+    total: AiRequestUsage,
+    usage: AiProviderUsage,
+  ): void {
+    total.inputTokens += usage.inputTokens;
+    total.outputTokens += usage.outputTokens;
   }
 
   private async buildRagContext(query: string): Promise<{
@@ -419,6 +434,7 @@ export class AiMessageOrchestrationService {
         : [];
 
     const messageContent = normalizedMessage || 'Người dùng gửi ảnh y khoa';
+    const requestUsage: AiRequestUsage = { inputTokens: 0, outputTokens: 0 };
 
     // BƯỚC 1: Phân tích ảnh (nếu có) để lấy mô tả văn bản
     let ragQuery = normalizedMessage;
@@ -433,7 +449,7 @@ export class AiMessageOrchestrationService {
         this.promptBuilderService.getImageDescriptionPrompt();
 
       try {
-        imageDescription = await this.responseGateway.generateImageDescription({
+        const imageResult = await this.responseGateway.generateImageDescription({
           modelName: 'gemini-2.5-flash-lite',
           systemInstruction: descriptionPrompt,
           userImages: uploadedImages.map((img) => ({
@@ -441,6 +457,8 @@ export class AiMessageOrchestrationService {
             base64Data: img.base64Data,
           })),
         });
+        imageDescription = imageResult.text;
+        this.addProviderUsage(requestUsage, imageResult.usage);
 
         const parts = imageDescription
           .split(/\n\s*(?=Image\s+\d+\s*:)/i)
@@ -463,6 +481,9 @@ export class AiMessageOrchestrationService {
         // Kết hợp mô tả ảnh và câu hỏi để làm giàu truy vấn cho RAG
         ragQuery = `${normalizedMessage} ${imageDescription}`.trim();
       } catch (error) {
+        if (isProviderUsageMetadataMissing(error)) {
+          throw error;
+        }
         this.logger.error(
           `[AI Assistant] Failed to generate image description. Proceeding with text only.`,
           error,
@@ -541,13 +562,15 @@ export class AiMessageOrchestrationService {
 
       // BƯỚC 4: Gọi LLM để tạo câu trả lời cuối cùng.
       // Không cần gửi lại ảnh vì thông tin đã được chuyển thành văn bản trong prompt.
-      const aiResponse = await this.responseGateway.generateMedicalAnswer({
+      const answerResult = await this.responseGateway.generateMedicalAnswer({
         modelName: 'gemini-2.5-flash-lite',
         systemInstruction,
         history: chatHistory.slice(0, -1),
         userPrompt: userPromptForModel,
         userImages: undefined, // Không gửi lại ảnh ở bước cuối
       });
+      const aiResponse = answerResult.text;
+      this.addProviderUsage(requestUsage, answerResult.usage);
 
       // 🟢 BƯỚC XỬ LÝ CHAIN-OF-THOUGHT
       // 1. (Tùy chọn) In ra log backend để Dev dễ debug xem AI đang nghĩ gì
@@ -599,8 +622,15 @@ export class AiMessageOrchestrationService {
                 modelName: 'gemini-2.5-flash-lite',
                 text: topicCandidate,
               });
-              finalTopic = this.sanitizeTopicSummary(summary, maxTopicLength);
+              this.addProviderUsage(requestUsage, summary.usage);
+              finalTopic = this.sanitizeTopicSummary(
+                summary.text,
+                maxTopicLength,
+              );
             } catch (error) {
+              if (isProviderUsageMetadataMissing(error)) {
+                throw error;
+              }
               this.logger.warn(
                 '[AI Assistant] Topic summarization failed, using fallback.',
               );
@@ -632,8 +662,7 @@ export class AiMessageOrchestrationService {
             $inc: {
               messageCount: 2,
               totalTokensUsed:
-                Math.ceil(messageContent.length / 4) +
-                Math.ceil(aiResponse.length / 4),
+                requestUsage.inputTokens + requestUsage.outputTokens,
             },
           },
           { new: true },
@@ -643,6 +672,7 @@ export class AiMessageOrchestrationService {
       return {
         statusCode: 200,
         message: 'Message processed successfully',
+        quotaUsage: requestUsage,
         data: {
           conversationId: conversation._id,
           topic: conversation.topic,
@@ -693,6 +723,10 @@ export class AiMessageOrchestrationService {
 
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
+
+      if (isProviderUsageMetadataMissing(error)) {
+        throw error;
+      }
 
       if (error instanceof HttpException) {
         throw new HttpException(

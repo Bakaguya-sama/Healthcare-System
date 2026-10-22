@@ -104,7 +104,9 @@ Dùng một `AuditLogs` cho auth, user, health, consultation, care, AI, billing,
 
 ### 10. Quota AI theo token
 
-`Plans.aiTokenLimit` là quota chính cho chat AI và được tính bằng input + output token đã commit. `aiRequestLimit` vẫn giữ làm giới hạn phụ chống spam; `AiUsageDaily` tách token chat khỏi token sinh summary. Trước khi gọi model, Redis giữ chỗ theo input ước tính + output tối đa, sau đó commit số thực tế và trả phần dư. Cách này bám sát chi phí hơn đếm số câu hỏi, nhưng giao diện nên quy đổi thành phần trăm quota còn lại thay vì buộc Patient hiểu token.
+`Plans.aiTokenLimit` là quota chính cho chat AI và được tính bằng input + output token đã commit. `aiRequestLimit` vẫn giữ làm giới hạn phụ chống spam; `AiUsageDaily` tách token chat khỏi token sinh summary. Trước khi gọi model, `AiQuotaReservations` giữ chỗ theo input ước tính + output tối đa để admission không vượt quota khi có request đồng thời; sau khi provider hoàn tất, backend lấy `usageMetadata.promptTokenCount` và `usageMetadata.candidatesTokenCount`, cộng usage của mọi provider call thuộc cùng request rồi commit số thực tế vào `AiUsageDaily` và trả phần dư. Estimate không được dùng để quyết toán. Cách này bám sát chi phí hơn đếm số câu hỏi, nhưng giao diện nên quy đổi thành phần trăm quota còn lại thay vì buộc Patient hiểu token.
+
+Provider contract truyền usage theo response boundary, không chỉ truyền text. Gateway dùng `@google/genai` và giữ contract nội bộ `text + usage`; adapter embedding legacy là concern độc lập, không tham gia quyết toán chat. Nếu provider không trả usage metadata, backend fail-closed và chuyển reservation sang `usage_reconciliation_required`, giữ envelope để operator reconciliation/audit; không fallback âm thầm sang ước lượng độ dài chuỗi.
 
 ### 11. Đăng ký hoặc đổi gói khi đang có gói hiệu lực
 

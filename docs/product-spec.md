@@ -275,7 +275,7 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 2. Tiền VND lưu dưới dạng integer, không dùng số thực.
 3. Return URL chỉ hiển thị kết quả. Chỉ IPN có chữ ký hợp lệ mới chuyển payment order sang paid và ghi yêu cầu cấp Subscription vào transactional outbox.
 4. IPN lặp phải idempotent: cùng transaction reference không được tạo transaction, outbox event hoặc Subscription grant hai lần.
-5. Redis kiểm quota AI realtime theo ngày; AiUsageDaily là dữ liệu bền vững cho thống kê và đối soát.
+5. Billing usage ledger kiểm quota AI atomically theo kỳ; `AiUsageDaily` là aggregate bền vững cho thống kê/đối soát và `AiQuotaReservations` giữ chỗ từng request trong lúc provider đang xử lý.
 6. Khi subscription hết hạn, API AI áp dụng quota Free ở request tiếp theo. Worker chỉ hỗ trợ thông báo hết hạn.
 7. Hệ thống có ba mã Plan ổn định `FREE`, `PLUS`, `CARE`; `Plans.code` là định danh nhóm xuyên suốt các version và không lưu thêm field `tier` trùng lặp. Giá, giới hạn và hành vi nằm trong Plan/Subscription snapshot, không hard-code theo code.
 8. Free luôn có quyền nhập/xem HealthMetrics của chính Patient, biểu đồ cơ bản, một Care Program cơ bản, in-app notification, quota AI cơ bản và safety alert thiết yếu.
@@ -304,8 +304,8 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 30. Consultation được count khi chuyển `in_consultation`; Patient `no_show` cũng được count theo no-show policy. Doctor/system cancel hoặc Patient cancel đúng hạn phải hủy reservation.
 31. Retry, duplicate event hoặc reconnect không được count/hủy reservation hai lần; ledger entry phải gắn `consultationId` và idempotency key.
 32. Khi hết số lượt, Patient có thể chờ cycle mới, nâng gói hoặc mua add-on. Safety alert vẫn hoạt động và tình huống khẩn cấp phải hướng tới cơ sở y tế/cấp cứu. Sau `CC-013A`, consultation đủ điều kiện từ urgent alert không bị chặn bởi quota consultation thông thường và không thu phí riêng.
-33. AI chat dùng `aiTokenLimit` làm quota chính, tính trên tổng input + output token đã commit trong kỳ. `aiRequestLimit` là giới hạn phụ chống spam và trường hợp request rất nhỏ; summary job có ngân sách token riêng. Các giới hạn này không dùng chung với consultation limit.
-33a. Trước khi gọi model, Redis reserve `estimatedInputTokens + maxOutputTokens`; khi provider trả kết quả thì commit token thực tế vào `AiUsageDaily` và release phần dư. Request lỗi/timeout phải release reservation; retry dùng idempotency key để không trừ token hai lần.
+33. AI chat dùng `aiTokenLimit` làm quota chính, tính trên tổng input + output token đã commit trong kỳ. `aiRequestLimit` là giới hạn phụ chống spam và trường hợp request rất nhỏ; summary job có ngân sách token riêng. Các giới hạn này không dùng chung với consultation limit. Artifact khởi đầu dùng quota ngày: `FREE = 10 request / 25,000 token`, `PLUS = 40 / 120,000`, `CARE = 80 / 250,000`.
+33a. Trước khi gọi model, backend reserve một envelope `estimatedInputTokens + maxOutputTokens` trong usage ledger để admission atomically. Khi Gemini trả kết quả, backend phải lấy `response.usageMetadata.promptTokenCount` và `candidatesTokenCount` của **mọi** provider call thuộc request (phân tích ảnh, trả lời chính và tóm tắt topic nếu có), commit tổng token thực tế vào `AiUsageDaily` và release phần dư. Estimate chỉ là mức giữ chỗ, không là số liệu quyết toán. Request lỗi/timeout phải release reservation; retry dùng idempotency key để không trừ token hai lần. Nếu không nhận được usage metadata, không được âm thầm quay về `text.length / 4`: giữ reservation để reconciliation/audit hoặc áp dụng policy fail-closed đã version hóa.
 34. PaymentOrder dùng state machine `created|pending|processing|paid|failed|expired|cancelled|refund_pending|refunded`; mọi transition là conditional, có actor/source/time và audit. Timeout/unknown không được tự chuyển thành failed nếu chưa đối soát provider.
 35. Trong một Mongo transaction, IPN hợp lệ upsert PaymentTransaction, chuyển order sang paid và ghi đúng một `SubscriptionGrantRequested` OutboxEvent. Không gọi VNPAY hoặc dịch vụ ngoài trong transaction.
 36. Worker cấp Subscription idempotent theo `sourceOrderId`/grant key. Lỗi worker được retry; không tạo payment mới và không chuyển order paid về pending.
@@ -576,8 +576,8 @@ Scheduled và on-demand dùng chung hàng đợi theo Doctor. Ưu tiên lần l�
 - Doctor Priority Inbox chỉ chứa Patient thuộc enrollment được phân công và có pagination/stable sort.
 - Báo cáo 7/30 ngày tính số liệu bằng backend; LLM chỉ diễn đạt từ payload chuẩn hóa và phải có fallback.
 - Chuỗi AI summary là `normalize metrics → deterministic aggregate → rule evaluation → SummaryInput snapshot → structured LLM output → grounding/safety guard → summary hoặc fallback`. Mọi con số và nhận xét phải truy về snapshot/source reference; Patient và Doctor dùng presentation policy khác nhau trên cùng facts.
-- Redis reserve/commit/release quota token theo ngày; `AiUsageDaily` là dữ liệu bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam.
-- Không dùng cron xóa toàn bộ quota key; key theo ngày có TTL.
+- `AiQuotaReservations` reserve/commit/release quota token theo kỳ; `AiUsageDaily` là aggregate bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam. Quyết toán dùng Gemini `usageMetadata`, không dùng độ dài text ước lượng.
+- Không dùng cron reset quota theo tên gói; period được xác định từ immutable Subscription snapshot. Reservation chưa kết thúc phải có reconciliation/audit policy riêng.
 - RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
 - Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`; trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
 - AI response phải có safety policy/disclaimer và không chẩn đoán.

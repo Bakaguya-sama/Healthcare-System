@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
+  Headers,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import {
   ApiQuery,
   ApiBody,
   ApiConsumes,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { AiAssistantService } from '../../../application/services/conversations/ai-assistant.service';
 import {
@@ -69,6 +71,11 @@ export class AiAssistantController {
   @ApiOperation({ summary: 'Gửi tin nhắn cho AI trong cuộc trò chuyện' })
   @ApiParam({ name: 'conversationId', description: 'ID của cuộc trò chuyện' })
   @ApiConsumes('multipart/form-data')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    description: 'Unique key for one AI message submission; retries reuse it.',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -97,12 +104,14 @@ export class AiAssistantController {
     @Param('conversationId') conversationId: string,
     @Body() dto: AiSendMessageDto,
     @UploadedFiles() images?: any[],
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     return this.aiAssistantService.sendMessage(
       userId,
       conversationId,
       dto,
       images,
+      idempotencyKey,
     );
   }
 

@@ -6,7 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
+import { ProviderUsageMetadataMissingException } from '../../../application/errors/provider-usage-metadata-missing.exception';
 
 const MAX_GENERATE_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 3000;
@@ -57,37 +58,40 @@ export type GenerateHealthProfileSummary = {
   recentMetrics: any;
 };
 
+/** Provider-independent usage used by the quota settlement boundary. */
+export type AiProviderUsage = {
+  inputTokens: number;
+  outputTokens: number;
+};
+
+export type GeneratedAiText = {
+  text: string;
+  usage: AiProviderUsage;
+};
+
 type MessagePayload =
   | string
   | Array<
       { text: string } | { inlineData: { mimeType: string; data: string } }
     >;
 
-type ChatResult = {
-  response: {
-    text(): string;
-  };
-};
-
-type ChatClient = {
-  sendMessage(request: MessagePayload): Promise<ChatResult>;
-};
-
 @Injectable()
 export class LlmGatewayService {
   private readonly logger = new Logger(LlmGatewayService.name);
-  private genAI: GoogleGenerativeAI | null = null;
+  private genAI: GoogleGenAI | null = null;
 
   constructor(private readonly configService: ConfigService) {}
 
   async generateJson(input: GenerateJsonInput): Promise<string> {
-    const model = this.getClient().getGenerativeModel({
+    const result = await this.generateContentWithRetry({
       model: input.modelName,
-      systemInstruction: input.systemInstruction,
-      generationConfig: { responseMimeType: 'application/json' },
+      contents: input.prompt,
+      config: {
+        systemInstruction: input.systemInstruction,
+        responseMimeType: 'application/json',
+      },
     });
-    const result = await model.generateContent(input.prompt);
-    const text = result.response.text();
+    const text = result.text;
     if (!text?.trim())
       throw new BadRequestException('LLM returned an empty JSON response');
     return text;
@@ -95,13 +99,7 @@ export class LlmGatewayService {
 
   async generateMedicalAnswer(
     input: GenerateMedicalAnswerInput,
-  ): Promise<string> {
-    const model = this.getClient().getGenerativeModel({
-      model: input.modelName,
-      systemInstruction: input.systemInstruction,
-    });
-
-    const chat = model.startChat({ history: input.history }) as ChatClient;
+  ): Promise<GeneratedAiText> {
     const messagePayload: MessagePayload =
       input.userImages && input.userImages.length > 0
         ? [
@@ -115,22 +113,32 @@ export class LlmGatewayService {
           ]
         : input.userPrompt;
 
-    const result = await this.sendMessageWithRetry(chat, messagePayload);
-    const text = result.response.text();
+    const result = await this.generateContentWithRetry({
+      model: input.modelName,
+      contents: [
+        ...input.history,
+        {
+          role: 'user',
+          parts:
+            typeof messagePayload === 'string'
+              ? [{ text: messagePayload }]
+              : messagePayload,
+        },
+      ],
+      config: { systemInstruction: input.systemInstruction },
+    });
+    const text = result.text;
 
     if (!text?.trim()) {
       throw new BadRequestException('Mô hình ngôn ngữ trả về phản hồi rỗng');
     }
 
-    return text;
+    return result;
   }
 
   async generateImageDescription(
     input: GenerateMedicalImageDesciptionInput,
-  ): Promise<string> {
-    const model = this.getClient().getGenerativeModel({
-      model: input.modelName,
-    });
+  ): Promise<GeneratedAiText> {
 
     const imageParts = input.userImages.map((image) => ({
       inlineData: {
@@ -143,14 +151,17 @@ export class LlmGatewayService {
 
     for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
       try {
-        const result = await model.generateContent(payload);
-        const text = result.response.text();
+        const result = await this.generateContentWithRetry({
+          model: input.modelName,
+          contents: payload,
+        });
+        const text = result.text;
         if (!text?.trim()) {
           throw new BadRequestException(
             'Mô hình ngôn ngữ trả về mô tả ảnh rỗng',
           );
         }
-        return text;
+        return result;
       } catch (error) {
         const transient = this.isTransientProviderError(error);
         const isLastAttempt = attempt === MAX_GENERATE_ATTEMPTS;
@@ -176,10 +187,7 @@ export class LlmGatewayService {
 
   async generateTopicSummary(
     input: GenerateTopicSummaryInput,
-  ): Promise<string> {
-    const model = this.getClient().getGenerativeModel({
-      model: input.modelName,
-    });
+  ): Promise<GeneratedAiText> {
 
     const prompt = `Tóm tắt chủ đề cuộc hội thoại y tế thành 6-12 từ.
 Không dùng dấu ngoặc kép, không thêm ký hiệu, không nhắc lời chào.
@@ -190,13 +198,16 @@ ${input.text}`;
 
     for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
       try {
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const result = await this.generateContentWithRetry({
+          model: input.modelName,
+          contents: prompt,
+        });
+        const text = result.text;
         if (!text?.trim()) {
           throw new BadRequestException('Mô hình trả về tóm tắt rỗng');
         }
 
-        return text;
+        return result;
       } catch (error) {
         const transient = this.isTransientProviderError(error);
         const isLastAttempt = attempt === MAX_GENERATE_ATTEMPTS;
@@ -223,16 +234,15 @@ ${input.text}`;
   async generateAINotificationAlert(
     input: GenerateHealthMetricNotiInput,
   ): Promise<string> {
-    const model = this.getClient().getGenerativeModel({
-      model: input.modelName,
-    });
-
     const prompt = `Bệnh nhân vừa đo ${input.metricType} đạt mức ${input.metricValue} ${input.metricUnit}. Mức này đang bị cảnh báo nguy hiểm. Viết ĐÚNG 2 câu: 1 câu giải thích nguy cơ, 1 câu khuyên họ nên làm gì ngay lúc này (không kê đơn).`;
 
     for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
       try {
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const result = await this.generateContentWithRetry({
+          model: input.modelName,
+          contents: prompt,
+        });
+        const text = result.text;
         if (!text?.trim()) {
           throw new BadRequestException('Mô hình trả về tóm tắt rỗng');
         }
@@ -266,10 +276,6 @@ ${input.text}`;
   async generateHealthProfileSummary(
     input: GenerateHealthProfileSummary,
   ): Promise<string> {
-    const model = this.getClient().getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
-    });
-
     const prompt = `
 Bạn là một Bác sĩ nội trú đang làm báo cáo tóm tắt bệnh án cho Bác sĩ điều trị. Dưới đây là dữ liệu thô của bệnh nhân:
 - Tiền sử & Tổng quan: ${JSON.stringify(input.patientProfile ?? {})}
@@ -299,8 +305,11 @@ HÃY XUẤT BẢN TÓM TẮT THEO ĐÚNG 3 MỤC DƯỚI ĐÂY:
 
     for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
       try {
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const result = await this.generateContentWithRetry({
+          model: 'gemini-2.5-flash-lite',
+          contents: prompt,
+        });
+        const text = result.text;
         if (!text?.trim()) {
           throw new BadRequestException('Mô hình trả về tóm tắt rỗng');
         }
@@ -331,13 +340,39 @@ HÃY XUẤT BẢN TÓM TẮT THEO ĐÚNG 3 MỤC DƯỚI ĐÂY:
     );
   }
 
-  private async sendMessageWithRetry(
-    chat: ChatClient,
-    userPrompt: MessagePayload,
-  ): Promise<ChatResult> {
+  private async generateContentWithRetry(input: {
+    model: string;
+    contents: unknown;
+    config?: Record<string, unknown>;
+  }): Promise<GeneratedAiText> {
     for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
       try {
-        return await chat.sendMessage(userPrompt);
+        const response = await this.getClient().models.generateContent({
+          model: input.model,
+          contents: input.contents as never,
+          config: input.config as never,
+        });
+        const text = response.text;
+        if (!text?.trim()) {
+          throw new BadRequestException('LLM returned an empty response');
+        }
+        const inputTokens = response.usageMetadata?.promptTokenCount;
+        const outputTokens = response.usageMetadata?.candidatesTokenCount;
+        if (
+          typeof inputTokens !== 'number' ||
+          !Number.isSafeInteger(inputTokens) ||
+          typeof outputTokens !== 'number' ||
+          !Number.isSafeInteger(outputTokens)
+        ) {
+          throw new ProviderUsageMetadataMissingException();
+        }
+        return {
+          text,
+          usage: {
+            inputTokens,
+            outputTokens,
+          },
+        };
       } catch (error) {
         const transient = this.isTransientProviderError(error);
         const isLastAttempt = attempt === MAX_GENERATE_ATTEMPTS;
@@ -415,7 +450,7 @@ HÃY XUẤT BẢN TÓM TẮT THEO ĐÚNG 3 MỤC DƯỚI ĐÂY:
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private getClient(): GoogleGenerativeAI {
+  private getClient(): GoogleGenAI {
     if (this.genAI) {
       return this.genAI;
     }
@@ -428,7 +463,7 @@ HÃY XUẤT BẢN TÓM TẮT THEO ĐÚNG 3 MỤC DƯỚI ĐÂY:
     }
 
     try {
-      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.genAI = new GoogleGenAI({ apiKey });
       return this.genAI;
     } catch (error) {
       this.logger.error('Không thể khởi tạo Gemini client', error);
