@@ -13,8 +13,8 @@ import {
   toLegacyPagination,
   toMongoSortDirection,
 } from './pagination.utils';
-import { QueryMessageDto } from '../../modules/consultations/messaging/dto/query-message.dto';
-import { QueryConsultationDto } from '../../modules/consultations/dto/query-consultation.dto';
+import { QueryMessageDto } from '../../modules/consultations/presentation/dto/messaging/query-message.dto';
+import { QueryConsultationDto } from '../../modules/consultations/presentation/dto/consultations/query-consultation.dto';
 
 describe('pagination contract', () => {
   describe('DTO validation', () => {

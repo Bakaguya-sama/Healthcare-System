@@ -32,6 +32,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
           ? ((exceptionResponse as Record<string, unknown>).message ??
             'Request failed')
           : 'Internal server error';
+    const errorBody =
+      exceptionResponse && typeof exceptionResponse === 'object'
+        ? (exceptionResponse as Record<string, unknown>)
+        : undefined;
     const correlationId = CorrelationContext.getId();
 
     this.logger.error({
@@ -51,6 +55,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       correlationId,
       error: HttpStatus[status] ?? 'Error',
       message,
+      ...(typeof errorBody?.code === 'string' ? { code: errorBody.code } : {}),
+      ...(errorBody?.details ? { details: errorBody.details } : {}),
     });
   }
 }

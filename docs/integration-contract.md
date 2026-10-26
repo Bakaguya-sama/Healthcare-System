@@ -6,10 +6,10 @@ Tài liệu mô tả dữ liệu, REST API, realtime event, cache và trạng th
 
 Nguồn thiết kế:
 
-- `docs/overview.md` — phạm vi sản phẩm.
-- `docs/BUSINESS_RULES.md` — quy tắc nghiệp vụ.
-- `docs/db-template-v8.dbml` — target schema DA2 đã duyệt; v7 chỉ là baseline migration.
-- `plan/refactor-plan.md` — kiến trúc, thứ tự refactor và cut-line.
+- `docs/product-spec.md` — phạm vi sản phẩm, safety và business invariants.
+- `docs/chronic-care-spec.md` — command contract Chronic Care.
+- `docs/data-model.dbml` — target schema DA2 đã duyệt; v7 chỉ là baseline migration.
+- `plan/roadmap.md` — thứ tự implementation, exit gate và cut-line hiện hành.
 
 Đây là **target integration contract**. Endpoint gắn nhãn Current đã tồn tại trong code; endpoint Target phải được đưa vào OpenAPI trước khi frontend triển khai. Tên endpoint trong tài liệu có thể chỉnh trước khi khóa contract, nhưng sau khi frontend pin OpenAPI version thì breaking change phải dùng compatibility adapter hoặc API version mới.
 
@@ -157,7 +157,7 @@ interface DoctorProfileDto {
 interface UserDto {
   id: Id;
   fullName: string;
-  email: string;
+  email?: string; // absent for OAuth-only accounts until contact email is added
   role: UserRole;
   accountStatus: AccountStatus;
   emailVerifiedAt?: IsoDateTime;
@@ -253,7 +253,6 @@ interface ConsultationDto {
   estimatedWaitMinutes?: number;
   calledAt?: IsoDateTime;
   sessionStartedAt?: IsoDateTime;
-  lastHeartbeatAt?: IsoDateTime;
   overtimeStartedAt?: IsoDateTime;
   interruptedAt?: IsoDateTime;
   interruptionReason?: string;
@@ -354,10 +353,9 @@ interface HealthMetricDto {
 interface AiConversationDto {
   id: Id;
   patientId: Id;
-  status: "active" | "completed" | "archived";
   displayTitle?: string; // projection từ nội dung đầu tiên, không phải field persistence
   startedAt?: IsoDateTime;
-  endedAt?: IsoDateTime;
+  archivedAt?: IsoDateTime; // absent means the conversation remains open
   lastMessage?: AiMessageDto;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
@@ -572,6 +570,10 @@ interface MedicalFacilityDto {
 }
 ```
 
+`POST /care-tasks/schedule` is an Admin operational endpoint that advances due/missed states and schedules the next seven local calendar days for active enrollments. Patients read only their own tasks and completion rate through `GET /care-enrollments/:id/tasks` and `GET /care-enrollments/:id/completion-rate`. Completion rate is deterministic: `completed / (completed + missed)` for required scheduled tasks; it is `null` before a required task has reached a terminal outcome.
+
+`programConfig.baselineSchemaVersion` identifies the immutable baseline-form snapshot used to validate answers. The form renderer must use its `fields[].visibility` to project answers: `patient` sees only patient-visible fields; `care_team` may see both. API validation rejects unknown fields and invalid required/type/range values with safe field keys and reason codes only.
+
 `allowedActions` là nguồn hiển thị hành động theo role/status. State machine đã chốt: Enrollment chỉ active sau Doctor/Program/Rule/entitlement/consent/baseline hợp lệ; CareTask missed là terminal; CareAlert cho phép resolve trực tiếp kèm implicit acknowledge; FamilyLink tái sử dụng record và tăng `invitationVersion` khi mời lại.
 
 ### 4.5 Billing
@@ -595,7 +597,6 @@ interface PlanDto {
   code: "FREE" | "PLUS" | "CARE" | string;
   version: number;
   name: string;
-  tier: "free" | "plus" | "care";
   description?: string;
   price: MoneyVnd;
   currency: "VND";
@@ -635,6 +636,8 @@ interface PaymentOrderDto {
   currency: "VND";
   status: PaymentOrderStatus;
   paymentUrl?: string;
+  /** Returned only by create/retry while payable; renders the same signed URL. */
+  paymentQrDataUrl?: string;
   expiresAt?: IsoDateTime;
   paidAt?: IsoDateTime;
   cancelledAt?: IsoDateTime;
@@ -649,7 +652,7 @@ interface SubscriptionDto {
   id: Id;
   sourceOrderId?: Id;
   source: "payment" | "free_grant" | "admin_demo";
-  plan: Pick<PlanDto, "id" | "code" | "version" | "name" | "tier">;
+  plan: Pick<PlanDto, "id" | "code" | "version" | "name">;
   planSnapshot: {
     aiRequestLimit: number;
     aiTokenLimit: number;
@@ -735,6 +738,17 @@ interface NotificationDto {
   createdAt: IsoDateTime;
 }
 
+interface NotificationCampaignRecipientDto {
+  id: Id;
+  campaignId: Id;
+  userId: Id;
+  status: "pending" | "materialized" | "failed" | "skipped";
+  notificationId?: Id;
+  selectedAt: IsoDateTime;
+  processedAt?: IsoDateTime;
+  failureCode?: string;
+}
+
 interface ViolationReportDto {
   id: Id;
   reporter?: Pick<UserDto, "id" | "fullName" | "role">;
@@ -745,8 +759,10 @@ interface ViolationReportDto {
   severity: "low" | "medium" | "high";
   source?: Record<string, unknown>;
   evidences: FileDto[];
-  aiClassification?: { category: string; severity: string; confidence: number; rationale?: string };
-  resolution?: { note?: string; action: "warning" | "suspend" | "ban" | "none"; handledAt?: IsoDateTime };
+  resolutionNote?: string;
+  actionTaken?: "warning" | "suspend" | "ban" | "none";
+  resolvedBy?: Pick<UserDto, "id" | "fullName">;
+  resolvedAt?: IsoDateTime;
   assignedTo?: Pick<UserDto, "id" | "fullName">;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
@@ -760,7 +776,7 @@ interface AiDocumentAdminDto {
   sourceOrganization: string;
   sourceUrl?: string;
   publishedAt?: IsoDateTime;
-  effectiveUntil?: IsoDateTime;
+  validUntil?: IsoDateTime;
   language: string;
   specialties: string[];
   audiences: Array<"patient" | "doctor" | "admin">;
@@ -769,8 +785,8 @@ interface AiDocumentAdminDto {
   processingError?: string;
   chunkCount: number;
   uploadedBy: Pick<UserDto, "id" | "fullName">;
-  reviewedBy?: Pick<UserDto, "id" | "fullName">;
-  reviewedAt?: IsoDateTime;
+  approvedBy?: Pick<UserDto, "id" | "fullName">;
+  approvedAt?: IsoDateTime;
   rejectionReason?: string;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
@@ -888,10 +904,10 @@ interface AdminDashboardDto {
 
 | ID | Method + path | Role | Request/query | Response | Status |
 |---|---|---|---|---|---|
-| HLTH-01 | `GET /health-metrics` | Patient owner | metricType, from/to, page | `PageResult<HealthMetricDto>` | Current/normalize |
-| HLTH-02 | `POST /health-metrics` | Patient owner | metric payload | metric + alert summary | Current |
-| HLTH-03 | `POST /health-metrics/:id/corrections` | Patient owner | giá trị/thời gian đúng, lý do + idempotency | bản ghi mới có `replacesMetricId`; bản cũ `superseded` | Target P0; thay PATCH ghi đè |
-| HLTH-04 | `POST /health-metrics/:id/void` | Patient owner | lý do + idempotency | metric `voided` | Target P0; thay DELETE cứng |
+| HLTH-01 | `GET /health-metrics` | Patient owner | metricType, startDate/endDate, cursor/page | bounded `HealthMetricDto` page | CC-006 alignment; normalized `meta`, numeric `values`, lifecycle timestamps |
+| HLTH-02 | `POST /health-metrics` | Patient owner | metricType, unit, numeric values, source, recordedAt/timezone | normalized metric + alert summary | CC-006 alignment |
+| HLTH-03 | `POST /health-metrics/:id/corrections` | Patient owner | giá trị/thời gian đúng, lý do | bản ghi mới có `replacesMetricId`; bản cũ `superseded` | CC-006 alignment; append-only, concurrent replay-safe |
+| HLTH-04 | `POST /health-metrics/:id/void` | Patient owner | lý do | metric `voided`, không xóa document | CC-006 alignment; replay-safe |
 | HLTH-05 | `GET /consultations/:id/health-context` | Doctor participant | metric types/range | metrics + summary | Target P0 |
 | AI-01 | `GET /ai/quota` | Patient | none | `AiQuotaDto` | Target P0 |
 | AI-02 | `POST /ai/conversations` | Patient | initialQuestion/tags | conversation + messages | Target P0; legacy `/ai-assistant/.../start` |
@@ -916,8 +932,8 @@ interface AdminDashboardDto {
 | CARE-08 | `POST /care-enrollments/:id/consent` | Patient owner | policyVersion, purposes, baseline answers + idempotency | updated enrollment | Target P0 |
 | CARE-09 | `GET /care-enrollments/:id/tasks` | Participant | status, type, from/to, page | `PageResult<CareTaskDto>` | Target P0 |
 | CARE-10 | `POST /care-tasks/:id/responses` | Authorized task actor | structured response + idempotency | updated task | Target P0; metric task hoàn thành từ HLTH-02 |
-| CARE-11 | `GET /care-enrollments/:id/reports` | Participant | reportType, page | reports + summaries | Target P0 |
-| CARE-12 | `GET /doctors/me/care-alerts` | Assigned Doctor | severity, status, from/to, page | `PageResult<CareAlertDto>` | Target P0 |
+| CARE-11 | `GET /care-enrollments/:id/reports` | Patient owner/Assigned Doctor | reportType | bounded deterministic reports + role-scoped `SummaryInput v1` | CC-006 |
+| CARE-12 | `GET /care-alerts` | Assigned Doctor | cursor, limit, severity, status | cursor page of bounded alert summaries | CC-005; stable `severity DESC, detectedAt DESC, _id DESC` |
 | CARE-13 | `POST /care-alerts/:id/acknowledge` | Assigned Doctor | note? + idempotency | updated alert | Target P0 |
 | CARE-14 | `POST /care-alerts/:id/resolve` | Assigned Doctor | reason/note + idempotency | updated alert | Target P0 |
 | CARE-15 | `POST /care-alerts/:id/dismiss` | Assigned Doctor | allowlisted reason + idempotency | updated alert | Target P0; Admin chỉ audit |
@@ -930,15 +946,16 @@ interface AdminDashboardDto {
 | CARE-22 | `GET /admin/care-operations` | Admin | range, programCode, doctorId | bounded operational aggregate | Target P0 |
 | CARE-23 | `POST /care-programs/:id/retire` | Admin | reason + idempotency | retired Program version | Target P0 |
 | CARE-24 | `POST /care-programs/:id/rules/:ruleId/retire` | Admin có rule-management permission | reason + idempotency | retired Rule version | Target P0 |
-| CARE-25 | `GET /care-alerts/:id` | Patient owner/Assigned Doctor/Admin audit | none | `CareAlertDto` + bounded evaluation/timeline context | Target P0 |
+| CARE-25 | `GET /care-alerts/:id/detail` | Assigned Doctor | none | alert + bounded evaluation/timeline context + `allowedActions` | CC-005; Patient summary remains `GET /care-alerts/:id`, Admin audit remains `GET /care-alerts/:id/audit` |
 | CARE-26 | `GET /care-tasks/:id` | Authorized task actor | none | `CareTaskDto` + type-specific approved content/form/action | Target P0 |
 | CARE-27 | `GET /care-programs/:id` | Patient/Doctor/Admin theo scope | none | `CareProgramDto` + form/template/source projection phù hợp role | Target P0 |
-| CARE-28 | `GET /care-reports/:id` | Enrollment participant | none | `CareReportDto` + authorized `CareSummaryDto[]` | Target P0 |
+| CARE-28 | `GET /care-reports/:id` | Patient owner/Assigned Doctor | none | immutable `CareReportDto` + role-scoped `SummaryInput v1` | CC-006 |
 | CARE-29 | `POST /care-summaries/:id/review` | Assigned Doctor | `review|reject`, note + idempotency | updated Doctor-audience summary | Target P0 khi Doctor review được bật |
 | CARE-30 | `PATCH /care-programs/:id/rules/:ruleId` | Admin có rule-management permission | declarative draft changes + version | updated draft rule | Target P1 Builder Lite; draft only |
 | CARE-31 | `POST /care-reports/:id/exports` | Enrollment participant có entitlement | `pdf|csv` + idempotency | export job hoặc short-lived download URL | Target P0 cho quyền lợi export |
 | CARE-32 | `GET /care-report-exports/:id` | Export owner | none | export status + short-lived download URL | Target P0 |
 | CARE-33 | `GET /care-tasks` | Patient/Doctor theo scope | enrollmentId?, type/status/from/to/page | cross-enrollment `PageResult<CareTaskDto>` | Target P1 cho trang medication; P0 có thể chỉ dùng CARE-09 |
+| CARE-34 | `POST /care-enrollments/:id/reports` | Assigned Doctor | reportType `weekly|thirty_day`, UTC `dataUntil` | immutable CareReport version + Doctor `SummaryInput v1` | CC-006; same input hash replays, correction creates a new version |
 | FAM-01 | `GET /family-links` | Patient/linked family user | direction, status, page | `PageResult<FamilyLinkDto>` | Target P1 sau P0 |
 | FAM-02 | `POST /family-links` | Patient | family email/userId, relationship + idempotency | pending link | Target P1; enforce `familyLinkLimit`; revoked/declined/expired pair increments invitationVersion |
 | FAM-03 | `POST /family-links/:id/accept` | Invited family user | consent version + idempotency | active link | Target P1 |
@@ -954,7 +971,7 @@ interface AdminDashboardDto {
 | FAC-06 | `GET /admin/medical-facilities` | Admin | status/source/search/area/page | facility page | Target P1 sau Family |
 | FAC-07 | `GET /admin/disease-specialties` | Admin | status/programCode/page | mapping versions | Target P1 sau Family |
 | FAC-08 | `PATCH /admin/medical-facilities/:id` | Admin | draft metadata/sources + version | updated draft facility | Target P1; draft only |
-| FAC-09 | `POST /admin/medical-facilities/:id/actions/:action` | Admin | `mark_stale|retire`, reason + idempotency | updated facility | Target P1 |
+| FAC-09 | `POST /admin/medical-facilities/:id/actions/retire` | Admin | reason + idempotency | retired facility | Target P1; stale/fresh is derived from lastCheckedAt |
 | FAC-10 | `POST /admin/disease-specialties` | Admin | draft mapping + sources + idempotency | draft mapping | Target P1 |
 | FAC-11 | `PATCH /admin/disease-specialties/:id` | Admin | draft mapping changes + version | updated draft mapping | Target P1; draft only |
 
@@ -966,12 +983,12 @@ Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; 
 |---|---|---|---|---|---|
 | BILL-01 | `GET /plans` | Authenticated | active only | `PlanDto[]` | Target P0 |
 | BILL-02 | `GET /subscriptions/me` | Patient | status/page | subscriptions + effective entitlement | Target P0 |
-| BILL-03 | `POST /billing/orders` | Patient | `{ planId, returnUrl }` + idempotency | `PaymentOrderDto` | Target P0 |
+| BILL-03 | `POST /billing/payments/orders` | Patient | `{ planId }` + `Idempotency-Key` | `PaymentOrderDto` + transient `paymentUrl`/`paymentQrDataUrl` | Implemented CC-7 |
 | BILL-04 | `GET /billing/orders` | Patient | status/page | order page | Target P0 |
 | BILL-05 | `GET /billing/orders/:id` | Owner/Admin | none | order + transaction summary | Target P0 |
 | BILL-06 | `POST /billing/orders/:id/cancel` | Owner/Admin | reason + idempotency | order | Target P0 |
 | BILL-07 | `GET /billing/vnpay/return` | Public/provider redirect | VNPAY params | redirect/page-safe status only | Target P0 |
-| BILL-08 | `GET /billing/vnpay/ipn` | VNPAY | signed params | provider-required acknowledgement | Target P0 |
+| BILL-08 | `GET /billing/payments/vnpay/ipn` | VNPAY | signed params | provider-required acknowledgement | Implemented CC-7 |
 | BILL-09 | `POST /billing/orders/:id/refunds` | Patient owner | reason/reasonCode + idempotency | `PaymentRefundDto` | Target P1 |
 | BILL-10 | `GET /billing/refunds/:id` | Owner/Admin | none | refund | Target P1 |
 | BILL-11 | `GET /admin/billing/orders` | Admin | status/date/user/orderCode/page | order page + totals | Target P0 |
@@ -984,7 +1001,7 @@ Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; 
 | BILL-18 | `GET /subscriptions/me/usage` | Patient | none | effective cycle + AI/consultation/Program/family usage and remaining limits | Target P0 |
 | BILL-19 | `POST /admin/billing/orders/:id/reconcile` | Authorized Admin | none + idempotency | refreshed order/transaction/grant status | Target P0; không mark-paid thủ công |
 
-IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` chỉ được mở sau khi BILL-03 trả về. Return page luôn gọi BILL-05 để lấy trạng thái nguồn chuẩn.
+IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` và `paymentQrDataUrl` chỉ được dùng sau khi BILL-03 trả về; QR mã hóa đúng signed URL và không được persist/cache vượt quá hạn order. Return page luôn gọi BILL-05 để lấy trạng thái nguồn chuẩn.
 
 ### 5.7 Notification, moderation và admin dashboard
 
@@ -997,7 +1014,7 @@ IPN và refund provider callbacks không được gọi bằng browser client. `
 | MOD-01 | `POST /violations` | Authenticated | type/reason/source/evidence | report | Current/normalize |
 | MOD-02 | `GET /admin/violations` | Admin | status/severity/assignee/page | violation page + totals | Target P0; legacy `/violations` |
 | MOD-03 | `GET /admin/violations/:id` | Admin | none | violation detail | Target P0 |
-| MOD-04 | `PATCH /admin/violations/:id` | Admin | status/severity/assignment/resolution | violation | Target P0 |
+| MOD-04 | `PATCH /admin/violations/:id` | Admin | status/severity/assignment/resolutionNote/actionTaken | violation | Target P0 |
 | ADM-01 | `GET /admin/dashboard` | Admin | date range | aggregated cards/charts | Target P0 |
 | ADM-02 | `GET /admin/users` | Admin | role/status/search/page | user page + totals | Target P0; replaces browser merge |
 | ADM-03 | `POST /admin/users/:id/lock` | Admin | reason | user | Current |
@@ -1147,8 +1164,8 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CARE-08 | Patient chấp nhận consent version/purpose/channel và gửi baseline; chỉ activate khi toàn bộ guard 1A cùng hợp lệ. |
 | CARE-09 | Liệt kê task của một enrollment theo status/type/time range, bảo toàn timezone và terminal states. |
 | CARE-10 | Ghi response hoặc tiến độ cho task phù hợp type/completionRule; chống submit lặp và không cho hoàn thành task missed/terminal. |
-| CARE-11 | Liệt kê các report và summary của enrollment theo reportType; lọc audience để Patient không thấy nội dung chỉ dành Doctor. |
-| CARE-12 | Trả Priority Inbox của assigned Doctor, sort ổn định theo severity–detectedAt–id và hỗ trợ filter/pagination. |
+| CARE-11 | Liệt kê tối đa 100 deterministic report của enrollment theo reportType; Patient không nhận source IDs, Doctor nhận bounded provenance để điều tra. |
+| CARE-12 | Trả Priority Inbox của assigned Doctor bằng cursor; sort ổn định theo severity–detectedAt–id, filter status/severity và chỉ projection summary bounded. |
 | CARE-13 | Doctor acknowledge alert open, ghi actor/time/note; gọi lặp không tạo thêm transition hoặc notification trùng. |
 | CARE-14 | Doctor resolve alert open/acknowledged với reason/follow-up; resolve trực tiếp tự ghi implicit acknowledge theo quyết định 3A. |
 | CARE-15 | Doctor dismiss alert chỉ với reason trong allowlist; trạng thái terminal, Admin chỉ audit chứ không xử lý thay. |
@@ -1161,15 +1178,16 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CARE-22 | Trả aggregate vận hành Chronic Care theo range/Program/Doctor: enrollment, adherence và alert/follow-up metrics; không trả raw HealthMetrics. |
 | CARE-23 | Retire Program version để ngăn enrollment mới; enrollment hiện hữu tiếp tục theo snapshot trừ khi policy yêu cầu chuyển đổi riêng. |
 | CARE-24 | Retire CareRule version để ngăn gán mới; giữ version cho khả năng tái hiện evaluation/report lịch sử. |
-| CARE-25 | Trả chi tiết alert và bounded evaluation/timeline context cho Patient, assigned Doctor hoặc Admin audit theo projection khác nhau. |
+| CARE-25 | Doctor detail chỉ trả alert được gán cho chính Doctor, bounded evaluation context và action allowlist; Patient chỉ nhận safe summary, Admin chỉ nhận audit projection. |
 | CARE-26 | Trả chi tiết task cùng form/content/action theo taskType; chỉ cung cấp nội dung approved và `allowedActions` ở thời điểm đọc. |
 | CARE-27 | Trả chi tiết Program và projection schema/template/source theo role; Patient không nhận rule nội bộ hoặc draft content. |
-| CARE-28 | Trả một deterministic report và summary đúng audience; report facts vẫn có dù AI summary failed/fallback. |
+| CARE-28 | Trả immutable deterministic report và `SummaryInput v1` đúng audience; facts hoạt động độc lập dù AI chưa bật hoặc failed/fallback. |
 | CARE-29 | Assigned Doctor review/reject Doctor-audience AI summary, ghi reviewer/note/version; không thay đổi statistics hoặc alert severity. |
 | CARE-30 | Sửa CareRule còn draft với version check và operator allowlist; rule active/retired không được chỉnh tại chỗ. |
 | CARE-31 | Tạo PDF/CSV export từ report đã authorize sau khi kiểm tra entitlement; file/job có TTL và không chứa field ngoài audience scope. |
 | CARE-32 | Trả trạng thái report export và URL tải ngắn hạn cho đúng owner; không trả storage key nội bộ. |
 | CARE-33 | Liệt kê task xuyên nhiều enrollment trong scope, dùng cho medication/today view; vẫn bounded và giữ enrollmentId để mở đúng context. |
+| CARE-34 | Assigned Doctor tạo report trên 7/30 ngày địa phương hoàn chỉnh và UTC cutoff; replay cùng sources trả report cũ, late correction đổi input hash và tạo version mới. |
 
 #### Người thân đồng hành
 
@@ -1192,10 +1210,10 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | FAC-03 | Admin chọn một kết quả map provider để tạo draft, chụp provider/placeId/source; candidate không tự trở thành verified. |
 | FAC-04 | Admin verify draft sau khi bổ sung nguồn chính thức và checklist; ghi reviewer/time/audit trước khi cho Patient tìm thấy như verified. |
 | FAC-05 | Publish một DiseaseSpecialty mapping version đã duyệt để search dùng deterministic specialty allowlist. |
-| FAC-06 | Liệt kê facility draft/verified/stale/retired theo nguồn, khu vực và search để Admin vận hành danh mục. |
+| FAC-06 | Liệt kê facility draft/verified/retired theo nguồn, khu vực và search; freshness được tính từ `lastCheckedAt` theo policy. |
 | FAC-07 | Liệt kê các version ánh xạ disease/program–specialty cùng lifecycle và nguồn phê duyệt. |
 | FAC-08 | Sửa metadata/source của facility còn draft với version check; verified record phải qua lifecycle thay vì sửa ngầm dữ liệu đã công bố. |
-| FAC-09 | Đánh dấu facility stale hoặc retired với reason; kết quả không còn được xem như verified active và cache search phải invalidate. |
+| FAC-09 | Retire facility với reason; facility verified quá ngưỡng freshness tự bị loại/gắn nhãn theo `lastCheckedAt`, không chuyển sang status riêng. |
 | FAC-10 | Tạo draft DiseaseSpecialty mapping mới từ danh sách chuyên khoa và nguồn do Admin kiểm soát. |
 | FAC-11 | Sửa mapping còn draft với optimistic version check; active/retired mapping là bất biến. |
 
@@ -1205,7 +1223,7 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 |---|---|
 | BILL-01 | Trả các Plan published đang bán với version, giá, quota, benefits và refund policy; không trả draft/retired cho Patient. |
 | BILL-02 | Trả subscription history và effective entitlement của Patient, gồm plan snapshot/chu kỳ/thay đổi kế tiếp; một user chỉ có một active subscription. |
-| BILL-03 | Tạo PaymentOrder từ Plan server-side, chụp immutable snapshot, kiểm tra duplicate/idempotency và trả URL VNPAY; không tin amount từ client. |
+| BILL-03 | Tạo PaymentOrder từ Plan server-side, chụp immutable snapshot, kiểm tra duplicate/idempotency và trả URL VNPAY kèm QR tạm thời mã hóa cùng URL khi order còn payable; không tin amount từ client. |
 | BILL-04 | Liệt kê order của Patient theo status/page để hiển thị lịch sử; transaction payload nhạy cảm không nằm trong response. |
 | BILL-05 | Trả order detail và safe transaction summary; đây là source of truth sau VNPAY return thay vì query success trên URL. |
 | BILL-06 | Hủy order chưa thanh toán khi còn trạng thái cho phép; transition conditional để không thắng race với IPN paid. |
@@ -1234,7 +1252,7 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | MOD-01 | Tạo ViolationReport từ source/evidence được authorize, validate upload và đưa vào hàng đợi kiểm duyệt; AI chưa phải kết luận. |
 | MOD-02 | Liệt kê report cho Admin theo status/severity/assignee với totals và phân trang để triage. |
 | MOD-03 | Trả report detail, evidence và source context được phép cho Admin; không mở rộng sang dữ liệu ngoài phạm vi báo cáo. |
-| MOD-04 | Cập nhật assignment/severity/workflow/resolution theo transition hợp lệ; action cảnh cáo/khóa tài khoản dùng command tương ứng và ghi audit. |
+| MOD-04 | Cập nhật assignment/severity/workflow và outcome phẳng `resolutionNote/actionTaken/resolvedBy/resolvedAt`; action cảnh cáo/khóa tài khoản dùng command tương ứng và ghi audit. |
 
 #### Web Admin
 
@@ -1296,6 +1314,7 @@ Frontend không tự join room theo ID bất kỳ. Server xác minh participant/
 | `presence.v1.changed` | server → client | `{ userId, state, lastOnlineAt }` | Doctor list, consultation header |
 | `consultation.v1.join` | client → server | `{ consultationId }` | Consultation room |
 | `consultation.v1.updated` | server → client | `ConsultationDto` hoặc patch + version | Lists, detail, queue |
+| `consultation_heartbeat` | participant client → server | `{ consultationId }`; server lưu heartbeat theo actor trong Redis TTL và trả `{ recordedAt, expiresAt }` | Active consultation room |
 | `message.v1.send` | client → server | `{ consultationId, clientMessageId, content, attachments }` | Chat room |
 | `message.v1.created` | server → client | `ConsultationMessageDto` | Chat, list preview |
 | `message.v1.failed` | server → client | `{ clientMessageId, code, message }` | Chat retry state |
@@ -1475,7 +1494,7 @@ Doctor route guard phải phân biệt:
 | Care Program editor `/admin/care-programs/:id` | New | Program draft, rule versions, sources, simulation | CARE-03/04, CARE-18..21, CARE-23/24/27/30 | tabs cấu hình/baseline/tasks/rules/source/preview; publish/activate theo validation/audit, không có review-evidence gate |
 | Care operations `/admin/care-operations` | New | bounded aggregate/alert audit | CARE-22, ADM-24/25 | audit/operational metrics; không đóng vai assigned Doctor |
 | Family audit `/admin/family-links` | New P1 | scoped FamilyLinkDto/audit | FAM-06, ADM-24 | read/audit để hỗ trợ tranh chấp; không tự mở quyền hoặc xem dữ liệu sức khỏe |
-| Medical facilities `/admin/medical-facilities` | New P1 sau Family | drafts, verified facilities, disease mappings | FAC-02..11 | chọn map candidate, sửa draft, xác minh nguồn chính thức, stale/retire, publish mapping |
+| Medical facilities `/admin/medical-facilities` | New P1 sau Family | drafts, verified facilities, derived freshness, disease mappings | FAC-02..11 | chọn map candidate, sửa draft, xác minh nguồn chính thức, retire, publish mapping |
 | AI knowledge `/admin/ai/knowledge` | `/ai-knowledge-base` | documents + processing status | ADM-10..13 | upload progress; processing polling/event; deactivate instead of unsafe hard delete |
 | AI document detail `/admin/ai/knowledge/:id` | New | AiDocumentAdminDto + processing/chunk summary | ADM-18..20, ADM-27 | approve/reject ở document level; preview citation metadata; exclude chunk lỗi; re-ingest P1 |
 | AI blacklist `/admin/ai/blacklist` | tab hiện tại | keyword page | ADM-14..17 | normalized keyword conflicts; mutation invalidation |
@@ -1485,7 +1504,7 @@ Doctor route guard phải phân biệt:
 | Payment detail `/admin/billing/orders/:id` | New | order, safe transaction, subscription grant, refund | BILL-12/19 | timeline trạng thái/IPN/grant; reconcile theo server capability; không sửa paid thủ công |
 | Refund queue `/admin/billing/refunds` | New P1 | PaymentRefundDto page/totals | BILL-13..16 | show captured/final usage and reason codes; approve re-evaluates server-side; override requires reason; `refund.v1.updated`; processing action disabled |
 | Violation list `/admin/violations` | `/violation-reports` | report page/totals | MOD-02 | filter status/severity/assignee |
-| Violation detail `/admin/violations/:id` | modal/page hiện tại | full report/evidence/AI draft | MOD-03/04 | transition validation; admin decision required; ban action through user API |
+| Violation detail `/admin/violations/:id` | modal/page hiện tại | full report/evidence/outcome | MOD-03/04 | transition validation; admin decision required; ban action through user API |
 | Notification campaigns `/admin/notifications/campaigns` | P2/Deferred | campaign page/status | contract chỉ bổ sung nếu feature vào cut-line sau DA2 | worker fan-out status; không gửi hàng loạt trong HTTP request |
 | Audit logs `/admin/audit-logs` | New | AuditLogDto page/detail | ADM-24/25 | filter domain/actor/entity/time; read-only; deep-link tới entity nếu được phép |
 | Admin profile `/admin/profile` | `/profile` | UserDto | USER-01/02/03/04, AUTH-10 | admin role readonly trừ super-admin workflow |
@@ -1778,9 +1797,9 @@ Route `/admin/billing/orders/:id` và `/admin/billing/refunds` là deep-link/tab
 #### A-09. Trang Kiểm duyệt — `/admin/violations` — P0
 
 - **Trang làm gì:** tiếp nhận, phân công, kiểm tra bằng chứng và kết luận báo cáo vi phạm.
-- **Component:** `ViolationTotals`, `ViolationFilterBar`, `ViolationTable`, `ViolationDetailDrawer`, `ReporterAndTargetSummary`, `EvidenceViewer`, `SourceContextPanel`, `ViolationTimeline`, `AiClassificationDraft`, `AssignmentControl`, `ResolutionDialog`, `UserActionDialog`.
+- **Component:** `ViolationTotals`, `ViolationFilterBar`, `ViolationTable`, `ViolationDetailDrawer`, `ReporterAndTargetSummary`, `EvidenceViewer`, `SourceContextPanel`, `ViolationTimeline`, `AssignmentControl`, `ResolutionDialog`, `UserActionDialog`.
 - **Hành động chính:** assign/triage; chuyển processing; resolve/dismiss; warning/suspend/ban qua command người dùng.
-- **Trạng thái bắt buộc:** AI classification chỉ là gợi ý; Admin chịu trách nhiệm quyết định; evidence có kiểm tra quyền; không mở context ngoài source đã báo cáo.
+- **Trạng thái bắt buộc:** DA2 không lưu AI classification; Admin chịu trách nhiệm toàn bộ outcome; evidence có kiểm tra quyền; không mở context ngoài source đã báo cáo.
 
 Route `/admin/violations/:id` là deep-link mở `ViolationDetailDrawer`.
 
@@ -1801,8 +1820,8 @@ Route `/admin/violations/:id` là deep-link mở `ViolationDetailDrawer`.
 #### A-12. Trang Danh mục cơ sở y tế — `/admin/medical-facilities` — P1 sau Family
 
 - **Trang làm gì:** đưa candidate từ map API vào danh mục nội bộ, đối chiếu nguồn chính thức và quản lý ánh xạ bệnh/chuyên khoa.
-- **Component:** `FacilityStatusTabs`, `FacilityTable`, `MapCandidateSearch`, `MapCandidatePreview`, `FacilityEditor`, `OfficialSourceEditor`, `FacilityMapPreview`, `VerificationChecklist`, `VerifyFacilityDialog`, `StaleOrRetireDialog`, `DiseaseSpecialtyMappingEditor`, `MappingVersionTable`, `PublishMappingDialog`.
-- **Hành động chính:** chọn candidate thành draft; chỉnh; verify/stale/retire; tạo và publish mapping.
+- **Component:** `FacilityStatusTabs`, `FacilityTable`, `MapCandidateSearch`, `MapCandidatePreview`, `FacilityEditor`, `OfficialSourceEditor`, `FacilityMapPreview`, `VerificationChecklist`, `VerifyFacilityDialog`, `RetireFacilityDialog`, `DiseaseSpecialtyMappingEditor`, `MappingVersionTable`, `PublishMappingDialog`.
+- **Hành động chính:** chọn candidate thành draft; chỉnh; verify/retire; hiển thị freshness suy ra từ `lastCheckedAt`; tạo và publish mapping.
 - **Trạng thái bắt buộc:** map result không tự verified; lưu provider/placeId/source; mapping có version/lifecycle; không bổ sung Clinic actor vào scope.
 
 #### A-13. Trang Notification Campaign — `/admin/notifications/campaigns` — P2/Deferred
@@ -1810,7 +1829,7 @@ Route `/admin/violations/:id` là deep-link mở `ViolationDetailDrawer`.
 - **Trang làm gì:** soạn và theo dõi thông báo individual/segment/all nếu feature qua cut-line.
 - **Component:** `CampaignList`, `CampaignEditor`, `AudienceBuilder`, `AudienceEstimate`, `ChannelSelector`, `CampaignPreview`, `ScheduleControl`, `DeliveryAggregate`.
 - **Hành động chính:** draft, preview, schedule/cancel và xem kết quả.
-- **Trạng thái bắt buộc:** worker fan-out sau khi snapshot audience; không gửi hàng loạt ngay trong HTTP request; không xuất hiện trong navigation DA2 khi flag tắt.
+- **Trạng thái bắt buộc:** worker materialize audience chính xác vào `NotificationCampaignRecipients`, sau đó fan-out theo batch; unique campaign/user chống trùng; không gửi hàng loạt ngay trong HTTP request; không xuất hiện trong navigation DA2 khi flag tắt.
 
 ### 12.6 Modal, drawer và component nghiệp vụ bắt buộc
 
@@ -1884,9 +1903,9 @@ Plans/payment có thể mở Web flow an toàn trong giai đoạn đầu nếu d
 
 Session endpoint/event legacy đã bị xóa vì frontend được xây mới ở repository khác. Web Client và Web Admin phải sinh client/contract test từ OpenAPI và realtime artifact canonical.
 
-### 14.1 Kết quả rà soát source frontend hiện tại
+### 14.1 Kết quả rà soát frontend DA1 đã loại bỏ
 
-Kết luận: source trong `apps/client`, `apps/admin` và `packages/ui` vẫn chủ yếu là FE DA1. Nó có thể dùng làm tham khảo UI, nhưng **không được xem là đã khớp contract DA2**. Các sai lệch cần xử lý theo thứ tự sau:
+Source legacy trong `apps/client` và `apps/admin` đã được xóa khỏi repository ngày 06/10/2026; `packages/ui` được giữ lại như thư viện dùng chung cho tới khi có quyết định riêng. Bảng dưới đây là audit lịch sử và checklist bắt buộc cho frontend DA2 ở repository mới, không mô tả các path source còn tồn tại trong repository backend này.
 
 | Mức | Khu vực source hiện tại | Sai lệch so với contract DA2 | Cách chuyển đổi bắt buộc |
 |---|---|---|---|
@@ -1902,7 +1921,7 @@ Kết luận: source trong `apps/client`, `apps/admin` và `packages/ui` vẫn c
 | Trung bình | `my-doctor.service.ts` | Chuyên khoa hard-code bằng tiếng Anh, doctor list không phân trang, rating đổi thành string, presence dùng boolean | Danh mục/label tách khỏi transport DTO; DOC-01 paginated; giữ rating là number; presence dùng `online|offline|unknown` |
 | Trung bình | review/profile/report services ở cả Client và Admin | Endpoint và mapper cũ được lặp lại giữa nhiều feature | Một generated client; shared query keys/error mapper; feature hook chỉ compose dữ liệu cho page, không khai báo lại API contract |
 
-### 14.2 Cấu trúc DTO/API frontend đích
+### 14.2 Cấu trúc DTO/API frontend đích ở repository riêng
 
 ```text
 packages/

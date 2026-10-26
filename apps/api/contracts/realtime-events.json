@@ -219,12 +219,39 @@
         }
       },
       "notificationChanged": {
+        "description": "For care_alerts_invalidated, refetch the Doctor priority inbox and alert detail. For care_alert_consultation_linked, navigate to or refetch the linked consultation.",
         "payload": {
           "type": "object",
           "required": [
             "userId",
             "action"
-          ]
+          ],
+          "properties": {
+            "userId": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "send",
+                "mark_read",
+                "mark_all_read",
+                "deleted",
+                "care_alerts_invalidated",
+                "care_alert_consultation_linked"
+              ]
+            },
+            "alertId": {
+              "type": "string"
+            },
+            "consultationId": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
         }
       },
       "consultationMessageNotification": {

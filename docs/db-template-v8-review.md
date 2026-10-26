@@ -2,10 +2,10 @@
 
 ## Trạng thái
 
-- File thiết kế: `docs/db-template-v8.dbml`.
+- File thiết kế: `docs/data-model.dbml`.
 - Trạng thái: **Approved target design**.
 - Ngày ghi nhận phê duyệt: **25/09/2026**.
-- `db-template-v8.dbml` là nguồn chuẩn cho target schema DA2 và có thể dùng để vẽ ERD, viết model cũng như thiết kế migration.
+- `data-model.dbml` là nguồn chuẩn cho target schema DA2 và có thể dùng để vẽ ERD, viết model cũng như thiết kế migration.
 - `db-template-v7.dbml` vẫn mô tả baseline đã triển khai trước migration. Việc duyệt v8 không khẳng định collection/index đã tồn tại trong database; mọi thay đổi vật lý phải đi qua migration có version và `database:verify`.
 
 ## Thay đổi chính so với v7
@@ -29,6 +29,7 @@ Các collection được mở rộng:
 - `AiDocumentChunks`: metadata lọc nguồn, vị trí trang/section, parent chunk, version ingestion và citation snapshot theo `rag-upgrade-blueprint.md`.
 - `HealthMetrics`: provenance, validation, timezone và append-only correction.
 - `Plans`/`Subscriptions`: entitlement và chu kỳ sử dụng rõ ràng.
+- `Plans.code` là định danh ổn định `FREE|PLUS|CARE` xuyên version; không lưu thêm `tier` trùng lặp và không hard-code quyền lợi theo code.
 - `PaymentOrders`: thêm trạng thái `processing`.
 - `Notifications`/`OutboxEvents`: bổ sung resource/event Chronic Care và subscription grant.
 
@@ -81,12 +82,14 @@ Quyết định: cập nhật nguyên tử một record theo lifecycle; mọi ch
 - Người thân đăng nhập bằng cơ chế xác thực sẵn có rồi xác nhận liên kết.
 - Cấu trúc hiện tại hỗ trợ nhiều người thân cho một Patient; số liên kết active do `familyLinkLimit` quyết định. Không cần `FamilyGroups` trong DA2.
 - `FamilyPermissions` chỉ gồm `missed_task_reminder` và tùy chọn `weekly_progress`; dữ liệu sức khỏe/AI/consultation chi tiết nằm ngoài P1.
+- `FamilyReminders` chỉ giữ quyết định domain `scheduled|dispatched|skipped`, liên kết permission/task và `notificationId`; channel/provider/retry/delivery nằm tại `Notifications` và `OutboxEvents`.
 - Bệnh nhân có thể thu hồi quyền ngay lập tức; liên kết và quyền cũ vẫn được giữ để kiểm tra lịch sử.
 
 ### 7. Tìm cơ sở y tế
 
 - Backend gọi API bản đồ khi danh mục nội bộ chưa đủ kết quả.
 - Admin chọn một kết quả bản đồ để tạo `MedicalFacilities.status = draft`, kiểm tra nguồn chính thức rồi chuyển sang `verified`.
+- `MedicalFacilities.status` chỉ có `draft|verified|retired`; fresh/stale được suy ra từ `lastCheckedAt` và policy, không lưu thành status thứ tư.
 - `DiseaseSpecialties` do Admin duyệt và version hóa.
 - `externalPlaceId` chỉ cho biết nguồn bản đồ, không đồng nghĩa cơ sở đã được kiểm duyệt.
 - Geo index `2dsphere` và unique/partial index phải được tạo bằng migration, không dựa vào DBML.
@@ -101,7 +104,9 @@ Dùng một `AuditLogs` cho auth, user, health, consultation, care, AI, billing,
 
 ### 10. Quota AI theo token
 
-`Plans.aiTokenLimit` là quota chính cho chat AI và được tính bằng input + output token đã commit. `aiRequestLimit` vẫn giữ làm giới hạn phụ chống spam; `AiUsageDaily` tách token chat khỏi token sinh summary. Trước khi gọi model, Redis giữ chỗ theo input ước tính + output tối đa, sau đó commit số thực tế và trả phần dư. Cách này bám sát chi phí hơn đếm số câu hỏi, nhưng giao diện nên quy đổi thành phần trăm quota còn lại thay vì buộc Patient hiểu token.
+`Plans.aiTokenLimit` là quota chính cho chat AI và được tính bằng input + output token đã commit. `aiRequestLimit` vẫn giữ làm giới hạn phụ chống spam; `AiUsageDaily` tách token chat khỏi token sinh summary. Trước khi gọi model, `AiQuotaReservations` giữ chỗ theo input ước tính + output tối đa để admission không vượt quota khi có request đồng thời; sau khi provider hoàn tất, backend lấy `usageMetadata.promptTokenCount` và `usageMetadata.candidatesTokenCount`, cộng usage của mọi provider call thuộc cùng request rồi commit số thực tế vào `AiUsageDaily` và trả phần dư. Estimate không được dùng để quyết toán. Cách này bám sát chi phí hơn đếm số câu hỏi, nhưng giao diện nên quy đổi thành phần trăm quota còn lại thay vì buộc Patient hiểu token.
+
+Provider contract truyền usage theo response boundary, không chỉ truyền text. Gateway dùng `@google/genai` và giữ contract nội bộ `text + usage`; adapter embedding legacy là concern độc lập, không tham gia quyết toán chat. Nếu provider không trả usage metadata, backend fail-closed và chuyển reservation sang `usage_reconciliation_required`, giữ envelope để operator reconciliation/audit; không fallback âm thầm sang ước lượng độ dài chuỗi.
 
 ### 11. Đăng ký hoặc đổi gói khi đang có gói hiệu lực
 
@@ -114,7 +119,9 @@ Dùng một `AuditLogs` cho auth, user, health, consultation, care, AI, billing,
 ### 12. Notification cho một người, nhóm và tất cả
 
 - Một người: tạo trực tiếp một `Notifications` cùng OutboxEvent.
-- Nhóm/tất cả: `NotificationCampaigns` giữ `targetType`, `targetFilter`, `audienceSnapshotAt`; worker fan-out theo batch thành một Notification cho mỗi user.
+- Nhóm/tất cả: `NotificationCampaigns` giữ `targetType`, `targetFilter`, `audienceSnapshotAt`; worker materialize chính xác audience vào `NotificationCampaignRecipients`, rồi fan-out theo batch thành một Notification cho mỗi user. Unique campaign/user giúp retry không tạo trùng recipient.
+
+`ViolationReports` không lưu AI classification trong DA2. Outcome được flatten thành `resolutionNote`, `actionTaken`, `resolvedBy`, `resolvedAt` để query trực tiếp; lịch sử transition vẫn thuộc `AuditLogs`.
 - `uniqueKey` chống trùng; `delivery` lưu trạng thái từng kênh. Mỗi người có `isRead/readAt` riêng.
 
 ### 13. Cơ chế tạo Care Program và dữ liệu liên quan
@@ -135,11 +142,11 @@ Dùng một `AuditLogs` cho auth, user, health, consultation, care, AI, billing,
 
 ### 15. Metadata và citation cho RAG chunk
 
-Theo `plan/rag-upgrade-blueprint.md`, chunk lưu metadata đủ cho ba việc: lọc nguồn trước retrieval, lấy parent context và dựng citation. `AiDocuments.reviewStatus` là nguồn duyệt chuẩn; Admin/Doctor được cấp quyền duyệt một document, worker bulk-update trạng thái sao chép trên chunks để Atlas filter, không duyệt từng chunk. Các field lọc thường xuyên được để riêng (`reviewStatus`, `language`, `specialties`, `effectiveUntil`, `isActive`); `citation` là snapshot hiển thị ổn định. Chunk lỗi được exclude riêng. Chỉ chunk active, approved, chưa hết hạn mới được đưa vào context.
+Theo `plan/rag-upgrade-blueprint.md`, chunk lưu metadata đủ cho ba việc: lọc nguồn trước retrieval, lấy parent context và dựng citation. `AiDocuments.reviewStatus` là nguồn duyệt chuẩn; Admin/Doctor được cấp quyền duyệt một document, worker bulk-update trạng thái sao chép trên chunks để Atlas filter, không duyệt từng chunk. Các field lọc thường xuyên được để riêng (`reviewStatus`, `language`, `specialties`, `validUntil`, `isActive`); `citation` là snapshot hiển thị ổn định. `approvedBy/approvedAt` ghi actor/thời điểm duyệt ở document; chunk chỉ sao chép `validUntil` để lọc. Chunk lỗi được exclude riêng. Chỉ chunk active, approved, chưa hết hạn mới được đưa vào context.
 
 ### 16. Kết thúc Consultation và xử lý chồng chéo
 
-- `scheduledEndAt`/`expectedDurationMinutes` là mốc vận hành, không tự chuyển `completed`. Doctor kết thúc cuộc gọi và xác nhận hoàn tất; worker chỉ chuyển phiên mất heartbeat sang `interrupted`.
+- `scheduledEndAt`/`expectedDurationMinutes` là mốc vận hành, không tự chuyển `completed`. `estimatedWaitMinutes` và `overtimeStartedAt` vẫn được lưu; heartbeat participant nằm trong Redis TTL thay vì `Consultations.lastHeartbeatAt`. Doctor kết thúc cuộc gọi và xác nhận hoàn tất; worker chỉ chuyển phiên mất heartbeat sang `interrupted`.
 - Scheduled và on-demand dùng chung hàng đợi theo Doctor. Scheduled quá giờ/đã tới giờ ưu tiên hơn on-demand; on-demand chỉ chen vào khoảng trống nếu đủ `expectedDurationMinutes + bufferMinutes` trước lịch kế tiếp.
 - Một Doctor chỉ có một `in_consultation`, bảo vệ bằng conditional update và partial unique index. Phiên quá giờ tạo `overtimeStartedAt` và ETA mới, không bị ngắt tự động.
 

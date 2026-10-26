@@ -1,0 +1,286 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import {
+  Violation,
+  ViolationActionTaken,
+  ViolationStatus,
+} from '../../domain/entities/violation.entity';
+import {
+  CreateViolationDto,
+  UpdateViolationDto,
+  QueryViolationDto,
+} from '../../presentation/dto/create-violation.dto';
+
+const VIOLATION_READ_PROJECTION =
+  '_id reporterId reportedUserId reportType reason status resolutionNote actionTaken resolvedBy resolvedAt createdAt updatedAt';
+
+@Injectable()
+export class ViolationsService {
+  constructor(
+    @InjectModel(Violation.name) private violationModel: Model<Violation>,
+  ) {}
+
+  /**
+   * Create violation report
+   */
+  async create(dto: CreateViolationDto): Promise<Violation> {
+    // At least one of reporter_id or reported_user_id should be null (for auto-detection)
+    // or both should be present (for user report)
+    if (!dto.reporter_id && !dto.reported_user_id) {
+      throw new BadRequestException(
+        'Either reporter_id or reported_user_id must be provided',
+      );
+    }
+
+    const violation = new this.violationModel({
+      reporterId: dto.reporter_id || null,
+      reportedUserId: dto.reported_user_id || null,
+      reportType: dto.report_type,
+      reason: dto.reason,
+    });
+
+    return violation.save();
+  }
+
+  /**
+   * Get all violations with filters
+   */
+  async findAll(query: QueryViolationDto): Promise<{
+    data: Violation[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const { status, report_type, page = 1, limit = 20 } = query;
+
+    const filter: any = {};
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (report_type) {
+      filter.reportType = report_type;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.violationModel
+        .find(filter)
+        .select(VIOLATION_READ_PROJECTION)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('reporterId', 'email fullName')
+        .populate('reportedUserId', 'email fullName')
+        .lean(),
+      this.violationModel.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Get violation by ID
+   */
+  async findById(id: string): Promise<Violation> {
+    const violation = await this.violationModel
+      .findById(id)
+      .select(VIOLATION_READ_PROJECTION)
+      .populate('reporterId', 'email fullName')
+      .populate('reportedUserId', 'email fullName')
+      .lean();
+
+    if (!violation) {
+      throw new NotFoundException(`Violation #${id} not found`);
+    }
+
+    return violation;
+  }
+
+  /**
+   * Get violations for a specific user (reported by or against)
+   */
+  async findByUserId(
+    userId: string,
+    query: QueryViolationDto,
+  ): Promise<{
+    data: Violation[];
+    total: number;
+  }> {
+    const { status, report_type, page = 1, limit = 20 } = query;
+
+    const filter: any = {
+      $or: [{ reporterId: userId }, { reportedUserId: userId }],
+    };
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (report_type) {
+      filter.reportType = report_type;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.violationModel
+        .find(filter)
+        .select(VIOLATION_READ_PROJECTION)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('reporterId', 'email fullName')
+        .populate('reportedUserId', 'email fullName')
+        .lean(),
+      this.violationModel.countDocuments(filter),
+    ]);
+
+    return { data, total };
+  }
+
+  /**
+   * Update violation (add note, resolve)
+   */
+  async update(
+    id: string,
+    dto: UpdateViolationDto,
+    actorId: string,
+  ): Promise<Violation> {
+    const terminal =
+      dto.status === ViolationStatus.RESOLVED ||
+      dto.status === ViolationStatus.DISMISSED;
+    const update: Record<string, unknown> = {
+      ...(dto.resolution_note !== undefined
+        ? { resolutionNote: dto.resolution_note }
+        : {}),
+      ...(dto.action_taken !== undefined
+        ? { actionTaken: dto.action_taken }
+        : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(terminal
+        ? {
+            resolvedAt: new Date(),
+            resolvedBy: new Types.ObjectId(actorId),
+            actionTaken: dto.action_taken ?? ViolationActionTaken.NONE,
+          }
+        : {}),
+    };
+    const violation = await this.violationModel
+      .findByIdAndUpdate(
+        id,
+        { $set: update },
+        { new: true },
+      )
+      .populate('reporterId', 'email fullName')
+      .populate('reportedUserId', 'email fullName');
+
+    if (!violation) {
+      throw new NotFoundException(`Violation #${id} not found`);
+    }
+
+    return violation;
+  }
+
+  /**
+   * Resolve violation
+   */
+  async resolve(
+    id: string,
+    resolution_note: string,
+    actorId: string,
+    actionTaken = ViolationActionTaken.NONE,
+  ): Promise<Violation> {
+    return this.update(
+      id,
+      {
+        status: ViolationStatus.RESOLVED,
+        resolution_note,
+        action_taken: actionTaken,
+      },
+      actorId,
+    );
+  }
+
+  /**
+   * Delete violation
+   */
+  async delete(id: string): Promise<void> {
+    const result = await this.violationModel.findByIdAndDelete(id);
+
+    if (!result) {
+      throw new NotFoundException(`Violation #${id} not found`);
+    }
+  }
+
+  /**
+   * Get violation statistics
+   */
+  async getStats(): Promise<{
+    total: number;
+    pending: number;
+    resolved: number;
+    by_type: Record<string, number>;
+  }> {
+    const [total, pending, resolved, byType] = await Promise.all([
+      this.violationModel.countDocuments(),
+      this.violationModel.countDocuments({ status: 'pending' }),
+      this.violationModel.countDocuments({ status: 'resolved' }),
+      this.violationModel.aggregate([
+        {
+          $group: {
+            _id: '$reportType',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    const by_type = {};
+    byType.forEach((item) => {
+      by_type[item._id] = item.count;
+    });
+
+    return {
+      total,
+      pending,
+      resolved,
+      by_type,
+    };
+  }
+
+  async getProfileReports(reportedUserId: string) {
+    const violations = await this.violationModel
+      .find({ reportedUserId })
+      .select('_id reportType status createdAt')
+      .sort({ createdAt: -1, _id: -1 })
+      .lean<
+        {
+          _id: { toString(): string };
+          reportType: string;
+          status: ViolationStatus;
+          createdAt?: Date;
+        }[]
+      >();
+    return violations.map((violation) => ({
+      id: violation._id.toString(),
+      reason: violation.reportType,
+      date: violation.createdAt
+        ? new Date(violation.createdAt).toISOString()
+        : new Date().toISOString(),
+      resolved: violation.status === ViolationStatus.RESOLVED,
+    }));
+  }
+}

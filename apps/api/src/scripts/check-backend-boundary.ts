@@ -26,6 +26,7 @@ const legacyConsultationReferences: string[] = [];
 const staleContractArtifacts: string[] = [];
 const invalidModuleTopology: string[] = [];
 const invalidCrossContextImports: string[] = [];
+const invalidModuleSourceLayout: string[] = [];
 function inspectDirectory(directory: string): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -106,6 +107,32 @@ function inspectContextModuleFiles(directory: string): void {
 }
 inspectContextModuleFiles(modulesRoot);
 
+const legacySourceLayoutPatterns = [
+  /^ai-advisory\/(?:conversations|feedback|knowledge-base|retrieval)\//,
+  /^consultations\/(?:dto|entities|messaging|reviews)\//,
+  /^consultations\/(?:consultation-heartbeat|consultations)\.(?:controller|gateway|service|spec)\.ts$/,
+  /^users\/(?:admins|doctors|dto|entities|patients)\//,
+  /^users\/(?:users|user-administration|users-cache)\.(?:controller|service)\.ts$/,
+  /^authentication\/auth\.(?:controller|service)\.spec\.ts$/,
+  /^chronic-care\/utils\//,
+];
+
+function inspectModuleSourceLayout(directory: string): void {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      inspectModuleSourceLayout(path);
+      continue;
+    }
+    if (!entry.name.endsWith('.ts')) continue;
+    const modulePath = relative(modulesRoot, path).replaceAll('\\', '/');
+    if (legacySourceLayoutPatterns.some((pattern) => pattern.test(modulePath))) {
+      invalidModuleSourceLayout.push(path);
+    }
+  }
+}
+inspectModuleSourceLayout(modulesRoot);
+
 const contextGroups = new Map([
   ['authentication', 'identity'],
   ['users', 'identity'],
@@ -159,6 +186,12 @@ inspectCrossContextImports(modulesRoot);
 if (invalidModuleTopology.length > 0) {
   throw new Error(
     `Backend module topology contains collection-level/legacy modules: ${invalidModuleTopology.join(', ')}`,
+  );
+}
+
+if (invalidModuleSourceLayout.length > 0) {
+  throw new Error(
+    `Backend module source uses a legacy layout: ${invalidModuleSourceLayout.join(', ')}`,
   );
 }
 

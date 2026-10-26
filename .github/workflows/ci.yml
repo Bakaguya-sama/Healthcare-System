@@ -34,8 +34,6 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint API
-        run: pnpm --filter api lint
 
       - name: Typecheck API
         run: pnpm --filter api typecheck

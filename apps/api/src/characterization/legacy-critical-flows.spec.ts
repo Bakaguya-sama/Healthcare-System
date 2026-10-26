@@ -1,19 +1,19 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { AdminService } from '../modules/administration/admin.service';
-import { AiAssistantService } from '../modules/ai-advisory/conversations/ai-assistant.service';
+import { AdminService } from '../modules/administration/application/services/admin.service';
+import { AiAssistantService } from '../modules/ai-advisory/application/services/conversations/ai-assistant.service';
 import {
   ConversationType,
   MessageRole,
-} from '../modules/ai-advisory/conversations/entities/ai-conversation.entity';
-import { ChatService } from '../modules/consultations/messaging/chat.service';
-import { SenderType } from '../modules/consultations/messaging/entities/message.entity';
-import { HealthMetricsService } from '../modules/health-tracking/health-metrics.service';
-import { MetricType } from '../modules/health-tracking/entities/health-metric.entity';
-import { NotificationsService } from '../modules/notifications/notifications.service';
-import { NotificationType } from '../modules/notifications/entities/notification.entity';
-import { RagRetrievalService } from '../modules/ai-advisory/retrieval/services/rag-retrieval.service';
-import { ReviewsService } from '../modules/consultations/reviews/reviews.service';
+} from '../modules/ai-advisory/domain/entities/conversations/ai-conversation.entity';
+import { ChatService } from '../modules/consultations/application/services/messaging/chat.service';
+import { SenderType } from '../modules/consultations/domain/entities/messaging/message.entity';
+import { HealthMetricsService } from '../modules/health-tracking/application/services/health-metrics.service';
+import { MetricType } from '../modules/health-tracking/domain/entities/health-metric.entity';
+import { NotificationsService } from '../modules/notifications/application/services/notifications.service';
+import { NotificationType } from '../modules/notifications/domain/entities/notification.entity';
+import { RagRetrievalService } from '../modules/ai-advisory/application/services/retrieval/rag-retrieval.service';
+import { ReviewsService } from '../modules/consultations/application/services/reviews/reviews.service';
 import { DoctorVerificationStatus } from '../core/domain/user.enums';
 
 describe('legacy critical-flow characterization', () => {
@@ -138,34 +138,66 @@ describe('legacy critical-flow characterization', () => {
   describe('health metric create/query', () => {
     it('records a normal heart-rate metric without an alert', async () => {
       const now = new Date();
-      const metric = {
+      const metricData = {
         _id: new Types.ObjectId(),
-        type: MetricType.HEART_RATE,
+        meta: {
+          patientId,
+          metricType: MetricType.HEART_RATE,
+          unit: 'bpm',
+        },
+        values: { value: 70 },
+        source: 'manual',
+        validationStatus: 'valid',
+        validationReasonCodes: [],
+        recordedAt: now,
+        ingestedAt: now,
+        createdAt: now,
       };
+      const metric = { ...metricData, toObject: () => metricData };
       const metricModel = { create: jest.fn().mockResolvedValue(metric) };
       const notifications = { create: jest.fn() };
       const service = new HealthMetricsService(
         metricModel as never,
+        {} as never,
+        {} as never,
         notifications as never,
         { findById: jest.fn().mockResolvedValue({ gender: 'male' }) } as never,
       );
 
       const result = await service.create(patientId.toString(), {
-        type: MetricType.HEART_RATE,
-        values: { value: { value: 70, recordedAt: now } },
+        metricType: MetricType.HEART_RATE,
+        values: { value: 70 },
         recordedAt: now,
       });
 
-      expect(result.data).toBe(metric);
+      expect(result.data).toMatchObject({
+        metricType: MetricType.HEART_RATE,
+        values: { value: 70 },
+      });
       expect(metricModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({ type: MetricType.HEART_RATE, unit: 'bpm' }),
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            metricType: MetricType.HEART_RATE,
+            unit: 'bpm',
+          }),
+        }),
       );
       expect(notifications.create).not.toHaveBeenCalled();
     });
 
     it('queries a patient metric page with the legacy pagination envelope', async () => {
       const metrics = [
-        { _id: new Types.ObjectId(), type: MetricType.HEART_RATE },
+        {
+          _id: new Types.ObjectId(),
+          meta: { patientId, metricType: MetricType.HEART_RATE, unit: 'bpm' },
+          values: { value: 70 },
+          source: 'manual',
+          validationStatus: 'valid',
+          validationReasonCodes: [],
+          recordedAt: new Date(),
+          ingestedAt: new Date(),
+          createdAt: new Date(),
+        },
       ];
       const exec = jest.fn().mockResolvedValue(metrics);
       const lean = jest.fn().mockReturnValue({ exec });
@@ -181,6 +213,8 @@ describe('legacy critical-flow characterization', () => {
         metricModel as never,
         {} as never,
         {} as never,
+        {} as never,
+        {} as never,
       );
 
       const result = await service.findAll(patientId.toString(), 'patient', {
@@ -191,14 +225,14 @@ describe('legacy critical-flow characterization', () => {
       });
 
       expect(result).toMatchObject({
-        data: metrics,
+        data: [expect.objectContaining({ metricType: MetricType.HEART_RATE })],
         pagination: { page: 1, limit: 10, total: 1, pages: 1 },
       });
       expect(metricModel.find).toHaveBeenCalledWith({
-        patientId: new Types.ObjectId(patientId.toString()),
+        'meta.patientId': new Types.ObjectId(patientId.toString()),
       });
       expect(select).toHaveBeenCalledWith(
-        expect.stringContaining('patientId type values unit recordedAt'),
+        expect.stringContaining('meta values source'),
       );
       expect(lean).toHaveBeenCalled();
     });
@@ -206,11 +240,14 @@ describe('legacy critical-flow characterization', () => {
     it('calculates metric statistics in MongoDB without hydrating the history', async () => {
       const latest = {
         _id: new Types.ObjectId(),
-        patientId,
-        type: MetricType.HEART_RATE,
-        values: { value: { value: 80, recordedAt: new Date() } },
-        unit: 'bpm',
+        meta: { patientId, metricType: MetricType.HEART_RATE, unit: 'bpm' },
+        values: { value: 80 },
+        source: 'manual',
+        validationStatus: 'valid',
+        validationReasonCodes: [],
         recordedAt: new Date(),
+        ingestedAt: new Date(),
+        createdAt: new Date(),
       };
       const aggregate = jest.fn().mockResolvedValue([
         {
@@ -221,6 +258,8 @@ describe('legacy critical-flow characterization', () => {
       ]);
       const service = new HealthMetricsService(
         { aggregate } as never,
+        {} as never,
+        {} as never,
         {} as never,
         {} as never,
       );
@@ -235,7 +274,10 @@ describe('legacy critical-flow characterization', () => {
         average: 80.13,
         minimum: 70,
         maximum: 90,
-        latest,
+        latest: expect.objectContaining({
+          metricType: MetricType.HEART_RATE,
+          values: { value: 80 },
+        }),
       });
       expect(aggregate).toHaveBeenCalled();
       expect(JSON.stringify(aggregate.mock.calls)).toContain('"$facet"');

@@ -21,6 +21,7 @@ import { RedisModule } from './infrastructure/redis/redis.module';
 import { RedisThrottlerStorage } from './infrastructure/redis/redis-throttler.storage';
 import { ChronicCareModule } from './modules/chronic-care/chronic-care.module';
 import { PlatformAuditModule } from './modules/platform-audit/platform-audit.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { PlatformAuditModule } from './modules/platform-audit/platform-audit.mod
     AiAdvisoryModule,
     ChronicCareModule,
     PlatformAuditModule,
+    BillingModule,
     FilesModule,
   ],
   controllers: [],

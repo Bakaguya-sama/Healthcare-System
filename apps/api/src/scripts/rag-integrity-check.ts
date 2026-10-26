@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { ConfigService } from '@nestjs/config';
-import { ChunkingService } from '../modules/ai-advisory/retrieval/services/chunking.service';
-import { TextExtractionService } from '../modules/ai-advisory/retrieval/services/text-extraction.service';
+import { ChunkingService } from '../modules/ai-advisory/application/services/retrieval/chunking.service';
+import { TextExtractionService } from '../modules/ai-advisory/application/services/retrieval/text-extraction.service';
 
 type ChunkRecord = { content?: unknown };
 

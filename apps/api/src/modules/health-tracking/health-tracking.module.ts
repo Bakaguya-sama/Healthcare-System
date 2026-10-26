@@ -1,21 +1,26 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { HealthMetricsService } from './health-metrics.service';
-import { HealthMetricsController } from './health-metrics.controller';
+import { HealthMetricsService } from './application/services/health-metrics.service';
+import { HealthMetricsController } from './presentation/controllers/health-metrics.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import {
   HealthMetric,
   HealthMetricSchema,
-} from './entities/health-metric.entity';
+} from './domain/entities/health-metric.entity';
 import { UsersModule } from '../users/users.module';
-import { HEALTH_PROFILE_READER } from './ports/health-profile-reader';
-import { HealthMetricQueryService } from './health-metric-query.service';
-import { HealthMetricAlertService } from './health-metric-alert.service';
+import { HEALTH_PROFILE } from './application/ports/health-profile.port';
+import { HealthMetricQueryService } from './application/services/health-metric-query.service';
+import { HealthMetricAlertService } from './application/services/health-metric-alert.service';
+import { HEALTH_METRIC } from './application/ports/health-metric.port';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 
 @Module({
   imports: [
     NotificationsModule,
     UsersModule,
+    PlatformAuditModule,
+    OutboxModule,
     MongooseModule.forFeature([
       { name: HealthMetric.name, schema: HealthMetricSchema },
     ]),
@@ -25,8 +30,12 @@ import { HealthMetricAlertService } from './health-metric-alert.service';
     HealthMetricsService,
     HealthMetricQueryService,
     HealthMetricAlertService,
-    { provide: HEALTH_PROFILE_READER, useExisting: HealthMetricQueryService },
+    { provide: HEALTH_PROFILE, useExisting: HealthMetricQueryService },
+    {
+      provide: HEALTH_METRIC,
+      useExisting: HealthMetricQueryService,
+    },
   ],
-  exports: [HealthMetricsService, HEALTH_PROFILE_READER],
+  exports: [HealthMetricsService, HEALTH_PROFILE, HEALTH_METRIC],
 })
 export class HealthTrackingModule {}

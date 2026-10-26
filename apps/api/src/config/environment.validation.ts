@@ -144,6 +144,26 @@ export function validateEnvironment(
 
   return {
     ...config,
+    CARE_MONITORING_AUTOMATION_ENABLED: boolean(
+      config,
+      'CARE_MONITORING_AUTOMATION_ENABLED',
+      false,
+    ),
+    CONSULTATION_STALE_RECOVERY_ENABLED: boolean(
+      config,
+      'CONSULTATION_STALE_RECOVERY_ENABLED',
+      false,
+    ),
+    VNPAY_ENABLED: boolean(config, 'VNPAY_ENABLED', false),
+    VNPAY_SANDBOX: boolean(config, 'VNPAY_SANDBOX', true),
+    VNPAY_TMN_CODE: stringValue(config, 'VNPAY_TMN_CODE', '').trim(),
+    VNPAY_HASH_SECRET: stringValue(config, 'VNPAY_HASH_SECRET', '').trim(),
+    VNPAY_RETURN_URL: stringValue(config, 'VNPAY_RETURN_URL', '').trim(),
+    PAYMENT_RECONCILIATION_ENABLED: boolean(
+      config,
+      'PAYMENT_RECONCILIATION_ENABLED',
+      false,
+    ),
     NODE_ENV: nodeEnv,
     PORT: integer(config, 'PORT', 3000, 1, 65_535),
     API_PREFIX: normalizePath(config, 'API_PREFIX', 'api'),
@@ -216,6 +236,13 @@ export function validateEnvironment(
       1_500,
       100,
       60_000,
+    ),
+    CONSULTATION_HEARTBEAT_TTL_SECONDS: integer(
+      config,
+      'CONSULTATION_HEARTBEAT_TTL_SECONDS',
+      90,
+      15,
+      600,
     ),
     MONGO_SERVER_SELECTION_TIMEOUT_MS: integer(
       config,

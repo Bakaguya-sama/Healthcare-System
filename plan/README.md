@@ -17,4 +17,4 @@ For any Chronic Care slice, use [roadmap.md](roadmap.md), section 9.1. It is the
 | `preflight-checklist.md` | Historical RF decision record |
 | `rag-upgrade-blueprint.md` | Specialized AI/RAG design input for the later AI slice |
 
-When a file conflicts with ADR-0002 or `chronic-care-plan.md`, it is a documentation defect to fix before coding—not a choice for the implementer.
+When a file conflicts with `docs/chronic-care-spec.md` or `roadmap.md`, it is a documentation defect to fix before coding—not a choice for the implementer.

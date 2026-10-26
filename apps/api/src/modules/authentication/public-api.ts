@@ -1,1 +1,1 @@
-export type { UserPayload } from './auth.payload';
+export type { UserPayload } from './application/types/auth.payload';

@@ -135,7 +135,7 @@ flowchart TD
 
 | Nhóm | Field đề xuất | Nguồn tạo |
 |---|---|---|
-| Quản trị document | `documentTitle`, `sourceOrganization`, `reviewStatus`, `guidelineVersion`, `publishedAt`, `effectiveUntil` | Admin hoặc quy trình duyệt tài liệu |
+| Quản trị document | `documentTitle`, `sourceOrganization`, `reviewStatus`, `guidelineVersion`, `publishedAt`, `validUntil` | Admin hoặc quy trình duyệt tài liệu |
 | Phạm vi y khoa | `specialty`, `language`, `audience` | Admin hoặc taxonomy chuẩn |
 | Vị trí trong tài liệu | `pageNumber`, `sectionPath`, `chunkIndex` | Parser và chunker |
 | Kỹ thuật | `tokenCount`, `contentHash`, `parentChunkId`, `ingestionVersion` | Pipeline ingestion |
@@ -233,7 +233,7 @@ isActive = true
 reviewStatus = approved
 language = vi
 specialty = endocrinology
-effectiveUntil >= today
+validUntil == null OR validUntil >= today
 ```
 
 **Công nghệ:** Khai báo các field cần filter trong Atlas Vector Search index và lưu field tương ứng vào chunk.
@@ -454,7 +454,7 @@ PubMed/MEDLINE result
   "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/12345678/",
   "discoveryCount": 4,
   "reviewStatus": "pending_review",
-  "reviewedBy": null,
+  "approvedBy": null,
   "ingestedDocumentId": null
 }
 ```

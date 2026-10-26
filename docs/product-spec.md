@@ -35,6 +35,8 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 8. Care Program không tạo quan hệ cấp cứu 24/7 và giao diện phải nêu rõ thời gian/phạm vi phản hồi của Doctor.
 9. Program version đã publish là bất biến; chỉnh sửa tạo draft/version mới. Chỉ version published/active mới được dùng cho enrollment mới.
 10. Baseline, eligibility, consent, task templates, reminder, rule set, review policy, content journey và completion criteria phải được snapshot hoặc tham chiếu version ổn định khi enrollment kích hoạt. Trong DA2, `taskTemplates` được nhúng trong từng phiên bản `CarePrograms`; nhiệm vụ đã sinh được lưu riêng trong `CareTasks`.
+11. Baseline dùng schema `v1` allowlist gồm `key`, primitive `type`, `unit`, numeric `range`, `required` và `visibility`; enrollment lưu cả form và `programConfig.baselineSchemaVersion` snapshot. Không hỗ trợ expression thực thi hay workflow builder tự do; lỗi validation chỉ trả field key/reason code an toàn.
+12. Task template P0 được snapshot trong enrollment và chỉ hỗ trợ lịch daily theo IANA timezone với `windowMinutes`. Backend persist UTC, dùng unique key xác định để retry không tạo task trùng, và tính adherence từ task required đã `completed` hoặc `missed`.
 11. Doctor chỉ được tùy chỉnh các field được Program Template allowlist. Thay đổi patient-specific threshold hoặc review cadence phải có quyền, lý do và audit.
 12. Admin quản lý lifecycle/version/publish/retire của Program Template và tạo/sửa/retire Rule draft qua `rule-management permission`; mọi Doctor `active + approved` có thể activate Rule mà không cần permission/approval riêng. Activate tự retire Rule active cũ của cùng Program version trong một thao tác audit.
 13. Rule activation bắt buộc qua server validation cho declarative schema, operator allowlist, Program version và audit. Nguồn/căn cứ, simulation/test evidence là metadata tùy chọn trong DA2, không phải activation gate; AI vẫn không được tự phát hành Rule khi không có Admin/Doctor actor.
@@ -72,7 +74,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 6. `pending -> active` chỉ khi đúng người được mời accept trước `invitationExpiresAt`; người được mời có thể chuyển `pending -> declined`, worker chuyển invitation quá hạn sang `expired`, Patient có thể hủy invitation thành `revoked`.
 7. Patient được chuyển `active -> paused` và `paused -> active`. Patient hoặc người thân có thể chuyển `active|paused -> revoked`; revoke có hiệu lực ngay cho notification/query mới nhưng không đăng xuất hay vô hiệu hóa tài khoản Patient độc lập của người thân.
 8. Khi mời lại cùng cặp Patient–người thân ở trạng thái `revoked|declined|expired`, hệ thống tái sử dụng `FamilyLinks`, tăng `invitationVersion`, reset dữ liệu vòng mời hiện tại và chuyển về `pending`. Mọi FamilyPermission cũ vẫn revoked; khi accept phải tạo permission/consent version mới. Lịch sử các lần mời nằm trong `AuditLogs`.
-9. Invitation, acceptance/decline/expiry, consent version, pause/resume, thay đổi scope, reminder event, delivery result, revoke và actor phải được ghi trong `AuditLogs` với `domain = care` và các bản ghi `FamilyReminders` liên quan. Người thân không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được liên kết.
+9. Invitation, acceptance/decline/expiry, consent version, pause/resume, thay đổi scope, reminder decision, revoke và actor phải được ghi trong `AuditLogs` với `domain = care` và các bản ghi `FamilyReminders` liên quan. `FamilyReminders` chỉ giữ quyết định domain `scheduled|dispatched|skipped`, `notificationId` và skip reason; channel, provider message, retry và delivery result thuộc `Notifications`/`OutboxEvents`. Người thân không được xem danh sách Doctor hoặc lịch sử alert chỉ vì được liên kết.
 10. Reminder cho contact tuân thủ quiet hours, frequency cap và deduplication độc lập với notification của Patient. Không gửi reminder nếu task đã hoàn thành, bị hủy hoặc enrollment không còn active.
 11. `FamilyLinks` đã biểu diễn quan hệ nhiều-nhiều giữa các tài khoản nên DA2 không tạo `FamilyGroups`. Chỉ thêm group khi có nghiệp vụ thật sự như hộ gia đình dùng chung, vai trò trưởng nhóm hoặc hội thoại nhóm.
 
@@ -92,6 +94,8 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 12. Assigned Doctor được chuyển `open|acknowledged -> dismissed` chỉ với reason code được phép như `duplicate`, `invalid_metric`, `rule_false_positive`. Admin có quyền audit nhưng không thay Doctor đưa ra clinical disposition.
 13. `resolved` và `dismissed` là trạng thái cuối, không reopen. Evaluation trong cùng deduplication window phải dùng lại alert `open|acknowledged`; evaluation ở window mới hoặc sau khi alert cũ kết thúc tạo alert mới.
 
+**Quyết định cho CC-003A — target đang triển khai:** Mọi metric mới hoặc đã chỉnh sửa phù hợp với chương trình đang `active` được đánh giá, kể cả ngoài task window; task chỉ hoàn thành khi metric phù hợp nằm trong cửa sổ của task. Dedupe theo enrollment, rule và ngày lịch địa phương của chương trình (không phải 24 giờ trượt). Nếu alert `attention` còn `open|acknowledged` và evaluation mới là `urgent` trong cùng ngày, nâng alert lên `urgent`, ghi audit và gửi thông báo an toàn mới. Nếu alert trước đã `resolved|dismissed`, giữ nguyên lịch sử và tạo alert urgent mới; không reopen alert cũ. Khi cutover giữ nguyên alert lịch sử, không tự đóng/gộp; quy tắc mới chỉ áp dụng cho alert mới. Không tự quét metric lịch sử không có event; backlog event đã ghi trong lúc flag tắt được xử lý khi bật, và dữ liệu cũ cần được rà soát riêng. Xử lý retry, correction và đồng thời phải giữ được các quy tắc này. Các hành vi này chưa được coi là có hiệu lực cho đến khi CC-003A đóng exit gate.
+
 ## Tìm cơ sở y tế theo nhu cầu theo dõi (P1)
 
 1. `MedicalFacilities` là danh mục cơ sở y tế do Admin quản lý. Mỗi bản ghi có `status = verified` phải có tối thiểu tên, loại cơ sở, địa chỉ, tọa độ, tỉnh/thành, kênh liên hệ, danh sách chuyên khoa/dịch vụ, nguồn xác minh, `verifiedAt` hoặc `updatedAt` và nhật ký trong `AuditLogs` với `domain = facility`.
@@ -103,6 +107,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 7. AI chỉ được chuẩn hóa văn bản tự nhiên thành bộ lọc condition/specialty/location trong allowlist và giải thích kết quả dựa trên dữ liệu đã trả về. AI không suy luận bệnh, xếp hạng chất lượng cơ sở, chẩn đoán hoặc xử lý tình huống `urgent`.
 8. Trong luồng `urgent`, safety template luôn hiển thị trước. Tìm cơ sở y tế/chỉ đường là tác vụ bổ trợ và không được trì hoãn hướng dẫn liên hệ cấp cứu/cơ sở y tế phù hợp.
 9. Liên kết đặt lịch chỉ xuất hiện khi cơ sở có tích hợp chính thức hoặc đường dẫn đã được Admin xác thực. Không mô phỏng còn chỗ, giá hoặc xác nhận lịch từ dữ liệu bản đồ.
+10. `MedicalFacilities.status` chỉ gồm `draft|verified|retired`. Freshness không là status lưu trữ; backend suy ra từ `lastCheckedAt` và ngưỡng cấu hình để loại hoặc gắn nhãn kết quả cần kiểm tra lại.
 
 ## Doctor Priority Inbox và follow-up
 
@@ -136,8 +141,12 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 18. Retrieval chỉ dùng chunk `isActive = true`, `reviewStatus = approved`, chưa hết hiệu lực và khớp phạm vi. `citation` phải trỏ đúng document, version, page/section và source URL; backend kiểm tra chunk/citation trước khi trả lời.
 19. `contentHash` chống chunk trùng trong cùng document; `ingestionVersion` xác định parser/chunker/embedding version để re-ingestion. `parentChunkId` chỉ dùng lấy section cha đủ ngữ cảnh, không bỏ qua metadata filter của child hoặc parent.
 20. Chunk lỗi hoặc không phù hợp được loại riêng bằng `isActive = false`, `excludedBy`, `excludedAt`, `exclusionReason`; thao tác này không thay đổi trạng thái duyệt của toàn document. Document version mới phải được duyệt trước khi thay thế version cũ đang active.
+21. `AiDocuments.validUntil` là cutoff tùy chọn; `approvedBy/approvedAt` ghi actor và thời điểm chịu trách nhiệm duyệt, kể cả khi người upload đồng thời là người duyệt. `AiDocumentChunks.validUntil` là bản sao để Atlas Vector Search lọc trước retrieval, không phải nguồn chuẩn độc lập.
+22. `AiConversations` là thread hỏi đáp có thể tiếp tục như ChatGPT, không có trạng thái `completed` hoặc `endedAt`. `archivedAt` nullable là nguồn chuẩn duy nhất: không có giá trị nghĩa là conversation vẫn mở, có giá trị nghĩa là đã archive và có thể unarchive bằng cách xóa giá trị.
 
 ## Quy tắc tài khoản và bác sĩ
+
+`Users.email` được phép null đối với OAuth-only account; đăng ký local vẫn bắt buộc email. Định danh OAuth chuẩn là `(provider, providerAccountId)`, không phải email; email chỉ unique khi tồn tại và `providerEmail` không được dùng để tự gộp tài khoản.
 
 1. Chỉ tài khoản active được tư vấn, đặt lịch hoặc thanh toán.
 2. Chỉ user có role doctor và hồ sơ được approved mới được mở slot, nhận yêu cầu hoặc tư vấn.
@@ -159,6 +168,25 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 - `bufferMinutes`: khoảng đệm tối thiểu giữa các lịch booked để giảm chồng chéo.
 
 Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Doctor không được đặt số âm hoặc vượt giới hạn vận hành.
+
+**CC-013 MVP:** Cho đến khi cấu hình `bookingSettings` của Doctor được triển khai, khi xác nhận lịch scheduled backend snapshot `cancellationDeadlineMinutes = 60` và `noShowAfterMinutes = 10`. Patient không được hủy sau hạn; Doctor vẫn có thể hủy trước khi bắt đầu. Chưa hỗ trợ đánh dấu no-show cho on-demand. Reservation của lịch đã xác nhận không tự hết hạn khi qua giờ khám hoặc qua chu kỳ subscription: chỉ count khi bắt đầu/no-show hợp lệ, hoặc release khi hủy hợp lệ. Reservation và lượt đã count thuộc về chu kỳ tạo reservation; không làm thay đổi counter của chu kỳ mới.
+
+**Chính sách CC-013B — đã triển khai ở backend (cần bật `CONSULTATION_STALE_RECOVERY_ENABLED=true` khi rollout):**
+
+- Với on-demand `accepted` và `waiting`, thời hạn cơ bản là **60 phút** từ `respondedAt` — thời điểm backend ghi nhận Doctor accept, không phải lúc Patient gửi request. Consultation do Doctor tạo trực tiếp từ Care Alert cần ghi nhận mốc accept tương đương. Không reset thời hạn khi retry, reconnect hay cập nhật ETA. Pending chưa có reservation nên không thuộc timeout này.
+- Sau **45 phút**, tạo thông báo cảnh báo cho cả Patient và Doctor rằng request có thể bị hệ thống hủy sau ít nhất 15 phút nữa. Notification được ghi bền vững qua outbox và có thể xem trong ứng dụng; push là kênh bổ sung, không thể đảm bảo người dùng nhận hoặc đọc. Nếu job chạy trễ, tính mốc hủy là thời điểm muộn hơn giữa `respondedAt + 60 phút` và `thời điểm ghi nhận cảnh báo vào outbox + 15 phút`; lỗi ghi cảnh báo thì chưa tự hủy và cần retry/cảnh báo vận hành.
+- Nếu tại mốc hủy có tín hiệu đáng tin cậy cho thấy Patient hoặc Doctor đang vào phòng/thiết lập kết nối của consultation đó, gia hạn **một lần tối đa 10 phút**, không reset bởi heartbeat hoặc reconnect liên tục; thông báo thời hạn mới. Nếu hết gia hạn vẫn chưa `in_consultation`, hệ thống hủy; trước đó nếu phiên bắt đầu thì dừng timeout và xử lý quota theo luồng start. Phải thiết kế tín hiệu phòng chờ có TTL, gắn consultation/user đã xác thực; heartbeat hiện có chỉ dùng cho phiên đã bắt đầu nên chưa chứng minh được đang kết nối trước start. Khi không xác minh được trạng thái kết nối do lỗi Redis/hạ tầng, hoãn tự hủy và chuyển retry/review, không mặc định là vắng mặt.
+- Hủy tự động là **system cancellation**, không phải Patient `no_show` và không count lượt; cập nhật consultation, release reservation nếu có, audit và outbox cùng transaction. Nếu `care_program_included` hoặc legacy exempt thì không tạo/release ledger quota thông thường. Không tự release ledger trong khi consultation vẫn active; xử lý race với start/cancel bằng conditional update và idempotency.
+- Patient có thể gửi request mới ngay sau khi lần trước đã hủy xong; request mới có ID riêng và phải kiểm tra lại quyền truy cập, quota, trạng thái bác sĩ và các ràng buộc chống trùng như request mới bình thường. Pending mới không giữ lượt; khi được accept mới reserve theo policy. Có rate limit chống spam, không áp dụng cooldown mặc định cho Patient; thông số rate limit cần chốt khi thiết kế. Với consultation gắn Care Alert, không tự tạo lại bằng API thông thường: unique `careAlertId` hiện chỉ cho một consultation; CC-013B cần chốt và triển khai cơ chế retry/link an toàn trước khi cho tạo lại từ cùng alert, không gỡ liên kết hoặc tạo trùng ngầm.
+- Với scheduled đã quá giờ, giữ cơ chế Doctor đánh dấu no-show sau 10 phút theo snapshot; sau **24 giờ** chưa xử lý, job gửi cảnh báo và đưa vào danh sách vận hành/Doctor review, chưa tự no-show, hủy hoặc release chỉ vì hết 24 giờ. Không dùng thời điểm subscription hết hạn làm mốc hủy. Chính sách xử lý tiếp và quota cho lịch đặt ở chu kỳ sau vẫn cần quyết định riêng.
+
+Các mốc 45/60/10 phút và 24 giờ là chính sách khởi đầu đã thống nhất; có thể điều chỉnh sau khi kiểm thử thực tế. Worker chạy mỗi phút khi feature flag được bật. Tín hiệu waiting-room là Redis TTL 90 giây, chỉ ghi nhận qua API xác thực khi lịch `accepted/waiting`; Redis lỗi sẽ defer, không tự hủy mù quáng. Cần bảo đảm cảnh báo an toàn không thay thế tư vấn khẩn cấp và không biến việc chờ consultation thành điều kiện để nhận Care Alert.
+
+Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được miễn quota nếu được xác định rõ và gắn `legacyQuotaExempt` qua thao tác có audit; thiếu ledger đơn thuần không đồng nghĩa được miễn. Lịch đã hoàn tất trước CC-013 không tự tạo quota lịch sử.
+
+**CC-013A — đã triển khai backend (20/10/2026):** Consultation do assigned Doctor tạo từ Care Alert `urgent` còn `open|acknowledged` được backend xác minh và snapshot `quotaPolicy = care_program_included`. Nó không gọi reserve/count/release quota thông thường, không cần Subscription còn active và không đổi khi enrollment/subscription sau đó hết hạn, pause hoặc downgrade. Đây là snapshot an toàn cho safety follow-up đã được tạo từ alert; nó không thay đổi severity, không bảo đảm Doctor/slot và không thay thế hướng dẫn cấp cứu. Alert `attention` và mọi consultation HTTP thông thường snapshot `consultation_limit`, tiếp tục dùng ledger chuẩn. Client không thể gửi severity hoặc quota policy để tự miễn. Retry trả đúng consultation/policy cũ; `legacyQuotaExempt` vẫn chỉ dành cho booking lịch sử được audit.
+
+**Charge contract:** `care_program_included` nghĩa là không tạo khoản phí riêng cho consultation đó. Source hiện chưa có pricing/payment/order flow để tạo khoản phí, nên không có đường thu phí hiện tại cần bỏ qua; khi CC-7 thêm flow này, nó bắt buộc đọc snapshot policy và từ chối tạo charge cho `care_program_included`. Không được suy ra miễn phí từ việc thiếu ledger hoặc dùng `legacyQuotaExempt` thay policy.
 
 1. Bác sĩ tạo AvailabilitySlots với start time, end time và timezone. Một bác sĩ không được có hai slot cùng start time.
 2. Slot có các trạng thái available, booked, blocked hoặc expired.
@@ -220,8 +248,8 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 
 1. `scheduledEndAt` hoặc thời lượng dự kiến chỉ dùng cho lịch, cảnh báo và ETA; hệ thống không tự chuyển Consultation sang `completed` khi hết giờ.
 2. Doctor chủ động kết thúc cuộc gọi (`callEndedAt`) và xác nhận hoàn tất Consultation (`completedAt`, `completedBy`). Hai mốc có thể khác nhau để Doctor hoàn thiện note.
-3. Trước giờ dự kiến kết thúc, hệ thống có thể cảnh báo. Khi quá giờ, ghi `overtimeStartedAt`; không tự đóng chat/call hoặc đánh dấu đã hoàn thành.
-4. Nếu phiên `in_consultation` mất heartbeat quá giới hạn kỹ thuật, worker chuyển sang `interrupted` bằng conditional update, ghi lý do và giải phóng khóa một phiên đang chạy. Worker không được ghi `completed` thay Doctor.
+3. Trước giờ dự kiến kết thúc, hệ thống có thể cảnh báo. Khi quá giờ, ghi `overtimeStartedAt`; không tự đóng chat/call hoặc đánh dấu đã hoàn thành. `expectedDurationMinutes`, `estimatedWaitMinutes` và `overtimeStartedAt` được giữ trong Consultation.
+4. Heartbeat realtime của từng participant được lưu trong Redis với TTL, không ghi `lastHeartbeatAt` liên tục vào MongoDB. Nếu phiên `in_consultation` mất heartbeat quá giới hạn kỹ thuật, worker chuyển sang `interrupted` bằng conditional update, ghi lý do và giải phóng khóa một phiên đang chạy. Worker không được ghi `completed` thay Doctor.
 5. Doctor có thể resume phiên interrupted nếu không có phiên khác đang chạy, hoặc hoàn tất với ghi chú/lý do. Mọi interrupt/resume/complete ghi `AuditLogs` với `domain = consultation`.
 
 ## Chat, video và quyền truy cập
@@ -247,9 +275,9 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 2. Tiền VND lưu dưới dạng integer, không dùng số thực.
 3. Return URL chỉ hiển thị kết quả. Chỉ IPN có chữ ký hợp lệ mới chuyển payment order sang paid và ghi yêu cầu cấp Subscription vào transactional outbox.
 4. IPN lặp phải idempotent: cùng transaction reference không được tạo transaction, outbox event hoặc Subscription grant hai lần.
-5. Redis kiểm quota AI realtime theo ngày; AiUsageDaily là dữ liệu bền vững cho thống kê và đối soát.
+5. Billing usage ledger kiểm quota AI atomically theo kỳ; `AiUsageDaily` là aggregate bền vững cho thống kê/đối soát và `AiQuotaReservations` giữ chỗ từng request trong lúc provider đang xử lý.
 6. Khi subscription hết hạn, API AI áp dụng quota Free ở request tiếp theo. Worker chỉ hỗ trợ thông báo hết hạn.
-7. Hệ thống có ba tier sản phẩm: `free`, `plus`, `care`; giá và giới hạn cụ thể nằm trong Plan/Subscription snapshot, không hard-code theo tên tier.
+7. Hệ thống có ba mã Plan ổn định `FREE`, `PLUS`, `CARE`; `Plans.code` là định danh nhóm xuyên suốt các version và không lưu thêm field `tier` trùng lặp. Giá, giới hạn và hành vi nằm trong Plan/Subscription snapshot, không hard-code theo code.
 8. Free luôn có quyền nhập/xem HealthMetrics của chính Patient, biểu đồ cơ bản, một Care Program cơ bản, in-app notification, quota AI cơ bản và safety alert thiết yếu.
 9. Plus bao gồm Free và có thể cấp nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder/quiet hours, medication reminder, PDF/CSV và quota AI cao hơn theo Plan.
 10. Care bao gồm Plus và có thể cấp Doctor-assigned Program, Doctor review theo cadence, Priority Inbox, follow-up, nhắc tái khám và ưu đãi giá consultation theo Plan snapshot.
@@ -260,24 +288,25 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 14. Cảnh báo `urgent`, safety template và quyền truy cập dữ liệu cơ bản của Patient không được tắt khi hết hạn, downgrade hoặc vượt quota AI.
 15. Downgrade/hết hạn không xóa HealthMetrics, Care Alerts hoặc báo cáo lịch sử. Quyền lợi trả phí mới dừng theo `paidThroughAt` và grace policy đã snapshot.
 16. Giới hạn lưu lịch sử theo tier chỉ được áp dụng sau privacy/retention review; không được làm mất quyền truy cập/xuất dữ liệu tối thiểu của chính Patient.
-17. `ConsultationUsages` dùng một bản ghi cho mỗi Consultation trong một chu kỳ và cập nhật nguyên tử theo vòng đời `reserved → counted|released|expired`; khóa chống xử lý trùng bảo đảm retry không đếm một Consultation nhiều lần. Mỗi lần đổi trạng thái phải ghi bản ghi bất biến trong `AuditLogs` với `domain = billing`; DA2 không xây event sourcing riêng.
-18. Entitlement được kiểm tra phía backend. Client không được tự khai tier, AI quota, consultation limit, Doctor review hoặc quyền Care Program.
+17. Consultation dùng quota thông thường có `ConsultationUsages` gắn với một Consultation và chu kỳ reserve, cập nhật nguyên tử theo vòng đời `reserved → counted|released`; `expired` là trạng thái legacy, không tự expire lịch đã xác nhận. Khóa chống xử lý trùng bảo đảm retry không đếm một Consultation nhiều lần. Mỗi lần đổi trạng thái phải ghi audit với `domain = billing`; DA2 không xây event sourcing riêng. Ngoại lệ urgent Care Alert theo target `CC-013A` không tạo ledger tiêu thụ quota thông thường.
+18. Quyền truy cập chương trình được kiểm tra phía backend. Client không được tự khai `planCode`, AI quota, consultation limit, Doctor review hoặc quyền Care Program.
 19. Plan trả phí không được thay đổi Care Evaluation severity, thứ tự ưu tiên lâm sàng hoặc quyền được nhận safety escalation.
 20. Khi VNPAY chưa nằm trong cut-line, seed/demo subscription có thể dùng để kiểm thử entitlement nhưng phải được đánh dấu rõ, không ghi nhận là doanh thu thật.
 21. Trong DA2, VNPAY Sandbox payment/subscription và cancel unpaid order là P0 bắt buộc; seed subscription không thay thế acceptance demo giao dịch Sandbox.
 22. Full refund vẫn là P1 và chỉ được bật khi payment, IPN, cancel, entitlement và reconciliation đã đạt release gate.
 23. Số consultation tối đa mỗi cycle mặc định là Free `1`, Plus `3`, Care `6`. Field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot; đây không phải AI quota.
 24. Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription. Free cũng tạo bản ghi `Subscriptions` với `source = free_grant` và chu kỳ 30 ngày neo tại thời điểm kích hoạt; không tạo PaymentOrder cho Free và không tạo Subscription mới mỗi chu kỳ. `ConsultationUsages` phải gắn chu kỳ cụ thể, không reset toàn bộ người dùng bằng một cron chung.
+24a. Khi tạo hoặc retry PaymentOrder còn payable, backend trả `paymentUrl` đã ký và `paymentQrDataUrl` mã hóa đúng URL đó để client hiển thị QR. Đây là artifact tạm thời: không lưu QR/URL ký vào database hoặc log, không có endpoint QR riêng, và order `paid|cancelled|expired` phải trả cả hai giá trị là `null`.
 25. `consultationsUsed` đếm trực tiếp số Consultation đã sử dụng; số còn lại bằng limit trừ số đã dùng và reservation đang hoạt động.
 26. Giới hạn consultation không đồng nghĩa phiên miễn phí và không bảo đảm Doctor còn slot. Chi phí/ưu đãi của từng phiên là chính sách giá độc lập trong Plan.
 27. Add-on có thể tăng consultation limit hiệu dụng; add-on phải có source order, expiry, số lượt bổ sung và ledger idempotent.
-28. Cả scheduled và on-demand consultation dùng chung một limit. Pending on-demand request chưa tạo reservation; reservation được tạo atomically khi Doctor accept.
+28. Scheduled và on-demand consultation thông thường dùng chung một limit. Pending on-demand request chưa tạo reservation; reservation được tạo atomically khi Doctor accept. Ngoại lệ urgent Care Alert dùng snapshot `care_program_included` của `CC-013A` theo quy định riêng ở trên.
 29. Scheduled consultation tạo reservation khi booking được xác nhận. Reservation phải chống race để hai request đồng thời không vượt số lượt còn lại.
 30. Consultation được count khi chuyển `in_consultation`; Patient `no_show` cũng được count theo no-show policy. Doctor/system cancel hoặc Patient cancel đúng hạn phải hủy reservation.
 31. Retry, duplicate event hoặc reconnect không được count/hủy reservation hai lần; ledger entry phải gắn `consultationId` và idempotency key.
-32. Khi hết số lượt, Patient có thể chờ cycle mới, nâng gói hoặc mua add-on. Safety alert vẫn hoạt động và tình huống khẩn cấp phải hướng tới cơ sở y tế/cấp cứu.
-33. AI chat dùng `aiTokenLimit` làm quota chính, tính trên tổng input + output token đã commit trong kỳ. `aiRequestLimit` là giới hạn phụ chống spam và trường hợp request rất nhỏ; summary job có ngân sách token riêng. Các giới hạn này không dùng chung với consultation limit.
-33a. Trước khi gọi model, Redis reserve `estimatedInputTokens + maxOutputTokens`; khi provider trả kết quả thì commit token thực tế vào `AiUsageDaily` và release phần dư. Request lỗi/timeout phải release reservation; retry dùng idempotency key để không trừ token hai lần.
+32. Khi hết số lượt, Patient có thể chờ cycle mới, nâng gói hoặc mua add-on. Safety alert vẫn hoạt động và tình huống khẩn cấp phải hướng tới cơ sở y tế/cấp cứu. Sau `CC-013A`, consultation đủ điều kiện từ urgent alert không bị chặn bởi quota consultation thông thường và không thu phí riêng.
+33. AI chat dùng `aiTokenLimit` làm quota chính, tính trên tổng input + output token đã commit trong kỳ. `aiRequestLimit` là giới hạn phụ chống spam và trường hợp request rất nhỏ; summary job có ngân sách token riêng. Các giới hạn này không dùng chung với consultation limit. Artifact khởi đầu dùng quota ngày: `FREE = 10 request / 25,000 token`, `PLUS = 40 / 120,000`, `CARE = 80 / 250,000`.
+33a. Trước khi gọi model, backend reserve một envelope `estimatedInputTokens + maxOutputTokens` trong usage ledger để admission atomically. Khi Gemini trả kết quả, backend phải lấy `response.usageMetadata.promptTokenCount` và `candidatesTokenCount` của **mọi** provider call thuộc request (phân tích ảnh, trả lời chính và tóm tắt topic nếu có), commit tổng token thực tế vào `AiUsageDaily` và release phần dư. Estimate chỉ là mức giữ chỗ, không là số liệu quyết toán. Request lỗi/timeout phải release reservation; retry dùng idempotency key để không trừ token hai lần. Nếu không nhận được usage metadata, không được âm thầm quay về `text.length / 4`: giữ reservation để reconciliation/audit hoặc áp dụng policy fail-closed đã version hóa.
 34. PaymentOrder dùng state machine `created|pending|processing|paid|failed|expired|cancelled|refund_pending|refunded`; mọi transition là conditional, có actor/source/time và audit. Timeout/unknown không được tự chuyển thành failed nếu chưa đối soát provider.
 35. Trong một Mongo transaction, IPN hợp lệ upsert PaymentTransaction, chuyển order sang paid và ghi đúng một `SubscriptionGrantRequested` OutboxEvent. Không gọi VNPAY hoặc dịch vụ ngoài trong transaction.
 36. Worker cấp Subscription idempotent theo `sourceOrderId`/grant key. Lỗi worker được retry; không tạo payment mới và không chuyển order paid về pending.
@@ -321,9 +350,14 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 3. Worker claim OutboxEvents theo status pending và available at, gửi theo channel phù hợp, sau đó đánh dấu completed, retry failed hoặc dead khi hết số lần thử.
 4. BullMQ dùng Redis cho delayed jobs: nhắc lịch 24 giờ và 15 phút trước cuộc hẹn, gửi campaign theo batch và retry tác vụ ngoài hệ thống.
 5. Broadcast campaign phải được worker fan-out theo batch; không tạo toàn bộ notification trong HTTP request của admin.
-6. Gửi cho một user: tạo trực tiếp một `Notifications` và một OutboxEvent trong cùng transaction. Gửi cho danh sách/nhóm/tất cả: tạo `NotificationCampaigns` với `targetType = individual|segment|all`, đóng băng `targetFilter` và `audienceSnapshotAt`, sau đó worker tạo một `Notifications` cho từng người nhận theo batch.
+6. Gửi cho một user: tạo trực tiếp một `Notifications` và một OutboxEvent trong cùng transaction. Gửi cho danh sách/nhóm/tất cả: tạo `NotificationCampaigns` với `targetType = individual|segment|all`, đóng băng `targetFilter`, rồi worker materialize chính xác từng user tại `audienceSnapshotAt` vào `NotificationCampaignRecipients`. Worker tiếp tục tạo một `Notifications` và OutboxEvent cho mỗi recipient theo batch; unique campaign/user và unique key bảo đảm retry không nhân đôi người nhận.
 7. `Notifications` là trạng thái inbox riêng của từng user, vì vậy đọc/xóa của người này không ảnh hưởng người khác. `uniqueKey` chống tạo trùng khi worker retry; `delivery` lưu trạng thái từng kênh in-app/push/email.
 8. `segment` chỉ dùng bộ lọc allowlist như role, Plan, Care Program hoặc khu vực. Không nhận Mongo filter thô từ client; mọi campaign cần hard cap/batch/cursor và quyền Admin phù hợp.
+
+## Kiểm duyệt Violation Report
+
+1. `ViolationReports` không lưu `aiClassification` trong DA2; AI moderation vẫn là P1 và nếu triển khai sau chỉ được đưa ra gợi ý, không quyết định outcome.
+2. Outcome hiện hành được lưu bằng `resolutionNote`, `actionTaken`, `resolvedBy`, `resolvedAt`; status `resolved|dismissed` phải có actor/time. `AuditLogs` giữ lịch sử transition, không thay thế projection outcome hiện hành.
 
 ## Quy tắc vận hành và dữ liệu
 
@@ -342,10 +376,10 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 
 Tài liệu mô tả phạm vi sản phẩm, nghiệp vụ, kiến trúc và trạng thái chuyển đổi của Healthcare Application từ DA1 sang DA2. Nguồn chuẩn đi kèm:
 
-- Nghiệp vụ/command contract Chronic Care: ADR-0002, sau đó là `docs/BUSINESS_RULES.md`.
-- Dữ liệu đã triển khai trước migration: `docs/db-template-v7.dbml`; target schema DA2 đã duyệt: `docs/db-template-v8.dbml`.
-- Kế hoạch implementation Chronic Care: `plan/chronic-care-plan.md`; `plan/refactor-plan.md` chỉ giữ dependency/refactor/cut-line tổng quan.
-- Hợp đồng tích hợp frontend: `docs/fe-integration.md`.
+- Nghiệp vụ/command contract Chronic Care: `docs/chronic-care-spec.md` (ADR-0002).
+- Dữ liệu đã triển khai trước migration: `docs/db-template-v7.dbml`; target schema DA2 đã duyệt: `docs/data-model.dbml`.
+- Kế hoạch implementation Chronic Care: `plan/roadmap.md`; `plan/archive/refactor-history.md` chỉ giữ dependency/refactor/cut-line lịch sử.
+- Hợp đồng tích hợp frontend: `docs/integration-contract.md`.
 
 DA2 được triển khai trong giai đoạn 09/2026–12/2026, deadline mục tiêu 31/12/2026. Những chức năng được mô tả là **mục tiêu của phiên bản DA2**, không mặc định đã tồn tại trong code DA1.
 
@@ -449,6 +483,8 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 
 ### 5.1 Identity và OAuth
 
+`Users.email` là email chuẩn tùy chọn của tài khoản OAuth-only. Local login vẫn bắt buộc email; OAuth không có email phải bổ sung email trước khi dùng chức năng cần kênh liên hệ.
+
 1. Một tài khoản nằm trong `Users`; doctor/admin profile chỉ là dữ liệu theo vai trò.
 2. Tài khoản OAuth được ánh xạ qua `OAuthAccounts`; tài khoản OAuth-only có thể không có `passwordHash`.
 3. OTP hash, attempts và TTL nằm trong Redis, không nằm trong Users.
@@ -541,8 +577,8 @@ Scheduled và on-demand dùng chung hàng đợi theo Doctor. Ưu tiên lần l�
 - Doctor Priority Inbox chỉ chứa Patient thuộc enrollment được phân công và có pagination/stable sort.
 - Báo cáo 7/30 ngày tính số liệu bằng backend; LLM chỉ diễn đạt từ payload chuẩn hóa và phải có fallback.
 - Chuỗi AI summary là `normalize metrics → deterministic aggregate → rule evaluation → SummaryInput snapshot → structured LLM output → grounding/safety guard → summary hoặc fallback`. Mọi con số và nhận xét phải truy về snapshot/source reference; Patient và Doctor dùng presentation policy khác nhau trên cùng facts.
-- Redis reserve/commit/release quota token theo ngày; `AiUsageDaily` là dữ liệu bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam.
-- Không dùng cron xóa toàn bộ quota key; key theo ngày có TTL.
+- `AiQuotaReservations` reserve/commit/release quota token theo kỳ; `AiUsageDaily` là aggregate bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam. Quyết toán dùng Gemini `usageMetadata`, không dùng độ dài text ước lượng.
+- Không dùng cron reset quota theo tên gói; period được xác định từ immutable Subscription snapshot. Reservation chưa kết thúc phải có reconciliation/audit policy riêng.
 - RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
 - Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`; trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
 - AI response phải có safety policy/disclaimer và không chẩn đoán.
@@ -572,6 +608,8 @@ stateDiagram-v2
 ```
 
 - Return URL chỉ hiển thị trạng thái; IPN hợp lệ mới ghi nhận paid và tạo outbox event yêu cầu cấp quyền lợi.
+- API P0: `POST /billing/payments/orders` (Patient, bắt buộc `Idempotency-Key`, server nhận `planId` nhưng tự chụp giá/quyền lợi và trả `paymentUrl`/`paymentQrDataUrl` khi order còn payable), `GET /billing/payments/orders/:id` (chỉ owner; Return UI dùng để đọc trạng thái), `POST /billing/payments/orders/:id/cancel` (chỉ owner, chỉ unpaid) và public `GET /billing/payments/vnpay/ipn` theo callback contract của VNPAY. API không nhận amount, benefit, transaction reference hoặc trạng thái từ client.
+- Khi provider feature flag tắt, hệ thống từ chối tạo order mới nhưng vẫn nhận IPN hợp lệ cho order đã tạo; điều này ngăn phát sinh giao dịch mới mà không bỏ sót tiền đã thu.
 - Duplicate IPN không tạo hai subscriptions.
 - Mỗi paid order tạo một Subscription grant có `sourceOrderId` unique.
 - Worker cấp grant idempotent và reconciliation phục hồi trường hợp paid-without-grant. DA2 dùng state machine + Mongo transaction + transactional outbox, chưa dùng Saga framework.
@@ -636,7 +674,7 @@ Backend sử dụng Modular Monolith, chia theo capability:
 | care-directory | MedicalFacilities, DiseaseSpecialties |
 | ai-advisory | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords |
 | billing | Plans, PaymentOrders, PaymentTransactions, Subscriptions, SubscriptionAddOns, ConsultationUsages, PaymentRefunds |
-| notifications | NotificationCampaigns, Notifications, OutboxEvents |
+| notifications | NotificationCampaigns, NotificationCampaignRecipients, Notifications, OutboxEvents |
 | moderation | ViolationReports |
 | platform-audit | AuditLogs dùng chung, phân biệt bằng `domain` |
 
@@ -644,7 +682,7 @@ Mongoose là ODM chính. Mỗi collection có một canonical model thuộc modu
 
 ## 7. Dữ liệu
 
-DB v7 gồm 27 collections và vẫn là baseline đã triển khai trước migration. `docs/db-template-v8.dbml` gồm 42 collections, trong đó có hai collection hạ tầng migration/lock, và đã được duyệt làm target schema DA2. V8 bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 có thể dùng làm nguồn vẽ ERD và triển khai model, nhưng chưa được xem là đã triển khai vật lý cho tới khi có migration, verifier và kiểm thử tương ứng.
+DB v7 gồm 27 collections và vẫn là baseline đã triển khai trước migration. `docs/data-model.dbml` gồm 42 collections, trong đó có hai collection hạ tầng migration/lock, và đã được duyệt làm target schema DA2. V8 bổ sung Chronic Care, báo cáo xác định/AI summary, quyền lợi gói dịch vụ/lượt tư vấn, người thân đồng hành, tìm cơ sở y tế và một `AuditLogs` dùng chung. V8 có thể dùng làm nguồn vẽ ERD và triển khai model, nhưng chưa được xem là đã triển khai vật lý cho tới khi có migration, verifier và kiểm thử tương ứng.
 
 Nguyên tắc:
 
@@ -662,7 +700,7 @@ Nguyên tắc:
 - Pagination chuẩn: `items`, `page`, `limit`, `total`, `hasNext`.
 - Command có nguy cơ retry như booking, message, create order, cancel và refund dùng `Idempotency-Key` hoặc conditional transition.
 - Socket event có version, ví dụ `consultation.v1.updated`, `message.v1.created`, `queue.v1.changed`, `notification.v1.created`.
-- Frontend integration chi tiết theo từng page nằm trong `docs/fe-integration.md`.
+- Frontend integration chi tiết theo từng page nằm trong `docs/integration-contract.md`.
 
 ## 9. Công nghệ
 
@@ -693,9 +731,9 @@ Nguyên tắc:
 | Notification side effect trực tiếp | Notification + transactional outbox + worker |
 | Chưa có billing implementation | Plans, payment/IPN, cancel, Subscription grant và refund P1 |
 | Health Metrics mới dừng ở ghi nhận/cảnh báo đơn lẻ | Care Program, monitoring adherence, rule evaluation, Care Alert và Doctor Priority Inbox |
-| Frontend/backend cùng monorepo | Backend repo riêng; frontend monorepo riêng; OpenAPI contract |
+| Frontend/backend cùng monorepo | API là package hiện hành; không còn frontend source trong repository này, mọi consumer dùng OpenAPI/realtime contract |
 
-Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/fe-integration.md`. Frontend repo mới chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
+Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/integration-contract.md`. Consumer chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
 
 ## 11. Phạm vi theo deadline
 
@@ -741,5 +779,5 @@ Full refund mặc định không thuộc committed scope. Chỉ nhận trước 
 - Database rỗng được tạo lại từ migration files và `database:verify` pass.
 - Không log dữ liệu nhạy cảm; room/file/API đều authorize phía server.
 - Demo không cần sửa tay database.
-- README, OpenAPI, realtime events và `fe-integration.md` khớp release thực tế.
+- README, OpenAPI, realtime events và `integration-contract.md` khớp release thực tế.
 

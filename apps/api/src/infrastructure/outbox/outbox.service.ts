@@ -21,16 +21,18 @@ export class OutboxService {
       aggregateId: Types.ObjectId;
       payload: Record<string, unknown>;
       idempotencyKey: string;
+      availableAt?: Date;
     },
     session?: ClientSession,
   ) {
+    const { availableAt, ...event } = input;
     const query = this.model.findOneAndUpdate(
       { idempotencyKey: input.idempotencyKey },
       {
         $setOnInsert: {
-          ...input,
+          ...event,
           status: OutboxStatus.PENDING,
-          nextAttemptAt: new Date(),
+          nextAttemptAt: availableAt ?? new Date(),
           attemptCount: 0,
           maxAttempts: 8,
         },
@@ -48,7 +50,15 @@ export class OutboxService {
       .exec();
   }
 
-  async claimBatch(limit = 50, leaseMs = 30_000) {
+  async getLatestForAggregate(aggregateType: string, aggregateId: Types.ObjectId) {
+    return this.model
+      .findOne({ aggregateType, aggregateId })
+      .sort({ createdAt: -1, _id: -1 })
+      .lean()
+      .exec();
+  }
+
+  async claimBatch(limit = 50, leaseMs = 30_000, excludedTypes: string[] = []) {
     const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
     const now = new Date();
     const claimed: OutboxEventDocument[] = [];
@@ -56,6 +66,9 @@ export class OutboxService {
       const event = await this.model
         .findOneAndUpdate(
           {
+            ...(excludedTypes.length
+              ? { eventType: { $nin: excludedTypes } }
+              : {}),
             $or: [
               { status: OutboxStatus.PENDING, nextAttemptAt: { $lte: now } },
               { status: OutboxStatus.PROCESSING, lockExpiresAt: { $lte: now } },
@@ -83,6 +96,18 @@ export class OutboxService {
         { _id: id, status: OutboxStatus.PROCESSING },
         {
           $set: { status: OutboxStatus.DELIVERED, deliveredAt: new Date() },
+          $unset: { lockedAt: '', lockExpiresAt: '' },
+        },
+      )
+      .exec();
+  }
+
+  async deferUntil(id: Types.ObjectId, availableAt: Date) {
+    return this.model
+      .updateOne(
+        { _id: id, status: OutboxStatus.PROCESSING },
+        {
+          $set: { status: OutboxStatus.PENDING, nextAttemptAt: availableAt },
           $unset: { lockedAt: '', lockExpiresAt: '' },
         },
       )
@@ -176,9 +201,16 @@ export class OutboxService {
         },
       },
     ]);
+    const oldestPending = result?.oldestPending?.[0] ?? null;
     return {
       byStatus: result?.byStatus ?? [],
-      oldestPending: result?.oldestPending?.[0] ?? null,
+      oldestPending,
+      oldestPendingAgeMs: oldestPending
+        ? Math.max(
+            0,
+            Date.now() - new Date(oldestPending.nextAttemptAt).getTime(),
+          )
+        : 0,
     };
   }
 }

@@ -65,6 +65,130 @@ import {
   CC000_CHRONIC_CARE_FOUNDATION_NAME,
   CC000_CHRONIC_CARE_FOUNDATION_VERSION,
 } from './202609281000-cc000-chronic-care-foundation';
+import {
+  applyCc001aCareCatalog,
+  CC001A_CARE_CATALOG_CHECKSUM,
+  CC001A_CARE_CATALOG_NAME,
+  CC001A_CARE_CATALOG_VERSION,
+} from './202609291000-cc001a-care-catalog';
+import {
+  applyCc001bEnrollment,
+  CC001B_ENROLLMENT_CHECKSUM,
+  CC001B_ENROLLMENT_NAME,
+  CC001B_ENROLLMENT_VERSION,
+} from './202609291100-cc001b-enrollment';
+import {
+  applySchemaSimplification,
+  SCHEMA_SIMPLIFICATION_CHECKSUM,
+  SCHEMA_SIMPLIFICATION_NAME,
+  SCHEMA_SIMPLIFICATION_VERSION,
+} from './202609291200-schema-simplification';
+import {
+  applyCc014BaselineSchemaEngine,
+  CC014_BASELINE_SCHEMA_ENGINE_CHECKSUM,
+  CC014_BASELINE_SCHEMA_ENGINE_NAME,
+  CC014_BASELINE_SCHEMA_ENGINE_VERSION,
+} from './202609291300-cc014-baseline-schema-engine';
+import {
+  applyCc014RemoveRedundantBaselineVersion,
+  CC014_REMOVE_REDUNDANT_BASELINE_VERSION,
+  CC014_REMOVE_REDUNDANT_BASELINE_VERSION_CHECKSUM,
+  CC014_REMOVE_REDUNDANT_BASELINE_VERSION_NAME,
+} from './202609300900-cc014-remove-redundant-baseline-version';
+import {
+  applyCc002CareTasks,
+  CC002_CARE_TASKS_CHECKSUM,
+  CC002_CARE_TASKS_NAME,
+  CC002_CARE_TASKS_VERSION,
+} from './202609301000-cc002-care-tasks';
+import {
+  applyCc003Cc004EvaluationsAlerts,
+  CC003_CC004_EVALUATIONS_ALERTS_CHECKSUM,
+  CC003_CC004_EVALUATIONS_ALERTS_NAME,
+  CC003_CC004_EVALUATIONS_ALERTS_VERSION,
+} from './202610020900-cc003-cc004-evaluations-alerts';
+import {
+  applyCc005DoctorPriorityInbox,
+  CC005_DOCTOR_PRIORITY_INBOX_CHECKSUM,
+  CC005_DOCTOR_PRIORITY_INBOX_NAME,
+  CC005_DOCTOR_PRIORITY_INBOX_VERSION,
+} from './202610061000-cc005-doctor-priority-inbox';
+import {
+  applyCc006CareReports,
+  CC006_CARE_REPORTS_CHECKSUM,
+  CC006_CARE_REPORTS_NAME,
+  CC006_CARE_REPORTS_VERSION,
+} from './202610061100-cc006-care-reports';
+import {
+  applyHealthMetricContractAlignment,
+  HEALTH_METRIC_ALIGNMENT_CHECKSUM,
+  HEALTH_METRIC_ALIGNMENT_NAME,
+  HEALTH_METRIC_ALIGNMENT_VERSION,
+} from './202610061200-health-metric-contract-alignment';
+import {
+  applyCc007CareSummaries,
+  CC007_CARE_SUMMARIES_CHECKSUM,
+  CC007_CARE_SUMMARIES_NAME,
+  CC007_CARE_SUMMARIES_VERSION,
+} from './202610091200-cc007-care-summaries';
+import {
+  applyCc012BillingAccess,
+  CC012_BILLING_ACCESS_CHECKSUM,
+  CC012_BILLING_ACCESS_NAME,
+  CC012_BILLING_ACCESS_VERSION,
+} from './202610151000-cc012-billing-access';
+import {
+  applyData001aConsultationContract,
+  DATA001A_CONSULTATION_CONTRACT_CHECKSUM,
+  DATA001A_CONSULTATION_CONTRACT_NAME,
+  DATA001A_CONSULTATION_CONTRACT_VERSION,
+} from './202610152000-data001a-consultation-contract';
+import {
+  applyCc008CareAlertConsultationLink,
+  CC008_CARE_ALERT_CONSULTATION_LINK_CHECKSUM,
+  CC008_CARE_ALERT_CONSULTATION_LINK_NAME,
+  CC008_CARE_ALERT_CONSULTATION_LINK_VERSION,
+} from './202610161000-cc008-care-alert-consultation-link';
+import {
+  applyCc013ConsultationUsageLedger,
+  CC013_CONSULTATION_USAGE_LEDGER_CHECKSUM,
+  CC013_CONSULTATION_USAGE_LEDGER_NAME,
+  CC013_CONSULTATION_USAGE_LEDGER_VERSION,
+} from './202610161100-cc013-consultation-usage-ledger';
+import {
+  applyCc013BookingPolicy,
+  CC013_BOOKING_POLICY_VERSION,
+  CC013_BOOKING_POLICY_NAME,
+  CC013_BOOKING_POLICY_CHECKSUM,
+} from './202610181000-cc013-booking-policy-snapshot';
+import {
+  applyCc013LegacyExemption,
+  CC013_LEGACY_EXEMPTION_VERSION,
+  CC013_LEGACY_EXEMPTION_NAME,
+  CC013_LEGACY_EXEMPTION_CHECKSUM,
+} from './202610181100-cc013-legacy-quota-exemption';
+import {
+  applyCc003aAlertDedup,
+  CC003A_ALERT_DEDUP_VERSION,
+  CC003A_ALERT_DEDUP_NAME,
+  CC003A_ALERT_DEDUP_CHECKSUM,
+} from './202610191000-cc003a-alert-deduplication';
+import {
+  applyCc013aUrgentAlertBenefit,
+  CC013A_URGENT_ALERT_BENEFIT_CHECKSUM,
+  CC013A_URGENT_ALERT_BENEFIT_NAME,
+  CC013A_URGENT_ALERT_BENEFIT_VERSION,
+} from './202610201000-cc013a-urgent-alert-consultation-benefit';
+import {
+  applyCc013bStaleConsultationRecovery,
+  CC013B_STALE_CONSULTATION_RECOVERY_CHECKSUM,
+  CC013B_STALE_CONSULTATION_RECOVERY_NAME,
+  CC013B_STALE_CONSULTATION_RECOVERY_VERSION,
+} from './202610201100-cc013b-stale-consultation-recovery';
+import { applyCc7PaymentOrders, CC7_PAYMENT_ORDERS_CHECKSUM, CC7_PAYMENT_ORDERS_NAME, CC7_PAYMENT_ORDERS_VERSION } from './202610231000-cc7-payment-orders';
+import { applyCc012bAiQuota, CC012B_AI_QUOTA_CHECKSUM, CC012B_AI_QUOTA_NAME, CC012B_AI_QUOTA_VERSION } from './202610211000-cc012b-ai-quota';
+import { applyCc012bAiQuotaSettlement, CC012B_AI_QUOTA_SETTLEMENT_CHECKSUM, CC012B_AI_QUOTA_SETTLEMENT_NAME, CC012B_AI_QUOTA_SETTLEMENT_VERSION } from './202610221000-cc012b-ai-quota-settlement';
+import { applyCc012bUsageReconciliationName, CC012B_USAGE_RECONCILIATION_NAME_CHECKSUM, CC012B_USAGE_RECONCILIATION_NAME, CC012B_USAGE_RECONCILIATION_NAME_VERSION } from './202610221100-cc012b-usage-reconciliation-name';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -133,6 +257,130 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     checksum: CC000_CHRONIC_CARE_FOUNDATION_CHECKSUM,
     up: applyCc000ChronicCareFoundation,
   },
+  {
+    version: CC001A_CARE_CATALOG_VERSION,
+    name: CC001A_CARE_CATALOG_NAME,
+    checksum: CC001A_CARE_CATALOG_CHECKSUM,
+    up: applyCc001aCareCatalog,
+  },
+  {
+    version: CC001B_ENROLLMENT_VERSION,
+    name: CC001B_ENROLLMENT_NAME,
+    checksum: CC001B_ENROLLMENT_CHECKSUM,
+    up: applyCc001bEnrollment,
+  },
+  {
+    version: SCHEMA_SIMPLIFICATION_VERSION,
+    name: SCHEMA_SIMPLIFICATION_NAME,
+    checksum: SCHEMA_SIMPLIFICATION_CHECKSUM,
+    up: applySchemaSimplification,
+  },
+  {
+    version: CC014_BASELINE_SCHEMA_ENGINE_VERSION,
+    name: CC014_BASELINE_SCHEMA_ENGINE_NAME,
+    checksum: CC014_BASELINE_SCHEMA_ENGINE_CHECKSUM,
+    up: applyCc014BaselineSchemaEngine,
+  },
+  {
+    version: CC014_REMOVE_REDUNDANT_BASELINE_VERSION,
+    name: CC014_REMOVE_REDUNDANT_BASELINE_VERSION_NAME,
+    checksum: CC014_REMOVE_REDUNDANT_BASELINE_VERSION_CHECKSUM,
+    up: applyCc014RemoveRedundantBaselineVersion,
+  },
+  {
+    version: CC002_CARE_TASKS_VERSION,
+    name: CC002_CARE_TASKS_NAME,
+    checksum: CC002_CARE_TASKS_CHECKSUM,
+    up: applyCc002CareTasks,
+  },
+  {
+    version: CC003_CC004_EVALUATIONS_ALERTS_VERSION,
+    name: CC003_CC004_EVALUATIONS_ALERTS_NAME,
+    checksum: CC003_CC004_EVALUATIONS_ALERTS_CHECKSUM,
+    up: applyCc003Cc004EvaluationsAlerts,
+  },
+  {
+    version: CC005_DOCTOR_PRIORITY_INBOX_VERSION,
+    name: CC005_DOCTOR_PRIORITY_INBOX_NAME,
+    checksum: CC005_DOCTOR_PRIORITY_INBOX_CHECKSUM,
+    up: applyCc005DoctorPriorityInbox,
+  },
+  {
+    version: CC006_CARE_REPORTS_VERSION,
+    name: CC006_CARE_REPORTS_NAME,
+    checksum: CC006_CARE_REPORTS_CHECKSUM,
+    up: applyCc006CareReports,
+  },
+  {
+    version: HEALTH_METRIC_ALIGNMENT_VERSION,
+    name: HEALTH_METRIC_ALIGNMENT_NAME,
+    checksum: HEALTH_METRIC_ALIGNMENT_CHECKSUM,
+    up: applyHealthMetricContractAlignment,
+  },
+  {
+    version: CC007_CARE_SUMMARIES_VERSION,
+    name: CC007_CARE_SUMMARIES_NAME,
+    checksum: CC007_CARE_SUMMARIES_CHECKSUM,
+    up: applyCc007CareSummaries,
+  },
+  {
+    version: CC012_BILLING_ACCESS_VERSION,
+    name: CC012_BILLING_ACCESS_NAME,
+    checksum: CC012_BILLING_ACCESS_CHECKSUM,
+    up: applyCc012BillingAccess,
+  },
+  {
+    version: DATA001A_CONSULTATION_CONTRACT_VERSION,
+    name: DATA001A_CONSULTATION_CONTRACT_NAME,
+    checksum: DATA001A_CONSULTATION_CONTRACT_CHECKSUM,
+    up: applyData001aConsultationContract,
+  },
+  {
+    version: CC008_CARE_ALERT_CONSULTATION_LINK_VERSION,
+    name: CC008_CARE_ALERT_CONSULTATION_LINK_NAME,
+    checksum: CC008_CARE_ALERT_CONSULTATION_LINK_CHECKSUM,
+    up: applyCc008CareAlertConsultationLink,
+  },
+  {
+    version: CC013_CONSULTATION_USAGE_LEDGER_VERSION,
+    name: CC013_CONSULTATION_USAGE_LEDGER_NAME,
+    checksum: CC013_CONSULTATION_USAGE_LEDGER_CHECKSUM,
+    up: applyCc013ConsultationUsageLedger,
+  },
+  {
+    version: CC013_BOOKING_POLICY_VERSION,
+    name: CC013_BOOKING_POLICY_NAME,
+    checksum: CC013_BOOKING_POLICY_CHECKSUM,
+    up: applyCc013BookingPolicy,
+  },
+  {
+    version: CC013_LEGACY_EXEMPTION_VERSION,
+    name: CC013_LEGACY_EXEMPTION_NAME,
+    checksum: CC013_LEGACY_EXEMPTION_CHECKSUM,
+    up: applyCc013LegacyExemption,
+  },
+  {
+    version: CC003A_ALERT_DEDUP_VERSION,
+    name: CC003A_ALERT_DEDUP_NAME,
+    checksum: CC003A_ALERT_DEDUP_CHECKSUM,
+    up: applyCc003aAlertDedup,
+  },
+  {
+    version: CC013A_URGENT_ALERT_BENEFIT_VERSION,
+    name: CC013A_URGENT_ALERT_BENEFIT_NAME,
+    checksum: CC013A_URGENT_ALERT_BENEFIT_CHECKSUM,
+    up: applyCc013aUrgentAlertBenefit,
+  },
+  {
+    version: CC013B_STALE_CONSULTATION_RECOVERY_VERSION,
+    name: CC013B_STALE_CONSULTATION_RECOVERY_NAME,
+    checksum: CC013B_STALE_CONSULTATION_RECOVERY_CHECKSUM,
+    up: applyCc013bStaleConsultationRecovery,
+  },
+  { version: CC012B_AI_QUOTA_VERSION, name: CC012B_AI_QUOTA_NAME, checksum: CC012B_AI_QUOTA_CHECKSUM, up: applyCc012bAiQuota },
+  { version: CC012B_AI_QUOTA_SETTLEMENT_VERSION, name: CC012B_AI_QUOTA_SETTLEMENT_NAME, checksum: CC012B_AI_QUOTA_SETTLEMENT_CHECKSUM, up: applyCc012bAiQuotaSettlement },
+  { version: CC012B_USAGE_RECONCILIATION_NAME_VERSION, name: CC012B_USAGE_RECONCILIATION_NAME, checksum: CC012B_USAGE_RECONCILIATION_NAME_CHECKSUM, up: applyCc012bUsageReconciliationName },
+  { version: CC7_PAYMENT_ORDERS_VERSION, name: CC7_PAYMENT_ORDERS_NAME, checksum: CC7_PAYMENT_ORDERS_CHECKSUM, up: applyCc7PaymentOrders },
 ];
 
 export const LATEST_SCHEMA_VERSION = Math.max(

@@ -49,6 +49,11 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
           { type: 'array', items: { type: 'string' } },
         ],
       },
+      code: {
+        type: 'string',
+        description: 'Stable application error code when available',
+      },
+      details: { type: 'object', additionalProperties: true },
     },
   };
 

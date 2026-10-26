@@ -1,10 +1,12 @@
-import { Db, Document, MongoClient, ObjectId } from 'mongodb';
+import { Db, Document, Int32, MongoClient, ObjectId } from 'mongodb';
 import {
   applyRf2dQueryIndexes,
   RF2D_QUERY_INDEXES,
 } from '../src/database/migrations/202609162200-rf2d-query-indexes';
 import { applyRf6Consultations } from '../src/database/migrations/202609182100-rf6-consultations';
 import { applyRf7ChatReviews } from '../src/database/migrations/202609182200-rf7-chat-reviews';
+import { applyCc003Cc004EvaluationsAlerts } from '../src/database/migrations/202610020900-cc003-cc004-evaluations-alerts';
+import { applyCc005DoctorPriorityInbox } from '../src/database/migrations/202610061000-cc005-doctor-priority-inbox';
 
 jest.setTimeout(30_000);
 
@@ -47,6 +49,8 @@ describe('RF-2D managed query indexes', () => {
     await applyRf2dQueryIndexes(db);
     await applyRf6Consultations(db);
     await applyRf7ChatReviews(db);
+    await applyCc003Cc004EvaluationsAlerts(db);
+    await applyCc005DoctorPriorityInbox(db);
 
     const patientId = new ObjectId();
     const doctorId = new ObjectId();
@@ -111,6 +115,21 @@ describe('RF-2D managed query indexes', () => {
           createdAt: new Date(baseTime + index * 45_000),
         })),
       ),
+      db.collection('carealerts').insertMany(
+        Array.from({ length: 1_000 }, (_, index) => ({
+          revision: new Int32(1),
+          patientCareProgramId: new ObjectId(),
+          evaluationId: new ObjectId(),
+          patientId,
+          assignedDoctorId: index % 5 === 0 ? doctorId : new ObjectId(),
+          severity: index % 2 === 0 ? 'urgent' : 'attention',
+          status: index % 2 === 0 ? 'open' : 'acknowledged',
+          reasonCodes: ['threshold_exceeded'],
+          uniqueKey: `care-alert-${index}`,
+          detectedAt: new Date(baseTime + index * 60_000),
+          createdAt: new Date(baseTime + index * 60_000),
+        })),
+      ),
     ]);
 
     performanceQueries = [
@@ -161,6 +180,15 @@ describe('RF-2D managed query indexes', () => {
         filter: { userId: patientId, isArchived: false },
         sort: { createdAt: -1, _id: -1 },
         index: 'userId_1_isArchived_1_createdAt_-1__id_-1',
+      },
+      {
+        collection: 'carealerts',
+        filter: {
+          assignedDoctorId: doctorId,
+          status: { $in: ['open', 'acknowledged'] },
+        },
+        sort: { severity: -1, detectedAt: -1, _id: -1 },
+        index: 'assignedDoctorId_1_severity_-1_detectedAt_-1__id_-1',
       },
     ];
   });

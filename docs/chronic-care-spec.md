@@ -3,11 +3,11 @@
 - Status: Accepted
 - Date: 2026-09-29
 - Scope: `BE-CC-000A`; prerequisite for `BE-CC-000B` and `BE-CC-001`
-- Related: `docs/BUSINESS_RULES.md`, `docs/db-template-v8.dbml`, `plan/chronic-care-plan.md`
+- Related: `docs/product-spec.md`, `docs/data-model.dbml`, `plan/roadmap.md`
 
 ## Context
 
-DA2 adds Chronic Care to a backend that already owns Users, HealthMetrics, Notifications and Consultations in separate bounded contexts. The target schema is approved, but no Chronic Care collection, module, migration or public contract exists in runtime source yet.
+DA2 adds Chronic Care to a backend that already owns Users, HealthMetrics, Notifications and Consultations in separate bounded contexts. At the time this ADR was accepted, the target schema had been approved but no Chronic Care runtime implementation existed. The completed roadmap slices now own the current migration and test evidence; this historical context does not override them.
 
 The implementation must preserve three invariants:
 
@@ -70,6 +70,36 @@ The application, not a client-supplied `status`, performs transitions. `pending 
 
 If any guard fails, the enrollment remains `pending`; it returns a stable blocking reason and does not create tasks, evaluations, alerts or reminders. Resume repeats the same guards. Consent withdrawal changes a non-terminal enrollment to `cancelled` immediately and prevents new processing.
 
+#### Program-access entitlement
+
+Chronic Care asks Billing through a public port; it neither imports a Billing model nor accepts a tier, Plan code, price, limit or entitlement from the client. Billing resolves one effective `Subscription` using `status = active`, its effective period and `expiresAt`, then evaluates the immutable `planSnapshot.activeCareProgramLimit`. A missing, expired or malformed subscription fails closed with a stable reason code. If no effective paid subscription exists, Billing renews the same `free_grant` record for its next 30-day cycle, or creates one from the currently published `FREE` Plan; it never creates a PaymentOrder for this path.
+
+`pending`, `active` and `paused` enrollments all consume an admission slot. The slot is allocated under a partial unique `(patientId, programAccessSlot)` index, so two concurrent creates cannot exceed the snapshot limit; a duplicate-key race is rejected rather than granted. Create, activation and resume re-evaluate access. Expiry or downgrade blocks only new paid/program actions: it does not delete HealthMetrics, reports, CareAlerts, or change clinical alert severity/priority.
+
+#### Baseline schema v1
+
+`baselineForm` is an allowlisted, versioned contract: `{ schemaVersion: "v1", fields[] }`. Every field has a unique snake_case `key`, a primitive `type` (`number`, `integer`, `boolean`, `string`, or `date`), optional `unit` and numeric `range`, `required`, and `visibility` (`patient` or `care_team`). Executable expressions, unknown properties, nested workflow definitions and arbitrary fields are rejected. At enrollment creation, the complete form and `baselineSchemaVersion` are copied inside `programConfig`; later Program drafts do not affect its validation. Validation errors expose only field keys and stable reason codes, while audit records never contain answer values or consent payloads. A patient-facing projection excludes `care_team` fields.
+
+#### Care task schedule v1
+
+`taskTemplates` is also snapshotted inside `programConfig`. The current P0 contract accepts only a unique snake_case `key`, a supported type (`metric`, `check_in`, `education`, `appointment`, `doctor_review`), and `schedule: { frequency: "daily", time: "HH:mm", windowMinutes }`. The scheduler resolves that IANA-local time to UTC, creates tasks for a rolling seven-day window, and uses `enrollment + template + scheduleVersion + local date` as its idempotent unique key. A task moves `scheduled → due → completed|missed|cancelled`; terminal tasks are never reopened by late metric input. Metric tasks query Health Tracking through its public `HEALTH_METRIC` port and persist only the matching metric ID. Reminder work is an idempotent outbox event, never a provider call in the task transaction.
+
+**Source audit 18/10/2026:** The scheduling service is invoked by the Admin `POST /care-tasks/schedule`; the outbox worker does not schedule care tasks or independently consume new metrics for evaluation. The task path evaluates the first matching metric in its window. A `normal` evaluation creates no Care Alert; `attention` and `urgent` evaluations can create one. The outbox worker does deliver `care.alert.opened` to an idempotent patient notification, but its supported event list does not currently include `care.task.reminder`. Evaluation creation and alert creation are separate writes; a failed alert creation after evaluation persistence is not repaired by the existing early-return path. These gaps require `CC-003A` before claiming an automatic, retry-safe end-to-end pipeline.
+
+**CC-003A implementation update 20/10/2026:** The worker has scheduled task processing and handlers for metric events and reminders, guarded by `CARE_MONITORING_AUTOMATION_ENABLED` (default off). Metric events are written transactionally and evaluation retries repair missing alert creation. Active new alerts deduplicate per enrollment/rule/local calendar day; attention can escalate to urgent with a separate safety notification. Historical alerts remain unchanged and are not merged; historical metrics without events are not automatically re-evaluated. Existing queued events can run after enabling the flag, subject to enrollment status at processing time. The source/local gate is closed with worker, crash-lease recovery, replay and authorization evidence; production enablement follows `docs/runbooks/care-monitoring-automation.md` and is not implied by this statement.
+
+#### Urgent alert consultation benefit — implemented backend snapshot (CC-013A)
+
+An authorized assigned Doctor may initiate a consultation from a qualifying `urgent` Care Alert as an included Care Program benefit: it consumes no ordinary consultation quota and has no separate patient charge. An `attention` alert consultation follows the ordinary quota/pricing policy. Consultations owns the backend-assigned immutable `quotaPolicy` snapshot (`consultation_limit` or `care_program_included`); never reuse `legacyQuotaExempt` or trust a client-provided policy/severity. `CareAlertService` derives the policy only after verifying assigned Doctor and active alert state; the consultation service writes it with provenance/audit in the same transaction. Included snapshots remain included after later enrollment/subscription expiry, pause or downgrade; historic records without the field retain ordinary quota treatment and are not rewritten. There is no pricing/order implementation yet; CC-7 must enforce this snapshot before any future charge. It does not guarantee immediate availability or replace emergency services.
+
+#### Deterministic care report v1
+
+`weekly` and `thirty_day` reports contain the last 7 or 30 complete calendar days in the enrollment IANA timezone. Local-midnight boundaries are converted independently to UTC, so a DST transition may make the UTC duration differ from `days × 24h`. `dataUntil` is an explicit UTC cutoff. For every logical measurement, Health Tracking returns the effective append-only version as of that cutoff by using `ingestedAt`, `replacesMetricId` and `voidedAt`; a correction or void recorded after the cutoff cannot rewrite an older report input. Tasks, metrics, evaluations, alerts and linked consultations are read through bounded projections; Health Tracking and Consultations are accessed only through public query ports.
+
+The backend calculates expected/completed/missed tasks, monitoring adherence, min/max/average/median, first/latest/delta, direction, missing task windows, severity/reason counts and bounded source references. The canonical input hash covers the window, cutoff, facts, source IDs and source revisions. Repeating the same input returns the existing report; a correction changes the hash, creates a new immutable `reportVersion`, links `replacesReportId` and marks the previous version `superseded`.
+
+`SummaryInput v1` is a projection of these persisted facts, not AI output. Patient and Doctor receive the same numerical facts; Patient provenance contains source counts only, while the assigned Doctor may receive bounded opaque source IDs. No LLM/provider, token quota or narrative text is required for report generation or reading.
+
 Only the assigned Doctor performs clinical workflow transitions. Admin may audit and administer Program/Rule lifecycle but may not acknowledge/resolve clinical alerts or alter a Patient enrollment as a substitute for the assigned Doctor. Patient may submit consent/baseline, withdraw consent and request a pause; a pause request is not itself a state transition.
 
 ### 4. Bounded-context ownership and public ports
@@ -82,6 +112,7 @@ Only the assigned Doctor performs clinical workflow transitions. Admin may audit
 | Health Tracking  | Authorized, normalized metric values required by a Rule plus metric-change notification by opaque IDs              | `HealthMetric` model/schema or direct collection query             |
 | Notifications    | Queue an idempotent notification/outbox command                                                                    | `Notification` model/schema or Gateway as a persistence dependency |
 | Consultations    | Verify/link an authorized consultation; receive lifecycle notification by opaque ID                                | `Consultation` model/schema or direct collection query             |
+| Billing          | Opaque effective Program-access decision and safe reason code                                                      | `Plan`/`Subscription` models, prices, provider/order payloads      |
 
 The reverse direction follows the same rule: another context accesses Care Enrollment only through `chronic-care/public-api.ts`, never through a future `PatientCareProgram` model. Cross-context source imports must pass the existing `boundary:check` rule.
 
@@ -185,6 +216,7 @@ All errors use the existing envelope: `code`, `message`, `details`, `correlation
 | `CARE_ENROLLMENT_ACTIVATION_BLOCKED` | 409        | At least one activation guard failed; returns safe blocking reason codes |
 | `CARE_CONSENT_VERSION_MISMATCH`      | 409        | Submitted consent does not match the Program snapshot policy version     |
 | `CARE_BASELINE_INCOMPLETE`           | 422        | Required baseline answer is missing or invalid                           |
+| `CARE_BASELINE_SCHEMA_INVALID`       | 422        | Program baseline schema is not the allowlisted v1 contract               |
 | `CARE_DOCTOR_OVERRIDE_FORBIDDEN`     | 403        | Doctor tries to change a field outside `doctorEditableFields`            |
 | `CARE_FORBIDDEN`                     | 403        | Actor is not authorized for the resource/action                          |
 | `CARE_IDEMPOTENCY_CONFLICT`          | 409        | Idempotency key was reused with a different request hash                 |
