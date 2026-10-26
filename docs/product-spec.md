@@ -296,6 +296,7 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 22. Full refund vẫn là P1 và chỉ được bật khi payment, IPN, cancel, entitlement và reconciliation đã đạt release gate.
 23. Số consultation tối đa mỗi cycle mặc định là Free `1`, Plus `3`, Care `6`. Field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot; đây không phải AI quota.
 24. Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription. Free cũng tạo bản ghi `Subscriptions` với `source = free_grant` và chu kỳ 30 ngày neo tại thời điểm kích hoạt; không tạo PaymentOrder cho Free và không tạo Subscription mới mỗi chu kỳ. `ConsultationUsages` phải gắn chu kỳ cụ thể, không reset toàn bộ người dùng bằng một cron chung.
+24a. Khi tạo hoặc retry PaymentOrder còn payable, backend trả `paymentUrl` đã ký và `paymentQrDataUrl` mã hóa đúng URL đó để client hiển thị QR. Đây là artifact tạm thời: không lưu QR/URL ký vào database hoặc log, không có endpoint QR riêng, và order `paid|cancelled|expired` phải trả cả hai giá trị là `null`.
 25. `consultationsUsed` đếm trực tiếp số Consultation đã sử dụng; số còn lại bằng limit trừ số đã dùng và reservation đang hoạt động.
 26. Giới hạn consultation không đồng nghĩa phiên miễn phí và không bảo đảm Doctor còn slot. Chi phí/ưu đãi của từng phiên là chính sách giá độc lập trong Plan.
 27. Add-on có thể tăng consultation limit hiệu dụng; add-on phải có source order, expiry, số lượt bổ sung và ledger idempotent.
@@ -607,6 +608,8 @@ stateDiagram-v2
 ```
 
 - Return URL chỉ hiển thị trạng thái; IPN hợp lệ mới ghi nhận paid và tạo outbox event yêu cầu cấp quyền lợi.
+- API P0: `POST /billing/payments/orders` (Patient, bắt buộc `Idempotency-Key`, server nhận `planId` nhưng tự chụp giá/quyền lợi và trả `paymentUrl`/`paymentQrDataUrl` khi order còn payable), `GET /billing/payments/orders/:id` (chỉ owner; Return UI dùng để đọc trạng thái), `POST /billing/payments/orders/:id/cancel` (chỉ owner, chỉ unpaid) và public `GET /billing/payments/vnpay/ipn` theo callback contract của VNPAY. API không nhận amount, benefit, transaction reference hoặc trạng thái từ client.
+- Khi provider feature flag tắt, hệ thống từ chối tạo order mới nhưng vẫn nhận IPN hợp lệ cho order đã tạo; điều này ngăn phát sinh giao dịch mới mà không bỏ sót tiền đã thu.
 - Duplicate IPN không tạo hai subscriptions.
 - Mỗi paid order tạo một Subscription grant có `sourceOrderId` unique.
 - Worker cấp grant idempotent và reconciliation phục hồi trường hợp paid-without-grant. DA2 dùng state machine + Mongo transaction + transactional outbox, chưa dùng Saga framework.

@@ -15,11 +15,13 @@ import { CareTaskReminderService } from '../../modules/chronic-care/application/
 import { NotificationType } from '../../modules/notifications/domain/entities/notification.entity';
 import { CareMetricEvaluationService } from '../../modules/chronic-care/application/services/care-metric-evaluation.service';
 import { ConsultationStaleRecoveryService } from '../../modules/consultations/application/services/consultations/consultation-stale-recovery.service';
+import { SubscriptionPaymentGrantService } from '../../modules/billing/application/services/subscription-payment-grant.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
 const CARE_TASK_SCHEDULE_JOB = 'schedule-care-tasks';
 const CONSULTATION_STALE_RECOVERY_JOB = 'recover-stale-consultations';
+const PAYMENT_RECONCILIATION_JOB = 'reconcile-payment-grants';
 const OUTBOX_OBSERVATION_INTERVAL_MS = 60_000;
 const OUTBOX_PENDING_LAG_WARNING_MS = 5 * 60_000;
 export const NOTIFICATION_REALTIME_CHANNEL = 'healthcare:notification-events';
@@ -34,6 +36,7 @@ export class OutboxWorkerService
   private lastObservedAt = 0;
   private readonly careAutomationEnabled: boolean;
   private readonly consultationRecoveryEnabled: boolean;
+  private readonly paymentReconciliationEnabled: boolean;
   constructor(
     private readonly config: ConfigService,
     private readonly outbox: OutboxService,
@@ -43,11 +46,14 @@ export class OutboxWorkerService
     private readonly reminders: CareTaskReminderService,
     private readonly careMetrics: CareMetricEvaluationService,
     private readonly staleConsultations: ConsultationStaleRecoveryService,
+    private readonly subscriptionGrants: SubscriptionPaymentGrantService,
   ) {
     this.careAutomationEnabled =
       this.config.get<boolean>('CARE_MONITORING_AUTOMATION_ENABLED') === true;
     this.consultationRecoveryEnabled =
       this.config.get<boolean>('CONSULTATION_STALE_RECOVERY_ENABLED') === true;
+    this.paymentReconciliationEnabled =
+      this.config.get<boolean>('PAYMENT_RECONCILIATION_ENABLED') === true;
   }
 
   async onModuleInit() {
@@ -67,6 +73,10 @@ export class OutboxWorkerService
               ? this.consultationRecoveryEnabled
                 ? this.staleConsultations.recover()
                 : undefined
+              : job.name === PAYMENT_RECONCILIATION_JOB
+                ? this.paymentReconciliationEnabled
+                  ? this.subscriptionGrants.reconcilePaidWithoutGrant()
+                  : undefined
               : this.deliverEvent(
                   String(job.data.eventId),
                   job.attemptsMade,
@@ -108,6 +118,15 @@ export class OutboxWorkerService
       );
     } else {
       await this.queue.removeJobScheduler('consultation-stale-recovery');
+    }
+    if (this.paymentReconciliationEnabled) {
+      await this.queue.upsertJobScheduler(
+        'payment-grant-reconciliation',
+        { every: 60_000 },
+        { name: PAYMENT_RECONCILIATION_JOB, data: {}, opts: { removeOnComplete: 100, removeOnFail: 100 } },
+      );
+    } else {
+      await this.queue.removeJobScheduler('payment-grant-reconciliation');
     }
   }
 
@@ -181,6 +200,13 @@ export class OutboxWorkerService
       return;
     }
     try {
+      if (event.eventType === 'subscription.grant.requested') {
+        const payload = event.payload as { orderId?: string };
+        if (!payload.orderId) throw new Error('Invalid subscription grant payload');
+        await this.subscriptionGrants.grantForPaidOrder(payload.orderId);
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
       if (event.eventType === 'health.metric.recorded') {
         const payload = event.payload as { metricId?: string };
         if (!payload.metricId) throw new Error('Invalid care metric event');

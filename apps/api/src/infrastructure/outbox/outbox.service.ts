@@ -50,6 +50,14 @@ export class OutboxService {
       .exec();
   }
 
+  async getLatestForAggregate(aggregateType: string, aggregateId: Types.ObjectId) {
+    return this.model
+      .findOne({ aggregateType, aggregateId })
+      .sort({ createdAt: -1, _id: -1 })
+      .lean()
+      .exec();
+  }
+
   async claimBatch(limit = 50, leaseMs = 30_000, excludedTypes: string[] = []) {
     const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
     const now = new Date();

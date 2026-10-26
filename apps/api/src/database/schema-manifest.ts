@@ -41,6 +41,7 @@ import { DATA001A_CONSULTATION_INDEXES } from './migrations/202610152000-data001
 import { CC013B_CONSULTATION_COLLECTION } from './migrations/202610201100-cc013b-stale-consultation-recovery';
 import { CC012B_AI_QUOTA_COLLECTIONS, CC012B_AI_QUOTA_INDEXES } from './migrations/202610211000-cc012b-ai-quota';
 import { CC012B_AI_QUOTA_SETTLEMENT_COLLECTIONS } from './migrations/202610221000-cc012b-ai-quota-settlement';
+import { CC7_PAYMENT_COLLECTIONS, CC7_PAYMENT_INDEXES } from './migrations/202610231000-cc7-payment-orders';
 import { CC008_CARE_ALERT_CONSULTATION_INDEX } from './migrations/202610161000-cc008-care-alert-consultation-link';
 import {
   CC003A_ALERT_DEDUP_INDEXES,
@@ -126,6 +127,7 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   ...CC012_BILLING_COLLECTIONS,
   CC013_CONSULTATION_USAGE_COLLECTION,
   ...CC012B_AI_QUOTA_SETTLEMENT_COLLECTIONS,
+  ...CC7_PAYMENT_COLLECTIONS,
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
@@ -305,6 +307,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...CC012_BILLING_INDEXES,
   ...CC013_CONSULTATION_USAGE_INDEXES,
   ...CC012B_AI_QUOTA_INDEXES,
+  ...CC7_PAYMENT_INDEXES,
 ] as const;
 
 export async function ensureInfrastructureCollections(db: Db): Promise<void> {

@@ -7,7 +7,8 @@ const DEMO_PASSWORD = 'Password123!';
 export async function seedDemoData(db: Db): Promise<void> {
   const password = await bcrypt.hash(DEMO_PASSWORD, 12);
   const users = db.collection('users');
-  await users.createIndex({ email: 1 }, { name: 'email_1', unique: true });
+  // The canonical user-email index is owned by migrations. Recreating it here
+  // can conflict when its partial-filter definition evolves.
   await users.bulkWrite(
     [
       {
@@ -24,12 +25,16 @@ export async function seedDemoData(db: Db): Promise<void> {
       updateOne: {
         filter: { email: user.email },
         update: {
+          // A repeatable demo seed must also repair an older OAuth-only demo
+          // account so the documented test credentials remain usable.
+          $set: {
+            passwordHash: password,
+            updatedAt: new Date(),
+          },
           $setOnInsert: {
             ...user,
-            password,
             accountStatus: 'active',
             createdAt: new Date(),
-            updatedAt: new Date(),
           },
         },
         upsert: true,

@@ -636,6 +636,8 @@ interface PaymentOrderDto {
   currency: "VND";
   status: PaymentOrderStatus;
   paymentUrl?: string;
+  /** Returned only by create/retry while payable; renders the same signed URL. */
+  paymentQrDataUrl?: string;
   expiresAt?: IsoDateTime;
   paidAt?: IsoDateTime;
   cancelledAt?: IsoDateTime;
@@ -981,12 +983,12 @@ Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; 
 |---|---|---|---|---|---|
 | BILL-01 | `GET /plans` | Authenticated | active only | `PlanDto[]` | Target P0 |
 | BILL-02 | `GET /subscriptions/me` | Patient | status/page | subscriptions + effective entitlement | Target P0 |
-| BILL-03 | `POST /billing/orders` | Patient | `{ planId, returnUrl }` + idempotency | `PaymentOrderDto` | Target P0 |
+| BILL-03 | `POST /billing/payments/orders` | Patient | `{ planId }` + `Idempotency-Key` | `PaymentOrderDto` + transient `paymentUrl`/`paymentQrDataUrl` | Implemented CC-7 |
 | BILL-04 | `GET /billing/orders` | Patient | status/page | order page | Target P0 |
 | BILL-05 | `GET /billing/orders/:id` | Owner/Admin | none | order + transaction summary | Target P0 |
 | BILL-06 | `POST /billing/orders/:id/cancel` | Owner/Admin | reason + idempotency | order | Target P0 |
 | BILL-07 | `GET /billing/vnpay/return` | Public/provider redirect | VNPAY params | redirect/page-safe status only | Target P0 |
-| BILL-08 | `GET /billing/vnpay/ipn` | VNPAY | signed params | provider-required acknowledgement | Target P0 |
+| BILL-08 | `GET /billing/payments/vnpay/ipn` | VNPAY | signed params | provider-required acknowledgement | Implemented CC-7 |
 | BILL-09 | `POST /billing/orders/:id/refunds` | Patient owner | reason/reasonCode + idempotency | `PaymentRefundDto` | Target P1 |
 | BILL-10 | `GET /billing/refunds/:id` | Owner/Admin | none | refund | Target P1 |
 | BILL-11 | `GET /admin/billing/orders` | Admin | status/date/user/orderCode/page | order page + totals | Target P0 |
@@ -999,7 +1001,7 @@ Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; 
 | BILL-18 | `GET /subscriptions/me/usage` | Patient | none | effective cycle + AI/consultation/Program/family usage and remaining limits | Target P0 |
 | BILL-19 | `POST /admin/billing/orders/:id/reconcile` | Authorized Admin | none + idempotency | refreshed order/transaction/grant status | Target P0; không mark-paid thủ công |
 
-IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` chỉ được mở sau khi BILL-03 trả về. Return page luôn gọi BILL-05 để lấy trạng thái nguồn chuẩn.
+IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` và `paymentQrDataUrl` chỉ được dùng sau khi BILL-03 trả về; QR mã hóa đúng signed URL và không được persist/cache vượt quá hạn order. Return page luôn gọi BILL-05 để lấy trạng thái nguồn chuẩn.
 
 ### 5.7 Notification, moderation và admin dashboard
 
@@ -1221,7 +1223,7 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 |---|---|
 | BILL-01 | Trả các Plan published đang bán với version, giá, quota, benefits và refund policy; không trả draft/retired cho Patient. |
 | BILL-02 | Trả subscription history và effective entitlement của Patient, gồm plan snapshot/chu kỳ/thay đổi kế tiếp; một user chỉ có một active subscription. |
-| BILL-03 | Tạo PaymentOrder từ Plan server-side, chụp immutable snapshot, kiểm tra duplicate/idempotency và trả URL VNPAY; không tin amount từ client. |
+| BILL-03 | Tạo PaymentOrder từ Plan server-side, chụp immutable snapshot, kiểm tra duplicate/idempotency và trả URL VNPAY kèm QR tạm thời mã hóa cùng URL khi order còn payable; không tin amount từ client. |
 | BILL-04 | Liệt kê order của Patient theo status/page để hiển thị lịch sử; transaction payload nhạy cảm không nằm trong response. |
 | BILL-05 | Trả order detail và safe transaction summary; đây là source of truth sau VNPAY return thay vì query success trên URL. |
 | BILL-06 | Hủy order chưa thanh toán khi còn trạng thái cho phép; transition conditional để không thắng race với IPN paid. |

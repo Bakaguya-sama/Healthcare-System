@@ -180,6 +180,7 @@ describe('CC-003A worker pipeline', () => {
       reminders,
       careMetrics,
       { recover: async () => undefined } as never,
+      { grantForPaidOrder: async () => undefined } as never,
     );
     await worker.onModuleInit();
   });
