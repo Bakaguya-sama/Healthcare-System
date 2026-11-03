@@ -1,0 +1,29 @@
+OK
+@startuml
+autoactivate on
+title Nhắn tin với chatbot
+actor "Bệnh nhân" as A
+boundary "AI Chat Page" as UI
+control AiAssistantController as C
+control AiAssistantService as S
+database MongoDB as DB
+actor "AI Provider" as AI
+A -> UI : Gửi câu hỏi sức khỏe
+UI -> C : POST conversation message
+C -> S : askAssistant(message)
+S -> DB : Kiểm tra quota và lấy context được phép
+DB --> S : quota, context
+alt Hết quota hoặc nội dung bị chặn
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> AI : generateGroundedResponse(context, message)
+ AI --> S : response
+ S -> DB : Lưu conversation và message
+ DB --> S : saved
+ S --> C : answer
+ C --> UI : answer
+ UI --> A : Hiển thị phản hồi AI
+end
+@enduml

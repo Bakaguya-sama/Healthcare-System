@@ -37,14 +37,14 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 10. Baseline, eligibility, consent, task templates, reminder, rule set, review policy, content journey và completion criteria phải được snapshot hoặc tham chiếu version ổn định khi enrollment kích hoạt. Trong DA2, `taskTemplates` được nhúng trong từng phiên bản `CarePrograms`; nhiệm vụ đã sinh được lưu riêng trong `CareTasks`.
 11. Baseline dùng schema `v1` allowlist gồm `key`, primitive `type`, `unit`, numeric `range`, `required` và `visibility`; enrollment lưu cả form và `programConfig.baselineSchemaVersion` snapshot. Không hỗ trợ expression thực thi hay workflow builder tự do; lỗi validation chỉ trả field key/reason code an toàn.
 12. Task template P0 được snapshot trong enrollment và chỉ hỗ trợ lịch daily theo IANA timezone với `windowMinutes`. Backend persist UTC, dùng unique key xác định để retry không tạo task trùng, và tính adherence từ task required đã `completed` hoặc `missed`.
-11. Doctor chỉ được tùy chỉnh các field được Program Template allowlist. Thay đổi patient-specific threshold hoặc review cadence phải có quyền, lý do và audit.
-12. Admin quản lý lifecycle/version/publish/retire của Program Template và tạo/sửa/retire Rule draft qua `rule-management permission`; mọi Doctor `active + approved` có thể activate Rule mà không cần permission/approval riêng. Activate tự retire Rule active cũ của cùng Program version trong một thao tác audit.
-13. Rule activation bắt buộc qua server validation cho declarative schema, operator allowlist, Program version và audit. Nguồn/căn cứ, simulation/test evidence là metadata tùy chọn trong DA2, không phải activation gate; AI vẫn không được tự phát hành Rule khi không có Admin/Doctor actor.
-14. Doctor assignment bắt buộc ở mọi tier để xác định ownership và authorization; không mặc định tạo nghĩa vụ review định kỳ, SLA hoặc chat 24/7. Các quyền đó chỉ có khi Plan/Enrollment snapshot ghi rõ.
-15. `pending -> active` chỉ xảy ra tự động khi đồng thời có Doctor `active + approved`, Program `published`, Care Rule `active`, entitlement hợp lệ, Patient đã chấp nhận đúng consent version và hoàn thành toàn bộ baseline bắt buộc. Thiếu một điều kiện thì enrollment vẫn `pending` và không sinh task/evaluation.
-16. Assigned Doctor được chuyển `active -> paused` và `paused -> active` với lý do. Patient có thể gửi yêu cầu pause; Doctor phải xử lý yêu cầu trước khi resume. Resume phải kiểm tra lại Doctor, Program/Rule, consent và entitlement.
-17. Assigned Doctor hoặc worker completion được duyệt có thể chuyển `active|paused -> completed` khi đạt completion criteria; phải lưu actor/reason. Patient rút consent làm enrollment chưa kết thúc chuyển `cancelled` ngay; chỉ Assigned Doctor được cancel với lý do.
-18. `completed` và `cancelled` là trạng thái cuối, không reopen. Nếu Patient tiếp tục chương trình, Doctor tạo enrollment mới để giữ nguyên lịch sử và snapshot cũ.
+13. Doctor chỉ được tùy chỉnh các field được Program Template allowlist. Thay đổi patient-specific threshold hoặc review cadence phải có quyền, lý do và audit.
+14. Admin quản lý lifecycle/version/publish/retire của Program Template và tạo/sửa/retire Rule draft qua `rule-management permission`; mọi Doctor `active + approved` có thể activate Rule mà không cần permission/approval riêng. Activate tự retire Rule active cũ của cùng Program version trong một thao tác audit.
+15. Rule activation bắt buộc qua server validation cho declarative schema, operator allowlist, Program version và audit. Nguồn/căn cứ, simulation/test evidence là metadata tùy chọn trong DA2, không phải activation gate; AI vẫn không được tự phát hành Rule khi không có Admin/Doctor actor.
+16. Doctor assignment bắt buộc ở mọi tier để xác định ownership và authorization; không mặc định tạo nghĩa vụ review định kỳ, SLA hoặc chat 24/7. Các quyền đó chỉ có khi Plan/Enrollment snapshot ghi rõ.
+17. `pending -> active` chỉ xảy ra tự động khi đồng thời có Doctor `active + approved`, Program `published`, Care Rule `active`, entitlement hợp lệ, Patient đã chấp nhận đúng consent version và hoàn thành toàn bộ baseline bắt buộc. Thiếu một điều kiện thì enrollment vẫn `pending` và không sinh task/evaluation.
+18. Assigned Doctor được chuyển `active -> paused` và `paused -> active` với lý do. Patient có thể gửi yêu cầu pause; Doctor phải xử lý yêu cầu trước khi resume. Resume phải kiểm tra lại Doctor, Program/Rule, consent và entitlement.
+19. Assigned Doctor hoặc worker completion được duyệt có thể chuyển `active|paused -> completed` khi đạt completion criteria; phải lưu actor/reason. Patient rút consent làm enrollment chưa kết thúc chuyển `cancelled` ngay; chỉ Assigned Doctor được cancel với lý do.
+20. `completed` và `cancelled` là trạng thái cuối, không reopen. Nếu Patient tiếp tục chương trình, Doctor tạo enrollment mới để giữ nguyên lịch sử và snapshot cũ.
 
 ## Monitoring Task và mức độ hoàn thành
 
@@ -137,7 +137,7 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 15. Summary lưu `generated|fallback|failed`, model/prompt version, rule set version, input hash/source refs, validation result, token/latency metadata không chứa raw health data và Doctor review status nếu có.
 16. RAG chỉ bổ sung kiến thức giáo dục từ tài liệu active/approved; RAG không tính thống kê, chọn threshold, thay đổi rule result hoặc quyết định hành động khẩn.
 17. Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`, không duyệt thủ công từng chunk. `AiDocuments.reviewStatus` là nguồn chuẩn; khi document được duyệt/archived, worker dùng bulk update đồng bộ `AiDocumentChunks.reviewStatus/isActive`.
-17a. Mỗi `AiDocumentChunks` phải kế thừa metadata quản trị từ document và metadata vị trí từ parser: nguồn/tổ chức, trạng thái duyệt, phiên bản, ngày hiệu lực, chuyên khoa, ngôn ngữ, đối tượng đọc, trang và đường dẫn section.
+    17a. Mỗi `AiDocumentChunks` phải kế thừa metadata quản trị từ document và metadata vị trí từ parser: nguồn/tổ chức, trạng thái duyệt, phiên bản, ngày hiệu lực, chuyên khoa, ngôn ngữ, đối tượng đọc, trang và đường dẫn section.
 18. Retrieval chỉ dùng chunk `isActive = true`, `reviewStatus = approved`, chưa hết hiệu lực và khớp phạm vi. `citation` phải trỏ đúng document, version, page/section và source URL; backend kiểm tra chunk/citation trước khi trả lời.
 19. `contentHash` chống chunk trùng trong cùng document; `ingestionVersion` xác định parser/chunker/embedding version để re-ingestion. `parentChunkId` chỉ dùng lấy section cha đủ ngữ cảnh, không bỏ qua metadata filter của child hoặc parent.
 20. Chunk lỗi hoặc không phù hợp được loại riêng bằng `isActive = false`, `excludedBy`, `excludedAt`, `exclusionReason`; thao tác này không thay đổi trạng thái duyệt của toàn document. Document version mới phải được duyệt trước khi thay thế version cũ đang active.
@@ -186,7 +186,7 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 
 **CC-013A — đã triển khai backend (20/10/2026):** Consultation do assigned Doctor tạo từ Care Alert `urgent` còn `open|acknowledged` được backend xác minh và snapshot `quotaPolicy = care_program_included`. Nó không gọi reserve/count/release quota thông thường, không cần Subscription còn active và không đổi khi enrollment/subscription sau đó hết hạn, pause hoặc downgrade. Đây là snapshot an toàn cho safety follow-up đã được tạo từ alert; nó không thay đổi severity, không bảo đảm Doctor/slot và không thay thế hướng dẫn cấp cứu. Alert `attention` và mọi consultation HTTP thông thường snapshot `consultation_limit`, tiếp tục dùng ledger chuẩn. Client không thể gửi severity hoặc quota policy để tự miễn. Retry trả đúng consultation/policy cũ; `legacyQuotaExempt` vẫn chỉ dành cho booking lịch sử được audit.
 
-**Charge contract:** `care_program_included` nghĩa là không tạo khoản phí riêng cho consultation đó. Source hiện chưa có pricing/payment/order flow để tạo khoản phí, nên không có đường thu phí hiện tại cần bỏ qua; khi CC-7 thêm flow này, nó bắt buộc đọc snapshot policy và từ chối tạo charge cho `care_program_included`. Không được suy ra miễn phí từ việc thiếu ledger hoặc dùng `legacyQuotaExempt` thay policy.
+**Charge contract:** `care_program_included` nghĩa là không tạo khoản phí riêng cho consultation đó. `CC-PAY-001` chỉ xử lý mua/gia hạn Subscription và không tạo PaymentOrder cho từng Consultation. Nếu một consultation-charging slice được bổ sung sau này, nó bắt buộc đọc snapshot policy và từ chối tạo charge cho `care_program_included`; không mở lại exit gate `CC-PAY-001`. Không được suy ra miễn phí từ việc thiếu ledger hoặc dùng `legacyQuotaExempt` thay policy.
 
 1. Bác sĩ tạo AvailabilitySlots với start time, end time và timezone. Một bác sĩ không được có hai slot cùng start time.
 2. Slot có các trạng thái available, booked, blocked hoặc expired.
@@ -213,24 +213,24 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 
 ### Request status
 
-| Trạng thái | Ý nghĩa |
-|---|---|
-| pending | Chờ bác sĩ duyệt. |
-| accepted | Có thể bắt đầu hoặc chờ tới giờ tư vấn. |
-| declined | Bác sĩ từ chối. |
-| cancelled | Bệnh nhân hoặc bác sĩ hủy. |
-| expired | Không được xử lý trước hạn. |
+| Trạng thái | Ý nghĩa                                 |
+| ---------- | --------------------------------------- |
+| pending    | Chờ bác sĩ duyệt.                       |
+| accepted   | Có thể bắt đầu hoặc chờ tới giờ tư vấn. |
+| declined   | Bác sĩ từ chối.                         |
+| cancelled  | Bệnh nhân hoặc bác sĩ hủy.              |
+| expired    | Không được xử lý trước hạn.             |
 
 ### Session status
 
-| Trạng thái | Ý nghĩa |
-|---|---|
-| not started | Chưa check-in hoặc chưa bắt đầu. |
-| waiting | Bệnh nhân đã check-in và đang chờ. |
-| in consultation | Bác sĩ đang tư vấn. |
-| interrupted | Phiên bị gián đoạn do mất heartbeat/kết nối; có thể resume hoặc được Doctor hoàn tất. |
-| completed | Phiên tư vấn đã kết thúc. |
-| no show | Bệnh nhân không xuất hiện đúng quy định. |
+| Trạng thái      | Ý nghĩa                                                                               |
+| --------------- | ------------------------------------------------------------------------------------- |
+| not started     | Chưa check-in hoặc chưa bắt đầu.                                                      |
+| waiting         | Bệnh nhân đã check-in và đang chờ.                                                    |
+| in consultation | Bác sĩ đang tư vấn.                                                                   |
+| interrupted     | Phiên bị gián đoạn do mất heartbeat/kết nối; có thể resume hoặc được Doctor hoàn tất. |
+| completed       | Phiên tư vấn đã kết thúc.                                                             |
+| no show         | Bệnh nhân không xuất hiện đúng quy định.                                              |
 
 ## Check-in và hàng đợi
 
@@ -281,7 +281,7 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 8. Free luôn có quyền nhập/xem HealthMetrics của chính Patient, biểu đồ cơ bản, một Care Program cơ bản, in-app notification, quota AI cơ bản và safety alert thiết yếu.
 9. Plus bao gồm Free và có thể cấp nhiều Care Program, báo cáo 7/30/90 ngày, weekly AI summary, smart reminder/quiet hours, medication reminder, PDF/CSV và quota AI cao hơn theo Plan.
 10. Care bao gồm Plus và có thể cấp Doctor-assigned Program, Doctor review theo cadence, Priority Inbox, follow-up, nhắc tái khám và ưu đãi giá consultation theo Plan snapshot.
-10a. Khi tính năng Người thân đồng hành P1 được bật, số người thân active lấy từ `familyLinkLimit` trong Plan snapshot; Care có thể mặc định một hoặc nhiều người, Plus có thể mua add-on. Entitlement chỉ cấp số lượng liên kết, không ghi đè consent hoặc mở quyền xem dữ liệu chi tiết.
+    10a. Khi tính năng Người thân đồng hành P1 được bật, số người thân active lấy từ `familyLinkLimit` trong Plan snapshot; Care có thể mặc định một hoặc nhiều người, Plus có thể mua add-on. Entitlement chỉ cấp số lượng liên kết, không ghi đè consent hoặc mở quyền xem dữ liệu chi tiết.
 11. Doctor-reviewed/confirmed report chỉ xác nhận Doctor đã xem báo cáo; không được trình bày thành chẩn đoán, đơn thuốc hoặc bảo đảm kết quả điều trị.
 12. Nhắn tin Doctor chỉ tồn tại trong Consultation được authorize. Không tier nào mặc định tạo chat 24/7 hoặc cam kết phản hồi cấp cứu.
 13. DA2 chưa có Clinic/Clinic Admin và không quảng bá SLA phản hồi. Giao diện phải nêu rõ Doctor không theo dõi realtime; SLA theo tổ chức chỉ được xem xét sau DA2 khi có mô hình Clinic, giờ phục vụ, nhân sự, escalation và cơ chế đo lường.
@@ -296,7 +296,7 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 22. Full refund vẫn là P1 và chỉ được bật khi payment, IPN, cancel, entitlement và reconciliation đã đạt release gate.
 23. Số consultation tối đa mỗi cycle mặc định là Free `1`, Plus `3`, Care `6`. Field chuẩn là `consultationLimitPerCycle` trong Plan/Subscription snapshot; đây không phải AI quota.
 24. Plus/Care dùng `currentPeriodStart/currentPeriodEnd` của Subscription. Free cũng tạo bản ghi `Subscriptions` với `source = free_grant` và chu kỳ 30 ngày neo tại thời điểm kích hoạt; không tạo PaymentOrder cho Free và không tạo Subscription mới mỗi chu kỳ. `ConsultationUsages` phải gắn chu kỳ cụ thể, không reset toàn bộ người dùng bằng một cron chung.
-24a. Khi tạo hoặc retry PaymentOrder còn payable, backend trả `paymentUrl` đã ký và `paymentQrDataUrl` mã hóa đúng URL đó để client hiển thị QR. Đây là artifact tạm thời: không lưu QR/URL ký vào database hoặc log, không có endpoint QR riêng, và order `paid|cancelled|expired` phải trả cả hai giá trị là `null`.
+    24a. Khi tạo hoặc retry PaymentOrder còn payable, backend trả `paymentUrl` đã ký và `paymentQrDataUrl` mã hóa đúng URL đó để client hiển thị QR. Đây là artifact tạm thời: không lưu QR/URL ký vào database hoặc log, không có endpoint QR riêng, và order `paid|cancelled|expired` phải trả cả hai giá trị là `null`.
 25. `consultationsUsed` đếm trực tiếp số Consultation đã sử dụng; số còn lại bằng limit trừ số đã dùng và reservation đang hoạt động.
 26. Giới hạn consultation không đồng nghĩa phiên miễn phí và không bảo đảm Doctor còn slot. Chi phí/ưu đãi của từng phiên là chính sách giá độc lập trong Plan.
 27. Add-on có thể tăng consultation limit hiệu dụng; add-on phải có source order, expiry, số lượt bổ sung và ledger idempotent.
@@ -306,7 +306,7 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 31. Retry, duplicate event hoặc reconnect không được count/hủy reservation hai lần; ledger entry phải gắn `consultationId` và idempotency key.
 32. Khi hết số lượt, Patient có thể chờ cycle mới, nâng gói hoặc mua add-on. Safety alert vẫn hoạt động và tình huống khẩn cấp phải hướng tới cơ sở y tế/cấp cứu. Sau `CC-013A`, consultation đủ điều kiện từ urgent alert không bị chặn bởi quota consultation thông thường và không thu phí riêng.
 33. AI chat dùng `aiTokenLimit` làm quota chính, tính trên tổng input + output token đã commit trong kỳ. `aiRequestLimit` là giới hạn phụ chống spam và trường hợp request rất nhỏ; summary job có ngân sách token riêng. Các giới hạn này không dùng chung với consultation limit. Artifact khởi đầu dùng quota ngày: `FREE = 10 request / 25,000 token`, `PLUS = 40 / 120,000`, `CARE = 80 / 250,000`.
-33a. Trước khi gọi model, backend reserve một envelope `estimatedInputTokens + maxOutputTokens` trong usage ledger để admission atomically. Khi Gemini trả kết quả, backend phải lấy `response.usageMetadata.promptTokenCount` và `candidatesTokenCount` của **mọi** provider call thuộc request (phân tích ảnh, trả lời chính và tóm tắt topic nếu có), commit tổng token thực tế vào `AiUsageDaily` và release phần dư. Estimate chỉ là mức giữ chỗ, không là số liệu quyết toán. Request lỗi/timeout phải release reservation; retry dùng idempotency key để không trừ token hai lần. Nếu không nhận được usage metadata, không được âm thầm quay về `text.length / 4`: giữ reservation để reconciliation/audit hoặc áp dụng policy fail-closed đã version hóa.
+    33a. Trước khi gọi model, backend reserve một envelope `estimatedInputTokens + maxOutputTokens` trong usage ledger để admission atomically. Khi Gemini trả kết quả, backend phải lấy `response.usageMetadata.promptTokenCount` và `candidatesTokenCount` của **mọi** provider call thuộc request (phân tích ảnh, trả lời chính và tóm tắt topic nếu có), commit tổng token thực tế vào `AiUsageDaily` và release phần dư. Estimate chỉ là mức giữ chỗ, không là số liệu quyết toán. Request lỗi/timeout phải release reservation; retry dùng idempotency key để không trừ token hai lần. Nếu không nhận được usage metadata, không được âm thầm quay về `text.length / 4`: giữ reservation để reconciliation/audit hoặc áp dụng policy fail-closed đã version hóa.
 34. PaymentOrder dùng state machine `created|pending|processing|paid|failed|expired|cancelled|refund_pending|refunded`; mọi transition là conditional, có actor/source/time và audit. Timeout/unknown không được tự chuyển thành failed nếu chưa đối soát provider.
 35. Trong một Mongo transaction, IPN hợp lệ upsert PaymentTransaction, chuyển order sang paid và ghi đúng một `SubscriptionGrantRequested` OutboxEvent. Không gọi VNPAY hoặc dịch vụ ngoài trong transaction.
 36. Worker cấp Subscription idempotent theo `sourceOrderId`/grant key. Lỗi worker được retry; không tạo payment mới và không chuyển order paid về pending.
@@ -367,7 +367,6 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 4. Tất cả thời gian lưu UTC; timezone chỉ dùng để hiển thị và kiểm tra lịch của bác sĩ hoặc bệnh nhân.
 5. Các enum, thời hạn và limit trong tài liệu này phải được đặt thành cấu hình, không hard-code rải rác trong service.
 
-
 ## Product and architecture overview
 
 # Healthcare Application — Tổng quan sản phẩm DA2
@@ -409,11 +408,11 @@ Khi có dấu hiệu khẩn cấp, hệ thống phải hướng người dùng t
 
 ## 3. Vai trò và kênh sử dụng
 
-| Vai trò | Web Client | Mobile | Web Admin |
-|---|---|---|---|
-| Patient | Theo dõi sức khỏe, tìm bác sĩ, đặt lịch, on-demand, queue, chat/call, AI, billing | Critical patient flows, FCM và secure token storage | Không |
-| Doctor | Care Program, Priority Inbox, dashboard, slot, request, queue, chat/call, hồ sơ và review | Critical doctor flows, FCM và call foreground | Không |
-| Admin | Không dùng client cho nghiệp vụ quản trị | Ngoài MVP | Dashboard, users, doctor verification, AI knowledge, plans, payments/refunds, moderation |
+| Vai trò | Web Client                                                                                | Mobile                                              | Web Admin                                                                                |
+| ------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Patient | Theo dõi sức khỏe, tìm bác sĩ, đặt lịch, on-demand, queue, chat/call, AI, billing         | Critical patient flows, FCM và secure token storage | Không                                                                                    |
+| Doctor  | Care Program, Priority Inbox, dashboard, slot, request, queue, chat/call, hồ sơ và review | Critical doctor flows, FCM và call foreground       | Không                                                                                    |
+| Admin   | Không dùng client cho nghiệp vụ quản trị                                                  | Ngoài MVP                                           | Dashboard, users, doctor verification, AI knowledge, plans, payments/refunds, moderation |
 
 Frontend sẽ được tách thành repository riêng gồm:
 
@@ -664,19 +663,19 @@ flowchart LR
 
 Backend sử dụng Modular Monolith, chia theo capability:
 
-| Module | Dữ liệu sở hữu |
-|---|---|
-| authentication | Users, OAuthAccounts, AuthSessions, UserDevices |
-| practitioner-management | DoctorProfile embedded trong Users và verification policy |
-| consultations | AvailabilitySlots, Consultations, ConsultationMessages, Reviews |
-| health-tracking | HealthMetrics |
-| chronic-care | CarePrograms, CareRules, PatientCarePrograms, CareTasks, HealthEvaluations, CareAlerts, CareReports, CareSummaries, FamilyLinks, FamilyPermissions, FamilyReminders |
-| care-directory | MedicalFacilities, DiseaseSpecialties |
-| ai-advisory | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords |
-| billing | Plans, PaymentOrders, PaymentTransactions, Subscriptions, SubscriptionAddOns, ConsultationUsages, PaymentRefunds |
-| notifications | NotificationCampaigns, NotificationCampaignRecipients, Notifications, OutboxEvents |
-| moderation | ViolationReports |
-| platform-audit | AuditLogs dùng chung, phân biệt bằng `domain` |
+| Module                  | Dữ liệu sở hữu                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| authentication          | Users, OAuthAccounts, AuthSessions, UserDevices                                                                                                                     |
+| practitioner-management | DoctorProfile embedded trong Users và verification policy                                                                                                           |
+| consultations           | AvailabilitySlots, Consultations, ConsultationMessages, Reviews                                                                                                     |
+| health-tracking         | HealthMetrics                                                                                                                                                       |
+| chronic-care            | CarePrograms, CareRules, PatientCarePrograms, CareTasks, HealthEvaluations, CareAlerts, CareReports, CareSummaries, FamilyLinks, FamilyPermissions, FamilyReminders |
+| care-directory          | MedicalFacilities, DiseaseSpecialties                                                                                                                               |
+| ai-advisory             | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords                                                                         |
+| billing                 | Plans, PaymentOrders, PaymentTransactions, Subscriptions, SubscriptionAddOns, ConsultationUsages, PaymentRefunds                                                    |
+| notifications           | NotificationCampaigns, NotificationCampaignRecipients, Notifications, OutboxEvents                                                                                  |
+| moderation              | ViolationReports                                                                                                                                                    |
+| platform-audit          | AuditLogs dùng chung, phân biệt bằng `domain`                                                                                                                       |
 
 Mongoose là ODM chính. Mỗi collection có một canonical model thuộc module sở hữu; module khác truy cập qua application facade/query port, không inject model trực tiếp.
 
@@ -704,34 +703,34 @@ Nguyên tắc:
 
 ## 9. Công nghệ
 
-| Nhóm | Công nghệ | Vai trò |
-|---|---|---|
-| Backend | Node.js, TypeScript, NestJS | API, authorization, use case và worker bootstrap |
-| Persistence | MongoDB Atlas, Mongoose, MongoDB driver | Business data, migration và feature MongoDB đặc thù |
-| Cache/jobs | Redis, BullMQ | OTP, quota, presence, delayed/retry jobs; worker dùng trực tiếp BullMQ |
-| Realtime | Socket.IO, Redis Adapter, WebRTC, TURN | Chat, notification, queue và call signaling/media |
-| AI | Google GenAI SDK, Atlas Vector Search | AI advisory, summary và RAG |
-| Files/push/email | Cloudinary, FCM, Nodemailer | Attachment, push notification và email |
-| Payment | VNPAY Sandbox | Payment, query/reconciliation và full-refund P1 |
-| Frontend | React, Vite, TanStack Query, Zustand, Tailwind/Shadcn | Web Client và Web Admin |
-| Mobile | React Native, Expo | Patient/doctor critical flows |
-| Quality | Jest, Supertest, k6, GitHub Actions | Unit, integration, E2E, load test và CI/CD |
+| Nhóm             | Công nghệ                                             | Vai trò                                                                |
+| ---------------- | ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| Backend          | Node.js, TypeScript, NestJS                           | API, authorization, use case và worker bootstrap                       |
+| Persistence      | MongoDB Atlas, Mongoose, MongoDB driver               | Business data, migration và feature MongoDB đặc thù                    |
+| Cache/jobs       | Redis, BullMQ                                         | OTP, quota, presence, delayed/retry jobs; worker dùng trực tiếp BullMQ |
+| Realtime         | Socket.IO, Redis Adapter, WebRTC, TURN                | Chat, notification, queue và call signaling/media                      |
+| AI               | Google GenAI SDK, Atlas Vector Search                 | AI advisory, summary và RAG                                            |
+| Files/push/email | Cloudinary, FCM, Nodemailer                           | Attachment, push notification và email                                 |
+| Payment          | VNPAY Sandbox                                         | Payment, query/reconciliation và full-refund P1                        |
+| Frontend         | React, Vite, TanStack Query, Zustand, Tailwind/Shadcn | Web Client và Web Admin                                                |
+| Mobile           | React Native, Expo                                    | Patient/doctor critical flows                                          |
+| Quality          | Jest, Supertest, k6, GitHub Actions                   | Unit, integration, E2E, load test và CI/CD                             |
 
 ## 10. Hiện trạng và chuyển đổi
 
-| Baseline DA1 trước RF-0 | Đích DA2 |
-|---|---|
-| Session API cũ đã bị xóa ở RF-10B | `/consultations` với requestStatus và sessionStatus tách biệt |
-| Patient gửi thời gian tùy ý | Scheduled booking chỉ từ AvailabilitySlot |
-| Chưa có check-in/queue atomic | `queuePriorityAt`, call-next và no-show policy |
-| Chat compatibility theo `sessionId` đã bị xóa | Message/room theo `consultationId`, event canonical |
-| User/Doctor/Admin models còn trùng | Một Users model với embedded role profiles |
-| AI models/endpoints trùng | Một AI Conversation/Message model và capability services |
-| Presence trong process | Redis TTL/heartbeat và Socket.IO Redis Adapter |
-| Notification side effect trực tiếp | Notification + transactional outbox + worker |
-| Chưa có billing implementation | Plans, payment/IPN, cancel, Subscription grant và refund P1 |
-| Health Metrics mới dừng ở ghi nhận/cảnh báo đơn lẻ | Care Program, monitoring adherence, rule evaluation, Care Alert và Doctor Priority Inbox |
-| Frontend/backend cùng monorepo | API là package hiện hành; không còn frontend source trong repository này, mọi consumer dùng OpenAPI/realtime contract |
+| Baseline DA1 trước RF-0                            | Đích DA2                                                                                                                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Session API cũ đã bị xóa ở RF-10B                  | `/consultations` với requestStatus và sessionStatus tách biệt                                                                                                  |
+| Patient gửi thời gian tùy ý                        | Scheduled booking chỉ từ AvailabilitySlot                                                                                                                      |
+| Chưa có check-in/queue atomic                      | `queuePriorityAt`, call-next và no-show policy                                                                                                                 |
+| Chat compatibility theo `sessionId` đã bị xóa      | Message/room theo `consultationId`, event canonical                                                                                                            |
+| User/Doctor/Admin models còn trùng                 | Một Users model với embedded role profiles                                                                                                                     |
+| AI models/endpoints trùng                          | Một AI Conversation/Message model và capability services                                                                                                       |
+| Presence trong process                             | Redis TTL/heartbeat và Socket.IO Redis Adapter                                                                                                                 |
+| Notification side effect trực tiếp                 | Notification + transactional outbox + worker                                                                                                                   |
+| Billing DA1 chưa có implementation                 | DA2 hiện đã có Plan lifecycle, AI quota, VNPAY Sandbox payment/IPN, cancel unpaid order, Subscription grant và reconciliation; refund vẫn P1                   |
+| Health Metrics mới dừng ở ghi nhận/cảnh báo đơn lẻ | Care Program, monitoring adherence, rule evaluation, Care Alert và Doctor Priority Inbox                                                                       |
+| Frontend/backend cùng monorepo                     | Backend monorepo chỉ giữ API/contract; frontend Patient/Doctor/Admin và Payment Return UI nằm ở repository riêng, ghép API sau bằng OpenAPI/realtime canonical |
 
 Các API/page hiện tại và API/page đích được phân biệt rõ trong `docs/integration-contract.md`. Consumer chỉ dùng contract canonical; backend không còn Session compatibility endpoint/event.
 
@@ -747,6 +746,7 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - Chronic Care cho tăng huyết áp và tiểu đường: Doctor-assigned enrollment/consent, monitoring tasks, rule engine, Care Alert, Priority Inbox, báo cáo 7/30 ngày và AI summary có fallback.
 - Liên kết Care Alert với scheduled/on-demand consultation và follow-up.
 - VNPAY Sandbox payment/subscription và cancel unpaid order.
+- Patient xem Plan/Subscription/usage; báo cáo Care có export PDF/CSV được authorize.
 - Web critical journeys và test race/idempotency.
 
 ### P1 có feature flag/cut-line
@@ -758,6 +758,7 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - Medication adherence sau khi hai chương trình P0 đạt gate.
 - Người thân đồng hành với số liên kết theo `familyLinkLimit`, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không cần FamilyGroup trong DA2.
 - Tìm cơ sở y tế chỉ sau Người thân đồng hành và khi còn buffer trước feature freeze; dịch vụ bản đồ bên ngoài chỉ là fallback.
+- Product/operations metrics và dashboard KPI (`CC-OPS-001`) thực hiện hậu DA2; release regression, security/privacy, migration rehearsal và demo evidence vẫn thuộc P0 DA2.
 
 ### Ngoài phạm vi DA2
 
@@ -773,11 +774,10 @@ Full refund mặc định không thuộc committed scope. Chỉ nhận trước 
 ## 12. Tiêu chí hoàn thành
 
 - Business rule, API contract và migration không mâu thuẫn DB v8 đã duyệt; v7 chỉ còn là baseline đã triển khai trước migration, còn v8 là target canonical cho DA2.
-- Backend, Web Client và Web Admin build/typecheck/test xanh.
+- Backend build/typecheck/test xanh; Web Client/Web Admin chỉ được ghi xanh khi repository/owner và source consumer đã được xác nhận.
 - Critical E2E cho auth, Care Program, monitoring, alert, Doctor Inbox, AI fallback, booking/queue/chat và feature P1 được bật.
-- Race/idempotency tests pass cho slot, call-next, IPN và refund.
+- Race/idempotency tests pass cho slot, call-next và IPN; refund chỉ áp dụng nếu feature P1 được nhận.
 - Database rỗng được tạo lại từ migration files và `database:verify` pass.
 - Không log dữ liệu nhạy cảm; room/file/API đều authorize phía server.
 - Demo không cần sửa tay database.
 - README, OpenAPI, realtime events và `integration-contract.md` khớp release thực tế.
-

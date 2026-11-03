@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Đánh giá bác sĩ
+actor "Bệnh nhân" as A
+boundary "Review Form" as UI
+control ReviewController as C
+control ReviewService as S
+database MongoDB as DB
+A -> UI : Nhập điểm đánh giá và nhận xét
+UI -> C : POST reviews
+C -> S : createReview(patientId, consultationId, data)
+S -> DB : Kiểm tra consultation completed và ownership
+DB --> S : eligibility result
+alt Không đủ điều kiện hoặc đã đánh giá
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Lưu review và cập nhật rating bác sĩ
+ DB --> S : saved review
+ S --> C : review
+ C --> UI : successResponse
+ UI --> A : Hiển thị đánh giá thành công
+end
+@enduml

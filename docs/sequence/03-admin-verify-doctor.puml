@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Duyệt hoặc từ chối bác sĩ
+actor Admin
+boundary "Doctor Verification Page" as UI
+control AdminController as C
+control AdminService as S
+database MongoDB as DB
+Admin -> UI : Chọn hồ sơ bác sĩ và duyệt / từ chối
+UI -> C : POST /admin/doctors/{id}/verify|reject
+C -> S : verifyDoctor() / rejectDoctor()
+S -> DB : Lấy hồ sơ bác sĩ
+DB --> S : Doctor application
+alt Hồ sơ không tồn tại hoặc đã xử lý
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> Admin : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Cập nhật verificationStatus và audit log
+ DB --> S : updated
+ S --> C : verification result
+ C --> UI : successResponse
+ UI --> Admin : Hiển thị kết quả xử lý
+end
+@enduml

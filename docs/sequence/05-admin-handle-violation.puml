@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Xử lý báo cáo vi phạm
+actor Admin
+boundary "Violation Report Page" as UI
+control ViolationController as C
+control ViolationService as S
+database MongoDB as DB
+Admin -> UI : Mở báo cáo và chọn xử lý
+UI -> C : PATCH /violations/{id}(status, note)
+C -> S : resolveOrDismissReport()
+S -> DB : Lấy báo cáo vi phạm
+DB --> S : Report | null
+alt Không tìm thấy hoặc trạng thái không hợp lệ
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> Admin : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Cập nhật status, resolution và audit
+ DB --> S : updated report
+ S --> C : result
+ C --> UI : successResponse
+ UI --> Admin : Hiển thị trạng thái đã xử lý
+end
+@enduml

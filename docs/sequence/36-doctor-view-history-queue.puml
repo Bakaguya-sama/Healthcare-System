@@ -1,0 +1,18 @@
+OK
+@startuml
+autoactivate on
+title Xem lịch sử tư vấn và hàng đợi
+actor "Bác sĩ" as A
+boundary "Consultation List Page" as UI
+control ConsultationController as C
+control ConsultationService as S
+database MongoDB as DB
+A -> UI : Chọn lịch sử hoặc hàng đợi
+UI -> C : GET consultations(filters)
+C -> S : getDoctorConsultations(filters)
+S -> DB : Truy vấn consultations và queue
+DB --> S : paginated results
+S --> C : results
+C --> UI : response
+UI --> A : Hiển thị lịch sử/hàng đợi
+@enduml

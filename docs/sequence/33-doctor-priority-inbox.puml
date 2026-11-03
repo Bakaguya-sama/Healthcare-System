@@ -1,0 +1,18 @@
+OK
+@startuml
+autoactivate on
+title Xem cảnh báo và tóm tắt AI
+actor "Bác sĩ" as A
+boundary "Priority Inbox" as UI
+control CareAlertController as C
+control CareAlertService as S
+database MongoDB as DB
+A -> UI : Mở Priority Inbox
+UI -> C : GET alerts and summaries
+C -> S : getAuthorizedAlerts(doctorId)
+S -> DB : Lấy enrollment, alerts và summaries
+DB --> S : authorized data
+S --> C : priority items
+C --> UI : response
+UI --> A : Hiển thị cảnh báo, trend và summary
+@enduml

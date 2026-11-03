@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Tham gia chương trình theo dõi sức khỏe
+actor "Bệnh nhân" as A
+boundary "Care Program Page" as UI
+control EnrollmentController as C
+control EnrollmentService as S
+database MongoDB as DB
+A -> UI : Xem chương trình và xác nhận tham gia
+UI -> C : POST enrollments(programId, consent, baseline)
+C -> S : enrollPatient(data)
+S -> DB : Kiểm tra program, doctor assignment, consent, entitlement
+DB --> S : validation result
+alt Không đủ điều kiện
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lý do không thể tham gia
+else Hợp lệ
+ S -> DB : Tạo enrollment và monitoring tasks
+ DB --> S : active enrollment
+ S --> C : enrollment result
+ C --> UI : successResponse
+ UI --> A : Hiển thị lịch nhiệm vụ
+end
+@enduml

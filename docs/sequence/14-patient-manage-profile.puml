@@ -1,0 +1,18 @@
+OK
+@startuml
+autoactivate on
+title Quản lý hồ sơ cá nhân Bệnh nhân
+actor "Bệnh nhân" as A
+boundary "Profile Page" as UI
+control UserController as C
+control UserService as S
+database MongoDB as DB
+A -> UI : Xem hoặc chỉnh sửa hồ sơ
+UI -> C : GET/PATCH /users/me
+C -> S : getProfile() / updateProfile(data)
+S -> DB : Đọc hoặc cập nhật hồ sơ của current user
+DB --> S : profile / updated profile
+S --> C : result
+C --> UI : response
+UI --> A : Hiển thị hồ sơ hoặc kết quả cập nhật
+@enduml

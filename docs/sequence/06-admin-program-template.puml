@@ -1,0 +1,27 @@
+OK
+@startuml
+autoactivate on
+title Tạo và cấu hình mẫu chương trình
+actor Admin
+boundary "Program Builder Page" as UI
+control ProgramTemplateController as C
+control ProgramTemplateService as S
+database MongoDB as DB
+Admin -> UI : Nhập mục tiêu, task, lịch và rule
+UI -> UI : validateTemplate()
+UI -> C : POST/PATCH program templates
+C -> S : createOrUpdateDraft(templateData)
+S -> DB : Kiểm tra quyền và template hiện có
+DB --> S : validation data
+alt Dữ liệu rule không hợp lệ hoặc không đủ quyền
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> Admin : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Lưu draft template và version
+ DB --> S : saved template
+ S --> C : template
+ C --> UI : successResponse
+ UI --> Admin : Hiển thị template nháp
+end
+@enduml

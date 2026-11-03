@@ -11,16 +11,17 @@ Nguồn thiết kế:
 - `docs/data-model.dbml` — target schema DA2 đã duyệt; v7 chỉ là baseline migration.
 - `plan/roadmap.md` — thứ tự implementation, exit gate và cut-line hiện hành.
 
-Đây là **target integration contract**. Endpoint gắn nhãn Current đã tồn tại trong code; endpoint Target phải được đưa vào OpenAPI trước khi frontend triển khai. Tên endpoint trong tài liệu có thể chỉnh trước khi khóa contract, nhưng sau khi frontend pin OpenAPI version thì breaking change phải dùng compatibility adapter hoặc API version mới.
+Đây là **target integration contract**. Frontend Patient/Doctor/Admin nằm ở repository riêng và sẽ ghép API sau; backend monorepo không chứa source frontend. Endpoint gắn nhãn Current đã được xác minh trong backend source/runtime. Endpoint Target phải được đưa vào OpenAPI trước khi consumer triển khai. Tên endpoint trong tài liệu có thể chỉnh trước khi khóa contract, nhưng sau khi frontend repository pin OpenAPI version thì breaking change phải dùng compatibility adapter hoặc API version mới.
 
 ## 2. Trạng thái và nguyên tắc
 
-| Nhãn | Ý nghĩa |
-|---|---|
-| Current | Route/API đang được frontend hiện tại sử dụng |
-| Target P0 | Phải có cho release chính |
-| Target P1 | Chỉ phát hành khi feature flag/gate đạt |
-| Deferred | Ngoài deadline 31/12 |
+| Nhãn      | Ý nghĩa                                                                                            |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| Current   | Route/API đã được xác minh trong backend source/runtime; chưa khẳng định consumer frontend tồn tại |
+| Target P0 | Phải có cho release chính                                                                          |
+| Target P1 | Chỉ phát hành khi feature flag/gate đạt                                                            |
+| Hậu DA2   | Không chặn release DA2; chỉ mở sau P0 ổn định                                                      |
+| Deferred  | Ngoài deadline 31/12                                                                               |
 
 Nguyên tắc tích hợp:
 
@@ -37,17 +38,17 @@ Nguyên tắc tích hợp:
 
 ### 2.1 Các lớp dữ liệu một page có thể sử dụng
 
-| Lớp dữ liệu | Ví dụ | Nơi lưu | Quy tắc |
-|---|---|---|---|
-| Route params | `doctorId`, `consultationId`, `orderId`, `refundId` | Router | Validate format; ID không chứng minh ownership |
-| URL query | filter, page, date range, tab | Router URL | Dùng cho state có thể bookmark/share; parse bằng schema |
-| Auth context | user, role, accountStatus, access-token expiry | Auth provider/store | Không dùng làm server data cache; clear khi logout/ban |
-| Server query state | doctor, slot, consultation, metric, order | TanStack Query | Key ổn định; cache/invalidate theo mục 7 |
-| Mutation/form state | notes, reason, selected slot, upload draft | React Hook Form/local component | Validate client để UX tốt; server vẫn validate lại |
-| Realtime state | connection, typing, call media, transient queue event | Socket/call provider | Sau reconnect phải refetch REST source of truth |
-| Optimistic entity | pending message với `clientMessageId` | Query cache tạm thời | Chỉ dùng cho action có rollback rõ |
-| Upload state | progress, local preview, abort handle | Component/upload hook | Không lưu File/blob trong global persistent store |
-| Feature/config | refund/WebRTC enabled, limits, supported MIME | Config/bootstrap query | Backend vẫn kiểm tra flag và policy |
+| Lớp dữ liệu         | Ví dụ                                                 | Nơi lưu                         | Quy tắc                                                 |
+| ------------------- | ----------------------------------------------------- | ------------------------------- | ------------------------------------------------------- |
+| Route params        | `doctorId`, `consultationId`, `orderId`, `refundId`   | Router                          | Validate format; ID không chứng minh ownership          |
+| URL query           | filter, page, date range, tab                         | Router URL                      | Dùng cho state có thể bookmark/share; parse bằng schema |
+| Auth context        | user, role, accountStatus, access-token expiry        | Auth provider/store             | Không dùng làm server data cache; clear khi logout/ban  |
+| Server query state  | doctor, slot, consultation, metric, order             | TanStack Query                  | Key ổn định; cache/invalidate theo mục 7                |
+| Mutation/form state | notes, reason, selected slot, upload draft            | React Hook Form/local component | Validate client để UX tốt; server vẫn validate lại      |
+| Realtime state      | connection, typing, call media, transient queue event | Socket/call provider            | Sau reconnect phải refetch REST source of truth         |
+| Optimistic entity   | pending message với `clientMessageId`                 | Query cache tạm thời            | Chỉ dùng cho action có rollback rõ                      |
+| Upload state        | progress, local preview, abort handle                 | Component/upload hook           | Không lưu File/blob trong global persistent store       |
+| Feature/config      | refund/WebRTC enabled, limits, supported MIME         | Config/bootstrap query          | Backend vẫn kiểm tra flag và policy                     |
 
 Một page không nên tự giữ bản sao dài hạn của cùng server entity trong cả Zustand và TanStack Query. Local derived state phải được tính từ DTO/cache hoặc URL thay vì đồng bộ thủ công nhiều nguồn.
 
@@ -74,7 +75,7 @@ Multipart chỉ dùng cho upload avatar, verification document, attachment và A
 type Id = string;
 type IsoDateTime = string;
 type LocalDate = string; // YYYY-MM-DD
-type MoneyVnd = number;  // integer, no decimal
+type MoneyVnd = number; // integer, no decimal
 
 interface ApiSuccess<T> {
   data: T;
@@ -101,17 +102,17 @@ Không duy trì song song response `_id`, `id`, `data.data` và array thuần. A
 
 ### 3.3 Error code frontend phải xử lý
 
-| HTTP | Code tiêu biểu | UI behavior |
-|---:|---|---|
-| 400 | `VALIDATION_ERROR`, `INVALID_STATE_TRANSITION` | Hiển thị field error hoặc message nghiệp vụ |
-| 401 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `REFRESH_REPLAYED` | Refresh một lần; thất bại thì clear auth và về login |
-| 403 | `FORBIDDEN`, `ACCOUNT_BANNED`, `DOCTOR_NOT_APPROVED` | Trang 403/modal ban; không retry |
-| 404 | `RESOURCE_NOT_FOUND` | Empty/not-found state |
-| 409 | `SLOT_ALREADY_BOOKED`, `DUPLICATE_REQUEST`, `VERSION_CONFLICT`, `REFUND_ALREADY_EXISTS` | Invalidate/refetch và giải thích conflict |
-| 410 | `REQUEST_EXPIRED`, `PAYMENT_ORDER_EXPIRED` | Disable action và refetch |
-| 422 | `CHECK_IN_NOT_ALLOWED`, `REFUND_NOT_ELIGIBLE`, `QUOTA_EXCEEDED` | Hiển thị policy state/CTA phù hợp |
-| 429 | `RATE_LIMITED` | Disable submit theo `Retry-After` |
-| 502/503 | `PROVIDER_UNAVAILABLE`, `DEPENDENCY_UNAVAILABLE` | Retry có backoff; không optimistic success |
+|    HTTP | Code tiêu biểu                                                                          | UI behavior                                          |
+| ------: | --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+|     400 | `VALIDATION_ERROR`, `INVALID_STATE_TRANSITION`                                          | Hiển thị field error hoặc message nghiệp vụ          |
+|     401 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `REFRESH_REPLAYED`                                  | Refresh một lần; thất bại thì clear auth và về login |
+|     403 | `FORBIDDEN`, `ACCOUNT_BANNED`, `DOCTOR_NOT_APPROVED`                                    | Trang 403/modal ban; không retry                     |
+|     404 | `RESOURCE_NOT_FOUND`                                                                    | Empty/not-found state                                |
+|     409 | `SLOT_ALREADY_BOOKED`, `DUPLICATE_REQUEST`, `VERSION_CONFLICT`, `REFUND_ALREADY_EXISTS` | Invalidate/refetch và giải thích conflict            |
+|     410 | `REQUEST_EXPIRED`, `PAYMENT_ORDER_EXPIRED`                                              | Disable action và refetch                            |
+|     422 | `CHECK_IN_NOT_ALLOWED`, `REFUND_NOT_ELIGIBLE`, `QUOTA_EXCEEDED`                         | Hiển thị policy state/CTA phù hợp                    |
+|     429 | `RATE_LIMITED`                                                                          | Disable submit theo `Retry-After`                    |
+| 502/503 | `PROVIDER_UNAVAILABLE`, `DEPENDENCY_UNAVAILABLE`                                        | Retry có backoff; không optimistic success           |
 
 ## 4. DTO catalog
 
@@ -200,8 +201,19 @@ interface FileDto {
 ```ts
 type SlotStatus = "available" | "booked" | "blocked" | "expired";
 type ConsultationMode = "on_demand" | "scheduled";
-type RequestStatus = "pending" | "accepted" | "declined" | "cancelled" | "expired";
-type SessionStatus = "not_started" | "waiting" | "in_consultation" | "interrupted" | "completed" | "no_show";
+type RequestStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled"
+  | "expired";
+type SessionStatus =
+  | "not_started"
+  | "waiting"
+  | "in_consultation"
+  | "interrupted"
+  | "completed"
+  | "no_show";
 
 interface AvailabilitySlotDto {
   id: Id;
@@ -246,7 +258,12 @@ interface ConsultationDto {
   patientNotes?: string;
   doctorNotes?: string;
   followUpAt?: IsoDateTime;
-  followUp?: { note?: string; nextAction?: string; taskId?: Id; createdAt: IsoDateTime };
+  followUp?: {
+    note?: string;
+    nextAction?: string;
+    taskId?: Id;
+    createdAt: IsoDateTime;
+  };
   queueJoinedAt?: IsoDateTime;
   queuePriorityAt?: IsoDateTime;
   queuePosition?: number;
@@ -411,7 +428,15 @@ interface CareProgramDto {
   diseaseKey: "hypertension" | "diabetes" | string;
   description?: string;
   status: "draft" | "published" | "retired";
-  taskTypes: Array<"metric" | "check_in" | "education" | "appointment" | "doctor_review" | "medication" | "journal">;
+  taskTypes: Array<
+    | "metric"
+    | "check_in"
+    | "education"
+    | "appointment"
+    | "doctor_review"
+    | "medication"
+    | "journal"
+  >;
   expectedDurationDays?: number;
   allowedActions: string[];
 }
@@ -444,7 +469,14 @@ interface CareTaskDto {
   id: Id;
   patientCareProgramId: Id;
   templateKey: string;
-  taskType: "metric" | "check_in" | "education" | "appointment" | "doctor_review" | "medication" | "journal";
+  taskType:
+    | "metric"
+    | "check_in"
+    | "education"
+    | "appointment"
+    | "doctor_review"
+    | "medication"
+    | "journal";
   status: "scheduled" | "due" | "completed" | "missed" | "cancelled";
   title: string;
   required: boolean;
@@ -452,7 +484,12 @@ interface CareTaskDto {
   windowStart: IsoDateTime;
   windowEnd: IsoDateTime;
   response?: Record<string, unknown>;
-  completionSourceType?: "healthMetric" | "response" | "contentProgress" | "consultation" | "doctorReview";
+  completionSourceType?:
+    | "healthMetric"
+    | "response"
+    | "contentProgress"
+    | "consultation"
+    | "doctorReview";
   completionSourceId?: Id;
   completedAt?: IsoDateTime;
   missedAt?: IsoDateTime;
@@ -476,7 +513,12 @@ interface CareAlertDto {
   resolutionReason?: string;
   dismissedAt?: IsoDateTime;
   dismissalReason?: string;
-  followUp?: { note?: string; nextAction?: string; dueAt?: IsoDateTime; createdAt: IsoDateTime };
+  followUp?: {
+    note?: string;
+    nextAction?: string;
+    dueAt?: IsoDateTime;
+    createdAt: IsoDateTime;
+  };
   consultationId?: Id;
   allowedActions: string[];
 }
@@ -624,8 +666,15 @@ interface PlanDto {
 }
 
 type PaymentOrderStatus =
-  | "created" | "pending" | "processing" | "paid" | "expired"
-  | "cancelled" | "failed" | "refund_pending" | "refunded";
+  | "created"
+  | "pending"
+  | "processing"
+  | "paid"
+  | "expired"
+  | "cancelled"
+  | "failed"
+  | "refund_pending"
+  | "refunded";
 
 interface PaymentOrderDto {
   id: Id;
@@ -679,8 +728,13 @@ interface SubscriptionDto {
 }
 
 type RefundStatus =
-  | "requested" | "approved" | "rejected" | "processing"
-  | "succeeded" | "failed" | "manual_review";
+  | "requested"
+  | "approved"
+  | "rejected"
+  | "processing"
+  | "succeeded"
+  | "failed"
+  | "manual_review";
 
 interface PaymentRefundDto {
   id: Id;
@@ -730,7 +784,18 @@ interface NotificationDto {
   title: string;
   message: string;
   type: "info" | "success" | "warning" | "critical";
-  resourceType?: "consultation" | "patientCareProgram" | "careTask" | "careAlert" | "careReport" | "familyLink" | "medicalFacility" | "paymentOrder" | "paymentRefund" | "subscription" | "violation";
+  resourceType?:
+    | "consultation"
+    | "patientCareProgram"
+    | "careTask"
+    | "careAlert"
+    | "careReport"
+    | "familyLink"
+    | "medicalFacility"
+    | "paymentOrder"
+    | "paymentRefund"
+    | "subscription"
+    | "violation";
   resourceId?: Id;
   data?: Record<string, unknown>;
   isRead: boolean;
@@ -795,7 +860,18 @@ interface AiDocumentAdminDto {
 
 interface AuditLogDto {
   id: Id;
-  domain: "auth" | "user" | "consultation" | "health" | "care" | "ai" | "billing" | "notification" | "moderation" | "facility" | string;
+  domain:
+    | "auth"
+    | "user"
+    | "consultation"
+    | "health"
+    | "care"
+    | "ai"
+    | "billing"
+    | "notification"
+    | "moderation"
+    | "facility"
+    | string;
   action: string;
   actor?: Pick<UserDto, "id" | "fullName" | "role">;
   entityType: string;
@@ -822,233 +898,233 @@ interface AdminDashboardDto {
 
 ### 5.1 Auth và profile
 
-| ID | Method + path | Role | Request | Response | Status |
-|---|---|---|---|---|---|
-| AUTH-01 | `POST /auth/register` | Public | patient JSON hoặc doctor multipart | `UserDto` + verification state | Current/normalize |
-| AUTH-02 | `POST /auth/send-otp` | Public | `{ email, purpose }` | `{ expiresAt, resendAfter }` | Current/normalize |
-| AUTH-03 | `POST /auth/confirm-otp` | Public | `{ email, purpose, code }` | `{ verified, resetToken? }` | Current/normalize |
-| AUTH-04 | `POST /auth/login` | Public | `{ email, password, device }` | `{ user, accessToken, expiresIn }` + refresh cookie | Current/refactor |
-| AUTH-05 | `POST /auth/refresh` | Cookie/mobile token | refresh credential | `{ accessToken, expiresIn }` | Current/refactor |
-| AUTH-06 | `POST /auth/logout` | Authenticated | current session | `204` | Current |
-| AUTH-07 | `POST /auth/logout-all` | Authenticated | none | `{ revokedCount }` | Target P0 |
-| AUTH-08 | `POST /auth/forgot-password` | Public | `{ email }` | generic accepted response | Current/normalize |
-| AUTH-09 | `POST /auth/reset-password` | Public | `{ resetToken, newPassword }` | `204` | Target P0 |
-| AUTH-10 | `POST /auth/change-password` | Authenticated local account | `{ currentPassword, newPassword }` | `204` | Current/normalize |
-| AUTH-11 | `GET /auth/me` | Authenticated | none | `UserDto` | Current |
-| AUTH-12 | `GET /auth/oauth/:provider/start` | Public | redirect params + PKCE | authorization redirect | Target P1; không chặn deadline P0 |
-| AUTH-13 | `GET /auth/oauth/:provider/callback` | Public | provider code/state | short-lived frontend callback result | Target P1; không chặn deadline P0 |
-| AUTH-14 | `GET /auth/sessions` | Authenticated | page/device | danh sách phiên an toàn, không có hash/token/IP đầy đủ | Target P0 |
-| AUTH-15 | `POST /auth/sessions/:id/revoke` | Session owner | none + idempotency | revoked session | Target P0 |
-| USER-01 | `GET /users/me` | Authenticated | none | `UserDto` | Current |
-| USER-02 | `PATCH /users/me` | Authenticated | profile JSON/multipart | `UserDto` | Current/normalize |
-| USER-03 | `POST /files` | Authenticated | multipart + purpose | `FileDto` | Target P0 |
-| USER-04 | `DELETE /files/:publicId` | Owner/Admin | purpose | `204` | Target P0 |
-| USER-05 | `POST /devices` | Authenticated | push token/platform/appVersion | device DTO | Target P1 |
-| USER-06 | `DELETE /devices/:id` | Owner | none | `204` | Target P1 |
-| USER-07 | `POST /users/me/data-exports` | Authenticated | format, included domains + idempotency | export job/status | Target P0; dữ liệu của chính user |
-| USER-08 | `POST /users/me/deletion-requests` | Authenticated | password/re-auth, reason? + idempotency | deletion request/status | Target P0; retention/audit policy |
-| USER-09 | `GET /users/me/data-exports/:id` | Owner | none | export status + short-lived download URL when ready | Target P0 |
-| USER-10 | `GET /users/me/data-exports` | Owner | status/page | export job page | Target P0 |
-| USER-11 | `GET /users/me/deletion-requests/latest` | Owner | none | latest deletion request/status hoặc empty | Target P0 |
-| PAT-01 | `POST /patients/me` | Patient | none | patient profile | Current canonical |
-| PAT-02 | `GET /patients/me` | Patient | none | patient profile + public user fields | Current canonical |
-| PAT-03 | `DELETE /patients/me` | Patient | none | success response | Legacy/deprecate; dùng USER-08 để áp dụng retention/audit |
-| PAT-04 | `GET /patients` | Admin | page, limit, sortBy, sortOrder | paginated patient profiles | Current canonical |
+| ID      | Method + path                            | Role                        | Request                                 | Response                                               | Status                                                    |
+| ------- | ---------------------------------------- | --------------------------- | --------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| AUTH-01 | `POST /auth/register`                    | Public                      | patient JSON hoặc doctor multipart      | `UserDto` + verification state                         | Current/normalize                                         |
+| AUTH-02 | `POST /auth/send-otp`                    | Public                      | `{ email, purpose }`                    | `{ expiresAt, resendAfter }`                           | Current/normalize                                         |
+| AUTH-03 | `POST /auth/confirm-otp`                 | Public                      | `{ email, purpose, code }`              | `{ verified, resetToken? }`                            | Current/normalize                                         |
+| AUTH-04 | `POST /auth/login`                       | Public                      | `{ email, password, device }`           | `{ user, accessToken, expiresIn }` + refresh cookie    | Current/refactor                                          |
+| AUTH-05 | `POST /auth/refresh`                     | Cookie/mobile token         | refresh credential                      | `{ accessToken, expiresIn }`                           | Current/refactor                                          |
+| AUTH-06 | `POST /auth/logout`                      | Authenticated               | current session                         | `204`                                                  | Current                                                   |
+| AUTH-07 | `POST /auth/logout-all`                  | Authenticated               | none                                    | `{ revokedCount }`                                     | Target P0                                                 |
+| AUTH-08 | `POST /auth/forgot-password`             | Public                      | `{ email }`                             | generic accepted response                              | Current/normalize                                         |
+| AUTH-09 | `POST /auth/reset-password`              | Public                      | `{ resetToken, newPassword }`           | `204`                                                  | Target P0                                                 |
+| AUTH-10 | `POST /auth/change-password`             | Authenticated local account | `{ currentPassword, newPassword }`      | `204`                                                  | Current/normalize                                         |
+| AUTH-11 | `GET /auth/me`                           | Authenticated               | none                                    | `UserDto`                                              | Current                                                   |
+| AUTH-12 | `GET /auth/oauth/:provider/start`        | Public                      | redirect params + PKCE                  | authorization redirect                                 | Target P1; không chặn deadline P0                         |
+| AUTH-13 | `GET /auth/oauth/:provider/callback`     | Public                      | provider code/state                     | short-lived frontend callback result                   | Target P1; không chặn deadline P0                         |
+| AUTH-14 | `GET /auth/sessions`                     | Authenticated               | page/device                             | danh sách phiên an toàn, không có hash/token/IP đầy đủ | Target P0                                                 |
+| AUTH-15 | `POST /auth/sessions/:id/revoke`         | Session owner               | none + idempotency                      | revoked session                                        | Target P0                                                 |
+| USER-01 | `GET /users/me`                          | Authenticated               | none                                    | `UserDto`                                              | Current                                                   |
+| USER-02 | `PATCH /users/me`                        | Authenticated               | profile JSON/multipart                  | `UserDto`                                              | Current/normalize                                         |
+| USER-03 | `POST /files`                            | Authenticated               | multipart + purpose                     | `FileDto`                                              | Target P0                                                 |
+| USER-04 | `DELETE /files/:publicId`                | Owner/Admin                 | purpose                                 | `204`                                                  | Target P0                                                 |
+| USER-05 | `POST /devices`                          | Authenticated               | push token/platform/appVersion          | device DTO                                             | Target P1                                                 |
+| USER-06 | `DELETE /devices/:id`                    | Owner                       | none                                    | `204`                                                  | Target P1                                                 |
+| USER-07 | `POST /users/me/data-exports`            | Authenticated               | format, included domains + idempotency  | export job/status                                      | Target P0; dữ liệu của chính user                         |
+| USER-08 | `POST /users/me/deletion-requests`       | Authenticated               | password/re-auth, reason? + idempotency | deletion request/status                                | Target P0; retention/audit policy                         |
+| USER-09 | `GET /users/me/data-exports/:id`         | Owner                       | none                                    | export status + short-lived download URL when ready    | Target P0                                                 |
+| USER-10 | `GET /users/me/data-exports`             | Owner                       | status/page                             | export job page                                        | Target P0                                                 |
+| USER-11 | `GET /users/me/deletion-requests/latest` | Owner                       | none                                    | latest deletion request/status hoặc empty              | Target P0                                                 |
+| PAT-01  | `POST /patients/me`                      | Patient                     | none                                    | patient profile                                        | Current canonical                                         |
+| PAT-02  | `GET /patients/me`                       | Patient                     | none                                    | patient profile + public user fields                   | Current canonical                                         |
+| PAT-03  | `DELETE /patients/me`                    | Patient                     | none                                    | success response                                       | Legacy/deprecate; dùng USER-08 để áp dụng retention/audit |
+| PAT-04  | `GET /patients`                          | Admin                       | page, limit, sortBy, sortOrder          | paginated patient profiles                             | Current canonical                                         |
 
 `/users/profile`, `/patients/profile` và patient profile `PATCH` không còn được hỗ trợ. Patient profile hiện chỉ có quan hệ `userId`; dữ liệu tài khoản thay đổi qua `PATCH /users/me`.
 
 ### 5.2 Doctor discovery và verification
 
-| ID | Method + path | Role | Request/query | Response | Status |
-|---|---|---|---|---|---|
-| DOC-01 | `GET /doctors` | Patient/Public policy | search, specialty, rating, page | `PageResult<DoctorCardDto>` | Target P0; legacy `/users/doctors` |
-| DOC-02 | `GET /doctors/:doctorId` | Patient/Auth | none | `DoctorCardDto` + public profile/settings | Target P0 |
-| DOC-03 | `GET /doctors/:doctorId/availability-slots` | Patient | from, to, timezone | `AvailabilitySlotDto[]` available only | Target P0 |
-| DOC-04 | `GET /admin/doctors/applications` | Admin | status, search, page | page + verification summary | Current/normalize |
-| DOC-05 | `POST /admin/doctors/:id/verify` | Admin | `{ reason? }` | updated doctor profile | Current |
-| DOC-06 | `POST /admin/doctors/:id/reject` | Admin | `{ reason }` | updated doctor profile | Current |
-| DOC-07 | `PATCH /doctors/me/booking-settings` | Doctor approved | booking settings | updated settings | Target P0 |
-| DOC-08 | `GET /doctors/me/reviews` | Doctor | page, rating | `PageResult<ReviewDto>` | Target P0 |
+| ID     | Method + path                               | Role                  | Request/query                   | Response                                  | Status                             |
+| ------ | ------------------------------------------- | --------------------- | ------------------------------- | ----------------------------------------- | ---------------------------------- |
+| DOC-01 | `GET /doctors`                              | Patient/Public policy | search, specialty, rating, page | `PageResult<DoctorCardDto>`               | Target P0; legacy `/users/doctors` |
+| DOC-02 | `GET /doctors/:doctorId`                    | Patient/Auth          | none                            | `DoctorCardDto` + public profile/settings | Target P0                          |
+| DOC-03 | `GET /doctors/:doctorId/availability-slots` | Patient               | from, to, timezone              | `AvailabilitySlotDto[]` available only    | Target P0                          |
+| DOC-04 | `GET /admin/doctors/applications`           | Admin                 | status, search, page            | page + verification summary               | Current/normalize                  |
+| DOC-05 | `POST /admin/doctors/:id/verify`            | Admin                 | `{ reason? }`                   | updated doctor profile                    | Current                            |
+| DOC-06 | `POST /admin/doctors/:id/reject`            | Admin                 | `{ reason }`                    | updated doctor profile                    | Current                            |
+| DOC-07 | `PATCH /doctors/me/booking-settings`        | Doctor approved       | booking settings                | updated settings                          | Target P0                          |
+| DOC-08 | `GET /doctors/me/reviews`                   | Doctor                | page, rating                    | `PageResult<ReviewDto>`                   | Target P0                          |
 
 ### 5.3 Availability, consultation, queue và chat
 
-| ID | Method + path | Role | Request/query | Response | Status |
-|---|---|---|---|---|---|
-| CON-01 | `POST /availability-slots` | Doctor approved | startAt, endAt, timezone + idempotency | `AvailabilitySlotDto` | Target P0 |
-| CON-02 | `GET /availability-slots` | Doctor | from, to, status | `AvailabilitySlotDto[]` | Target P0 |
-| CON-03 | `PATCH /availability-slots/:id/block` | Doctor owner | reason | slot | Target P0 |
-| CON-04 | `DELETE /availability-slots/:id` | Doctor owner | none | `204` | Target P0 |
-| CON-05 | `POST /consultations/scheduled` | Patient | `{ availabilitySlotId, patientNotes }` + idempotency | `ConsultationDto` | Target P0 |
-| CON-06 | `POST /consultations/on-demand` | Patient | `{ doctorId, patientNotes }` + idempotency | `ConsultationDto` | Target P0 |
-| CON-07 | `GET /consultations` | Patient/Doctor | mode, requestStatus, sessionStatus, from/to, page | `PageResult<ConsultationDto>` | Current canonical |
-| CON-08 | `GET /consultations/:id` | Participant/Admin policy | none | `ConsultationDto` | Target P0 |
-| CON-09 | `POST /consultations/:id/accept` | Doctor owner | none + idempotency | consultation | Current canonical |
-| CON-10 | `POST /consultations/:id/decline` | Doctor owner | `{ reason? }` | consultation | Current canonical |
-| CON-11 | `POST /consultations/:id/cancel` | Participant | `{ reason }` + idempotency | consultation | Target P0 |
-| CON-12 | `POST /consultations/:id/check-in` | Patient | consultation consent policyVersion khi có chat/call + idempotency | consultation + queue snapshot | Target P0 |
-| CON-13 | `GET /consultations/:id/queue` | Patient participant | none | own position/wait estimate | Target P0 |
-| CON-14 | `GET /doctors/me/queue` | Doctor | page/limit | `QueueEntryDto[]` | Target P0 |
-| CON-15 | `POST /doctors/me/queue/call-next` | Doctor | idempotency | claimed consultation | Target P0 |
-| CON-16 | `POST /consultations/:id/start` | Doctor owner | consultation consent/version đã được Patient chấp nhận | consultation | Target P0 |
-| CON-17 | `POST /consultations/:id/complete` | Doctor | `{ doctorNotes? }` | consultation | Current canonical |
-| CON-17A | `POST /consultations/:id/resume` | Doctor owner | idempotency | consultation | Target P0; only from interrupted and when Doctor has no active session |
-| CON-18 | `GET /chat/consultation/:consultationId` | Participant | cursor, limit | message page | Current canonical |
-| CON-19 | `POST /chat/consultation/messages` | Participant | consultationId, content/files/clientMessageId | message | Current canonical |
-| CON-20 | `POST /consultations/:id/review` | Patient participant | rating/comment | `ReviewDto` | Target P0; legacy `/reviews` |
-| CON-21 | `PATCH /consultations/:id/review` | Patient owner | rating/comment | review | Target P0 |
-| CON-22 | `POST /consultations/:id/report` | Participant | violation payload/files | violation | Target P0 |
-| CON-23 | `POST /consultations/:id/no-show` | Doctor owner | allowlisted reason + idempotency | consultation `no_show` | Target P0; chỉ từ waiting và đúng time policy |
-| CON-24 | `PUT /consultations/:id/follow-up` | Doctor owner | note, nextAction, followUpAt/taskId + idempotency | consultation with follow-up | Target P0 |
+| ID      | Method + path                            | Role                     | Request/query                                                     | Response                      | Status                                                                 |
+| ------- | ---------------------------------------- | ------------------------ | ----------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------- |
+| CON-01  | `POST /availability-slots`               | Doctor approved          | startAt, endAt, timezone + idempotency                            | `AvailabilitySlotDto`         | Target P0                                                              |
+| CON-02  | `GET /availability-slots`                | Doctor                   | from, to, status                                                  | `AvailabilitySlotDto[]`       | Target P0                                                              |
+| CON-03  | `PATCH /availability-slots/:id/block`    | Doctor owner             | reason                                                            | slot                          | Target P0                                                              |
+| CON-04  | `DELETE /availability-slots/:id`         | Doctor owner             | none                                                              | `204`                         | Target P0                                                              |
+| CON-05  | `POST /consultations/scheduled`          | Patient                  | `{ availabilitySlotId, patientNotes }` + idempotency              | `ConsultationDto`             | Target P0                                                              |
+| CON-06  | `POST /consultations/on-demand`          | Patient                  | `{ doctorId, patientNotes }` + idempotency                        | `ConsultationDto`             | Target P0                                                              |
+| CON-07  | `GET /consultations`                     | Patient/Doctor           | mode, requestStatus, sessionStatus, from/to, page                 | `PageResult<ConsultationDto>` | Current canonical                                                      |
+| CON-08  | `GET /consultations/:id`                 | Participant/Admin policy | none                                                              | `ConsultationDto`             | Target P0                                                              |
+| CON-09  | `POST /consultations/:id/accept`         | Doctor owner             | none + idempotency                                                | consultation                  | Current canonical                                                      |
+| CON-10  | `POST /consultations/:id/decline`        | Doctor owner             | `{ reason? }`                                                     | consultation                  | Current canonical                                                      |
+| CON-11  | `POST /consultations/:id/cancel`         | Participant              | `{ reason }` + idempotency                                        | consultation                  | Target P0                                                              |
+| CON-12  | `POST /consultations/:id/check-in`       | Patient                  | consultation consent policyVersion khi có chat/call + idempotency | consultation + queue snapshot | Target P0                                                              |
+| CON-13  | `GET /consultations/:id/queue`           | Patient participant      | none                                                              | own position/wait estimate    | Target P0                                                              |
+| CON-14  | `GET /doctors/me/queue`                  | Doctor                   | page/limit                                                        | `QueueEntryDto[]`             | Target P0                                                              |
+| CON-15  | `POST /doctors/me/queue/call-next`       | Doctor                   | idempotency                                                       | claimed consultation          | Target P0                                                              |
+| CON-16  | `POST /consultations/:id/start`          | Doctor owner             | consultation consent/version đã được Patient chấp nhận            | consultation                  | Target P0                                                              |
+| CON-17  | `POST /consultations/:id/complete`       | Doctor                   | `{ doctorNotes? }`                                                | consultation                  | Current canonical                                                      |
+| CON-17A | `POST /consultations/:id/resume`         | Doctor owner             | idempotency                                                       | consultation                  | Target P0; only from interrupted and when Doctor has no active session |
+| CON-18  | `GET /chat/consultation/:consultationId` | Participant              | cursor, limit                                                     | message page                  | Current canonical                                                      |
+| CON-19  | `POST /chat/consultation/messages`       | Participant              | consultationId, content/files/clientMessageId                     | message                       | Current canonical                                                      |
+| CON-20  | `POST /consultations/:id/review`         | Patient participant      | rating/comment                                                    | `ReviewDto`                   | Target P0; legacy `/reviews`                                           |
+| CON-21  | `PATCH /consultations/:id/review`        | Patient owner            | rating/comment                                                    | review                        | Target P0                                                              |
+| CON-22  | `POST /consultations/:id/report`         | Participant              | violation payload/files                                           | violation                     | Target P0                                                              |
+| CON-23  | `POST /consultations/:id/no-show`        | Doctor owner             | allowlisted reason + idempotency                                  | consultation `no_show`        | Target P0; chỉ từ waiting và đúng time policy                          |
+| CON-24  | `PUT /consultations/:id/follow-up`       | Doctor owner             | note, nextAction, followUpAt/taskId + idempotency                 | consultation with follow-up   | Target P0                                                              |
 
 ### 5.4 Health và AI
 
-| ID | Method + path | Role | Request/query | Response | Status |
-|---|---|---|---|---|---|
-| HLTH-01 | `GET /health-metrics` | Patient owner | metricType, startDate/endDate, cursor/page | bounded `HealthMetricDto` page | CC-006 alignment; normalized `meta`, numeric `values`, lifecycle timestamps |
-| HLTH-02 | `POST /health-metrics` | Patient owner | metricType, unit, numeric values, source, recordedAt/timezone | normalized metric + alert summary | CC-006 alignment |
-| HLTH-03 | `POST /health-metrics/:id/corrections` | Patient owner | giá trị/thời gian đúng, lý do | bản ghi mới có `replacesMetricId`; bản cũ `superseded` | CC-006 alignment; append-only, concurrent replay-safe |
-| HLTH-04 | `POST /health-metrics/:id/void` | Patient owner | lý do | metric `voided`, không xóa document | CC-006 alignment; replay-safe |
-| HLTH-05 | `GET /consultations/:id/health-context` | Doctor participant | metric types/range | metrics + summary | Target P0 |
-| AI-01 | `GET /ai/quota` | Patient | none | `AiQuotaDto` | Target P0 |
-| AI-02 | `POST /ai/conversations` | Patient | initialQuestion/tags | conversation + messages | Target P0; legacy `/ai-assistant/.../start` |
-| AI-03 | `GET /ai/conversations` | Patient | status/search/page | conversation page | Target P0 |
-| AI-04 | `GET /ai/conversations/:id` | Owner | cursor/limit | conversation + message page | Target P0 |
-| AI-05 | `POST /ai/conversations/:id/messages` | Owner | multipart message/images + idempotency | user message + AI message + quota | Target P0 |
-| AI-06 | `PATCH /ai/conversations/:id` | Owner | topic/status | conversation | Target P0 |
-| AI-07 | `POST /ai/conversations/:id/archive` | Owner | none + idempotency | conversation `archived` | Target P0; không xóa lịch sử bằng client |
-| AI-08 | `POST /consultations/:id/ai-brief` | Doctor participant | none | draft consultation brief | Target P1 |
+| ID      | Method + path                           | Role               | Request/query                                                 | Response                                               | Status                                                                      |
+| ------- | --------------------------------------- | ------------------ | ------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| HLTH-01 | `GET /health-metrics`                   | Patient owner      | metricType, startDate/endDate, cursor/page                    | bounded `HealthMetricDto` page                         | CC-006 alignment; normalized `meta`, numeric `values`, lifecycle timestamps |
+| HLTH-02 | `POST /health-metrics`                  | Patient owner      | metricType, unit, numeric values, source, recordedAt/timezone | normalized metric + alert summary                      | CC-006 alignment                                                            |
+| HLTH-03 | `POST /health-metrics/:id/corrections`  | Patient owner      | giá trị/thời gian đúng, lý do                                 | bản ghi mới có `replacesMetricId`; bản cũ `superseded` | CC-006 alignment; append-only, concurrent replay-safe                       |
+| HLTH-04 | `POST /health-metrics/:id/void`         | Patient owner      | lý do                                                         | metric `voided`, không xóa document                    | CC-006 alignment; replay-safe                                               |
+| HLTH-05 | `GET /consultations/:id/health-context` | Doctor participant | metric types/range                                            | metrics + summary                                      | Target P0                                                                   |
+| AI-01   | `GET /ai/quota`                         | Patient            | none                                                          | `AiQuotaDto`                                           | Target P0                                                                   |
+| AI-02   | `POST /ai/conversations`                | Patient            | initialQuestion/tags                                          | conversation + messages                                | Target P0; legacy `/ai-assistant/.../start`                                 |
+| AI-03   | `GET /ai/conversations`                 | Patient            | status/search/page                                            | conversation page                                      | Target P0                                                                   |
+| AI-04   | `GET /ai/conversations/:id`             | Owner              | cursor/limit                                                  | conversation + message page                            | Target P0                                                                   |
+| AI-05   | `POST /ai/conversations/:id/messages`   | Owner              | multipart message/images + idempotency                        | user message + AI message + quota                      | Target P0                                                                   |
+| AI-06   | `PATCH /ai/conversations/:id`           | Owner              | topic/status                                                  | conversation                                           | Target P0                                                                   |
+| AI-07   | `POST /ai/conversations/:id/archive`    | Owner              | none + idempotency                                            | conversation `archived`                                | Target P0; không xóa lịch sử bằng client                                    |
+| AI-08   | `POST /consultations/:id/ai-brief`      | Doctor participant | none                                                          | draft consultation brief                               | Target P1                                                                   |
 
 ### 5.5 Chronic Care, người thân và cơ sở y tế
 
-| ID | Method + path | Role | Request/query | Response | Status |
-|---|---|---|---|---|---|
-| CARE-01 | `GET /care-programs` | Patient/Doctor/Admin | diseaseKey, status, page | `PageResult<CareProgramDto>`; Patient chỉ thấy published | Target P0 |
-| CARE-02 | `POST /care-programs` | Admin có program-management permission | draft payload hoặc sourceProgramId để clone + idempotency | `CareProgramDto` | Target P1 Builder Lite; seed P0 |
-| CARE-03 | `PATCH /care-programs/:id` | Admin có program-management permission | draft changes + version | `CareProgramDto` | Target P1; draft only |
-| CARE-04 | `POST /care-programs/:id/publish` | Admin | review reason + idempotency | published program | Target P0 cho seed/admin workflow |
-| CARE-05 | `POST /care-programs/:id/enrollments` | Doctor approved | patientId, timezone, allowed custom settings | `PatientCareProgramDto` pending | Target P0 |
-| CARE-06 | `GET /care-enrollments` | Patient/Doctor | status, programCode, page | authorized enrollment page | Target P0 |
-| CARE-07 | `GET /care-enrollments/:id` | Participant/Admin audit policy | none | enrollment + program/task/report summary | Target P0 |
-| CARE-08 | `POST /care-enrollments/:id/consent` | Patient owner | policyVersion, purposes, baseline answers + idempotency | updated enrollment | Target P0 |
-| CARE-09 | `GET /care-enrollments/:id/tasks` | Participant | status, type, from/to, page | `PageResult<CareTaskDto>` | Target P0 |
-| CARE-10 | `POST /care-tasks/:id/responses` | Authorized task actor | structured response + idempotency | updated task | Target P0; metric task hoàn thành từ HLTH-02 |
-| CARE-11 | `GET /care-enrollments/:id/reports` | Patient owner/Assigned Doctor | reportType | bounded deterministic reports + role-scoped `SummaryInput v1` | CC-006 |
-| CARE-12 | `GET /care-alerts` | Assigned Doctor | cursor, limit, severity, status | cursor page of bounded alert summaries | CC-005; stable `severity DESC, detectedAt DESC, _id DESC` |
-| CARE-13 | `POST /care-alerts/:id/acknowledge` | Assigned Doctor | note? + idempotency | updated alert | Target P0 |
-| CARE-14 | `POST /care-alerts/:id/resolve` | Assigned Doctor | reason/note + idempotency | updated alert | Target P0 |
-| CARE-15 | `POST /care-alerts/:id/dismiss` | Assigned Doctor | allowlisted reason + idempotency | updated alert | Target P0; Admin chỉ audit |
-| CARE-16 | `POST /care-alerts/:id/consultations` | Patient/Assigned Doctor policy | scheduled/on-demand input + idempotency | linked `ConsultationDto` | Target P0 |
-| CARE-17 | `POST /care-enrollments/:id/actions/:action` | Participant theo policy | `request_pause|pause|resume|complete|cancel`, reason + idempotency | updated enrollment hoặc pause request | Target P0; Doctor pause/resume/complete, Patient request pause/withdraw consent |
-| CARE-18 | `GET /care-programs/:id/rules` | Admin; Doctor `active + approved` chỉ đọc Rule của Program published | version/status/page | rule versions + test summary | Target P0 read; edit P1 Builder Lite |
-| CARE-19 | `POST /care-programs/:id/rules` | Admin có rule-management permission | declarative rule draft + sources | draft rule | Target P1 Builder Lite |
-| CARE-20 | `POST /care-programs/:id/simulations` | Admin có rule-management permission | draft version + test cases | deterministic simulation result | Target P1 Builder Lite |
-| CARE-21 | `POST /care-programs/:id/rules/:ruleId/activate` | Admin hoặc Doctor `active + approved` | idempotency | active rule/version | Target P0; server validate schema/operator/Program version, atomically retire Rule cũ, không có review gate |
-| CARE-22 | `GET /admin/care-operations` | Admin | range, programCode, doctorId | bounded operational aggregate | Target P0 |
-| CARE-23 | `POST /care-programs/:id/retire` | Admin | reason + idempotency | retired Program version | Target P0 |
-| CARE-24 | `POST /care-programs/:id/rules/:ruleId/retire` | Admin có rule-management permission | reason + idempotency | retired Rule version | Target P0 |
-| CARE-25 | `GET /care-alerts/:id/detail` | Assigned Doctor | none | alert + bounded evaluation/timeline context + `allowedActions` | CC-005; Patient summary remains `GET /care-alerts/:id`, Admin audit remains `GET /care-alerts/:id/audit` |
-| CARE-26 | `GET /care-tasks/:id` | Authorized task actor | none | `CareTaskDto` + type-specific approved content/form/action | Target P0 |
-| CARE-27 | `GET /care-programs/:id` | Patient/Doctor/Admin theo scope | none | `CareProgramDto` + form/template/source projection phù hợp role | Target P0 |
-| CARE-28 | `GET /care-reports/:id` | Patient owner/Assigned Doctor | none | immutable `CareReportDto` + role-scoped `SummaryInput v1` | CC-006 |
-| CARE-29 | `POST /care-summaries/:id/review` | Assigned Doctor | `review|reject`, note + idempotency | updated Doctor-audience summary | Target P0 khi Doctor review được bật |
-| CARE-30 | `PATCH /care-programs/:id/rules/:ruleId` | Admin có rule-management permission | declarative draft changes + version | updated draft rule | Target P1 Builder Lite; draft only |
-| CARE-31 | `POST /care-reports/:id/exports` | Enrollment participant có entitlement | `pdf|csv` + idempotency | export job hoặc short-lived download URL | Target P0 cho quyền lợi export |
-| CARE-32 | `GET /care-report-exports/:id` | Export owner | none | export status + short-lived download URL | Target P0 |
-| CARE-33 | `GET /care-tasks` | Patient/Doctor theo scope | enrollmentId?, type/status/from/to/page | cross-enrollment `PageResult<CareTaskDto>` | Target P1 cho trang medication; P0 có thể chỉ dùng CARE-09 |
-| CARE-34 | `POST /care-enrollments/:id/reports` | Assigned Doctor | reportType `weekly|thirty_day`, UTC `dataUntil` | immutable CareReport version + Doctor `SummaryInput v1` | CC-006; same input hash replays, correction creates a new version |
-| FAM-01 | `GET /family-links` | Patient/linked family user | direction, status, page | `PageResult<FamilyLinkDto>` | Target P1 sau P0 |
-| FAM-02 | `POST /family-links` | Patient | family email/userId, relationship + idempotency | pending link | Target P1; enforce `familyLinkLimit`; revoked/declined/expired pair increments invitationVersion |
-| FAM-03 | `POST /family-links/:id/accept` | Invited family user | consent version + idempotency | active link | Target P1 |
-| FAM-04 | `POST /family-links/:id/actions/:action` | Patient/linked family user theo policy | `pause|resume|revoke|decline`, reason + idempotency | updated link | Target P1; Patient pause/resume; either party revoke; invitee decline |
-| FAM-05 | `PUT /family-links/:id/permissions` | Patient owner | permission allowlist + policyVersion | updated permissions | Target P1 |
-| FAM-06 | `GET /admin/family-links` | Admin audit permission | patient/family/status/date/page | scoped links + audit summary | Target P1; không trả dữ liệu sức khỏe |
-| FAM-07 | `GET /family-links/:id` | Link participant/Admin audit | none | `FamilyLinkDto` + active permission summary | Target P1 |
-| FAC-01 | `GET /medical-facilities/search` | Patient | programId/specialty, area hoặc lat/lng, radius, page | verified internal results; optional labelled map fallback | Target P1 sau Family |
-| FAC-02 | `GET /medical-facilities/:id` | Patient/Admin | none | `MedicalFacilityDto` | Target P1 |
-| FAC-03 | `POST /admin/medical-facilities/map-candidates` | Admin | provider candidate snapshot | draft facility | Target P1 |
-| FAC-04 | `POST /admin/medical-facilities/:id/verify` | Admin | official sources, review note + idempotency | verified facility | Target P1 |
-| FAC-05 | `POST /admin/disease-specialties/:id/publish` | Admin | approved mapping version + idempotency | active mapping | Target P1 |
-| FAC-06 | `GET /admin/medical-facilities` | Admin | status/source/search/area/page | facility page | Target P1 sau Family |
-| FAC-07 | `GET /admin/disease-specialties` | Admin | status/programCode/page | mapping versions | Target P1 sau Family |
-| FAC-08 | `PATCH /admin/medical-facilities/:id` | Admin | draft metadata/sources + version | updated draft facility | Target P1; draft only |
-| FAC-09 | `POST /admin/medical-facilities/:id/actions/retire` | Admin | reason + idempotency | retired facility | Target P1; stale/fresh is derived from lastCheckedAt |
-| FAC-10 | `POST /admin/disease-specialties` | Admin | draft mapping + sources + idempotency | draft mapping | Target P1 |
-| FAC-11 | `PATCH /admin/disease-specialties/:id` | Admin | draft mapping changes + version | updated draft mapping | Target P1; draft only |
+| ID      | Method + path                                       | Role                                                                 | Request/query                                             | Response                                                        | Status                                                                                                      |
+| ------- | --------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| CARE-01 | `GET /care-programs`                                | Patient/Doctor/Admin                                                 | diseaseKey, status, page                                  | `PageResult<CareProgramDto>`; Patient chỉ thấy published        | Target P0                                                                                                   |
+| CARE-02 | `POST /care-programs`                               | Admin có program-management permission                               | draft payload hoặc sourceProgramId để clone + idempotency | `CareProgramDto`                                                | Target P1 Builder Lite; seed P0                                                                             |
+| CARE-03 | `PATCH /care-programs/:id`                          | Admin có program-management permission                               | draft changes + version                                   | `CareProgramDto`                                                | Target P1; draft only                                                                                       |
+| CARE-04 | `POST /care-programs/:id/publish`                   | Admin                                                                | review reason + idempotency                               | published program                                               | Target P0 cho seed/admin workflow                                                                           |
+| CARE-05 | `POST /care-programs/:id/enrollments`               | Doctor approved                                                      | patientId, timezone, allowed custom settings              | `PatientCareProgramDto` pending                                 | Target P0                                                                                                   |
+| CARE-06 | `GET /care-enrollments`                             | Patient/Doctor                                                       | status, programCode, page                                 | authorized enrollment page                                      | Target P0                                                                                                   |
+| CARE-07 | `GET /care-enrollments/:id`                         | Participant/Admin audit policy                                       | none                                                      | enrollment + program/task/report summary                        | Target P0                                                                                                   |
+| CARE-08 | `POST /care-enrollments/:id/consent`                | Patient owner                                                        | policyVersion, purposes, baseline answers + idempotency   | updated enrollment                                              | Target P0                                                                                                   |
+| CARE-09 | `GET /care-enrollments/:id/tasks`                   | Participant                                                          | status, type, from/to, page                               | `PageResult<CareTaskDto>`                                       | Target P0                                                                                                   |
+| CARE-10 | `POST /care-tasks/:id/responses`                    | Authorized task actor                                                | structured response + idempotency                         | updated task                                                    | Target P0; metric task hoàn thành từ HLTH-02                                                                |
+| CARE-11 | `GET /care-enrollments/:id/reports`                 | Patient owner/Assigned Doctor                                        | reportType                                                | bounded deterministic reports + role-scoped `SummaryInput v1`   | CC-006                                                                                                      |
+| CARE-12 | `GET /care-alerts`                                  | Assigned Doctor                                                      | cursor, limit, severity, status                           | cursor page of bounded alert summaries                          | CC-005; stable `severity DESC, detectedAt DESC, _id DESC`                                                   |
+| CARE-13 | `POST /care-alerts/:id/acknowledge`                 | Assigned Doctor                                                      | note? + idempotency                                       | updated alert                                                   | Target P0                                                                                                   |
+| CARE-14 | `POST /care-alerts/:id/resolve`                     | Assigned Doctor                                                      | reason/note + idempotency                                 | updated alert                                                   | Target P0                                                                                                   |
+| CARE-15 | `POST /care-alerts/:id/dismiss`                     | Assigned Doctor                                                      | allowlisted reason + idempotency                          | updated alert                                                   | Target P0; Admin chỉ audit                                                                                  |
+| CARE-16 | `POST /care-alerts/:id/consultations`               | Patient/Assigned Doctor policy                                       | scheduled/on-demand input + idempotency                   | linked `ConsultationDto`                                        | Target P0                                                                                                   |
+| CARE-17 | `POST /care-enrollments/:id/actions/:action`        | Participant theo policy                                              | `request_pause                                            | pause                                                           | resume                                                                                                      | complete                                                          | cancel`, reason + idempotency | updated enrollment hoặc pause request                                 | Target P0; Doctor pause/resume/complete, Patient request pause/withdraw consent |
+| CARE-18 | `GET /care-programs/:id/rules`                      | Admin; Doctor `active + approved` chỉ đọc Rule của Program published | version/status/page                                       | rule versions + test summary                                    | Target P0 read; edit P1 Builder Lite                                                                        |
+| CARE-19 | `POST /care-programs/:id/rules`                     | Admin có rule-management permission                                  | declarative rule draft + sources                          | draft rule                                                      | Target P1 Builder Lite                                                                                      |
+| CARE-20 | `POST /care-programs/:id/simulations`               | Admin có rule-management permission                                  | draft version + test cases                                | deterministic simulation result                                 | Target P1 Builder Lite                                                                                      |
+| CARE-21 | `POST /care-programs/:id/rules/:ruleId/activate`    | Admin hoặc Doctor `active + approved`                                | idempotency                                               | active rule/version                                             | Target P0; server validate schema/operator/Program version, atomically retire Rule cũ, không có review gate |
+| CARE-22 | `GET /admin/care-operations`                        | Admin                                                                | range, programCode, doctorId                              | bounded operational aggregate                                   | Hậu DA2 — `CC-OPS-001`; không chặn release DA2                                                              |
+| CARE-23 | `POST /care-programs/:id/retire`                    | Admin                                                                | reason + idempotency                                      | retired Program version                                         | Target P0                                                                                                   |
+| CARE-24 | `POST /care-programs/:id/rules/:ruleId/retire`      | Admin có rule-management permission                                  | reason + idempotency                                      | retired Rule version                                            | Target P0                                                                                                   |
+| CARE-25 | `GET /care-alerts/:id/detail`                       | Assigned Doctor                                                      | none                                                      | alert + bounded evaluation/timeline context + `allowedActions`  | CC-005; Patient summary remains `GET /care-alerts/:id`, Admin audit remains `GET /care-alerts/:id/audit`    |
+| CARE-26 | `GET /care-tasks/:id`                               | Authorized task actor                                                | none                                                      | `CareTaskDto` + type-specific approved content/form/action      | Target P0                                                                                                   |
+| CARE-27 | `GET /care-programs/:id`                            | Patient/Doctor/Admin theo scope                                      | none                                                      | `CareProgramDto` + form/template/source projection phù hợp role | Target P0                                                                                                   |
+| CARE-28 | `GET /care-reports/:id`                             | Patient owner/Assigned Doctor                                        | none                                                      | immutable `CareReportDto` + role-scoped `SummaryInput v1`       | CC-006                                                                                                      |
+| CARE-29 | `POST /care-summaries/:id/review`                   | Assigned Doctor                                                      | `review                                                   | reject`, note + idempotency                                     | updated Doctor-audience summary                                                                             | Target P0 khi Doctor review được bật                              |
+| CARE-30 | `PATCH /care-programs/:id/rules/:ruleId`            | Admin có rule-management permission                                  | declarative draft changes + version                       | updated draft rule                                              | Target P1 Builder Lite; draft only                                                                          |
+| CARE-31 | `POST /care-reports/:id/exports`                    | Enrollment participant có entitlement                                | `pdf                                                      | csv` + idempotency                                              | export job hoặc short-lived download URL                                                                    | Target P0 cho quyền lợi export                                    |
+| CARE-32 | `GET /care-report-exports/:id`                      | Export owner                                                         | none                                                      | export status + short-lived download URL                        | Target P0                                                                                                   |
+| CARE-33 | `GET /care-tasks`                                   | Patient/Doctor theo scope                                            | enrollmentId?, type/status/from/to/page                   | cross-enrollment `PageResult<CareTaskDto>`                      | Target P1 cho trang medication; P0 có thể chỉ dùng CARE-09                                                  |
+| CARE-34 | `POST /care-enrollments/:id/reports`                | Assigned Doctor                                                      | reportType `weekly                                        | thirty_day`, UTC `dataUntil`                                    | immutable CareReport version + Doctor `SummaryInput v1`                                                     | CC-006; same input hash replays, correction creates a new version |
+| FAM-01  | `GET /family-links`                                 | Patient/linked family user                                           | direction, status, page                                   | `PageResult<FamilyLinkDto>`                                     | Target P1 sau P0                                                                                            |
+| FAM-02  | `POST /family-links`                                | Patient                                                              | family email/userId, relationship + idempotency           | pending link                                                    | Target P1; enforce `familyLinkLimit`; revoked/declined/expired pair increments invitationVersion            |
+| FAM-03  | `POST /family-links/:id/accept`                     | Invited family user                                                  | consent version + idempotency                             | active link                                                     | Target P1                                                                                                   |
+| FAM-04  | `POST /family-links/:id/actions/:action`            | Patient/linked family user theo policy                               | `pause                                                    | resume                                                          | revoke                                                                                                      | decline`, reason + idempotency                                    | updated link                  | Target P1; Patient pause/resume; either party revoke; invitee decline |
+| FAM-05  | `PUT /family-links/:id/permissions`                 | Patient owner                                                        | permission allowlist + policyVersion                      | updated permissions                                             | Target P1                                                                                                   |
+| FAM-06  | `GET /admin/family-links`                           | Admin audit permission                                               | patient/family/status/date/page                           | scoped links + audit summary                                    | Target P1; không trả dữ liệu sức khỏe                                                                       |
+| FAM-07  | `GET /family-links/:id`                             | Link participant/Admin audit                                         | none                                                      | `FamilyLinkDto` + active permission summary                     | Target P1                                                                                                   |
+| FAC-01  | `GET /medical-facilities/search`                    | Patient                                                              | programId/specialty, area hoặc lat/lng, radius, page      | verified internal results; optional labelled map fallback       | Target P1 sau Family                                                                                        |
+| FAC-02  | `GET /medical-facilities/:id`                       | Patient/Admin                                                        | none                                                      | `MedicalFacilityDto`                                            | Target P1                                                                                                   |
+| FAC-03  | `POST /admin/medical-facilities/map-candidates`     | Admin                                                                | provider candidate snapshot                               | draft facility                                                  | Target P1                                                                                                   |
+| FAC-04  | `POST /admin/medical-facilities/:id/verify`         | Admin                                                                | official sources, review note + idempotency               | verified facility                                               | Target P1                                                                                                   |
+| FAC-05  | `POST /admin/disease-specialties/:id/publish`       | Admin                                                                | approved mapping version + idempotency                    | active mapping                                                  | Target P1                                                                                                   |
+| FAC-06  | `GET /admin/medical-facilities`                     | Admin                                                                | status/source/search/area/page                            | facility page                                                   | Target P1 sau Family                                                                                        |
+| FAC-07  | `GET /admin/disease-specialties`                    | Admin                                                                | status/programCode/page                                   | mapping versions                                                | Target P1 sau Family                                                                                        |
+| FAC-08  | `PATCH /admin/medical-facilities/:id`               | Admin                                                                | draft metadata/sources + version                          | updated draft facility                                          | Target P1; draft only                                                                                       |
+| FAC-09  | `POST /admin/medical-facilities/:id/actions/retire` | Admin                                                                | reason + idempotency                                      | retired facility                                                | Target P1; stale/fresh is derived from lastCheckedAt                                                        |
+| FAC-10  | `POST /admin/disease-specialties`                   | Admin                                                                | draft mapping + sources + idempotency                     | draft mapping                                                   | Target P1                                                                                                   |
+| FAC-11  | `PATCH /admin/disease-specialties/:id`              | Admin                                                                | draft mapping changes + version                           | updated draft mapping                                           | Target P1; draft only                                                                                       |
 
 Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; frontend không được suy ra authorization chỉ từ trạng thái. Clinic/Clinic Admin không có endpoint hoặc actor trong DA2.
 
 ### 5.6 Billing, cancel và refund
 
-| ID | Method + path | Role | Request/query | Response | Status |
-|---|---|---|---|---|---|
-| BILL-01 | `GET /plans` | Authenticated | active only | `PlanDto[]` | Target P0 |
-| BILL-02 | `GET /subscriptions/me` | Patient | status/page | subscriptions + effective entitlement | Target P0 |
-| BILL-03 | `POST /billing/payments/orders` | Patient | `{ planId }` + `Idempotency-Key` | `PaymentOrderDto` + transient `paymentUrl`/`paymentQrDataUrl` | Implemented CC-7 |
-| BILL-04 | `GET /billing/orders` | Patient | status/page | order page | Target P0 |
-| BILL-05 | `GET /billing/orders/:id` | Owner/Admin | none | order + transaction summary | Target P0 |
-| BILL-06 | `POST /billing/orders/:id/cancel` | Owner/Admin | reason + idempotency | order | Target P0 |
-| BILL-07 | `GET /billing/vnpay/return` | Public/provider redirect | VNPAY params | redirect/page-safe status only | Target P0 |
-| BILL-08 | `GET /billing/payments/vnpay/ipn` | VNPAY | signed params | provider-required acknowledgement | Implemented CC-7 |
-| BILL-09 | `POST /billing/orders/:id/refunds` | Patient owner | reason/reasonCode + idempotency | `PaymentRefundDto` | Target P1 |
-| BILL-10 | `GET /billing/refunds/:id` | Owner/Admin | none | refund | Target P1 |
-| BILL-11 | `GET /admin/billing/orders` | Admin | status/date/user/orderCode/page | order page + totals | Target P0 |
-| BILL-12 | `GET /admin/billing/orders/:id` | Admin | none | order, transaction, subscription, refund | Target P0 |
-| BILL-13 | `GET /admin/billing/refunds` | Admin | status/date/user/page | refund page + status totals | Target P1 |
-| BILL-14 | `POST /admin/billing/refunds/:id/approve` | Admin | review note + optional override reason + idempotency | refund approved after server re-evaluation | Target P1 |
-| BILL-15 | `POST /admin/billing/refunds/:id/reject` | Admin | rejectionReason | refund rejected | Target P1 |
-| BILL-16 | `POST /admin/billing/refunds/:id/reconcile` | Admin | none + idempotency | refreshed refund status | Target P1 |
-| BILL-17 | `GET /billing/refunds` | Patient owner | status/page | `PageResult<PaymentRefundDto>` | Target P1 |
-| BILL-18 | `GET /subscriptions/me/usage` | Patient | none | effective cycle + AI/consultation/Program/family usage and remaining limits | Target P0 |
-| BILL-19 | `POST /admin/billing/orders/:id/reconcile` | Authorized Admin | none + idempotency | refreshed order/transaction/grant status | Target P0; không mark-paid thủ công |
+| ID      | Method + path                               | Role                     | Request/query                                        | Response                                                                    | Status                                                                                      |
+| ------- | ------------------------------------------- | ------------------------ | ---------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| BILL-01 | `GET /plans`                                | Authenticated            | active only                                          | `PlanDto[]`                                                                 | Target P0                                                                                   |
+| BILL-02 | `GET /subscriptions/me`                     | Patient                  | status/page                                          | subscriptions + effective entitlement                                       | Target P0                                                                                   |
+| BILL-03 | `POST /billing/payments/orders`             | Patient                  | `{ planId }` + `Idempotency-Key`                     | `PaymentOrderDto` + transient `paymentUrl`/`paymentQrDataUrl`               | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
+| BILL-04 | `GET /billing/payments/orders`              | Patient                  | status/page                                          | order page                                                                  | Target P0; list chưa có trong source                                                        |
+| BILL-05 | `GET /billing/payments/orders/:id`          | Patient owner            | none                                                 | owner-scoped order                                                          | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
+| BILL-06 | `POST /billing/payments/orders/:id/cancel`  | Patient owner            | none                                                 | cancelled unpaid order                                                      | Implemented `CC-PAY-001`; reason/idempotency hardening chưa thuộc runtime contract hiện tại |
+| BILL-07 | `GET /billing/payments/vnpay/return`        | Public/provider redirect | VNPAY params                                         | display-only `payment_verification_pending`                                 | Implemented `CC-PAY-001`; IPN vẫn là authority                                              |
+| BILL-08 | `GET /billing/payments/vnpay/ipn`           | VNPAY                    | signed params                                        | provider-required acknowledgement                                           | Implemented `CC-PAY-001`; public GET                                                        |
+| BILL-09 | `POST /billing/orders/:id/refunds`          | Patient owner            | reason/reasonCode + idempotency                      | `PaymentRefundDto`                                                          | Target P1                                                                                   |
+| BILL-10 | `GET /billing/refunds/:id`                  | Owner/Admin              | none                                                 | refund                                                                      | Target P1                                                                                   |
+| BILL-11 | `GET /admin/billing/orders`                 | Admin                    | status/date/user/orderCode/page                      | order page + totals                                                         | Target P0                                                                                   |
+| BILL-12 | `GET /admin/billing/orders/:id`             | Admin                    | none                                                 | order, transaction, subscription, refund                                    | Target P0                                                                                   |
+| BILL-13 | `GET /admin/billing/refunds`                | Admin                    | status/date/user/page                                | refund page + status totals                                                 | Target P1                                                                                   |
+| BILL-14 | `POST /admin/billing/refunds/:id/approve`   | Admin                    | review note + optional override reason + idempotency | refund approved after server re-evaluation                                  | Target P1                                                                                   |
+| BILL-15 | `POST /admin/billing/refunds/:id/reject`    | Admin                    | rejectionReason                                      | refund rejected                                                             | Target P1                                                                                   |
+| BILL-16 | `POST /admin/billing/refunds/:id/reconcile` | Admin                    | none + idempotency                                   | refreshed refund status                                                     | Target P1                                                                                   |
+| BILL-17 | `GET /billing/refunds`                      | Patient owner            | status/page                                          | `PageResult<PaymentRefundDto>`                                              | Target P1                                                                                   |
+| BILL-18 | `GET /subscriptions/me/usage`               | Patient                  | none                                                 | effective cycle + AI/consultation/Program/family usage and remaining limits | Target P0                                                                                   |
+| BILL-19 | `POST /admin/billing/orders/:id/reconcile`  | Authorized Admin         | none + idempotency                                   | refreshed order/transaction/grant status                                    | Target P0; không mark-paid thủ công                                                         |
 
-IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` và `paymentQrDataUrl` chỉ được dùng sau khi BILL-03 trả về; QR mã hóa đúng signed URL và không được persist/cache vượt quá hạn order. Return page luôn gọi BILL-05 để lấy trạng thái nguồn chuẩn.
+IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` và `paymentQrDataUrl` chỉ được dùng sau khi BILL-03 trả về; QR mã hóa đúng signed URL và không được persist/cache vượt quá hạn order. Payment Return UI nằm ở frontend repository riêng, chỉ hiển thị trạng thái và gọi BILL-05 để lấy nguồn chuẩn; backend Return endpoint không cấp quyền và IPN vẫn là authority. `CC-PAY-001` chỉ thu tiền mua/gia hạn Subscription; không tạo khoản phí từng Consultation. Mọi consultation-charging slice tương lai phải từ chối charge khi snapshot `quotaPolicy = care_program_included`.
 
 ### 5.7 Notification, moderation và admin dashboard
 
-| ID | Method + path | Role | Request/query | Response | Status |
-|---|---|---|---|---|---|
-| NOTI-01 | `GET /notifications` | Authenticated | unread/page | notification page | Current/normalize |
-| NOTI-02 | `PATCH /notifications/:id/read` | Owner | none | notification | Target P0; normalize current PATCH |
-| NOTI-03 | `PATCH /notifications/read-all` | Owner | none | `{ updatedCount }` | Target P0 |
-| NOTI-04 | `DELETE /notifications/:id` | Owner | none | `204` | Current |
-| MOD-01 | `POST /violations` | Authenticated | type/reason/source/evidence | report | Current/normalize |
-| MOD-02 | `GET /admin/violations` | Admin | status/severity/assignee/page | violation page + totals | Target P0; legacy `/violations` |
-| MOD-03 | `GET /admin/violations/:id` | Admin | none | violation detail | Target P0 |
-| MOD-04 | `PATCH /admin/violations/:id` | Admin | status/severity/assignment/resolutionNote/actionTaken | violation | Target P0 |
-| ADM-01 | `GET /admin/dashboard` | Admin | date range | aggregated cards/charts | Target P0 |
-| ADM-02 | `GET /admin/users` | Admin | role/status/search/page | user page + totals | Target P0; replaces browser merge |
-| ADM-03 | `POST /admin/users/:id/lock` | Admin | reason | user | Current |
-| ADM-04 | `POST /admin/users/:id/unlock` | Admin | none | user | Current |
-| ADM-05 | `POST /admin/users/admins` | Super admin | user/admin role payload | user | Target P0; replaces `/admins` |
-| ADM-06 | `PATCH /admin/users/admins/:id` | Super admin | adminRole | user | Target P0 |
-| ADM-07 | `GET /admin/plans` | Authorized Admin | status/page | plan page | Target P0 |
-| ADM-08 | `POST /admin/plans` | Super admin | plan draft hoặc sourcePlanId để clone + idempotency | draft plan | Target P0 |
-| ADM-09 | `PATCH /admin/plans/:id` | Super admin | mutable draft fields + version | plan | Target P0; draft only |
-| ADM-10 | `GET /admin/ai/documents` | AI admin | status/page/search | document page | Target P0; legacy `/ai-documents` |
-| ADM-11 | `POST /admin/ai/documents` | AI admin | multipart | document processing | Target P0 |
-| ADM-12 | `PATCH /admin/ai/documents/:id` | AI admin | metadata bản `pending_review`; bản approved không sửa trực tiếp | document | Target P0 |
-| ADM-13 | `POST /admin/ai/documents/:id/archive` | AI admin | reason + idempotency | document `archived` | Target P0; không hard-delete |
-| ADM-14 | `GET /admin/ai/blacklist-keywords` | AI admin | search/page | keyword page | Target P0 |
-| ADM-15 | `POST /admin/ai/blacklist-keywords` | AI admin | keyword | keyword | Target P0 |
-| ADM-16 | `PATCH /admin/ai/blacklist-keywords/:id` | AI admin | keyword | keyword | Target P0 |
-| ADM-17 | `DELETE /admin/ai/blacklist-keywords/:id` | AI admin | none | `204` | Target P0 |
-| ADM-18 | `GET /admin/ai/documents/:id` | AI admin | none | `AiDocumentAdminDto` + bounded chunk/error summary | Target P0 |
-| ADM-19 | `POST /admin/ai/documents/:id/review` | AI admin | `approve|reject`, reason, effective dates + idempotency | reviewed document | Target P0; duyệt cấp document, không duyệt từng chunk |
-| ADM-20 | `POST /admin/ai/documents/:id/reingest` | AI admin | parser/chunker/embedding version + idempotency | processing job | Target P1 |
-| ADM-21 | `GET /admin/users/:id` | User admin | none | user detail + bounded status/audit summary | Target P0 |
-| ADM-22 | `POST /admin/plans/:id/publish` | Super admin | review note + idempotency | published Plan version | Target P0 |
-| ADM-23 | `POST /admin/plans/:id/retire` | Super admin | reason + idempotency | retired Plan version | Target P0 |
-| ADM-24 | `GET /admin/audit-logs` | Authorized Admin | domain, actor, entityType/id, date, page | `PageResult<AuditLogDto>` | Target P0 |
-| ADM-25 | `GET /admin/audit-logs/:id` | Authorized Admin | none | `AuditLogDto` | Target P0 |
-| ADM-26 | `GET /admin/plans/:id` | Authorized Admin | none | `PlanDto` + version/audit summary | Target P0 |
-| ADM-27 | `POST /admin/ai/documents/:id/chunks/:chunkId/exclude` | AI admin | allowlisted reason + idempotency | updated bounded chunk summary | Target P0 secondary action; không đổi approval document |
+| ID      | Method + path                                          | Role             | Request/query                                                   | Response                                           | Status                                                  |
+| ------- | ------------------------------------------------------ | ---------------- | --------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
+| NOTI-01 | `GET /notifications`                                   | Authenticated    | unread/page                                                     | notification page                                  | Current/normalize                                       |
+| NOTI-02 | `PATCH /notifications/:id/read`                        | Owner            | none                                                            | notification                                       | Target P0; normalize current PATCH                      |
+| NOTI-03 | `PATCH /notifications/read-all`                        | Owner            | none                                                            | `{ updatedCount }`                                 | Target P0                                               |
+| NOTI-04 | `DELETE /notifications/:id`                            | Owner            | none                                                            | `204`                                              | Current                                                 |
+| MOD-01  | `POST /violations`                                     | Authenticated    | type/reason/source/evidence                                     | report                                             | Current/normalize                                       |
+| MOD-02  | `GET /admin/violations`                                | Admin            | status/severity/assignee/page                                   | violation page + totals                            | Target P0; legacy `/violations`                         |
+| MOD-03  | `GET /admin/violations/:id`                            | Admin            | none                                                            | violation detail                                   | Target P0                                               |
+| MOD-04  | `PATCH /admin/violations/:id`                          | Admin            | status/severity/assignment/resolutionNote/actionTaken           | violation                                          | Target P0                                               |
+| ADM-01  | `GET /admin/dashboard`                                 | Admin            | date range                                                      | aggregated cards/charts                            | Target P0                                               |
+| ADM-02  | `GET /admin/users`                                     | Admin            | role/status/search/page                                         | user page + totals                                 | Target P0; replaces browser merge                       |
+| ADM-03  | `POST /admin/users/:id/lock`                           | Admin            | reason                                                          | user                                               | Current                                                 |
+| ADM-04  | `POST /admin/users/:id/unlock`                         | Admin            | none                                                            | user                                               | Current                                                 |
+| ADM-05  | `POST /admin/users/admins`                             | Super admin      | user/admin role payload                                         | user                                               | Target P0; replaces `/admins`                           |
+| ADM-06  | `PATCH /admin/users/admins/:id`                        | Super admin      | adminRole                                                       | user                                               | Target P0                                               |
+| ADM-07  | `GET /admin/plans`                                     | Authorized Admin | status/page                                                     | plan page                                          | Target P0                                               |
+| ADM-08  | `POST /admin/plans`                                    | Super admin      | plan draft hoặc sourcePlanId để clone + idempotency             | draft plan                                         | Target P0                                               |
+| ADM-09  | `PATCH /admin/plans/:id`                               | Super admin      | mutable draft fields + version                                  | plan                                               | Target P0; draft only                                   |
+| ADM-10  | `GET /admin/ai/documents`                              | AI admin         | status/page/search                                              | document page                                      | Target P0; legacy `/ai-documents`                       |
+| ADM-11  | `POST /admin/ai/documents`                             | AI admin         | multipart                                                       | document processing                                | Target P0                                               |
+| ADM-12  | `PATCH /admin/ai/documents/:id`                        | AI admin         | metadata bản `pending_review`; bản approved không sửa trực tiếp | document                                           | Target P0                                               |
+| ADM-13  | `POST /admin/ai/documents/:id/archive`                 | AI admin         | reason + idempotency                                            | document `archived`                                | Target P0; không hard-delete                            |
+| ADM-14  | `GET /admin/ai/blacklist-keywords`                     | AI admin         | search/page                                                     | keyword page                                       | Target P0                                               |
+| ADM-15  | `POST /admin/ai/blacklist-keywords`                    | AI admin         | keyword                                                         | keyword                                            | Target P0                                               |
+| ADM-16  | `PATCH /admin/ai/blacklist-keywords/:id`               | AI admin         | keyword                                                         | keyword                                            | Target P0                                               |
+| ADM-17  | `DELETE /admin/ai/blacklist-keywords/:id`              | AI admin         | none                                                            | `204`                                              | Target P0                                               |
+| ADM-18  | `GET /admin/ai/documents/:id`                          | AI admin         | none                                                            | `AiDocumentAdminDto` + bounded chunk/error summary | Target P0                                               |
+| ADM-19  | `POST /admin/ai/documents/:id/review`                  | AI admin         | `approve                                                        | reject`, reason, effective dates + idempotency     | reviewed document                                       | Target P0; duyệt cấp document, không duyệt từng chunk |
+| ADM-20  | `POST /admin/ai/documents/:id/reingest`                | AI admin         | parser/chunker/embedding version + idempotency                  | processing job                                     | Target P1                                               |
+| ADM-21  | `GET /admin/users/:id`                                 | User admin       | none                                                            | user detail + bounded status/audit summary         | Target P0                                               |
+| ADM-22  | `POST /admin/plans/:id/publish`                        | Super admin      | review note + idempotency                                       | published Plan version                             | Target P0                                               |
+| ADM-23  | `POST /admin/plans/:id/retire`                         | Super admin      | reason + idempotency                                            | retired Plan version                               | Target P0                                               |
+| ADM-24  | `GET /admin/audit-logs`                                | Authorized Admin | domain, actor, entityType/id, date, page                        | `PageResult<AuditLogDto>`                          | Target P0                                               |
+| ADM-25  | `GET /admin/audit-logs/:id`                            | Authorized Admin | none                                                            | `AuditLogDto`                                      | Target P0                                               |
+| ADM-26  | `GET /admin/plans/:id`                                 | Authorized Admin | none                                                            | `PlanDto` + version/audit summary                  | Target P0                                               |
+| ADM-27  | `POST /admin/ai/documents/:id/chunks/:chunkId/exclude` | AI admin         | allowlisted reason + idempotency                                | updated bounded chunk summary                      | Target P0 secondary action; không đổi approval document |
 
 ### 5.8 Dashboard projections
 
-| ID | Method + path | Role | Request/query | Response | Status |
-|---|---|---|---|---|---|
-| DASH-01 | `GET /patients/me/dashboard` | Patient | timezone | today tasks, latest metrics, open alerts, active programs, upcoming consultations, usage summary | Target P0; bounded projection |
-| DASH-02 | `GET /doctors/me/dashboard` | Approved Doctor | timezone | current consultation, urgent alerts, pending requests, queue summary, today schedule, reviews due | Target P0; bounded projection |
+| ID      | Method + path                | Role            | Request/query | Response                                                                                          | Status                        |
+| ------- | ---------------------------- | --------------- | ------------- | ------------------------------------------------------------------------------------------------- | ----------------------------- |
+| DASH-01 | `GET /patients/me/dashboard` | Patient         | timezone      | today tasks, latest metrics, open alerts, active programs, upcoming consultations, usage summary  | Target P0; bounded projection |
+| DASH-02 | `GET /doctors/me/dashboard`  | Approved Doctor | timezone      | current consultation, urgent alerts, pending requests, queue summary, today schedule, reviews due | Target P0; bounded projection |
 
 ### 5.9 Mô tả chức năng chi tiết cho từng REST API
 
@@ -1056,241 +1132,241 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 
 #### Authentication, User và Patient
 
-| ID | Chức năng và hành vi chính |
-|---|---|
+| ID      | Chức năng và hành vi chính                                                                                                                           |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | AUTH-01 | Tạo tài khoản Patient hoặc Doctor. Chuẩn hóa email, kiểm tra trùng, hash mật khẩu; Doctor được tạo ở trạng thái chờ duyệt và chưa có quyền clinical. |
-| AUTH-02 | Tạo OTP theo đúng purpose, lưu hash/attempt/TTL trong Redis và áp dụng cooldown/rate limit; phản hồi không để lộ thông tin nhạy cảm. |
-| AUTH-03 | Xác minh OTP còn hạn và đúng purpose; tăng attempt khi sai, vô hiệu OTP khi thành công và trả kết quả phù hợp cho verify/reset flow. |
-| AUTH-04 | Xác thực credential và trạng thái account; tạo session/rotation family, trả access token ngắn hạn và đặt refresh cookie an toàn trên Web. |
-| AUTH-05 | Xác minh refresh credential với hash trong AuthSessions, rotate một lần và thu hồi token cũ; replay phải revoke cả session family. |
-| AUTH-06 | Thu hồi session hiện tại, xóa refresh cookie và ngắt quyền refresh; không ảnh hưởng các thiết bị khác. |
-| AUTH-07 | Thu hồi toàn bộ session của user, dùng khi user chủ động logout-all hoặc cần phản ứng bảo mật; access token cũ hết hiệu lực theo policy. |
-| AUTH-08 | Khởi tạo luồng quên mật khẩu và gửi hướng dẫn/OTP nếu account phù hợp; luôn trả thông báo chung để chống dò email. |
-| AUTH-09 | Kiểm tra reset token/OTP và chính sách mật khẩu, cập nhật password hash rồi thu hồi các session cũ để ngăn tiếp tục sử dụng token bị lộ. |
-| AUTH-10 | Đổi mật khẩu cho local account sau khi xác minh mật khẩu hiện tại; OAuth-only account phải dùng luồng thiết lập mật khẩu riêng nếu được hỗ trợ. |
-| AUTH-11 | Trả identity hiện hành cho bootstrap ứng dụng: public profile, role, account/verification state và capability cần thiết; không trả secret/hash. |
-| AUTH-12 | Khởi tạo OAuth authorization với state, PKCE và callback allowlist; chỉ redirect tới provider được cấu hình và đang bật. |
-| AUTH-13 | Xử lý callback OAuth, kiểm tra state/code, link hoặc tạo account theo policy rồi hoàn tất session mà không đưa provider secret ra frontend. |
-| AUTH-14 | Liệt kê các phiên đăng nhập của chính user theo thiết bị/thời gian hoạt động; chỉ trả metadata an toàn để nhận diện phiên. |
-| AUTH-15 | Thu hồi một phiên cụ thể thuộc user, thường dùng khi phát hiện thiết bị lạ; không cho user revoke session của người khác. |
-| USER-01 | Lấy hồ sơ tài khoản hiện tại dùng cho Profile và app shell; đây là projection public-safe, không phải raw Users document. |
-| USER-02 | Cập nhật các trường hồ sơ được phép như tên, liên hệ, địa chỉ hoặc avatar; role, verification và adminRole không được client tự sửa. |
-| USER-03 | Upload file theo purpose, MIME, magic bytes, size và ownership policy; trả FileDto để gắn vào entity bằng API nghiệp vụ tiếp theo. |
-| USER-04 | Gỡ file do user sở hữu khi chưa bị entity/audit policy giữ lại; backend đồng thời dọn metadata/storage theo quy trình an toàn. |
-| USER-05 | Đăng ký hoặc cập nhật push token của thiết bị, gắn platform/appVersion với user và bảo đảm một token không thuộc nhiều account đang hoạt động. |
-| USER-06 | Vô hiệu đăng ký push của thiết bị khi logout, đổi token hoặc user tắt thông báo; không xóa notification trong app. |
-| USER-07 | Tạo job xuất dữ liệu cá nhân theo domain/format được phép; job chạy nền, có audit và tạo liên kết tải xuống hết hạn. |
-| USER-08 | Gửi yêu cầu xóa tài khoản sau re-auth; áp dụng retention, anonymization và audit policy thay vì xóa cứng ngay lập tức. |
-| USER-09 | Xem trạng thái một export job của chính user và nhận URL tải ngắn hạn khi job hoàn tất. |
-| USER-10 | Liệt kê lịch sử export job của user để theo dõi pending/completed/expired/failed mà không lộ đường dẫn storage nội bộ. |
-| USER-11 | Trả yêu cầu xóa dữ liệu gần nhất để UI giải thích trạng thái xử lý, thời gian dự kiến và phần dữ liệu phải tiếp tục lưu. |
-| PAT-01 | Tạo Patient profile tối thiểu gắn với Users khi account chưa có profile; thao tác phải idempotent để không tạo bản ghi trùng. |
-| PAT-02 | Trả Patient profile của chính account cùng các public user fields cần cho Care/health UI. |
-| PAT-03 | API xóa profile kiểu cũ; chỉ giữ tạm cho migration và phải chuyển sang USER-08 để tuân thủ retention/audit. |
-| PAT-04 | Cho Admin xem danh sách Patient có phân trang và projection giới hạn; không trả mặc định HealthMetrics, AI conversation hoặc chat content. |
+| AUTH-02 | Tạo OTP theo đúng purpose, lưu hash/attempt/TTL trong Redis và áp dụng cooldown/rate limit; phản hồi không để lộ thông tin nhạy cảm.                 |
+| AUTH-03 | Xác minh OTP còn hạn và đúng purpose; tăng attempt khi sai, vô hiệu OTP khi thành công và trả kết quả phù hợp cho verify/reset flow.                 |
+| AUTH-04 | Xác thực credential và trạng thái account; tạo session/rotation family, trả access token ngắn hạn và đặt refresh cookie an toàn trên Web.            |
+| AUTH-05 | Xác minh refresh credential với hash trong AuthSessions, rotate một lần và thu hồi token cũ; replay phải revoke cả session family.                   |
+| AUTH-06 | Thu hồi session hiện tại, xóa refresh cookie và ngắt quyền refresh; không ảnh hưởng các thiết bị khác.                                               |
+| AUTH-07 | Thu hồi toàn bộ session của user, dùng khi user chủ động logout-all hoặc cần phản ứng bảo mật; access token cũ hết hiệu lực theo policy.             |
+| AUTH-08 | Khởi tạo luồng quên mật khẩu và gửi hướng dẫn/OTP nếu account phù hợp; luôn trả thông báo chung để chống dò email.                                   |
+| AUTH-09 | Kiểm tra reset token/OTP và chính sách mật khẩu, cập nhật password hash rồi thu hồi các session cũ để ngăn tiếp tục sử dụng token bị lộ.             |
+| AUTH-10 | Đổi mật khẩu cho local account sau khi xác minh mật khẩu hiện tại; OAuth-only account phải dùng luồng thiết lập mật khẩu riêng nếu được hỗ trợ.      |
+| AUTH-11 | Trả identity hiện hành cho bootstrap ứng dụng: public profile, role, account/verification state và capability cần thiết; không trả secret/hash.      |
+| AUTH-12 | Khởi tạo OAuth authorization với state, PKCE và callback allowlist; chỉ redirect tới provider được cấu hình và đang bật.                             |
+| AUTH-13 | Xử lý callback OAuth, kiểm tra state/code, link hoặc tạo account theo policy rồi hoàn tất session mà không đưa provider secret ra frontend.          |
+| AUTH-14 | Liệt kê các phiên đăng nhập của chính user theo thiết bị/thời gian hoạt động; chỉ trả metadata an toàn để nhận diện phiên.                           |
+| AUTH-15 | Thu hồi một phiên cụ thể thuộc user, thường dùng khi phát hiện thiết bị lạ; không cho user revoke session của người khác.                            |
+| USER-01 | Lấy hồ sơ tài khoản hiện tại dùng cho Profile và app shell; đây là projection public-safe, không phải raw Users document.                            |
+| USER-02 | Cập nhật các trường hồ sơ được phép như tên, liên hệ, địa chỉ hoặc avatar; role, verification và adminRole không được client tự sửa.                 |
+| USER-03 | Upload file theo purpose, MIME, magic bytes, size và ownership policy; trả FileDto để gắn vào entity bằng API nghiệp vụ tiếp theo.                   |
+| USER-04 | Gỡ file do user sở hữu khi chưa bị entity/audit policy giữ lại; backend đồng thời dọn metadata/storage theo quy trình an toàn.                       |
+| USER-05 | Đăng ký hoặc cập nhật push token của thiết bị, gắn platform/appVersion với user và bảo đảm một token không thuộc nhiều account đang hoạt động.       |
+| USER-06 | Vô hiệu đăng ký push của thiết bị khi logout, đổi token hoặc user tắt thông báo; không xóa notification trong app.                                   |
+| USER-07 | Tạo job xuất dữ liệu cá nhân theo domain/format được phép; job chạy nền, có audit và tạo liên kết tải xuống hết hạn.                                 |
+| USER-08 | Gửi yêu cầu xóa tài khoản sau re-auth; áp dụng retention, anonymization và audit policy thay vì xóa cứng ngay lập tức.                               |
+| USER-09 | Xem trạng thái một export job của chính user và nhận URL tải ngắn hạn khi job hoàn tất.                                                              |
+| USER-10 | Liệt kê lịch sử export job của user để theo dõi pending/completed/expired/failed mà không lộ đường dẫn storage nội bộ.                               |
+| USER-11 | Trả yêu cầu xóa dữ liệu gần nhất để UI giải thích trạng thái xử lý, thời gian dự kiến và phần dữ liệu phải tiếp tục lưu.                             |
+| PAT-01  | Tạo Patient profile tối thiểu gắn với Users khi account chưa có profile; thao tác phải idempotent để không tạo bản ghi trùng.                        |
+| PAT-02  | Trả Patient profile của chính account cùng các public user fields cần cho Care/health UI.                                                            |
+| PAT-03  | API xóa profile kiểu cũ; chỉ giữ tạm cho migration và phải chuyển sang USER-08 để tuân thủ retention/audit.                                          |
+| PAT-04  | Cho Admin xem danh sách Patient có phân trang và projection giới hạn; không trả mặc định HealthMetrics, AI conversation hoặc chat content.           |
 
 #### Doctor discovery và verification
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| DOC-01 | Tìm Doctor active + approved theo từ khóa/chuyên khoa/rating; trả card phân trang, presence tạm thời và lịch gần nhất nếu được phép. |
-| DOC-02 | Trả hồ sơ công khai của một Doctor đã duyệt, rating aggregate và booking policy đã diễn giải; không trả tài liệu xác minh nội bộ. |
-| DOC-03 | Trả slot available của Doctor trong khoảng thời gian và timezone yêu cầu; loại slot booked/blocked/expired trước khi gửi cho Patient. |
-| DOC-04 | Liệt kê hồ sơ Doctor cần Admin xét duyệt theo status/search; kèm summary và URL tài liệu có authorization/thời hạn. |
-| DOC-05 | Approve hồ sơ Doctor sau kiểm tra; cập nhật verification atomically, ghi audit và phát notification sau commit. |
-| DOC-06 | Reject hồ sơ Doctor với lý do bắt buộc; giữ tài liệu/lịch sử để Doctor sửa và nộp lại, đồng thời ghi audit. |
+| ID     | Chức năng và hành vi chính                                                                                                             |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| DOC-01 | Tìm Doctor active + approved theo từ khóa/chuyên khoa/rating; trả card phân trang, presence tạm thời và lịch gần nhất nếu được phép.   |
+| DOC-02 | Trả hồ sơ công khai của một Doctor đã duyệt, rating aggregate và booking policy đã diễn giải; không trả tài liệu xác minh nội bộ.      |
+| DOC-03 | Trả slot available của Doctor trong khoảng thời gian và timezone yêu cầu; loại slot booked/blocked/expired trước khi gửi cho Patient.  |
+| DOC-04 | Liệt kê hồ sơ Doctor cần Admin xét duyệt theo status/search; kèm summary và URL tài liệu có authorization/thời hạn.                    |
+| DOC-05 | Approve hồ sơ Doctor sau kiểm tra; cập nhật verification atomically, ghi audit và phát notification sau commit.                        |
+| DOC-06 | Reject hồ sơ Doctor với lý do bắt buộc; giữ tài liệu/lịch sử để Doctor sửa và nộp lại, đồng thời ghi audit.                            |
 | DOC-07 | Cập nhật bookingSettings của Doctor trong hard limits hệ thống; giá trị mới chỉ áp dụng booking sau đó, consultation cũ dùng snapshot. |
-| DOC-08 | Trả rating aggregate và review published của Doctor có phân trang; Doctor chỉ đọc, không sửa hoặc xóa phản hồi của Patient. |
+| DOC-08 | Trả rating aggregate và review published của Doctor có phân trang; Doctor chỉ đọc, không sửa hoặc xóa phản hồi của Patient.            |
 
 #### Availability, Consultation, Queue và Chat
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| CON-01 | Tạo slot làm việc cho Doctor approved; kiểm tra timezone, thời lượng, overlap và buffer trước khi ghi. |
-| CON-02 | Liệt kê slot của chính Doctor theo khoảng thời gian/status để vận hành calendar; kết quả luôn bounded. |
-| CON-03 | Chuyển slot available sang blocked với lý do; không cho block slot đã booked hoặc gây thay đổi consultation hiện hữu. |
-| CON-04 | Xóa slot chưa được sử dụng theo policy; slot booked phải được xử lý qua lifecycle consultation, không xóa trực tiếp. |
-| CON-05 | Đặt scheduled consultation bằng cách claim một AvailabilitySlot atomically, reserve consultation quota và chụp booking settings; conflict trả 409. |
-| CON-06 | Tạo on-demand request tới Doctor, reserve quota và ngăn trùng một pending request cho cùng cặp Patient–Doctor. |
-| CON-07 | Liệt kê consultation trong scope Patient/Doctor theo mode và hai state machine; hỗ trợ filter, pagination và preview tin nhắn. |
-| CON-08 | Trả chi tiết consultation cho participant/Admin có quyền, gồm timeline, liên kết Care, queue/call/follow-up và `allowedActions`. |
-| CON-09 | Doctor accept on-demand request còn hạn; kiểm tra Doctor approved, xung đột policy và chuyển requestStatus theo conditional update. |
-| CON-10 | Doctor decline pending request với lý do tùy policy; release quota reservation và thông báo Patient sau commit. |
-| CON-11 | Một participant hủy consultation khi còn trong cửa sổ cho phép; cập nhật slot/quota liên quan và ghi actor/reason. |
-| CON-12 | Patient check-in trong cửa sổ hợp lệ, ghi consent cần thiết và đưa consultation vào queue với khóa thứ tự ổn định. |
-| CON-13 | Trả riêng vị trí/ETA của Patient trong queue; tuyệt đối không trả danh tính hoặc dữ liệu của Patient khác. |
-| CON-14 | Trả queue của Doctor đã được server sắp theo scheduled/on-demand policy, kèm current session và late/wait indicators. |
-| CON-15 | Claim nguyên tử consultation kế tiếp cho Doctor; bảo đảm Doctor chỉ có một phiên `in_consultation` và chống hai lần call-next. |
-| CON-16 | Doctor bắt đầu consultation đã accepted/waiting và có consent hợp lệ; tạo/authorize room nhưng không phụ thuộc Care Program. |
-| CON-17 | Doctor hoàn tất phiên bằng thao tác chủ động, lưu note/thời điểm và count consultation usage; không tự kết thúc theo expected duration. |
-| CON-17A | Khôi phục consultation từ interrupted khi Doctor chưa có phiên active khác; giữ timeline gián đoạn và ghi audit. |
-| CON-18 | Lấy lịch sử message của consultation theo cursor/page sau khi kiểm tra participant và trạng thái truy cập room. |
-| CON-19 | Gửi message/tệp trong consultation; dedupe bằng clientMessageId, kiểm tra file/room authorization và phát event sau persistence. |
-| CON-20 | Patient tạo một review cho consultation completed; kiểm tra ownership, unique consultation và rating 1–5 rồi cập nhật aggregate Doctor. |
-| CON-21 | Patient sửa review của chính mình trong policy cho phép; cập nhật rating aggregate atomically và lưu moderation history cần thiết. |
-| CON-22 | Tạo ViolationReport từ consultation/message được phép, chụp source IDs và evidence mà không cho client tự kết luận vi phạm. |
-| CON-23 | Doctor đánh dấu no-show khi consultation đang waiting và đã quá ngưỡng; transition là terminal và xử lý quota theo policy. |
-| CON-24 | Doctor tạo/cập nhật kế hoạch follow-up cho consultation, có thể liên kết task; dữ liệu được audit và hiển thị cho Patient theo quyền. |
+| ID      | Chức năng và hành vi chính                                                                                                                         |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CON-01  | Tạo slot làm việc cho Doctor approved; kiểm tra timezone, thời lượng, overlap và buffer trước khi ghi.                                             |
+| CON-02  | Liệt kê slot của chính Doctor theo khoảng thời gian/status để vận hành calendar; kết quả luôn bounded.                                             |
+| CON-03  | Chuyển slot available sang blocked với lý do; không cho block slot đã booked hoặc gây thay đổi consultation hiện hữu.                              |
+| CON-04  | Xóa slot chưa được sử dụng theo policy; slot booked phải được xử lý qua lifecycle consultation, không xóa trực tiếp.                               |
+| CON-05  | Đặt scheduled consultation bằng cách claim một AvailabilitySlot atomically, reserve consultation quota và chụp booking settings; conflict trả 409. |
+| CON-06  | Tạo on-demand request tới Doctor, reserve quota và ngăn trùng một pending request cho cùng cặp Patient–Doctor.                                     |
+| CON-07  | Liệt kê consultation trong scope Patient/Doctor theo mode và hai state machine; hỗ trợ filter, pagination và preview tin nhắn.                     |
+| CON-08  | Trả chi tiết consultation cho participant/Admin có quyền, gồm timeline, liên kết Care, queue/call/follow-up và `allowedActions`.                   |
+| CON-09  | Doctor accept on-demand request còn hạn; kiểm tra Doctor approved, xung đột policy và chuyển requestStatus theo conditional update.                |
+| CON-10  | Doctor decline pending request với lý do tùy policy; release quota reservation và thông báo Patient sau commit.                                    |
+| CON-11  | Một participant hủy consultation khi còn trong cửa sổ cho phép; cập nhật slot/quota liên quan và ghi actor/reason.                                 |
+| CON-12  | Patient check-in trong cửa sổ hợp lệ, ghi consent cần thiết và đưa consultation vào queue với khóa thứ tự ổn định.                                 |
+| CON-13  | Trả riêng vị trí/ETA của Patient trong queue; tuyệt đối không trả danh tính hoặc dữ liệu của Patient khác.                                         |
+| CON-14  | Trả queue của Doctor đã được server sắp theo scheduled/on-demand policy, kèm current session và late/wait indicators.                              |
+| CON-15  | Claim nguyên tử consultation kế tiếp cho Doctor; bảo đảm Doctor chỉ có một phiên `in_consultation` và chống hai lần call-next.                     |
+| CON-16  | Doctor bắt đầu consultation đã accepted/waiting và có consent hợp lệ; tạo/authorize room nhưng không phụ thuộc Care Program.                       |
+| CON-17  | Doctor hoàn tất phiên bằng thao tác chủ động, lưu note/thời điểm và count consultation usage; không tự kết thúc theo expected duration.            |
+| CON-17A | Khôi phục consultation từ interrupted khi Doctor chưa có phiên active khác; giữ timeline gián đoạn và ghi audit.                                   |
+| CON-18  | Lấy lịch sử message của consultation theo cursor/page sau khi kiểm tra participant và trạng thái truy cập room.                                    |
+| CON-19  | Gửi message/tệp trong consultation; dedupe bằng clientMessageId, kiểm tra file/room authorization và phát event sau persistence.                   |
+| CON-20  | Patient tạo một review cho consultation completed; kiểm tra ownership, unique consultation và rating 1–5 rồi cập nhật aggregate Doctor.            |
+| CON-21  | Patient sửa review của chính mình trong policy cho phép; cập nhật rating aggregate atomically và lưu moderation history cần thiết.                 |
+| CON-22  | Tạo ViolationReport từ consultation/message được phép, chụp source IDs và evidence mà không cho client tự kết luận vi phạm.                        |
+| CON-23  | Doctor đánh dấu no-show khi consultation đang waiting và đã quá ngưỡng; transition là terminal và xử lý quota theo policy.                         |
+| CON-24  | Doctor tạo/cập nhật kế hoạch follow-up cho consultation, có thể liên kết task; dữ liệu được audit và hiển thị cho Patient theo quyền.              |
 
 #### Health Metrics và AI
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| HLTH-01 | Trả lịch sử chỉ số hợp lệ của Patient theo loại/khoảng thời gian, kèm trạng thái correction/void để chart không dùng dữ liệu sai. |
-| HLTH-02 | Ghi một phép đo append-only, validate unit/range/timezone, kích hoạt rule evaluation và trả safety/alert summary nếu có. |
-| HLTH-03 | Tạo bản ghi correction trỏ tới phép đo cũ, chuyển bản cũ thành superseded và chạy lại evaluation; không ghi đè giá trị lịch sử. |
-| HLTH-04 | Đánh dấu phép đo là voided với actor/reason, giữ audit và cập nhật các report/evaluation phụ thuộc theo policy. |
-| HLTH-05 | Trả health context có giới hạn cho Doctor đang tham gia consultation; scope theo metric/range cần thiết, không mở toàn bộ hồ sơ. |
-| AI-01 | Trả quota AI hiệu lực theo ngày hoặc chu kỳ gói, gồm limit/used/reserved/remaining và thời điểm reset; không trộn consultation quota. |
-| AI-02 | Tạo hội thoại AI thuộc Patient, kiểm tra entitlement/safety và có thể xử lý câu hỏi đầu tiên qua quota reservation. |
-| AI-03 | Liệt kê hội thoại của Patient theo status/search/page, chỉ trả preview cần thiết cho sidebar. |
-| AI-04 | Trả một hội thoại và message page có citations đã chuẩn hóa; chỉ owner được truy cập. |
-| AI-05 | Nhận câu hỏi/tệp, reserve token, chạy blacklist + RAG trên tài liệu approved, validate output/citation rồi commit hoặc release quota. |
-| AI-06 | Cập nhật metadata/lifecycle được phép của hội thoại như display title hoặc completed state; không cho sửa message history. |
-| AI-07 | Archive hội thoại để ẩn khỏi danh sách mặc định nhưng vẫn giữ theo retention/audit; thao tác có thể retry an toàn. |
-| AI-08 | Sinh bản nháp brief trước consultation từ dữ liệu đã authorize và snapshot có giới hạn; Doctor phải review, AI không tự ghi clinical note. |
+| ID      | Chức năng và hành vi chính                                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| HLTH-01 | Trả lịch sử chỉ số hợp lệ của Patient theo loại/khoảng thời gian, kèm trạng thái correction/void để chart không dùng dữ liệu sai.          |
+| HLTH-02 | Ghi một phép đo append-only, validate unit/range/timezone, kích hoạt rule evaluation và trả safety/alert summary nếu có.                   |
+| HLTH-03 | Tạo bản ghi correction trỏ tới phép đo cũ, chuyển bản cũ thành superseded và chạy lại evaluation; không ghi đè giá trị lịch sử.            |
+| HLTH-04 | Đánh dấu phép đo là voided với actor/reason, giữ audit và cập nhật các report/evaluation phụ thuộc theo policy.                            |
+| HLTH-05 | Trả health context có giới hạn cho Doctor đang tham gia consultation; scope theo metric/range cần thiết, không mở toàn bộ hồ sơ.           |
+| AI-01   | Trả quota AI hiệu lực theo ngày hoặc chu kỳ gói, gồm limit/used/reserved/remaining và thời điểm reset; không trộn consultation quota.      |
+| AI-02   | Tạo hội thoại AI thuộc Patient, kiểm tra entitlement/safety và có thể xử lý câu hỏi đầu tiên qua quota reservation.                        |
+| AI-03   | Liệt kê hội thoại của Patient theo status/search/page, chỉ trả preview cần thiết cho sidebar.                                              |
+| AI-04   | Trả một hội thoại và message page có citations đã chuẩn hóa; chỉ owner được truy cập.                                                      |
+| AI-05   | Nhận câu hỏi/tệp, reserve token, chạy blacklist + RAG trên tài liệu approved, validate output/citation rồi commit hoặc release quota.      |
+| AI-06   | Cập nhật metadata/lifecycle được phép của hội thoại như display title hoặc completed state; không cho sửa message history.                 |
+| AI-07   | Archive hội thoại để ẩn khỏi danh sách mặc định nhưng vẫn giữ theo retention/audit; thao tác có thể retry an toàn.                         |
+| AI-08   | Sinh bản nháp brief trước consultation từ dữ liệu đã authorize và snapshot có giới hạn; Doctor phải review, AI không tự ghi clinical note. |
 
 #### Chronic Care
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| CARE-01 | Liệt kê Care Program theo disease/status; Patient chỉ thấy bản published, Doctor/Admin thấy thêm bản trong permission scope. |
-| CARE-02 | Tạo Program draft mới hoặc clone version cũ; lưu schema/template/source có version nhưng chưa tạo task cho Patient. |
-| CARE-03 | Sửa Program còn draft với optimistic version check và doctorEditable allowlist; published/retired version là bất biến. |
-| CARE-04 | Admin publish Program sau khi validation và review evidence đạt; chỉ một version phù hợp được dùng cho enrollment mới theo policy. |
-| CARE-05 | Doctor enroll Patient vào Program published và CareRule active; kiểm tra Doctor assignment, entitlement/limit rồi tạo enrollment pending. |
-| CARE-06 | Liệt kê enrollment trong scope Patient hoặc assigned Doctor theo status/program; trả progress, next task và alert/report summary bounded. |
-| CARE-07 | Trả workspace của một enrollment gồm snapshot Program/Rule, consent, baseline, progress và các liên kết được authorize. |
-| CARE-08 | Patient chấp nhận consent version/purpose/channel và gửi baseline; chỉ activate khi toàn bộ guard 1A cùng hợp lệ. |
-| CARE-09 | Liệt kê task của một enrollment theo status/type/time range, bảo toàn timezone và terminal states. |
-| CARE-10 | Ghi response hoặc tiến độ cho task phù hợp type/completionRule; chống submit lặp và không cho hoàn thành task missed/terminal. |
-| CARE-11 | Liệt kê tối đa 100 deterministic report của enrollment theo reportType; Patient không nhận source IDs, Doctor nhận bounded provenance để điều tra. |
-| CARE-12 | Trả Priority Inbox của assigned Doctor bằng cursor; sort ổn định theo severity–detectedAt–id, filter status/severity và chỉ projection summary bounded. |
-| CARE-13 | Doctor acknowledge alert open, ghi actor/time/note; gọi lặp không tạo thêm transition hoặc notification trùng. |
-| CARE-14 | Doctor resolve alert open/acknowledged với reason/follow-up; resolve trực tiếp tự ghi implicit acknowledge theo quyết định 3A. |
-| CARE-15 | Doctor dismiss alert chỉ với reason trong allowlist; trạng thái terminal, Admin chỉ audit chứ không xử lý thay. |
-| CARE-16 | Tạo consultation gắn alert theo scheduled/on-demand policy; consultation vẫn là domain độc lập và dùng quota bình thường. |
-| CARE-17 | Thực hiện lifecycle enrollment: Patient request pause/withdraw consent; Doctor pause/resume/complete; cancel/complete cần reason và audit. |
-| CARE-18 | Liệt kê các CareRule version của Program cùng status, nguồn và test summary; Admin có permission được xem draft chi tiết, Doctor chỉ đọc Rule của Program published. |
-| CARE-19 | Admin tạo CareRule draft bằng operator declarative allowlist và nguồn tham chiếu; không thực thi rule mới cho Patient. |
-| CARE-20 | Admin chạy deterministic simulation cho Program/Rule draft trên test cases, trả kết quả boundary/missing/repeated để kiểm tra cấu hình. |
-| CARE-21 | Admin hoặc Doctor `active + approved` activate một Rule sau server validation; ghi version/audit, atomically retire Rule cũ và không hồi tố enrollment đang chạy. |
-| CARE-22 | Trả aggregate vận hành Chronic Care theo range/Program/Doctor: enrollment, adherence và alert/follow-up metrics; không trả raw HealthMetrics. |
-| CARE-23 | Retire Program version để ngăn enrollment mới; enrollment hiện hữu tiếp tục theo snapshot trừ khi policy yêu cầu chuyển đổi riêng. |
-| CARE-24 | Retire CareRule version để ngăn gán mới; giữ version cho khả năng tái hiện evaluation/report lịch sử. |
+| ID      | Chức năng và hành vi chính                                                                                                                                             |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CARE-01 | Liệt kê Care Program theo disease/status; Patient chỉ thấy bản published, Doctor/Admin thấy thêm bản trong permission scope.                                           |
+| CARE-02 | Tạo Program draft mới hoặc clone version cũ; lưu schema/template/source có version nhưng chưa tạo task cho Patient.                                                    |
+| CARE-03 | Sửa Program còn draft với optimistic version check và doctorEditable allowlist; published/retired version là bất biến.                                                 |
+| CARE-04 | Admin publish Program sau khi validation và review evidence đạt; chỉ một version phù hợp được dùng cho enrollment mới theo policy.                                     |
+| CARE-05 | Doctor enroll Patient vào Program published và CareRule active; kiểm tra Doctor assignment, entitlement/limit rồi tạo enrollment pending.                              |
+| CARE-06 | Liệt kê enrollment trong scope Patient hoặc assigned Doctor theo status/program; trả progress, next task và alert/report summary bounded.                              |
+| CARE-07 | Trả workspace của một enrollment gồm snapshot Program/Rule, consent, baseline, progress và các liên kết được authorize.                                                |
+| CARE-08 | Patient chấp nhận consent version/purpose/channel và gửi baseline; chỉ activate khi toàn bộ guard 1A cùng hợp lệ.                                                      |
+| CARE-09 | Liệt kê task của một enrollment theo status/type/time range, bảo toàn timezone và terminal states.                                                                     |
+| CARE-10 | Ghi response hoặc tiến độ cho task phù hợp type/completionRule; chống submit lặp và không cho hoàn thành task missed/terminal.                                         |
+| CARE-11 | Liệt kê tối đa 100 deterministic report của enrollment theo reportType; Patient không nhận source IDs, Doctor nhận bounded provenance để điều tra.                     |
+| CARE-12 | Trả Priority Inbox của assigned Doctor bằng cursor; sort ổn định theo severity–detectedAt–id, filter status/severity và chỉ projection summary bounded.                |
+| CARE-13 | Doctor acknowledge alert open, ghi actor/time/note; gọi lặp không tạo thêm transition hoặc notification trùng.                                                         |
+| CARE-14 | Doctor resolve alert open/acknowledged với reason/follow-up; resolve trực tiếp tự ghi implicit acknowledge theo quyết định 3A.                                         |
+| CARE-15 | Doctor dismiss alert chỉ với reason trong allowlist; trạng thái terminal, Admin chỉ audit chứ không xử lý thay.                                                        |
+| CARE-16 | Tạo consultation gắn alert theo scheduled/on-demand policy; consultation vẫn là domain độc lập và dùng quota bình thường.                                              |
+| CARE-17 | Thực hiện lifecycle enrollment: Patient request pause/withdraw consent; Doctor pause/resume/complete; cancel/complete cần reason và audit.                             |
+| CARE-18 | Liệt kê các CareRule version của Program cùng status, nguồn và test summary; Admin có permission được xem draft chi tiết, Doctor chỉ đọc Rule của Program published.   |
+| CARE-19 | Admin tạo CareRule draft bằng operator declarative allowlist và nguồn tham chiếu; không thực thi rule mới cho Patient.                                                 |
+| CARE-20 | Admin chạy deterministic simulation cho Program/Rule draft trên test cases, trả kết quả boundary/missing/repeated để kiểm tra cấu hình.                                |
+| CARE-21 | Admin hoặc Doctor `active + approved` activate một Rule sau server validation; ghi version/audit, atomically retire Rule cũ và không hồi tố enrollment đang chạy.      |
+| CARE-22 | Trả aggregate vận hành Chronic Care theo range/Program/Doctor: enrollment, adherence và alert/follow-up metrics; không trả raw HealthMetrics.                          |
+| CARE-23 | Retire Program version để ngăn enrollment mới; enrollment hiện hữu tiếp tục theo snapshot trừ khi policy yêu cầu chuyển đổi riêng.                                     |
+| CARE-24 | Retire CareRule version để ngăn gán mới; giữ version cho khả năng tái hiện evaluation/report lịch sử.                                                                  |
 | CARE-25 | Doctor detail chỉ trả alert được gán cho chính Doctor, bounded evaluation context và action allowlist; Patient chỉ nhận safe summary, Admin chỉ nhận audit projection. |
-| CARE-26 | Trả chi tiết task cùng form/content/action theo taskType; chỉ cung cấp nội dung approved và `allowedActions` ở thời điểm đọc. |
-| CARE-27 | Trả chi tiết Program và projection schema/template/source theo role; Patient không nhận rule nội bộ hoặc draft content. |
-| CARE-28 | Trả immutable deterministic report và `SummaryInput v1` đúng audience; facts hoạt động độc lập dù AI chưa bật hoặc failed/fallback. |
-| CARE-29 | Assigned Doctor review/reject Doctor-audience AI summary, ghi reviewer/note/version; không thay đổi statistics hoặc alert severity. |
-| CARE-30 | Sửa CareRule còn draft với version check và operator allowlist; rule active/retired không được chỉnh tại chỗ. |
-| CARE-31 | Tạo PDF/CSV export từ report đã authorize sau khi kiểm tra entitlement; file/job có TTL và không chứa field ngoài audience scope. |
-| CARE-32 | Trả trạng thái report export và URL tải ngắn hạn cho đúng owner; không trả storage key nội bộ. |
-| CARE-33 | Liệt kê task xuyên nhiều enrollment trong scope, dùng cho medication/today view; vẫn bounded và giữ enrollmentId để mở đúng context. |
-| CARE-34 | Assigned Doctor tạo report trên 7/30 ngày địa phương hoàn chỉnh và UTC cutoff; replay cùng sources trả report cũ, late correction đổi input hash và tạo version mới. |
+| CARE-26 | Trả chi tiết task cùng form/content/action theo taskType; chỉ cung cấp nội dung approved và `allowedActions` ở thời điểm đọc.                                          |
+| CARE-27 | Trả chi tiết Program và projection schema/template/source theo role; Patient không nhận rule nội bộ hoặc draft content.                                                |
+| CARE-28 | Trả immutable deterministic report và `SummaryInput v1` đúng audience; facts hoạt động độc lập dù AI chưa bật hoặc failed/fallback.                                    |
+| CARE-29 | Assigned Doctor review/reject Doctor-audience AI summary, ghi reviewer/note/version; không thay đổi statistics hoặc alert severity.                                    |
+| CARE-30 | Sửa CareRule còn draft với version check và operator allowlist; rule active/retired không được chỉnh tại chỗ.                                                          |
+| CARE-31 | Tạo PDF/CSV export từ report đã authorize sau khi kiểm tra entitlement; file/job có TTL và không chứa field ngoài audience scope.                                      |
+| CARE-32 | Trả trạng thái report export và URL tải ngắn hạn cho đúng owner; không trả storage key nội bộ.                                                                         |
+| CARE-33 | Liệt kê task xuyên nhiều enrollment trong scope, dùng cho medication/today view; vẫn bounded và giữ enrollmentId để mở đúng context.                                   |
+| CARE-34 | Assigned Doctor tạo report trên 7/30 ngày địa phương hoàn chỉnh và UTC cutoff; replay cùng sources trả report cũ, late correction đổi input hash và tạo version mới.   |
 
 #### Người thân đồng hành
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| FAM-01 | Liệt kê lời mời/liên kết đã gửi hoặc nhận theo direction/status; chỉ trả thông tin quan hệ và permission summary an toàn. |
+| ID     | Chức năng và hành vi chính                                                                                                                |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| FAM-01 | Liệt kê lời mời/liên kết đã gửi hoặc nhận theo direction/status; chỉ trả thông tin quan hệ và permission summary an toàn.                 |
 | FAM-02 | Patient mời một account Patient khác làm người thân; kiểm tra familyLinkLimit, chống self-invite và tái dùng pair bằng invitationVersion. |
-| FAM-03 | Người được mời chấp nhận invitation còn hạn cùng consent version; kích hoạt permission riêng, không mặc định cấp quyền xem health data. |
-| FAM-04 | Thực hiện pause/resume/revoke/decline theo actor và state machine; revoke/decline/expired có thể được mời lại bằng version mới. |
-| FAM-05 | Patient owner thay permission trong allowlist, tạo version/audit và dừng reminder không còn quyền; family user không tự mở rộng quyền. |
-| FAM-06 | Cho Admin audit link, invitation version, actor và delivery summary để hỗ trợ tranh chấp; không trả metric/AI/chat/alert reason. |
-| FAM-07 | Trả chi tiết một FamilyLink và permission đang hiệu lực cho participant/Admin audit; projection phụ thuộc role. |
+| FAM-03 | Người được mời chấp nhận invitation còn hạn cùng consent version; kích hoạt permission riêng, không mặc định cấp quyền xem health data.   |
+| FAM-04 | Thực hiện pause/resume/revoke/decline theo actor và state machine; revoke/decline/expired có thể được mời lại bằng version mới.           |
+| FAM-05 | Patient owner thay permission trong allowlist, tạo version/audit và dừng reminder không còn quyền; family user không tự mở rộng quyền.    |
+| FAM-06 | Cho Admin audit link, invitation version, actor và delivery summary để hỗ trợ tranh chấp; không trả metric/AI/chat/alert reason.          |
+| FAM-07 | Trả chi tiết một FamilyLink và permission đang hiệu lực cho participant/Admin audit; projection phụ thuộc role.                           |
 
 #### Danh mục cơ sở y tế
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| FAC-01 | Tìm cơ sở theo Program/disease mapping, specialty, khu vực hoặc khoảng cách; ưu tiên verified internal và gắn nhãn map fallback. |
-| FAC-02 | Trả chi tiết cơ sở, nguồn, trạng thái xác minh, liên hệ và lý do khớp; không khẳng định chất lượng hoặc lịch trống chưa tích hợp. |
-| FAC-03 | Admin chọn một kết quả map provider để tạo draft, chụp provider/placeId/source; candidate không tự trở thành verified. |
-| FAC-04 | Admin verify draft sau khi bổ sung nguồn chính thức và checklist; ghi reviewer/time/audit trước khi cho Patient tìm thấy như verified. |
-| FAC-05 | Publish một DiseaseSpecialty mapping version đã duyệt để search dùng deterministic specialty allowlist. |
-| FAC-06 | Liệt kê facility draft/verified/retired theo nguồn, khu vực và search; freshness được tính từ `lastCheckedAt` theo policy. |
-| FAC-07 | Liệt kê các version ánh xạ disease/program–specialty cùng lifecycle và nguồn phê duyệt. |
-| FAC-08 | Sửa metadata/source của facility còn draft với version check; verified record phải qua lifecycle thay vì sửa ngầm dữ liệu đã công bố. |
+| ID     | Chức năng và hành vi chính                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| FAC-01 | Tìm cơ sở theo Program/disease mapping, specialty, khu vực hoặc khoảng cách; ưu tiên verified internal và gắn nhãn map fallback.             |
+| FAC-02 | Trả chi tiết cơ sở, nguồn, trạng thái xác minh, liên hệ và lý do khớp; không khẳng định chất lượng hoặc lịch trống chưa tích hợp.            |
+| FAC-03 | Admin chọn một kết quả map provider để tạo draft, chụp provider/placeId/source; candidate không tự trở thành verified.                       |
+| FAC-04 | Admin verify draft sau khi bổ sung nguồn chính thức và checklist; ghi reviewer/time/audit trước khi cho Patient tìm thấy như verified.       |
+| FAC-05 | Publish một DiseaseSpecialty mapping version đã duyệt để search dùng deterministic specialty allowlist.                                      |
+| FAC-06 | Liệt kê facility draft/verified/retired theo nguồn, khu vực và search; freshness được tính từ `lastCheckedAt` theo policy.                   |
+| FAC-07 | Liệt kê các version ánh xạ disease/program–specialty cùng lifecycle và nguồn phê duyệt.                                                      |
+| FAC-08 | Sửa metadata/source của facility còn draft với version check; verified record phải qua lifecycle thay vì sửa ngầm dữ liệu đã công bố.        |
 | FAC-09 | Retire facility với reason; facility verified quá ngưỡng freshness tự bị loại/gắn nhãn theo `lastCheckedAt`, không chuyển sang status riêng. |
-| FAC-10 | Tạo draft DiseaseSpecialty mapping mới từ danh sách chuyên khoa và nguồn do Admin kiểm soát. |
-| FAC-11 | Sửa mapping còn draft với optimistic version check; active/retired mapping là bất biến. |
+| FAC-10 | Tạo draft DiseaseSpecialty mapping mới từ danh sách chuyên khoa và nguồn do Admin kiểm soát.                                                 |
+| FAC-11 | Sửa mapping còn draft với optimistic version check; active/retired mapping là bất biến.                                                      |
 
 #### Subscription, Payment và Refund
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| BILL-01 | Trả các Plan published đang bán với version, giá, quota, benefits và refund policy; không trả draft/retired cho Patient. |
-| BILL-02 | Trả subscription history và effective entitlement của Patient, gồm plan snapshot/chu kỳ/thay đổi kế tiếp; một user chỉ có một active subscription. |
+| ID      | Chức năng và hành vi chính                                                                                                                                                                        |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BILL-01 | Trả các Plan published đang bán với version, giá, quota, benefits và refund policy; không trả draft/retired cho Patient.                                                                          |
+| BILL-02 | Trả subscription history và effective entitlement của Patient, gồm plan snapshot/chu kỳ/thay đổi kế tiếp; một user chỉ có một active subscription.                                                |
 | BILL-03 | Tạo PaymentOrder từ Plan server-side, chụp immutable snapshot, kiểm tra duplicate/idempotency và trả URL VNPAY kèm QR tạm thời mã hóa cùng URL khi order còn payable; không tin amount từ client. |
-| BILL-04 | Liệt kê order của Patient theo status/page để hiển thị lịch sử; transaction payload nhạy cảm không nằm trong response. |
-| BILL-05 | Trả order detail và safe transaction summary; đây là source of truth sau VNPAY return thay vì query success trên URL. |
-| BILL-06 | Hủy order chưa thanh toán khi còn trạng thái cho phép; transition conditional để không thắng race với IPN paid. |
-| BILL-07 | Nhận browser redirect từ VNPAY, xác minh dữ liệu cần thiết rồi chỉ redirect/hiển thị trạng thái an toàn; không grant subscription tại browser. |
-| BILL-08 | Nhận IPN có chữ ký từ VNPAY, xử lý idempotent payment state và outbox grant; trả acknowledgement đúng đặc tả provider. |
-| BILL-09 | Tạo một full-refund request cho paid order, snapshot policy/usage, đánh giá sơ bộ và pause paid-only benefits khi request được nhận. |
-| BILL-10 | Trả refund detail cho owner/Admin với status, reason codes và usage snapshot phù hợp; ẩn gateway/internal error khỏi Patient. |
-| BILL-11 | Liệt kê PaymentOrder cho Admin theo status/date/user/orderCode, kèm totals và reconciliation flags; luôn phân trang. |
-| BILL-12 | Trả Admin detail gồm order snapshot, safe transaction, subscription grant/outbox và refund relation để điều tra đối soát. |
-| BILL-13 | Liệt kê refund queue theo status/date/user với eligibility và snapshot summary để Admin xử lý. |
-| BILL-14 | Admin approve refund sau khi server re-evaluate usage; override cần reason và không được vượt invariant amount/provider/idempotency. |
-| BILL-15 | Admin reject refund với lý do, ghi audit và resume paid benefits khi policy cho phép; không gọi provider refund. |
-| BILL-16 | Đối soát lại refund processing/unknown với provider bằng request id ổn định; cập nhật trạng thái mà không tạo refund lần hai. |
-| BILL-17 | Liệt kê refund của Patient theo status/page để theo dõi yêu cầu và mở detail. |
-| BILL-18 | Trả usage trong chu kỳ hiệu lực: AI token/request, consultation reserved/counted, Program và family links used/remaining. |
-| BILL-19 | Admin đối soát order/transaction/grant bị lệch hoặc IPN đến muộn; command idempotent và không cho mark-paid thủ công. |
+| BILL-04 | Liệt kê order của Patient theo status/page để hiển thị lịch sử; transaction payload nhạy cảm không nằm trong response.                                                                            |
+| BILL-05 | Trả order detail và safe transaction summary; đây là source of truth sau VNPAY return thay vì query success trên URL.                                                                             |
+| BILL-06 | Hủy order chưa thanh toán khi còn trạng thái cho phép; transition conditional để không thắng race với IPN paid.                                                                                   |
+| BILL-07 | Nhận browser redirect từ VNPAY, xác minh dữ liệu cần thiết rồi chỉ redirect/hiển thị trạng thái an toàn; không grant subscription tại browser.                                                    |
+| BILL-08 | Nhận IPN có chữ ký từ VNPAY, xử lý idempotent payment state và outbox grant; trả acknowledgement đúng đặc tả provider.                                                                            |
+| BILL-09 | Tạo một full-refund request cho paid order, snapshot policy/usage, đánh giá sơ bộ và pause paid-only benefits khi request được nhận.                                                              |
+| BILL-10 | Trả refund detail cho owner/Admin với status, reason codes và usage snapshot phù hợp; ẩn gateway/internal error khỏi Patient.                                                                     |
+| BILL-11 | Liệt kê PaymentOrder cho Admin theo status/date/user/orderCode, kèm totals và reconciliation flags; luôn phân trang.                                                                              |
+| BILL-12 | Trả Admin detail gồm order snapshot, safe transaction, subscription grant/outbox và refund relation để điều tra đối soát.                                                                         |
+| BILL-13 | Liệt kê refund queue theo status/date/user với eligibility và snapshot summary để Admin xử lý.                                                                                                    |
+| BILL-14 | Admin approve refund sau khi server re-evaluate usage; override cần reason và không được vượt invariant amount/provider/idempotency.                                                              |
+| BILL-15 | Admin reject refund với lý do, ghi audit và resume paid benefits khi policy cho phép; không gọi provider refund.                                                                                  |
+| BILL-16 | Đối soát lại refund processing/unknown với provider bằng request id ổn định; cập nhật trạng thái mà không tạo refund lần hai.                                                                     |
+| BILL-17 | Liệt kê refund của Patient theo status/page để theo dõi yêu cầu và mở detail.                                                                                                                     |
+| BILL-18 | Trả usage trong chu kỳ hiệu lực: AI token/request, consultation reserved/counted, Program và family links used/remaining.                                                                         |
+| BILL-19 | Admin đối soát order/transaction/grant bị lệch hoặc IPN đến muộn; command idempotent và không cho mark-paid thủ công.                                                                             |
 
 #### Notification và Moderation
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| NOTI-01 | Trả inbox notification của user theo unread/page, gồm resource deep-link an toàn; notification in-app đã được persist trước external delivery. |
-| NOTI-02 | Đánh dấu một notification thuộc user là đã đọc theo idempotent update và trả thời điểm đọc. |
-| NOTI-03 | Đánh dấu toàn bộ notification hiện có của user là đã đọc, trả số bản ghi thay đổi và không ảnh hưởng user khác. |
-| NOTI-04 | Xóa/ẩn notification khỏi inbox của owner theo retention policy; không xóa entity nghiệp vụ được liên kết. |
-| MOD-01 | Tạo ViolationReport từ source/evidence được authorize, validate upload và đưa vào hàng đợi kiểm duyệt; AI chưa phải kết luận. |
-| MOD-02 | Liệt kê report cho Admin theo status/severity/assignee với totals và phân trang để triage. |
-| MOD-03 | Trả report detail, evidence và source context được phép cho Admin; không mở rộng sang dữ liệu ngoài phạm vi báo cáo. |
-| MOD-04 | Cập nhật assignment/severity/workflow và outcome phẳng `resolutionNote/actionTaken/resolvedBy/resolvedAt`; action cảnh cáo/khóa tài khoản dùng command tương ứng và ghi audit. |
+| ID      | Chức năng và hành vi chính                                                                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| NOTI-01 | Trả inbox notification của user theo unread/page, gồm resource deep-link an toàn; notification in-app đã được persist trước external delivery.                                 |
+| NOTI-02 | Đánh dấu một notification thuộc user là đã đọc theo idempotent update và trả thời điểm đọc.                                                                                    |
+| NOTI-03 | Đánh dấu toàn bộ notification hiện có của user là đã đọc, trả số bản ghi thay đổi và không ảnh hưởng user khác.                                                                |
+| NOTI-04 | Xóa/ẩn notification khỏi inbox của owner theo retention policy; không xóa entity nghiệp vụ được liên kết.                                                                      |
+| MOD-01  | Tạo ViolationReport từ source/evidence được authorize, validate upload và đưa vào hàng đợi kiểm duyệt; AI chưa phải kết luận.                                                  |
+| MOD-02  | Liệt kê report cho Admin theo status/severity/assignee với totals và phân trang để triage.                                                                                     |
+| MOD-03  | Trả report detail, evidence và source context được phép cho Admin; không mở rộng sang dữ liệu ngoài phạm vi báo cáo.                                                           |
+| MOD-04  | Cập nhật assignment/severity/workflow và outcome phẳng `resolutionNote/actionTaken/resolvedBy/resolvedAt`; action cảnh cáo/khóa tài khoản dùng command tương ứng và ghi audit. |
 
 #### Web Admin
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| ADM-01 | Trả dashboard aggregate theo date range cho Users, Doctors, Consultations, Care và Billing; không gửi collections thô để browser tự đếm. |
-| ADM-02 | Tìm/lọc user theo role/status với totals và pagination; projection đủ cho bảng quản trị, không kèm health/chat/AI content. |
-| ADM-03 | Khóa account với reason, revoke session/capability liên quan, ghi audit và phát account-banned notification sau commit. |
-| ADM-04 | Mở khóa account theo permission, ghi audit; không tự khôi phục verification hoặc subscription đã hết hạn. |
-| ADM-05 | Super Admin tạo/gán Admin capability cho user hợp lệ, kiểm tra role conflict và ghi audit. |
-| ADM-06 | Super Admin đổi adminRole trong enum canonical; ngăn tự hạ quyền gây mất quản trị cuối cùng theo policy. |
-| ADM-07 | Liệt kê mọi Plan version cho Admin theo status/page, gồm effective dates để quản lý lifecycle. |
-| ADM-08 | Tạo Plan draft mới hoặc clone version cũ; validate hard ceilings nhưng chưa làm thay đổi entitlement hiện hành. |
-| ADM-09 | Sửa Plan còn draft với version check; published/retired Plan không chỉnh trực tiếp. |
-| ADM-10 | Liệt kê tài liệu AI theo processing/review/search/page để vận hành ingestion và review. |
-| ADM-11 | Upload tài liệu RAG cùng metadata nguồn; chống duplicate bằng checksum và enqueue pipeline parse/chunk/embed. |
-| ADM-12 | Sửa metadata của document còn pending_review; approved document phải tạo version/re-ingest flow thay vì sửa ngầm citation source. |
-| ADM-13 | Archive document với reason, loại nó khỏi retrieval mới nhưng giữ metadata/chunk/audit phục vụ lịch sử. |
-| ADM-14 | Liệt kê blacklist keyword theo search/page cho AI Admin mà không hiển thị raw Patient prompts. |
-| ADM-15 | Tạo keyword sau normalize/dedupe và ghi audit; keyword được dùng trong safety filter theo policy. |
-| ADM-16 | Sửa keyword hiện có, normalize và kiểm tra conflict trước khi cập nhật. |
-| ADM-17 | Xóa keyword theo policy/audit; không ảnh hưởng message lịch sử đã tạo. |
-| ADM-18 | Trả document detail, metadata nguồn, preview và bounded processing/chunk/error summary; không trả embedding vector. |
+| ID     | Chức năng và hành vi chính                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| ADM-01 | Trả dashboard aggregate theo date range cho Users, Doctors, Consultations, Care và Billing; không gửi collections thô để browser tự đếm.     |
+| ADM-02 | Tìm/lọc user theo role/status với totals và pagination; projection đủ cho bảng quản trị, không kèm health/chat/AI content.                   |
+| ADM-03 | Khóa account với reason, revoke session/capability liên quan, ghi audit và phát account-banned notification sau commit.                      |
+| ADM-04 | Mở khóa account theo permission, ghi audit; không tự khôi phục verification hoặc subscription đã hết hạn.                                    |
+| ADM-05 | Super Admin tạo/gán Admin capability cho user hợp lệ, kiểm tra role conflict và ghi audit.                                                   |
+| ADM-06 | Super Admin đổi adminRole trong enum canonical; ngăn tự hạ quyền gây mất quản trị cuối cùng theo policy.                                     |
+| ADM-07 | Liệt kê mọi Plan version cho Admin theo status/page, gồm effective dates để quản lý lifecycle.                                               |
+| ADM-08 | Tạo Plan draft mới hoặc clone version cũ; validate hard ceilings nhưng chưa làm thay đổi entitlement hiện hành.                              |
+| ADM-09 | Sửa Plan còn draft với version check; published/retired Plan không chỉnh trực tiếp.                                                          |
+| ADM-10 | Liệt kê tài liệu AI theo processing/review/search/page để vận hành ingestion và review.                                                      |
+| ADM-11 | Upload tài liệu RAG cùng metadata nguồn; chống duplicate bằng checksum và enqueue pipeline parse/chunk/embed.                                |
+| ADM-12 | Sửa metadata của document còn pending_review; approved document phải tạo version/re-ingest flow thay vì sửa ngầm citation source.            |
+| ADM-13 | Archive document với reason, loại nó khỏi retrieval mới nhưng giữ metadata/chunk/audit phục vụ lịch sử.                                      |
+| ADM-14 | Liệt kê blacklist keyword theo search/page cho AI Admin mà không hiển thị raw Patient prompts.                                               |
+| ADM-15 | Tạo keyword sau normalize/dedupe và ghi audit; keyword được dùng trong safety filter theo policy.                                            |
+| ADM-16 | Sửa keyword hiện có, normalize và kiểm tra conflict trước khi cập nhật.                                                                      |
+| ADM-17 | Xóa keyword theo policy/audit; không ảnh hưởng message lịch sử đã tạo.                                                                       |
+| ADM-18 | Trả document detail, metadata nguồn, preview và bounded processing/chunk/error summary; không trả embedding vector.                          |
 | ADM-19 | AI Admin approve/reject document ở cấp tài liệu với reason/effective dates; trạng thái được denormalize xuống chunk, không duyệt từng chunk. |
-| ADM-20 | Khởi chạy re-ingestion bằng pipeline version mới, giữ document/version history và tránh hai job trùng qua idempotency. |
-| ADM-21 | Trả user detail cùng profile/verification/subscription và scoped audit summary; raw secret và health content không được trả mặc định. |
-| ADM-22 | Super Admin publish Plan draft sau validation/diff review; bảo đảm một published version/code và áp dụng cho giao dịch mới. |
-| ADM-23 | Super Admin retire Plan để ngừng bán/gán mới; order/subscription cũ tiếp tục dùng immutable snapshot. |
-| ADM-24 | Tìm AuditLogs theo domain/actor/entity/action/date với pagination và redacted metadata; log là read-only. |
-| ADM-25 | Trả một audit event chi tiết nếu Admin có quyền với domain/entity tương ứng; không trả secret hoặc raw health payload. |
-| ADM-26 | Trả Plan version detail, refund policy, benefits và bounded audit/version summary cho editor/compare view. |
-| ADM-27 | Exclude một chunk lỗi/duplicate/unsafe khỏi retrieval với reason; không thay đổi approval của toàn document và không xóa chunk. |
+| ADM-20 | Khởi chạy re-ingestion bằng pipeline version mới, giữ document/version history và tránh hai job trùng qua idempotency.                       |
+| ADM-21 | Trả user detail cùng profile/verification/subscription và scoped audit summary; raw secret và health content không được trả mặc định.        |
+| ADM-22 | Super Admin publish Plan draft sau validation/diff review; bảo đảm một published version/code và áp dụng cho giao dịch mới.                  |
+| ADM-23 | Super Admin retire Plan để ngừng bán/gán mới; order/subscription cũ tiếp tục dùng immutable snapshot.                                        |
+| ADM-24 | Tìm AuditLogs theo domain/actor/entity/action/date với pagination và redacted metadata; log là read-only.                                    |
+| ADM-25 | Trả một audit event chi tiết nếu Admin có quyền với domain/entity tương ứng; không trả secret hoặc raw health payload.                       |
+| ADM-26 | Trả Plan version detail, refund policy, benefits và bounded audit/version summary cho editor/compare view.                                   |
+| ADM-27 | Exclude một chunk lỗi/duplicate/unsafe khỏi retrieval với reason; không thay đổi approval của toàn document và không xóa chunk.              |
 
 #### Dashboard projection
 
-| ID | Chức năng và hành vi chính |
-|---|---|
-| DASH-01 | Tổng hợp dữ liệu “hôm nay” cho Patient theo timezone: tasks, latest metrics, alerts, Programs, consultations và usage; mỗi nhóm có giới hạn rõ. |
+| ID      | Chức năng và hành vi chính                                                                                                                              |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DASH-01 | Tổng hợp dữ liệu “hôm nay” cho Patient theo timezone: tasks, latest metrics, alerts, Programs, consultations và usage; mỗi nhóm có giới hạn rõ.         |
 | DASH-02 | Tổng hợp hàng đợi công việc Doctor: current session, urgent alerts, pending requests, queue, lịch hôm nay và review cần làm; không tải toàn bộ lịch sử. |
 
 ## 6. Realtime contract
@@ -1308,32 +1384,32 @@ Frontend không tự join room theo ID bất kỳ. Server xác minh participant/
 
 ### 6.2 Event catalog
 
-| Event | Direction | Payload | Page tác động |
-|---|---|---|---|
-| `presence.v1.set` | Doctor client → server | `{ state: "online" | "offline" }` | Doctor app shell/dashboard; server vẫn áp dụng heartbeat/TTL |
-| `presence.v1.changed` | server → client | `{ userId, state, lastOnlineAt }` | Doctor list, consultation header |
-| `consultation.v1.join` | client → server | `{ consultationId }` | Consultation room |
-| `consultation.v1.updated` | server → client | `ConsultationDto` hoặc patch + version | Lists, detail, queue |
-| `consultation_heartbeat` | participant client → server | `{ consultationId }`; server lưu heartbeat theo actor trong Redis TTL và trả `{ recordedAt, expiresAt }` | Active consultation room |
-| `message.v1.send` | client → server | `{ consultationId, clientMessageId, content, attachments }` | Chat room |
-| `message.v1.created` | server → client | `ConsultationMessageDto` | Chat, list preview |
-| `message.v1.failed` | server → client | `{ clientMessageId, code, message }` | Chat retry state |
-| `queue.v1.changed` | server → client | `{ consultationId, position, estimatedWaitMinutes, version }` | Patient queue, doctor queue |
-| `queue.v1.called` | server → client | `{ consultationId, calledAt }` | Patient queue/call CTA |
-| `call.v1.offer` | bidirectional | consultationId + SDP | Call UI |
-| `call.v1.answer` | bidirectional | consultationId + SDP | Call UI |
-| `call.v1.ice` | bidirectional | consultationId + ICE candidate | Call UI |
-| `call.v1.ended` | server → client | `{ consultationId, reason, endedAt }` | Call/consultation detail |
-| `notification.v1.created` | server → client | `NotificationDto` | Global notification store |
-| `care-enrollment.v1.updated` | server → client | enrollment ID/status/version | Patient/Doctor Care Program detail |
-| `care-task.v1.updated` | server → client | task ID/status/version | Patient task list/dashboard |
-| `care-alert.v1.created` | server → client | safe alert summary | Doctor Priority Inbox, Patient alert banner |
-| `care-alert.v1.updated` | server → client | alert ID/status/version | Priority Inbox/detail |
-| `care-report.v1.ready` | server → client | report ID, enrollment ID, reportType | Patient/Doctor Care workspace |
-| `family-link.v1.updated` | server → client | link ID/status/version | Patient/family invitation page P1 |
-| `account.v1.banned` | server → client | `{ reason }` | Global logout/ban modal |
-| `payment.v1.updated` | server → client | safe PaymentOrder status payload | Payment result/history |
-| `refund.v1.updated` | server → client | safe PaymentRefund status payload | Refund detail/admin queue |
+| Event                        | Direction                   | Payload                                                                                                  | Page tác động                               |
+| ---------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------ |
+| `presence.v1.set`            | Doctor client → server      | `{ state: "online"                                                                                       | "offline" }`                                | Doctor app shell/dashboard; server vẫn áp dụng heartbeat/TTL |
+| `presence.v1.changed`        | server → client             | `{ userId, state, lastOnlineAt }`                                                                        | Doctor list, consultation header            |
+| `consultation.v1.join`       | client → server             | `{ consultationId }`                                                                                     | Consultation room                           |
+| `consultation.v1.updated`    | server → client             | `ConsultationDto` hoặc patch + version                                                                   | Lists, detail, queue                        |
+| `consultation_heartbeat`     | participant client → server | `{ consultationId }`; server lưu heartbeat theo actor trong Redis TTL và trả `{ recordedAt, expiresAt }` | Active consultation room                    |
+| `message.v1.send`            | client → server             | `{ consultationId, clientMessageId, content, attachments }`                                              | Chat room                                   |
+| `message.v1.created`         | server → client             | `ConsultationMessageDto`                                                                                 | Chat, list preview                          |
+| `message.v1.failed`          | server → client             | `{ clientMessageId, code, message }`                                                                     | Chat retry state                            |
+| `queue.v1.changed`           | server → client             | `{ consultationId, position, estimatedWaitMinutes, version }`                                            | Patient queue, doctor queue                 |
+| `queue.v1.called`            | server → client             | `{ consultationId, calledAt }`                                                                           | Patient queue/call CTA                      |
+| `call.v1.offer`              | bidirectional               | consultationId + SDP                                                                                     | Call UI                                     |
+| `call.v1.answer`             | bidirectional               | consultationId + SDP                                                                                     | Call UI                                     |
+| `call.v1.ice`                | bidirectional               | consultationId + ICE candidate                                                                           | Call UI                                     |
+| `call.v1.ended`              | server → client             | `{ consultationId, reason, endedAt }`                                                                    | Call/consultation detail                    |
+| `notification.v1.created`    | server → client             | `NotificationDto`                                                                                        | Global notification store                   |
+| `care-enrollment.v1.updated` | server → client             | enrollment ID/status/version                                                                             | Patient/Doctor Care Program detail          |
+| `care-task.v1.updated`       | server → client             | task ID/status/version                                                                                   | Patient task list/dashboard                 |
+| `care-alert.v1.created`      | server → client             | safe alert summary                                                                                       | Doctor Priority Inbox, Patient alert banner |
+| `care-alert.v1.updated`      | server → client             | alert ID/status/version                                                                                  | Priority Inbox/detail                       |
+| `care-report.v1.ready`       | server → client             | report ID, enrollment ID, reportType                                                                     | Patient/Doctor Care workspace               |
+| `family-link.v1.updated`     | server → client             | link ID/status/version                                                                                   | Patient/family invitation page P1           |
+| `account.v1.banned`          | server → client             | `{ reason }`                                                                                             | Global logout/ban modal                     |
+| `payment.v1.updated`         | server → client             | safe PaymentOrder status payload                                                                         | Payment result/history                      |
+| `refund.v1.updated`          | server → client             | safe PaymentRefund status payload                                                                        | Refund detail/admin queue                   |
 
 REST vẫn là source of truth sau reconnect. Event chỉ cập nhật cache hoặc kích hoạt refetch, không thay thế persistence.
 
@@ -1357,7 +1433,11 @@ const queryKeys = {
   carePrograms: (filter: unknown) => ["care-programs", filter],
   careEnrollments: (filter: unknown) => ["care-enrollments", filter],
   careEnrollment: (id: Id) => ["care-enrollment", id],
-  careTasks: (enrollmentId: Id, filter: unknown) => ["care-tasks", enrollmentId, filter],
+  careTasks: (enrollmentId: Id, filter: unknown) => [
+    "care-tasks",
+    enrollmentId,
+    filter,
+  ],
   careTask: (id: Id) => ["care-task", id],
   careAlerts: (filter: unknown) => ["care-alerts", filter],
   careAlert: (id: Id) => ["care-alert", id],
@@ -1388,69 +1468,69 @@ const queryKeys = {
 };
 ```
 
-| Mutation/event | Cache cần invalidate/update |
-|---|---|
-| Book/cancel slot | slots, consultations, consultation detail |
-| Accept/decline/check-in/call-next/complete | consultations, detail, queue, dashboard |
-| Message created | append messages by `clientMessageId`; update consultation preview |
-| Review created/updated | consultation detail, doctor detail/list, doctor reviews |
-| Health metric mutation | health metrics, patient dashboard; AI quota không liên quan |
-| Enrollment consent/lifecycle | care enrollment list/detail, tasks, dashboard, Doctor assigned list |
-| Care task completed/missed | task list, enrollment detail, adherence, dashboard; report refetch khi ready event đến |
-| Care alert created/updated | Doctor Priority Inbox, enrollment detail, Patient alert banner/dashboard |
-| Family link/permission updated | family link lists của cả hai phía, entitlement usage và notification preferences |
-| Facility verified/retired | Admin facility lists; Patient search cache theo TTL/invalidation event nếu feature bật |
-| AI message completed | conversation, conversation list, AI quota |
-| Payment IPN/status update | order detail/list, subscriptions, AI quota/entitlement |
-| Cancel order | order detail/list |
-| Refund update | refund detail/list, order detail/list, subscriptions, AI quota/entitlement |
-| Account ban | clear all cache và auth state |
+| Mutation/event                             | Cache cần invalidate/update                                                            |
+| ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Book/cancel slot                           | slots, consultations, consultation detail                                              |
+| Accept/decline/check-in/call-next/complete | consultations, detail, queue, dashboard                                                |
+| Message created                            | append messages by `clientMessageId`; update consultation preview                      |
+| Review created/updated                     | consultation detail, doctor detail/list, doctor reviews                                |
+| Health metric mutation                     | health metrics, patient dashboard; AI quota không liên quan                            |
+| Enrollment consent/lifecycle               | care enrollment list/detail, tasks, dashboard, Doctor assigned list                    |
+| Care task completed/missed                 | task list, enrollment detail, adherence, dashboard; report refetch khi ready event đến |
+| Care alert created/updated                 | Doctor Priority Inbox, enrollment detail, Patient alert banner/dashboard               |
+| Family link/permission updated             | family link lists của cả hai phía, entitlement usage và notification preferences       |
+| Facility verified/retired                  | Admin facility lists; Patient search cache theo TTL/invalidation event nếu feature bật |
+| AI message completed                       | conversation, conversation list, AI quota                                              |
+| Payment IPN/status update                  | order detail/list, subscriptions, AI quota/entitlement                                 |
+| Cancel order                               | order detail/list                                                                      |
+| Refund update                              | refund detail/list, order detail/list, subscriptions, AI quota/entitlement             |
+| Account ban                                | clear all cache và auth state                                                          |
 
 ## 8. Page contracts — Public và dùng chung
 
-| Page/route target | Hiện tại | Role | Read | Mutation | Realtime/cache/UI state |
-|---|---|---|---|---|---|
-| Login `/login` | Current | Public | none | AUTH-04; AUTH-12/13 khi P1 OAuth bật | loading, invalid credentials, rate limit, banned, OAuth callback error; redirect theo role |
-| Sign up `/signup` | Current client | Public | optional doctor prefill legacy | AUTH-01, AUTH-02, AUTH-03 | multipart doctor docs; pending-verification success |
-| Forgot password `/forgot-password` | Current `/forget-password` | Public | none | AUTH-08, AUTH-02 | generic response chống account enumeration; resend countdown |
-| Confirm OTP `/confirm-otp` | Current | Public | navigation state email/purpose | AUTH-03 | expired, attempts exceeded, resend; không lưu OTP |
-| Reset password `/reset-password` | Current flow chưa chuẩn | Public | reset token | AUTH-09 | password policy, expired token, success redirect |
-| Change password `/settings/security` | Current `/change-password` | Authenticated local | USER/AUTH me | AUTH-10, AUTH-07 | OAuth-only account state; revoke sessions confirmation |
-| Privacy & data `/settings/privacy` | New | Authenticated | retention/export/deletion policy | USER-07..11 | re-auth trước yêu cầu nhạy cảm; hiển thị job/request status |
-| Profile `/profile` | Current | All | AUTH-11/USER-01 | USER-02, USER-03/04 | invalidate me; doctor verification state; upload progress/error |
-| Notifications drawer `/notifications` hoặc global panel | Current partial | All | NOTI-01 | NOTI-02/03/04 | subscribe `notification.v1.created`; unread badge; deep-link allowlist |
-| About/Services/Contact | Current static | Public | static content/config | optional contact API | không phụ thuộc business collections |
+| Page/route target                                       | Hiện tại                   | Role                | Read                             | Mutation                             | Realtime/cache/UI state                                                                    |
+| ------------------------------------------------------- | -------------------------- | ------------------- | -------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Login `/login`                                          | Current                    | Public              | none                             | AUTH-04; AUTH-12/13 khi P1 OAuth bật | loading, invalid credentials, rate limit, banned, OAuth callback error; redirect theo role |
+| Sign up `/signup`                                       | Current client             | Public              | optional doctor prefill legacy   | AUTH-01, AUTH-02, AUTH-03            | multipart doctor docs; pending-verification success                                        |
+| Forgot password `/forgot-password`                      | Current `/forget-password` | Public              | none                             | AUTH-08, AUTH-02                     | generic response chống account enumeration; resend countdown                               |
+| Confirm OTP `/confirm-otp`                              | Current                    | Public              | navigation state email/purpose   | AUTH-03                              | expired, attempts exceeded, resend; không lưu OTP                                          |
+| Reset password `/reset-password`                        | Current flow chưa chuẩn    | Public              | reset token                      | AUTH-09                              | password policy, expired token, success redirect                                           |
+| Change password `/settings/security`                    | Current `/change-password` | Authenticated local | USER/AUTH me                     | AUTH-10, AUTH-07                     | OAuth-only account state; revoke sessions confirmation                                     |
+| Privacy & data `/settings/privacy`                      | New                        | Authenticated       | retention/export/deletion policy | USER-07..11                          | re-auth trước yêu cầu nhạy cảm; hiển thị job/request status                                |
+| Profile `/profile`                                      | Current                    | All                 | AUTH-11/USER-01                  | USER-02, USER-03/04                  | invalidate me; doctor verification state; upload progress/error                            |
+| Notifications drawer `/notifications` hoặc global panel | Current partial            | All                 | NOTI-01                          | NOTI-02/03/04                        | subscribe `notification.v1.created`; unread badge; deep-link allowlist                     |
+| About/Services/Contact                                  | Current static             | Public              | static content/config            | optional contact API                 | không phụ thuộc business collections                                                       |
 
 ## 9. Page contracts — Patient
 
-| Page/route target | Mapping hiện tại | Dữ liệu/DTO | API | Realtime và hành động chính |
-|---|---|---|---|---|
-| Dashboard `/patient/dashboard` | `/patient-overview` | bounded dashboard projection | DASH-01 | notification/consultation/care updates; cards có loading độc lập; detail refetch bằng domain API |
-| Doctor discovery `/patient/doctors` | `/my-doctors` | `PageResult<DoctorCardDto>` | DOC-01 | filter/search/page; `presence.v1.changed`; không tạo request trực tiếp từ stale card |
-| Doctor detail `/patient/doctors/:id` | modal/card hiện tại | DoctorCardDto, reviews summary, booking settings | DOC-02, DOC-03 | chọn on-demand hoặc sang slot picker; not-approved/not-found state |
-| Slot booking `/patient/doctors/:id/book` | New | slots + selected doctor | DOC-03, CON-05 | refetch khi 409; timezone display; idempotency key giữ qua retry |
-| Create on-demand request | request modal hiện tại | doctor + patientNotes | CON-06 | handle duplicate pending 409; invalidate consultation lists |
-| Consultation list `/patient/consultations` | `/doctor-chat` + `/consultations` | paged ConsultationDto | CON-07 | `consultation.v1.updated`, message preview; tabs upcoming/pending/active/history |
-| Consultation detail `/patient/consultations/:id` | doctor-chat selected session | ConsultationDto, messages, review | CON-08, CON-18, CON-11, CON-12, CON-20/21/22 | join room; send message; check-in/cancel/review/report from `allowedActions` |
-| Waiting room `/patient/consultations/:id/queue` | New | consultation + own queue snapshot | CON-08, CON-13 | `queue.v1.changed/called`; reconnect refetch; leave/cancel policy |
-| Chat/call surface | embedded current chat | Message DTO, FileDto, call state | CON-18/19, USER-03 | message and call events; optimistic message keyed clientMessageId; upload retry |
-| Health dashboard `/patient/health` | `/health-metric` | HealthMetricDto page/chart | HLTH-01 | filter metric/date; timezone; loading/empty/error per chart/table |
-| Health metric editor | modal current | metric draft | HLTH-02/03/04 | invalidate health/dashboard; critical alert may arrive notification socket |
-| Care Programs `/patient/care-programs` | New | authorized PatientCareProgramDto page | CARE-06 | enrollment status, adherence, next task và alert; `care-enrollment.v1.updated` |
-| Care Program detail `/patient/care-programs/:id` | New | enrollment, CareTaskDto, alerts, reports | CARE-07/09/11 | consent/baseline qua CARE-08; task response CARE-10; lifecycle actions chỉ từ `allowedActions` |
-| Care Task detail `/patient/care-tasks/:id` | New | CareTaskDto + type-specific form/content | CARE-26, CARE-10, HLTH-02 | metric mở editor; check-in form schema; education viewer/progress; appointment mở consultation flow |
-| Care Alert detail `/patient/care-alerts/:id` | New | CareAlertDto + safe evaluation/timeline context | CARE-25, CARE-16 | reason codes dễ hiểu, safety template, linked consultation; không hiển thị rule nội bộ nhạy cảm |
-| Care report `/patient/care-programs/:id/reports/:reportId` | New | CareReportDto + patient CareSummaryDto | CARE-28/31/32 | deterministic metrics luôn hiển thị; AI fallback/citation state; export theo entitlement |
-| Medication tasks `/patient/medications` | New P1, feature-gated | CareTaskDto lọc `medication` | CARE-10/33 | chỉ xác nhận theo kế hoạch có sẵn; không đổi liều/kê đơn; missed là terminal |
-| Người thân `/patient/family` | New P1 | FamilyLinkDto page + effective `familyLinkLimit` | FAM-01..05, FAM-07 | invite/accept/pause/resume/revoke; không hiển thị dữ liệu sức khỏe chi tiết |
-| Tìm cơ sở y tế `/patient/medical-facilities` | New P1 sau Family | MedicalFacilityDto page | FAC-01/02 | source/verification label, distance và direction URL; không quảng bá xếp hạng chất lượng |
-| Chi tiết cơ sở `/patient/medical-facilities/:id` | New P1 sau Family | MedicalFacilityDto | FAC-02 | thông tin liên hệ, chuyên khoa khớp, nguồn/ngày kiểm tra và mở chỉ đường; không mô phỏng lịch trống |
-| AI chat `/patient/ai` | `/ai-chat` | conversations/messages/quota | AI-01..07 | optimistic user message; pending AI response; quota rollback on provider failure |
-| Plans `/patient/plans` | New | PlanDto[], effective entitlement | BILL-01/02 | plan comparison; hide inactive; no price from client in create order |
-| Checkout/payment result `/patient/billing/orders/:id` | New | PaymentOrderDto | BILL-03/05/07 | open payment URL; poll/refetch after return; `payment.v1.updated`; never trust query success alone |
-| Billing history `/patient/billing` | New | orders, subscriptions, effective usage, refunds | BILL-02/04/05/10/17/18 | cancel allowed order via BILL-06; CTA based on `allowedActions` |
-| Refund request `/patient/billing/orders/:id/refund` | New P1 | paid order + per-benefit eligibility | BILL-05/09 | reason required; show usage/reason codes; paid benefits pause after accepted request; Free/safety remain; feature flag fallback |
-| Refund detail `/patient/refunds/:id` | New P1 | PaymentRefundDto + order summary | BILL-10 | `refund.v1.updated`; manual-review explanatory state; no client provider retry |
+| Page/route target                                          | Mapping hiện tại                  | Dữ liệu/DTO                                      | API                                          | Realtime và hành động chính                                                                                                     |
+| ---------------------------------------------------------- | --------------------------------- | ------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard `/patient/dashboard`                             | `/patient-overview`               | bounded dashboard projection                     | DASH-01                                      | notification/consultation/care updates; cards có loading độc lập; detail refetch bằng domain API                                |
+| Doctor discovery `/patient/doctors`                        | `/my-doctors`                     | `PageResult<DoctorCardDto>`                      | DOC-01                                       | filter/search/page; `presence.v1.changed`; không tạo request trực tiếp từ stale card                                            |
+| Doctor detail `/patient/doctors/:id`                       | modal/card hiện tại               | DoctorCardDto, reviews summary, booking settings | DOC-02, DOC-03                               | chọn on-demand hoặc sang slot picker; not-approved/not-found state                                                              |
+| Slot booking `/patient/doctors/:id/book`                   | New                               | slots + selected doctor                          | DOC-03, CON-05                               | refetch khi 409; timezone display; idempotency key giữ qua retry                                                                |
+| Create on-demand request                                   | request modal hiện tại            | doctor + patientNotes                            | CON-06                                       | handle duplicate pending 409; invalidate consultation lists                                                                     |
+| Consultation list `/patient/consultations`                 | `/doctor-chat` + `/consultations` | paged ConsultationDto                            | CON-07                                       | `consultation.v1.updated`, message preview; tabs upcoming/pending/active/history                                                |
+| Consultation detail `/patient/consultations/:id`           | doctor-chat selected session      | ConsultationDto, messages, review                | CON-08, CON-18, CON-11, CON-12, CON-20/21/22 | join room; send message; check-in/cancel/review/report from `allowedActions`                                                    |
+| Waiting room `/patient/consultations/:id/queue`            | New                               | consultation + own queue snapshot                | CON-08, CON-13                               | `queue.v1.changed/called`; reconnect refetch; leave/cancel policy                                                               |
+| Chat/call surface                                          | embedded current chat             | Message DTO, FileDto, call state                 | CON-18/19, USER-03                           | message and call events; optimistic message keyed clientMessageId; upload retry                                                 |
+| Health dashboard `/patient/health`                         | `/health-metric`                  | HealthMetricDto page/chart                       | HLTH-01                                      | filter metric/date; timezone; loading/empty/error per chart/table                                                               |
+| Health metric editor                                       | modal current                     | metric draft                                     | HLTH-02/03/04                                | invalidate health/dashboard; critical alert may arrive notification socket                                                      |
+| Care Programs `/patient/care-programs`                     | New                               | authorized PatientCareProgramDto page            | CARE-06                                      | enrollment status, adherence, next task và alert; `care-enrollment.v1.updated`                                                  |
+| Care Program detail `/patient/care-programs/:id`           | New                               | enrollment, CareTaskDto, alerts, reports         | CARE-07/09/11                                | consent/baseline qua CARE-08; task response CARE-10; lifecycle actions chỉ từ `allowedActions`                                  |
+| Care Task detail `/patient/care-tasks/:id`                 | New                               | CareTaskDto + type-specific form/content         | CARE-26, CARE-10, HLTH-02                    | metric mở editor; check-in form schema; education viewer/progress; appointment mở consultation flow                             |
+| Care Alert detail `/patient/care-alerts/:id`               | New                               | CareAlertDto + safe evaluation/timeline context  | CARE-25, CARE-16                             | reason codes dễ hiểu, safety template, linked consultation; không hiển thị rule nội bộ nhạy cảm                                 |
+| Care report `/patient/care-programs/:id/reports/:reportId` | New                               | CareReportDto + patient CareSummaryDto           | CARE-28/31/32                                | deterministic metrics luôn hiển thị; AI fallback/citation state; export theo entitlement                                        |
+| Medication tasks `/patient/medications`                    | New P1, feature-gated             | CareTaskDto lọc `medication`                     | CARE-10/33                                   | chỉ xác nhận theo kế hoạch có sẵn; không đổi liều/kê đơn; missed là terminal                                                    |
+| Người thân `/patient/family`                               | New P1                            | FamilyLinkDto page + effective `familyLinkLimit` | FAM-01..05, FAM-07                           | invite/accept/pause/resume/revoke; không hiển thị dữ liệu sức khỏe chi tiết                                                     |
+| Tìm cơ sở y tế `/patient/medical-facilities`               | New P1 sau Family                 | MedicalFacilityDto page                          | FAC-01/02                                    | source/verification label, distance và direction URL; không quảng bá xếp hạng chất lượng                                        |
+| Chi tiết cơ sở `/patient/medical-facilities/:id`           | New P1 sau Family                 | MedicalFacilityDto                               | FAC-02                                       | thông tin liên hệ, chuyên khoa khớp, nguồn/ngày kiểm tra và mở chỉ đường; không mô phỏng lịch trống                             |
+| AI chat `/patient/ai`                                      | `/ai-chat`                        | conversations/messages/quota                     | AI-01..07                                    | optimistic user message; pending AI response; quota rollback on provider failure                                                |
+| Plans `/patient/plans`                                     | New                               | PlanDto[], effective entitlement                 | BILL-01/02                                   | plan comparison; hide inactive; no price from client in create order                                                            |
+| Checkout/payment result `/patient/billing/orders/:id`      | New                               | PaymentOrderDto                                  | BILL-03/05/07                                | open payment URL; poll/refetch after return; `payment.v1.updated`; never trust query success alone                              |
+| Billing history `/patient/billing`                         | New                               | orders, subscriptions, effective usage, refunds  | BILL-02/04/05/10/17/18                       | cancel allowed order via BILL-06; CTA based on `allowedActions`                                                                 |
+| Refund request `/patient/billing/orders/:id/refund`        | New P1                            | paid order + per-benefit eligibility             | BILL-05/09                                   | reason required; show usage/reason codes; paid benefits pause after accepted request; Free/safety remain; feature flag fallback |
+| Refund detail `/patient/refunds/:id`                       | New P1                            | PaymentRefundDto + order summary                 | BILL-10                                      | `refund.v1.updated`; manual-review explanatory state; no client provider retry                                                  |
 
 Patient page guards:
 
@@ -1460,22 +1540,22 @@ Patient page guards:
 
 ## 10. Page contracts — Doctor
 
-| Page/route target | Mapping hiện tại | Dữ liệu/DTO | API | Realtime và hành động chính |
-|---|---|---|---|---|
-| Dashboard `/doctor/dashboard` | `/doctor-overview` | bounded Doctor dashboard projection | DASH-02 | consultation/queue/alert notifications; detail refetch bằng domain API |
-| Profile/verification `/doctor/profile` | `/profile` | UserDto + DoctorProfileDto | USER-01/02/03/04 | pending/rejected/approved states; reject reason; upload validation |
-| Availability `/doctor/availability` | New | AvailabilitySlotDto[] + booking settings | CON-01..04, DOC-07 | calendar timezone; overlap conflict; booked slot không delete/block tùy policy |
-| Requests `/doctor/requests` | trong `/consultations` | pending on-demand consultations | CON-07/08/09/10 | `consultation.v1.updated`; accept/decline idempotent; expiry countdown |
-| Queue `/doctor/queue` | New | QueueEntryDto[] + current consultation | CON-14/15 | `queue.v1.changed`; call-next atomic; 409 refetch; no manual client reordering |
-| Consultation list `/doctor/consultations` | `/consultations` | paged ConsultationDto | CON-07 | tabs request/upcoming/in-progress/history; message preview events |
-| Consultation detail `/doctor/consultations/:id` | selected card/chat | consultation/messages/patient health context | CON-08/16/17/18/19/23/24, HLTH-05, AI-08 P1 | join room; start/complete/no-show/follow-up; authorized health range only; AI brief is draft |
-| Care enrollment `/doctor/care-programs` | New | published CareProgramDto + assigned enrollment page | CARE-01/05/06/07 | enroll Patient; assignment authorization; pending consent state |
-| Priority Inbox `/doctor/care-alerts` | New | CareAlertDto page | CARE-12..16 | stable severity/time sort; acknowledge/resolve/dismiss/link consultation; alert realtime events |
-| Alert detail `/doctor/care-alerts/:id` | New | CareAlertDto + metric/evaluation/report context | CARE-25, CARE-13..16 | acknowledge/resolve/dismiss/link consultation; direct resolve ghi implicit acknowledge |
-| Patient Care detail `/doctor/care-programs/:id` | New | enrollment, tasks, reports, Doctor summary | CARE-07/09/11/17/28/29 | chỉ assigned Doctor; pause/resume/complete theo `allowedActions`; audit reason bắt buộc |
-| Rule activation `/doctor/care-rules` | New P0 | Published Program + Rule read-only preview | CARE-18, CARE-21 | Doctor không sửa draft; mọi Doctor `active + approved` có thể activate Rule sau server validation |
-| Reviews `/doctor/reviews` | dashboard/list partial | ReviewDto page/summary | DOC-08 | filter/rating; no edit/delete by doctor |
-| Notifications/global | Current partial | NotificationDto | NOTI-01..04 | request/check-in/called/message/verification events |
+| Page/route target                               | Mapping hiện tại       | Dữ liệu/DTO                                         | API                                         | Realtime và hành động chính                                                                       |
+| ----------------------------------------------- | ---------------------- | --------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Dashboard `/doctor/dashboard`                   | `/doctor-overview`     | bounded Doctor dashboard projection                 | DASH-02                                     | consultation/queue/alert notifications; detail refetch bằng domain API                            |
+| Profile/verification `/doctor/profile`          | `/profile`             | UserDto + DoctorProfileDto                          | USER-01/02/03/04                            | pending/rejected/approved states; reject reason; upload validation                                |
+| Availability `/doctor/availability`             | New                    | AvailabilitySlotDto[] + booking settings            | CON-01..04, DOC-07                          | calendar timezone; overlap conflict; booked slot không delete/block tùy policy                    |
+| Requests `/doctor/requests`                     | trong `/consultations` | pending on-demand consultations                     | CON-07/08/09/10                             | `consultation.v1.updated`; accept/decline idempotent; expiry countdown                            |
+| Queue `/doctor/queue`                           | New                    | QueueEntryDto[] + current consultation              | CON-14/15                                   | `queue.v1.changed`; call-next atomic; 409 refetch; no manual client reordering                    |
+| Consultation list `/doctor/consultations`       | `/consultations`       | paged ConsultationDto                               | CON-07                                      | tabs request/upcoming/in-progress/history; message preview events                                 |
+| Consultation detail `/doctor/consultations/:id` | selected card/chat     | consultation/messages/patient health context        | CON-08/16/17/18/19/23/24, HLTH-05, AI-08 P1 | join room; start/complete/no-show/follow-up; authorized health range only; AI brief is draft      |
+| Care enrollment `/doctor/care-programs`         | New                    | published CareProgramDto + assigned enrollment page | CARE-01/05/06/07                            | enroll Patient; assignment authorization; pending consent state                                   |
+| Priority Inbox `/doctor/care-alerts`            | New                    | CareAlertDto page                                   | CARE-12..16                                 | stable severity/time sort; acknowledge/resolve/dismiss/link consultation; alert realtime events   |
+| Alert detail `/doctor/care-alerts/:id`          | New                    | CareAlertDto + metric/evaluation/report context     | CARE-25, CARE-13..16                        | acknowledge/resolve/dismiss/link consultation; direct resolve ghi implicit acknowledge            |
+| Patient Care detail `/doctor/care-programs/:id` | New                    | enrollment, tasks, reports, Doctor summary          | CARE-07/09/11/17/28/29                      | chỉ assigned Doctor; pause/resume/complete theo `allowedActions`; audit reason bắt buộc           |
+| Rule activation `/doctor/care-rules`            | New P0                 | Published Program + Rule read-only preview          | CARE-18, CARE-21                            | Doctor không sửa draft; mọi Doctor `active + approved` có thể activate Rule sau server validation |
+| Reviews `/doctor/reviews`                       | dashboard/list partial | ReviewDto page/summary                              | DOC-08                                      | filter/rating; no edit/delete by doctor                                                           |
+| Notifications/global                            | Current partial        | NotificationDto                                     | NOTI-01..04                                 | request/check-in/called/message/verification events                                               |
 
 Doctor route guard phải phân biệt:
 
@@ -1484,30 +1564,30 @@ Doctor route guard phải phân biệt:
 
 ## 11. Page contracts — Admin
 
-| Page/route target | Mapping hiện tại | Dữ liệu/DTO | API | Realtime và hành động chính |
-|---|---|---|---|---|
-| Dashboard `/admin/dashboard` | `/` | aggregate cards/charts | ADM-01 | date filter; server aggregation; không gọi 5 API rồi tự đếm như hiện tại |
-| User management `/admin/users` | `/user-management` | user page + totals | ADM-02..06 | lock/unlock/create admin; confirm modal; invalidate me nếu self-change |
-| User detail `/admin/users/:id` | New | UserDto + bounded account/audit summary | ADM-21, ADM-03/04, ADM-24 | khóa/mở khóa cần reason và confirm; không hiển thị raw token/health payload |
-| Doctor verification `/admin/doctors/verification` | `/doc-verification` | applications/files/summary | DOC-04..06 | approve/reject reason; file preview; audit result notification |
-| Care Program management `/admin/care-programs` | New | CareProgramDto versions/rules | CARE-01..04, CARE-23/24/27 | draft/preview/publish/retire; published version immutable; Admin là publisher |
-| Care Program editor `/admin/care-programs/:id` | New | Program draft, rule versions, sources, simulation | CARE-03/04, CARE-18..21, CARE-23/24/27/30 | tabs cấu hình/baseline/tasks/rules/source/preview; publish/activate theo validation/audit, không có review-evidence gate |
-| Care operations `/admin/care-operations` | New | bounded aggregate/alert audit | CARE-22, ADM-24/25 | audit/operational metrics; không đóng vai assigned Doctor |
-| Family audit `/admin/family-links` | New P1 | scoped FamilyLinkDto/audit | FAM-06, ADM-24 | read/audit để hỗ trợ tranh chấp; không tự mở quyền hoặc xem dữ liệu sức khỏe |
-| Medical facilities `/admin/medical-facilities` | New P1 sau Family | drafts, verified facilities, derived freshness, disease mappings | FAC-02..11 | chọn map candidate, sửa draft, xác minh nguồn chính thức, retire, publish mapping |
-| AI knowledge `/admin/ai/knowledge` | `/ai-knowledge-base` | documents + processing status | ADM-10..13 | upload progress; processing polling/event; deactivate instead of unsafe hard delete |
-| AI document detail `/admin/ai/knowledge/:id` | New | AiDocumentAdminDto + processing/chunk summary | ADM-18..20, ADM-27 | approve/reject ở document level; preview citation metadata; exclude chunk lỗi; re-ingest P1 |
-| AI blacklist `/admin/ai/blacklist` | tab hiện tại | keyword page | ADM-14..17 | normalized keyword conflicts; mutation invalidation |
-| Plans `/admin/plans` | New | all plans | ADM-07..09 | edit creates future-facing plan version/snapshot behavior; existing orders unchanged |
-| Plan editor `/admin/plans/:id` | New | PlanDto version + refund policy/benefits | ADM-07..09, ADM-22/23/26 | chỉ sửa draft; compare version; publish/retire có confirm và audit |
-| Payments `/admin/billing/orders` | New | orders/transactions/totals | BILL-11/12 | filters, detail, reconciliation status; no manual mark-paid button |
-| Payment detail `/admin/billing/orders/:id` | New | order, safe transaction, subscription grant, refund | BILL-12/19 | timeline trạng thái/IPN/grant; reconcile theo server capability; không sửa paid thủ công |
-| Refund queue `/admin/billing/refunds` | New P1 | PaymentRefundDto page/totals | BILL-13..16 | show captured/final usage and reason codes; approve re-evaluates server-side; override requires reason; `refund.v1.updated`; processing action disabled |
-| Violation list `/admin/violations` | `/violation-reports` | report page/totals | MOD-02 | filter status/severity/assignee |
-| Violation detail `/admin/violations/:id` | modal/page hiện tại | full report/evidence/outcome | MOD-03/04 | transition validation; admin decision required; ban action through user API |
-| Notification campaigns `/admin/notifications/campaigns` | P2/Deferred | campaign page/status | contract chỉ bổ sung nếu feature vào cut-line sau DA2 | worker fan-out status; không gửi hàng loạt trong HTTP request |
-| Audit logs `/admin/audit-logs` | New | AuditLogDto page/detail | ADM-24/25 | filter domain/actor/entity/time; read-only; deep-link tới entity nếu được phép |
-| Admin profile `/admin/profile` | `/profile` | UserDto | USER-01/02/03/04, AUTH-10 | admin role readonly trừ super-admin workflow |
+| Page/route target                                       | Mapping hiện tại     | Dữ liệu/DTO                                                      | API                                                   | Realtime và hành động chính                                                                                                                             |
+| ------------------------------------------------------- | -------------------- | ---------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard `/admin/dashboard`                            | `/`                  | aggregate cards/charts                                           | ADM-01                                                | date filter; server aggregation; không gọi 5 API rồi tự đếm như hiện tại                                                                                |
+| User management `/admin/users`                          | `/user-management`   | user page + totals                                               | ADM-02..06                                            | lock/unlock/create admin; confirm modal; invalidate me nếu self-change                                                                                  |
+| User detail `/admin/users/:id`                          | New                  | UserDto + bounded account/audit summary                          | ADM-21, ADM-03/04, ADM-24                             | khóa/mở khóa cần reason và confirm; không hiển thị raw token/health payload                                                                             |
+| Doctor verification `/admin/doctors/verification`       | `/doc-verification`  | applications/files/summary                                       | DOC-04..06                                            | approve/reject reason; file preview; audit result notification                                                                                          |
+| Care Program management `/admin/care-programs`          | New                  | CareProgramDto versions/rules                                    | CARE-01..04, CARE-23/24/27                            | draft/preview/publish/retire; published version immutable; Admin là publisher                                                                           |
+| Care Program editor `/admin/care-programs/:id`          | New                  | Program draft, rule versions, sources, simulation                | CARE-03/04, CARE-18..21, CARE-23/24/27/30             | tabs cấu hình/baseline/tasks/rules/source/preview; publish/activate theo validation/audit, không có review-evidence gate                                |
+| Care operations `/admin/care-operations`                | Hậu DA2              | bounded aggregate/alert audit                                    | CARE-22, ADM-24/25                                    | `CC-OPS-001`; không chặn release DA2; không đóng vai assigned Doctor                                                                                    |
+| Family audit `/admin/family-links`                      | New P1               | scoped FamilyLinkDto/audit                                       | FAM-06, ADM-24                                        | read/audit để hỗ trợ tranh chấp; không tự mở quyền hoặc xem dữ liệu sức khỏe                                                                            |
+| Medical facilities `/admin/medical-facilities`          | New P1 sau Family    | drafts, verified facilities, derived freshness, disease mappings | FAC-02..11                                            | chọn map candidate, sửa draft, xác minh nguồn chính thức, retire, publish mapping                                                                       |
+| AI knowledge `/admin/ai/knowledge`                      | `/ai-knowledge-base` | documents + processing status                                    | ADM-10..13                                            | upload progress; processing polling/event; deactivate instead of unsafe hard delete                                                                     |
+| AI document detail `/admin/ai/knowledge/:id`            | New                  | AiDocumentAdminDto + processing/chunk summary                    | ADM-18..20, ADM-27                                    | approve/reject ở document level; preview citation metadata; exclude chunk lỗi; re-ingest P1                                                             |
+| AI blacklist `/admin/ai/blacklist`                      | tab hiện tại         | keyword page                                                     | ADM-14..17                                            | normalized keyword conflicts; mutation invalidation                                                                                                     |
+| Plans `/admin/plans`                                    | New                  | all plans                                                        | ADM-07..09                                            | edit creates future-facing plan version/snapshot behavior; existing orders unchanged                                                                    |
+| Plan editor `/admin/plans/:id`                          | New                  | PlanDto version + refund policy/benefits                         | ADM-07..09, ADM-22/23/26                              | chỉ sửa draft; compare version; publish/retire có confirm và audit                                                                                      |
+| Payments `/admin/billing/orders`                        | New                  | orders/transactions/totals                                       | BILL-11/12                                            | filters, detail, reconciliation status; no manual mark-paid button                                                                                      |
+| Payment detail `/admin/billing/orders/:id`              | New                  | order, safe transaction, subscription grant, refund              | BILL-12/19                                            | timeline trạng thái/IPN/grant; reconcile theo server capability; không sửa paid thủ công                                                                |
+| Refund queue `/admin/billing/refunds`                   | New P1               | PaymentRefundDto page/totals                                     | BILL-13..16                                           | show captured/final usage and reason codes; approve re-evaluates server-side; override requires reason; `refund.v1.updated`; processing action disabled |
+| Violation list `/admin/violations`                      | `/violation-reports` | report page/totals                                               | MOD-02                                                | filter status/severity/assignee                                                                                                                         |
+| Violation detail `/admin/violations/:id`                | modal/page hiện tại  | full report/evidence/outcome                                     | MOD-03/04                                             | transition validation; admin decision required; ban action through user API                                                                             |
+| Notification campaigns `/admin/notifications/campaigns` | P2/Deferred          | campaign page/status                                             | contract chỉ bổ sung nếu feature vào cut-line sau DA2 | worker fan-out status; không gửi hàng loạt trong HTTP request                                                                                           |
+| Audit logs `/admin/audit-logs`                          | New                  | AuditLogDto page/detail                                          | ADM-24/25                                             | filter domain/actor/entity/time; read-only; deep-link tới entity nếu được phép                                                                          |
+| Admin profile `/admin/profile`                          | `/profile`           | UserDto                                                          | USER-01/02/03/04, AUTH-10                             | admin role readonly trừ super-admin workflow                                                                                                            |
 
 Admin authorization dùng `adminProfile.adminRole`; ẩn menu chỉ là UX, backend guard vẫn bắt buộc.
 
@@ -1517,22 +1597,22 @@ Phần này là đầu vào trực tiếp cho sitemap, wireframe, Use Case và k
 
 Các bảng ở mục 8–11 là **hợp đồng route/API** để lập trình và test; một route chi tiết không đồng nghĩa phải có một thiết kế màn hình độc lập. Mục 12 gom các route liên quan thành **trang/workspace theo mục tiêu người dùng**, rồi liệt kê component ngay trong trang sở hữu. Drawer/dialog vẫn có deep-link khi cần chia sẻ URL hoặc refresh trình duyệt.
 
-| Nhóm giao diện | P0 cần thiết kế/triển khai | P1 sau cut-line | Deferred |
-|---|---:|---:|---:|
-| Public/dùng chung | 6 trang/luồng | OAuth nằm trong trang Login | 0 |
-| Patient | 7 workspace | 2 workspace: Người thân, Cơ sở y tế; call/refund/medication là phần mở rộng | 0 |
-| Doctor | 7 workspace | 1 workspace: Rule activation/read-only preview; call là phần mở rộng | 0 |
-| Web Admin | 10 workspace nền | 2 workspace: Family audit, Facility; refund là tab mở rộng | 1: Notification Campaign |
+| Nhóm giao diện    | P0 cần thiết kế/triển khai |                                                             P1 sau cut-line |                 Deferred |
+| ----------------- | -------------------------: | --------------------------------------------------------------------------: | -----------------------: |
+| Public/dùng chung |              6 trang/luồng |                                                 OAuth nằm trong trang Login |                        0 |
+| Patient           |                7 workspace | 2 workspace: Người thân, Cơ sở y tế; call/refund/medication là phần mở rộng |                        0 |
+| Doctor            |                7 workspace |        1 workspace: Rule activation/read-only preview; call là phần mở rộng |                        0 |
+| Web Admin         |           10 workspace nền |                  2 workspace: Family audit, Facility; refund là tab mở rộng | 1: Notification Campaign |
 
 Con số trên đếm theo **workspace người dùng nhìn thấy**, không đếm drawer, dialog hoặc route deep-link là trang mới.
 
 ### 12.1 App shell và điều hướng
 
-| Kênh | Điều hướng chính | Thành phần dùng chung |
-|---|---|---|
-| Patient Web/Mobile | Tổng quan, Chương trình, Chỉ số, Tư vấn, Bác sĩ, AI, Gói dịch vụ; Người thân và Cơ sở y tế khi P1 bật | App bar, unread badge, urgent safety banner, subscription/quota summary, profile menu, reconnect/offline indicator |
-| Doctor Web/Mobile | Tổng quan, Priority Inbox, Bệnh nhân theo dõi, Yêu cầu, Hàng đợi, Lịch làm việc, Phiên tư vấn, Đánh giá | Verification banner, current-consultation bar, queue badge, notification drawer, profile menu |
-| Web Admin | Dashboard, Người dùng, Duyệt bác sĩ, Care Program, Vận hành Care, Tri thức AI, Gói dịch vụ, Thanh toán, Vi phạm, Audit; Family/Facility/Campaign khi P1 bật | Sidebar theo permission, environment badge, global search có giới hạn, audit shortcut, profile menu |
+| Kênh               | Điều hướng chính                                                                                                                                            | Thành phần dùng chung                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Patient Web/Mobile | Tổng quan, Chương trình, Chỉ số, Tư vấn, Bác sĩ, AI, Gói dịch vụ; Người thân và Cơ sở y tế khi P1 bật                                                       | App bar, unread badge, urgent safety banner, subscription/quota summary, profile menu, reconnect/offline indicator |
+| Doctor Web/Mobile  | Tổng quan, Priority Inbox, Bệnh nhân theo dõi, Yêu cầu, Hàng đợi, Lịch làm việc, Phiên tư vấn, Đánh giá                                                     | Verification banner, current-consultation bar, queue badge, notification drawer, profile menu                      |
+| Web Admin          | Dashboard, Người dùng, Duyệt bác sĩ, Care Program, Vận hành Care, Tri thức AI, Gói dịch vụ, Thanh toán, Vi phạm, Audit; Family/Facility/Campaign khi P1 bật | Sidebar theo permission, environment badge, global search có giới hạn, audit shortcut, profile menu                |
 
 Quy tắc shell:
 
@@ -1760,7 +1840,7 @@ Route `/admin/users/:id` là deep-link mở `UserDetailDrawer`.
 
 Route `/admin/care-programs/:id` là deep-link vào editor của cùng workspace.
 
-#### A-05. Trang Vận hành Chronic Care — `/admin/care-operations` — P0
+#### A-05. Trang Vận hành Chronic Care — `/admin/care-operations` — Hậu DA2 (`CC-OPS-001`)
 
 - **Trang làm gì:** theo dõi số enrollment, adherence và tốc độ xử lý alert/follow-up theo Program/Doctor để phát hiện vấn đề vận hành.
 - **Component:** `CareOperationFilters`, `EnrollmentKpiCards`, `AdherenceDistribution`, `AlertResponseMetrics`, `FollowUpMetrics`, `ProgramBreakdownTable`, `DoctorWorkloadTable`, `ExportAggregateAction`, `ScopedAuditDrawer`.
@@ -1846,60 +1926,60 @@ Các component dùng chung dưới đây được tái sử dụng trong các tr
 
 ### 12.7 Ma trận bao phủ chức năng → màn hình
 
-| Nhóm chức năng | Màn hình chính | Màn hình hỗ trợ |
-|---|---|---|
-| Chronic Care | P-05 Chương trình, D-05 Theo dõi bệnh mạn, D-06 Priority Inbox | P-01/D-01 Dashboard, P-04 Chỉ số, P-03/D-04 Tư vấn, A-04/A-05 quản trị |
-| Scheduled/on-demand consultation | P-02 Bác sĩ và đặt tư vấn, P-03/D-04 workspace Tư vấn | Dashboard, linked Care context, review/report dialog |
-| AI/RAG | P-06 AI sức khỏe, A-06 Tri thức AI | Citation drawer, token quota, Care summary trong P-05/D-05 |
-| Subscription/payment | P-07 Gói và thanh toán, A-07 Gói dịch vụ, A-08 Thanh toán | Usage meter, order/refund drawer |
-| Người thân P1 | P-08 Người thân | A-11 Family audit, C-04 Notification center |
-| Cơ sở y tế P1 | P-09 Cơ sở y tế | A-12 Danh mục/xác minh/mapping |
-| Identity/privacy | C-01..C-03 Auth, C-06 Tài khoản, D-02 hồ sơ chuyên môn | A-02 Users, A-03 Doctor verification |
-| Moderation/audit | A-09 Kiểm duyệt, A-10 Audit | Violation dialog trong P-03, user detail drawer |
+| Nhóm chức năng                   | Màn hình chính                                                 | Màn hình hỗ trợ                                                        |
+| -------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Chronic Care                     | P-05 Chương trình, D-05 Theo dõi bệnh mạn, D-06 Priority Inbox | P-01/D-01 Dashboard, P-04 Chỉ số, P-03/D-04 Tư vấn, A-04/A-05 quản trị |
+| Scheduled/on-demand consultation | P-02 Bác sĩ và đặt tư vấn, P-03/D-04 workspace Tư vấn          | Dashboard, linked Care context, review/report dialog                   |
+| AI/RAG                           | P-06 AI sức khỏe, A-06 Tri thức AI                             | Citation drawer, token quota, Care summary trong P-05/D-05             |
+| Subscription/payment             | P-07 Gói và thanh toán, A-07 Gói dịch vụ, A-08 Thanh toán      | Usage meter, order/refund drawer                                       |
+| Người thân P1                    | P-08 Người thân                                                | A-11 Family audit, C-04 Notification center                            |
+| Cơ sở y tế P1                    | P-09 Cơ sở y tế                                                | A-12 Danh mục/xác minh/mapping                                         |
+| Identity/privacy                 | C-01..C-03 Auth, C-06 Tài khoản, D-02 hồ sơ chuyên môn         | A-02 Users, A-03 Doctor verification                                   |
+| Moderation/audit                 | A-09 Kiểm duyệt, A-10 Audit                                    | Violation dialog trong P-03, user detail drawer                        |
 
 ## 13. Mobile integration
 
 Mobile dùng cùng endpoint IDs và DTO với Web Client, nhưng có adapter riêng:
 
-| Concern | Web | Mobile |
-|---|---|---|
-| Access token | memory/store; refresh bằng HTTP-only cookie | secure storage + refresh credential policy |
-| Push token | browser optional | USER-05/NOTI-05 khi login/token refresh |
-| File | browser File/multipart | Expo URI → multipart adapter |
-| Network | online chủ yếu | retry/backoff, offline banner, không replay mutation nguy hiểm bằng ID mới |
-| Deep link | router URL | consultation/payment/refund notification deep link allowlist |
-| Call | WebRTC browser | React Native WebRTC foreground P1 |
-| Biometrics | Không | chỉ mở secure credential, không thay backend authentication |
+| Concern      | Web                                         | Mobile                                                                     |
+| ------------ | ------------------------------------------- | -------------------------------------------------------------------------- |
+| Access token | memory/store; refresh bằng HTTP-only cookie | secure storage + refresh credential policy                                 |
+| Push token   | browser optional                            | USER-05/NOTI-05 khi login/token refresh                                    |
+| File         | browser File/multipart                      | Expo URI → multipart adapter                                               |
+| Network      | online chủ yếu                              | retry/backoff, offline banner, không replay mutation nguy hiểm bằng ID mới |
+| Deep link    | router URL                                  | consultation/payment/refund notification deep link allowlist               |
+| Call         | WebRTC browser                              | React Native WebRTC foreground P1                                          |
+| Biometrics   | Không                                       | chỉ mở secure credential, không thay backend authentication                |
 
 Mobile chỉ dành cho Patient và Doctor, không có Admin navigation hoặc Admin route.
 
-| Mobile role | Màn hình ưu tiên khi P1 Mobile được bật |
-|---|---|
-| Patient | Login/OTP, dashboard, nhiệm vụ Care hôm nay, nhập chỉ số, alert/safety, Care Program detail/report, doctor discovery, booking/on-demand, consultation list/detail/chat, waiting room, notifications và profile |
-| Doctor | Login, dashboard, Priority Inbox, alert detail/actions, Patient Care summary, requests, queue, consultation detail/chat/call foreground, availability read/quick block, notifications và profile |
+| Mobile role | Màn hình ưu tiên khi P1 Mobile được bật                                                                                                                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Patient     | Login/OTP, dashboard, nhiệm vụ Care hôm nay, nhập chỉ số, alert/safety, Care Program detail/report, doctor discovery, booking/on-demand, consultation list/detail/chat, waiting room, notifications và profile |
+| Doctor      | Login, dashboard, Priority Inbox, alert detail/actions, Patient Care summary, requests, queue, consultation detail/chat/call foreground, availability read/quick block, notifications và profile               |
 
 Plans/payment có thể mở Web flow an toàn trong giai đoạn đầu nếu deep-link return được allowlist. Family và facility chỉ đưa lên Mobile sau khi Web P1 tương ứng hoàn chỉnh. Admin mobile và production-grade background CallKeep là Deferred.
 
 ## 14. Legacy-to-target migration map
 
-| Current route/API | Target | Migration rule |
-|---|---|---|
-| `/patient-overview` | `/patient/dashboard` | compatibility redirect |
-| `/my-doctors` | `/patient/doctors` | split discovery/detail/booking |
-| `/doctor-chat` | `/patient/consultations` | selection chuyển thành route có consultationId |
-| `/doctor-overview` | `/doctor/dashboard` | server dashboard summary |
-| `/consultations` doctor page | `/doctor/consultations` | giữ page, đổi data contract |
-| `GET/POST /sessions` | `/consultations/*` | Đã xóa ở RF-10B; FE mới chỉ gọi canonical API |
-| `/sessions/:id/confirm` | `/consultations/:id/accept` | Đã xóa; dùng requestStatus/sessionStatus canonical |
-| `/sessions/:id/reject` | `/consultations/:id/decline` | Đã xóa; cancel là transition riêng |
-| `/chat/session/:id`, `/chat/send` | `/chat/consultation/:consultationId`, `/chat/consultation/messages` | Đã xóa; request/event dùng `consultationId` |
-| legacy socket `join_session`, `new_message`, `session_changed` | canonical consultation/message events | Đã xóa ở RF-10B; không có compatibility alias |
-| `/reviews/session/:id` | `/reviews/consultation/:id` | Đã xóa; một review/consultation |
-| `/users/doctors` | `/doctors` | paginated DoctorCardDto |
-| Admin tự merge `/users`, `/users/doctors`, `/admins` | `/admin/users` | server-side pagination/aggregation |
-| Admin dashboard tải collections | `/admin/dashboard` | endpoint aggregate chuyên dụng |
-| `/ai-assistant/*` và AI CRUD trùng | `/ai/*` + `/admin/ai/*` | migrate từng capability |
-| `/notifications/mark-all-as-read` | `/notifications/read-all` | compatibility alias tạm thời |
+| Current route/API                                              | Target                                                              | Migration rule                                     |
+| -------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------- |
+| `/patient-overview`                                            | `/patient/dashboard`                                                | compatibility redirect                             |
+| `/my-doctors`                                                  | `/patient/doctors`                                                  | split discovery/detail/booking                     |
+| `/doctor-chat`                                                 | `/patient/consultations`                                            | selection chuyển thành route có consultationId     |
+| `/doctor-overview`                                             | `/doctor/dashboard`                                                 | server dashboard summary                           |
+| `/consultations` doctor page                                   | `/doctor/consultations`                                             | giữ page, đổi data contract                        |
+| `GET/POST /sessions`                                           | `/consultations/*`                                                  | Đã xóa ở RF-10B; FE mới chỉ gọi canonical API      |
+| `/sessions/:id/confirm`                                        | `/consultations/:id/accept`                                         | Đã xóa; dùng requestStatus/sessionStatus canonical |
+| `/sessions/:id/reject`                                         | `/consultations/:id/decline`                                        | Đã xóa; cancel là transition riêng                 |
+| `/chat/session/:id`, `/chat/send`                              | `/chat/consultation/:consultationId`, `/chat/consultation/messages` | Đã xóa; request/event dùng `consultationId`        |
+| legacy socket `join_session`, `new_message`, `session_changed` | canonical consultation/message events                               | Đã xóa ở RF-10B; không có compatibility alias      |
+| `/reviews/session/:id`                                         | `/reviews/consultation/:id`                                         | Đã xóa; một review/consultation                    |
+| `/users/doctors`                                               | `/doctors`                                                          | paginated DoctorCardDto                            |
+| Admin tự merge `/users`, `/users/doctors`, `/admins`           | `/admin/users`                                                      | server-side pagination/aggregation                 |
+| Admin dashboard tải collections                                | `/admin/dashboard`                                                  | endpoint aggregate chuyên dụng                     |
+| `/ai-assistant/*` và AI CRUD trùng                             | `/ai/*` + `/admin/ai/*`                                             | migrate từng capability                            |
+| `/notifications/mark-all-as-read`                              | `/notifications/read-all`                                           | compatibility alias tạm thời                       |
 
 Session endpoint/event legacy đã bị xóa vì frontend được xây mới ở repository khác. Web Client và Web Admin phải sinh client/contract test từ OpenAPI và realtime artifact canonical.
 
@@ -1907,19 +1987,19 @@ Session endpoint/event legacy đã bị xóa vì frontend được xây mới �
 
 Source legacy trong `apps/client` và `apps/admin` đã được xóa khỏi repository ngày 06/10/2026; `packages/ui` được giữ lại như thư viện dùng chung cho tới khi có quyết định riêng. Bảng dưới đây là audit lịch sử và checklist bắt buộc cho frontend DA2 ở repository mới, không mô tả các path source còn tồn tại trong repository backend này.
 
-| Mức | Khu vực source hiện tại | Sai lệch so với contract DA2 | Cách chuyển đổi bắt buộc |
-|---|---|---|---|
-| Blocker bảo mật | `packages/ui/src/store/useAuthStore.ts`, hai file `apps/*/src/lib/api.ts` | Persist cả access/refresh token trong localStorage; refresh request gửi `userId + refreshToken`; một notification hook còn log access token | Web dùng refresh cookie `HttpOnly + Secure + SameSite`; store chỉ giữ user và access token ngắn hạn trong memory; AUTH-05 không nhận userId từ client; xóa toàn bộ token log |
-| Blocker dữ liệu | `patient/health-metric/services/health-metrics.service.ts` | DTO dùng `type` và value lồng `{value, recordedAt}`; PATCH/DELETE trực tiếp; có `getAllHealthMetrics()` tải mọi trang | Dùng `HealthMetricDto.metricType/values/source/validationStatus`; sửa bằng HLTH-03 correction, xóa bằng HLTH-04 void; chart/list luôn bounded |
-| Blocker Consultation | Patient/Doctor `consultations.service.ts`, `doctor-chat.service.ts`, `my-doctor.service.ts` | Dùng `/sessions`, `/sessions/:id/confirm|reject|complete`, `/chat/session`, `/chat/send`; chỉ có một status `pending|active|completed|rejected`; Patient gửi `scheduledAt` tùy ý | Chuyển sang CON-01..24; DTO có `mode + requestStatus + sessionStatus`; scheduled chỉ nhận `availabilitySlotId`; chat dùng `consultationId`; queue/check-in/no-show/follow-up theo state machine |
-| Blocker AI safety/cost | `patient/ai-chat/services/ai-chat.service.ts` | Dùng `/ai-assistant/*`; citation là `Record<string, unknown>`; có API gửi raw `patientProfile + recentMetrics` từ browser để tạo summary; chưa có token quota DTO | Chuyển AI-01..07; typed citation; quota reserve/commit/release ở server; xóa luồng FE tự gửi dữ liệu thô, Care summary chỉ sinh từ server `SummaryInputSnapshot` |
-| Blocker vận hành | `admin/overview/services/overview.service.ts`, `doctor/overview/services/overview.service.ts` | Tải nhiều danh sách với limit 100/1000 rồi tự lọc/đếm/vẽ thống kê | Dùng ADM-01, DASH-01 và DASH-02; server trả aggregate bounded; detail mới gọi domain list API |
-| Cao | `admin/user-management/services/user-management.service.ts` | Tự merge `/users`, `/users/doctors`, `/admins`; role FE là `user_admin|ai_admin`, khác DB `user_manager|ai_manager` | Dùng ADM-02/21 và enum canonical; không suy ra Doctor/Admin bằng merge client |
-| Cao | `admin/ai_management/services/ai-management.service.ts` | Gộp ingestion/review/availability thành một `status=processing|error|active|inactive`; PATCH status và DELETE document | Dùng `processingStatus` + `reviewStatus`; ADM-10..13/18..20/27; approve/reject cấp document, archive thay hard-delete, chunk chỉ exclude khi lỗi |
-| Cao | `services/notifications.service.ts` và socket hooks | Endpoint mark-read cũ; DTO thiếu `resourceType/resourceId/data`; socket event `notifications` dạng action envelope cũ | Dùng NOTI-01..04 và `notification.v1.created`; typed deep-link allowlist; reconnect refetch và dedupe |
-| Cao | `packages/ui/src/types/auth.ts` và DTO nằm rải trong từng service | `name/avatar`, adminRole và response envelope không thống nhất; nhiều DTO Patient/Doctor Consultation bị sao chép | Sinh API types từ OpenAPI; `UserDto.fullName/avatarUrl`; chỉ tạo view model tại feature boundary; xóa DTO transport viết tay trùng nhau |
-| Trung bình | `my-doctor.service.ts` | Chuyên khoa hard-code bằng tiếng Anh, doctor list không phân trang, rating đổi thành string, presence dùng boolean | Danh mục/label tách khỏi transport DTO; DOC-01 paginated; giữ rating là number; presence dùng `online|offline|unknown` |
-| Trung bình | review/profile/report services ở cả Client và Admin | Endpoint và mapper cũ được lặp lại giữa nhiều feature | Một generated client; shared query keys/error mapper; feature hook chỉ compose dữ liệu cho page, không khai báo lại API contract |
+| Mức                    | Khu vực source hiện tại                                                                       | Sai lệch so với contract DA2                                                                                                                                      | Cách chuyển đổi bắt buộc                                                                                                                                                     |
+| ---------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Blocker bảo mật        | `packages/ui/src/store/useAuthStore.ts`, hai file `apps/*/src/lib/api.ts`                     | Persist cả access/refresh token trong localStorage; refresh request gửi `userId + refreshToken`; một notification hook còn log access token                       | Web dùng refresh cookie `HttpOnly + Secure + SameSite`; store chỉ giữ user và access token ngắn hạn trong memory; AUTH-05 không nhận userId từ client; xóa toàn bộ token log |
+| Blocker dữ liệu        | `patient/health-metric/services/health-metrics.service.ts`                                    | DTO dùng `type` và value lồng `{value, recordedAt}`; PATCH/DELETE trực tiếp; có `getAllHealthMetrics()` tải mọi trang                                             | Dùng `HealthMetricDto.metricType/values/source/validationStatus`; sửa bằng HLTH-03 correction, xóa bằng HLTH-04 void; chart/list luôn bounded                                |
+| Blocker Consultation   | Patient/Doctor `consultations.service.ts`, `doctor-chat.service.ts`, `my-doctor.service.ts`   | Dùng `/sessions`, `/sessions/:id/confirm                                                                                                                          | reject                                                                                                                                                                       | complete`, `/chat/session`, `/chat/send`; chỉ có một status `pending | active                                                                        | completed                                                                                                                                        | rejected`; Patient gửi `scheduledAt` tùy ý | Chuyển sang CON-01..24; DTO có `mode + requestStatus + sessionStatus`; scheduled chỉ nhận `availabilitySlotId`; chat dùng `consultationId`; queue/check-in/no-show/follow-up theo state machine |
+| Blocker AI safety/cost | `patient/ai-chat/services/ai-chat.service.ts`                                                 | Dùng `/ai-assistant/*`; citation là `Record<string, unknown>`; có API gửi raw `patientProfile + recentMetrics` từ browser để tạo summary; chưa có token quota DTO | Chuyển AI-01..07; typed citation; quota reserve/commit/release ở server; xóa luồng FE tự gửi dữ liệu thô, Care summary chỉ sinh từ server `SummaryInputSnapshot`             |
+| Blocker vận hành       | `admin/overview/services/overview.service.ts`, `doctor/overview/services/overview.service.ts` | Tải nhiều danh sách với limit 100/1000 rồi tự lọc/đếm/vẽ thống kê                                                                                                 | Dùng ADM-01, DASH-01 và DASH-02; server trả aggregate bounded; detail mới gọi domain list API                                                                                |
+| Cao                    | `admin/user-management/services/user-management.service.ts`                                   | Tự merge `/users`, `/users/doctors`, `/admins`; role FE là `user_admin                                                                                            | ai_admin`, khác DB `user_manager                                                                                                                                             | ai_manager`                                                          | Dùng ADM-02/21 và enum canonical; không suy ra Doctor/Admin bằng merge client |
+| Cao                    | `admin/ai_management/services/ai-management.service.ts`                                       | Gộp ingestion/review/availability thành một `status=processing                                                                                                    | error                                                                                                                                                                        | active                                                               | inactive`; PATCH status và DELETE document                                    | Dùng `processingStatus` + `reviewStatus`; ADM-10..13/18..20/27; approve/reject cấp document, archive thay hard-delete, chunk chỉ exclude khi lỗi |
+| Cao                    | `services/notifications.service.ts` và socket hooks                                           | Endpoint mark-read cũ; DTO thiếu `resourceType/resourceId/data`; socket event `notifications` dạng action envelope cũ                                             | Dùng NOTI-01..04 và `notification.v1.created`; typed deep-link allowlist; reconnect refetch và dedupe                                                                        |
+| Cao                    | `packages/ui/src/types/auth.ts` và DTO nằm rải trong từng service                             | `name/avatar`, adminRole và response envelope không thống nhất; nhiều DTO Patient/Doctor Consultation bị sao chép                                                 | Sinh API types từ OpenAPI; `UserDto.fullName/avatarUrl`; chỉ tạo view model tại feature boundary; xóa DTO transport viết tay trùng nhau                                      |
+| Trung bình             | `my-doctor.service.ts`                                                                        | Chuyên khoa hard-code bằng tiếng Anh, doctor list không phân trang, rating đổi thành string, presence dùng boolean                                                | Danh mục/label tách khỏi transport DTO; DOC-01 paginated; giữ rating là number; presence dùng `online                                                                        | offline                                                              | unknown`                                                                      |
+| Trung bình             | review/profile/report services ở cả Client và Admin                                           | Endpoint và mapper cũ được lặp lại giữa nhiều feature                                                                                                             | Một generated client; shared query keys/error mapper; feature hook chỉ compose dữ liệu cho page, không khai báo lại API contract                                             |
 
 ### 14.2 Cấu trúc DTO/API frontend đích ở repository riêng
 

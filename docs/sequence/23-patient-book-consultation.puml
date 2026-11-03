@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Đặt lịch tư vấn
+actor "Bệnh nhân" as A
+boundary "Booking Page" as UI
+control ConsultationController as C
+control ConsultationService as S
+database MongoDB as DB
+A -> UI : Chọn bác sĩ và slot trống
+UI -> C : POST bookings(slotId)
+C -> S : bookSlot(patientId, slotId)
+S -> DB : Kiểm tra slot, giới hạn và entitlement
+DB --> S : slot validation
+alt Slot không còn trống hoặc không đủ điều kiện
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Đổi slot booked và tạo Consultation
+ DB --> S : booking confirmed
+ S --> C : consultation
+ C --> UI : booking confirmation
+ UI --> A : Hiển thị lịch tư vấn
+end
+@enduml

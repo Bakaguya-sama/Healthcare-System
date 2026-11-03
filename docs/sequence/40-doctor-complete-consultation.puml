@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Hoàn tất tư vấn và ghi chú
+actor "Bác sĩ" as A
+boundary "Consultation Detail Page" as UI
+control ConsultationController as C
+control ConsultationService as S
+database MongoDB as DB
+A -> UI : Nhập ghi chú và hoàn tất phiên
+UI -> C : POST consultations/{id}/complete
+C -> S : completeConsultation(doctorId, notes)
+S -> DB : Kiểm tra doctor ownership và session state
+DB --> S : consultation | error
+alt Không hợp lệ
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Lưu notes, completedAt và follow-up
+ DB --> S : completed consultation
+ S --> C : result
+ C --> UI : successResponse
+ UI --> A : Hiển thị phiên đã hoàn tất
+end
+@enduml

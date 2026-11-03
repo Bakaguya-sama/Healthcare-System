@@ -1,0 +1,57 @@
+OK
+@startuml
+autoactivate on
+title Quản lý tài liệu RAG
+
+actor Admin
+boundary "AI Documents Page" as UI
+control AiDocumentController as Controller
+control AiDocumentService as DocumentService
+control RagIngestionService as RagService
+actor "File Storage" as Storage
+actor "Embedding Provider" as Embedding
+database MongoDB as DB
+
+Admin -> UI : Mở quản lý tài liệu AI
+UI -> Controller : GET /ai-documents
+Controller -> DocumentService : getDocumentList()
+DocumentService -> DB : Lấy danh sách documents
+DB --> DocumentService : documents
+DocumentService --> Controller : document list
+Controller --> UI : 200 document list
+UI --> Admin : Hiển thị danh sách tài liệu
+
+opt Tải tài liệu y tế mới
+  Admin -> UI : Chọn file và nhập metadata
+  UI -> Controller : POST /ai-documents(file, metadata)
+  Controller -> DocumentService : createActiveDocument(file, metadata)
+  DocumentService -> DocumentService : validateMetadata()
+  DocumentService -> Storage : upload(file)
+  Storage --> DocumentService : fileUrl, storageId
+  DocumentService -> DB : Lưu AiDocument\nreviewStatus=approved, isActive=true
+  DB --> DocumentService : documentId
+
+  DocumentService -> RagService : ingestDocument(documentId, fileUrl)
+  RagService -> RagService : extractText(fileUrl)
+  RagService -> RagService : chunkDocument(text)
+  RagService -> Embedding : generateEmbeddings(chunks)
+  Embedding --> RagService : chunk embeddings
+  RagService -> DB : Lưu AiDocumentChunks\ncontent, embedding, isActive=true,\nreviewStatus=approved
+  DB --> RagService : chunks saved
+  RagService --> DocumentService : ingestion completed
+  DocumentService --> Controller : active document with chunk count
+  Controller --> UI : upload and processing result
+  UI --> Admin : Hiển thị tài liệu đang hoạt động
+end
+
+opt Archive tài liệu
+  Admin -> UI : Chọn Archive tài liệu
+  UI -> Controller : PATCH /ai-documents/{id}/archive
+  Controller -> DocumentService : archiveDocument(documentId)
+  DocumentService -> DB : Kiểm tra document và cập nhật\nAiDocument/AiDocumentChunks isActive=false
+  DB --> DocumentService : archived document
+  DocumentService --> Controller : archive result
+  Controller --> UI : successResponse
+  UI --> Admin : Hiển thị tài liệu đã archive
+end
+@enduml

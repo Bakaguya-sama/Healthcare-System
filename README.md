@@ -7,9 +7,12 @@ Repository hiện là Turborepo gồm:
 - `apps/api`: NestJS modular monolith và worker;
 - `packages/*`: thư viện dùng chung và cấu hình có thể tái sử dụng.
 
-Hai frontend DA1 cũ (`apps/client` và `apps/admin`) đã được loại khỏi repository ngày 06/10/2026. Web Patient/Doctor và Web Admin mới phải được xây từ OpenAPI cùng realtime contract canonical; không sao chép lại transport DTO hoặc endpoint legacy từ source DA1.
+Hai frontend DA1 cũ (`apps/client` và `apps/admin`) đã được loại khỏi repository ngày 06/10/2026. Web Patient/Doctor và Web Admin mới nằm ở repository riêng và được ghép API sau qua OpenAPI cùng realtime contract canonical; không sao chép lại transport DTO hoặc endpoint legacy từ source DA1. Payment Return UI cũng thuộc frontend repository, còn backend chỉ xác minh IPN và cung cấp order status.
 
-Refactor backend RF-0..RF-13 đã hoàn tất. Chronic Care/Billing là phase feature tiếp theo và chưa được xem là đã triển khai chỉ vì schema DB v8 đã được duyệt.
+Refactor backend RF-0..RF-13 và các backend slice Chronic Care/Billing đã ghi
+✅ trong roadmap có source/test tương ứng. Các P0 còn thiếu gồm Availability
+Slot/scheduled booking, queue/check-in, export, consumer read API và đồng bộ
+OpenAPI; không suy ra một feature đã triển khai chỉ vì nó có trong DBML target.
 
 ## Nguồn tài liệu chuẩn
 
@@ -21,7 +24,10 @@ Refactor backend RF-0..RF-13 đã hoàn tất. Chronic Care/Billing là phase fe
 4. [`docs/data-model.dbml`](docs/data-model.dbml) — target schema;
 5. [`plan/README.md`](plan/README.md) — map kế hoạch; [`plan/roadmap.md`](plan/roadmap.md) là roadmap implementation.
 
-`docs/current-state/*` là bằng chứng lịch sử của refactor. Contract runtime hiện hành nằm ở `apps/api/openapi/openapi.json` và `apps/api/contracts/realtime-events.json`.
+`docs/current-state/*` và `plan/archive/*` là bằng chứng lịch sử. Contract runtime
+generated nằm ở `apps/api/openapi/openapi.json` và
+`apps/api/contracts/realtime-events.json`; trước consumer handoff phải chạy
+contract check và xử lý mọi drift với source.
 
 ## Yêu cầu local
 

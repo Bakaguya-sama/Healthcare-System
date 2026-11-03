@@ -1,0 +1,24 @@
+OK
+@startuml
+autoactivate on
+title Xem hồ sơ bệnh án của bệnh nhân
+actor "Bác sĩ" as A
+boundary "Patient Record Page" as UI
+control PatientRecordController as C
+control PatientRecordService as S
+database MongoDB as DB
+A -> UI : Chọn bệnh nhân
+UI -> C : GET patient record
+C -> S : getAuthorizedRecord(doctorId, patientId)
+S -> DB : Kiểm tra assignment/consultation và lấy dữ liệu
+DB --> S : record | error
+alt Không được phép
+ S --> C : Forbidden
+ C --> UI : error
+ UI --> A : Hiển thị lỗi
+else Được phép
+ S --> C : patient record
+ C --> UI : patient record
+ UI --> A : Hiển thị hồ sơ bệnh nhân
+end
+@enduml

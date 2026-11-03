@@ -1,0 +1,47 @@
+OK
+@startuml
+autoactivate on
+title Đăng ký gói trả phí
+actor "Bệnh nhân" as Patient
+boundary "Subscription Page" as UI
+control PaymentController as C
+control PaymentService as S
+database MongoDB as DB
+actor VNPAY
+Patient -> UI : Chọn Plan và xác nhận thanh toán
+UI -> C : POST payment-orders(planId)
+C -> S : createPaymentOrder(patientId, planId)
+S -> DB : Kiểm tra Plan active và giá hiện hành
+DB --> S : Plan | error
+alt Plan không tồn tại hoặc không active
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> Patient : Hiển thị lỗi
+else Plan hợp lệ
+ S -> DB : Tạo PaymentOrder status=pending
+ DB --> S : paymentOrder
+ S -> VNPAY : createPaymentUrl(orderInfo)
+ VNPAY --> S : paymentUrl
+ S --> C : paymentUrl
+ C --> UI : redirectUrl
+ UI -> VNPAY : Điều hướng thanh toán
+ alt Bệnh nhân hủy hoặc thanh toán thất bại
+  VNPAY -> C : IPN failed/cancelled
+  C -> S : handleIpn(ipnPayload)
+  S -> DB : Xác thực IPN, cập nhật order failed/cancelled
+  DB --> S : updated order
+  S --> C : paymentFailed
+  C --> UI : payment result
+  UI --> Patient : Hiển thị thanh toán chưa thành công
+ else Thanh toán thành công
+  VNPAY -> C : IPN paid (signed payload)
+  C -> S : handleIpn(ipnPayload)
+  S -> S : verifyVnpaySignature()
+  S -> DB : Cập nhật order paid và cấp Subscription theo snapshot Plan
+  DB --> S : active subscription
+  S --> C : paymentSuccess
+  C --> UI : subscription activated
+  UI --> Patient : Hiển thị gói dịch vụ đang hiệu lực
+ end
+end
+@enduml
