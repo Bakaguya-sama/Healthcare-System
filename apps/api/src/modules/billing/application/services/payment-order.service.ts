@@ -26,6 +26,12 @@ import { PAYMENT_PROVIDER } from '../ports/payment-provider.port';
 import type { PaymentProviderPort } from '../ports/payment-provider.port';
 import { Inject } from '@nestjs/common';
 import { PaymentQrService } from '../../infrastructure/qr/payment-qr.service';
+import {
+  Subscription,
+  SubscriptionDocument,
+  SubscriptionSource,
+  SubscriptionStatus,
+} from '../../domain/entities/subscription.entity';
 
 @Injectable()
 export class PaymentOrderService {
@@ -40,6 +46,8 @@ export class PaymentOrderService {
     private readonly config: ConfigService,
     @Inject(PAYMENT_PROVIDER) private readonly provider: PaymentProviderPort,
     private readonly paymentQr: PaymentQrService,
+    @InjectModel(Subscription.name)
+    private readonly subscriptions?: Model<SubscriptionDocument>,
   ) {}
   async create(
     userId: string,
@@ -62,6 +70,16 @@ export class PaymentOrderService {
         throw new ConflictException('Idempotency key is already in use');
       return this.urlFor(existing, ipAddress);
     }
+    const hasScheduledPlanChange = await this.subscriptions
+      ?.exists({
+        userId: new Types.ObjectId(userId),
+        status: SubscriptionStatus.ACTIVE,
+        source: SubscriptionSource.PAYMENT,
+        nextPlanOrderId: { $exists: true },
+      })
+      .exec();
+    if (hasScheduledPlanChange)
+      throw new ConflictException('A plan change is already scheduled');
     const plan = await this.plans
       .findOne({
         _id: planId,
@@ -188,7 +206,14 @@ export class PaymentOrderService {
     return order;
   }
   async handleIpn(query: Record<string, string | undefined>) {
-    const notification = await this.provider.verifyNotification(query);
+    let notification;
+    try {
+      notification = await this.provider.verifyNotification(query);
+    } catch {
+      // A malformed callback must receive VNPAY's invalid-signature response,
+      // not a 500 that could trigger provider retries or disclose internals.
+      return { RspCode: '97', Message: 'Invalid signature' };
+    }
     if (!notification.verified)
       return { RspCode: '97', Message: 'Invalid signature' };
     if (!notification.orderCode || !notification.amount)

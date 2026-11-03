@@ -151,7 +151,10 @@ describe('CC-012 billing-backed care program access', () => {
     expect(decisions).toEqual(
       Array.from({ length: 8 }, () => ({
         eligible: true,
-        activeCareProgramLimit: 1,
+        // This is a new Patient after the preceding test published Plan v1
+        // with its updated limit. Existing grants retain their own snapshot;
+        // new grants must use the latest published Plan snapshot.
+        activeCareProgramLimit: 9,
       })),
     );
     expect(

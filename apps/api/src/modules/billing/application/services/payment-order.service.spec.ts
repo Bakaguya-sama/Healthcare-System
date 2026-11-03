@@ -11,6 +11,10 @@ describe('PaymentOrderService IPN guards', () => {
     const service = makeService({ verified: false, successful: true });
     await expect(service.handleIpn({ vnp_TxnRef: 'PAY1' })).resolves.toEqual({ RspCode: '97', Message: 'Invalid signature' });
   });
+  it('rejects a malformed callback when the provider verifier throws', async () => {
+    const service = new PaymentOrderService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never, { verifyNotification: jest.fn().mockRejectedValue(new Error('missing hash')) } as never, { toDataUrl: jest.fn() } as never);
+    await expect(service.handleIpn({})).resolves.toEqual({ RspCode: '97', Message: 'Invalid signature' });
+  });
   it('rejects a validly signed callback whose VNPAY amount differs from the server order', async () => {
     const service = makeService({ verified: true, successful: true, orderCode: 'PAY1', amount: 999_900, sanitizedPayload: {} }, { _id: 'order', amount: 10_000, status: PaymentOrderStatus.PENDING });
     await expect(service.handleIpn({})).resolves.toEqual({ RspCode: '04', Message: 'Invalid amount' });

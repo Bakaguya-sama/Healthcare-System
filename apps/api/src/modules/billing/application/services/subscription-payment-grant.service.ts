@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
 import {
@@ -46,7 +46,7 @@ export class SubscriptionPaymentGrantService {
       const durationMs = order.orderSnapshot.durationDays * 86_400_000;
       if (active?.source === SubscriptionSource.PAYMENT) {
         // A paid period is never shortened or overwritten; the purchase is queued.
-        return this.subscriptions
+        const queued = await this.subscriptions
           .findOneAndUpdate(
             { _id: active._id, nextPlanOrderId: { $exists: false } },
             {
@@ -60,6 +60,9 @@ export class SubscriptionPaymentGrantService {
             { new: true, session },
           )
           .exec();
+        if (!queued)
+          throw new ConflictException('A plan change is already scheduled');
+        return queued;
       }
       if (active)
         await this.subscriptions
@@ -99,14 +102,27 @@ export class SubscriptionPaymentGrantService {
       .lean();
     let repaired = 0;
     for (const order of paid) {
-      const grant = await this.subscriptions.exists({
-        $or: [{ sourceOrderId: order._id }, { nextPlanOrderId: order._id }],
-      });
-      if (!grant) {
-        await this.grantForPaidOrder(String(order._id));
-        repaired += 1;
-      }
+      const result = await this.reconcilePaidOrder(String(order._id));
+      if (result.repaired) repaired += 1;
     }
     return { repaired };
+  }
+
+  /**
+   * Repairs exactly one paid order. Operations use this narrow form when an
+   * incident concerns a known order, so an unrelated historical order cannot
+   * claim the single scheduled-plan slot first.
+   */
+  async reconcilePaidOrder(orderId: string) {
+    const order = await this.orders
+      .findOne({ _id: orderId, status: PaymentOrderStatus.PAID })
+      .lean();
+    if (!order) throw new NotFoundException('Paid order not found');
+    const grant = await this.subscriptions.exists({
+      $or: [{ sourceOrderId: order._id }, { nextPlanOrderId: order._id }],
+    });
+    if (grant) return { repaired: false };
+    await this.grantForPaidOrder(String(order._id));
+    return { repaired: true };
   }
 }

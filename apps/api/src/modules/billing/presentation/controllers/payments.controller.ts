@@ -60,6 +60,16 @@ export class PaymentsController {
   getEvidence(@Param('id') id: string) {
     return this.evidence.get(id);
   }
+  // Browser return is display-only. IPN remains the sole payment authority.
+  @Get('vnpay/return')
+  @HttpCode(200)
+  returnFromVnpay() {
+    return {
+      status: 'payment_verification_pending',
+      message:
+        'Payment is being verified. The signed VNPAY IPN determines the final order status.',
+    };
+  }
   // VNPAY invokes its server-to-server IPN endpoint with a signed GET query.
   @Get('vnpay/ipn')
   @HttpCode(200)

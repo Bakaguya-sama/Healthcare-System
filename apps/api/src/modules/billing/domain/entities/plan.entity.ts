@@ -23,7 +23,10 @@ export type PlanSnapshot = {
   benefits: Record<string, unknown>;
 };
 
-@Schema({ timestamps: true, collection: 'plans' })
+// `benefits` and `refundPolicy` are required objects and may validly be empty.
+// Keep them when persisting so MongoDB's required-field validator and the
+// Mongoose document contract cannot diverge.
+@Schema({ timestamps: true, collection: 'plans', minimize: false })
 export class Plan {
   @Prop({ required: true, maxlength: 32, trim: true }) code: string;
   @Prop({ required: true, min: 1 }) version: number;
