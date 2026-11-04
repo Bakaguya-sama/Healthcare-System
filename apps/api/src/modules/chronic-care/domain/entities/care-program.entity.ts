@@ -69,6 +69,9 @@ export class CareProgram {
   @Prop({ type: Date }) publishedAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) retiredBy?: Types.ObjectId;
   @Prop({ type: Date }) retiredAt?: Date;
+
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const CareProgramSchema = SchemaFactory.createForClass(CareProgram);

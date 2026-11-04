@@ -1,10 +1,10 @@
 # Luồng nghiệp vụ P0 DA2
 
-> Cập nhật: 03/11/2026. Tài liệu này tóm tắt hành vi để review nghiệp vụ;
+> Cập nhật: 04/11/2026. Tài liệu này tóm tắt hành vi để review nghiệp vụ;
 > `product-spec.md` và `chronic-care-spec.md` vẫn là nguồn quy tắc chi tiết.
 > Ký hiệu: ✅ có code/test · 🚧 có một phần · ⏳ chưa triển khai.
 
-## 1. Tham gia Care Program — ✅ command, 🚧 read API
+## 1. Tham gia Care Program — ✅ command và Program/Enrollment read API
 
 **Actor:** Assigned Doctor, Patient; Admin quản lý Program/Rule lifecycle.
 
@@ -15,6 +15,13 @@
 3. Backend kiểm tra Doctor assignment, Program/Rule active, entitlement và
    baseline; đủ điều kiện thì chuyển enrollment `pending → active`.
 4. Worker chỉ sinh Monitoring Task cho enrollment active.
+5. Patient/Doctor đọc catalog Program bằng filter allowlist và pagination. Patient
+   và Doctor chỉ thấy Program `published`; Admin thấy lifecycle catalog theo role.
+6. Patient list/detail enrollment của chính mình; Doctor chỉ list/detail enrollment
+   được assign. JWT là authority, `patientId` chỉ là filter thu hẹp cho Doctor.
+7. Enrollment detail trả projection bounded: Program version, participant summary,
+   lifecycle, consent/baseline được phép, task/alert/report summary. Không trả raw
+   task response, HealthMetric, report input, rule snapshot hoặc audit trail.
 
 **Ngoại lệ**
 
@@ -25,6 +32,8 @@
 
 **Ràng buộc:** published version immutable; snapshot không bị đổi âm thầm;
 idempotency key bắt buộc cho command; `completed|cancelled` không reopen.
+Read API dùng page/limit hard cap, filter/sort allowlist và `_id` tie-breaker. Admin
+Enrollment read bị cấm theo chính sách DA2 hiện hành.
 
 ## 2. Theo dõi chỉ số → evaluation → alert — ✅
 
@@ -181,3 +190,20 @@ như kết quả lâm sàng.
 - ETA chưa có mô hình đáng tin cậy từ duration/overtime thực tế nên API trả
   `estimatedWaitMinutes = null`, `etaReason = ETA_POLICY_NOT_CONFIGURED`. Không
   suy ra ETA bằng cách nhân position với duration mặc định.
+
+## 8. Quyết định đã chốt cho Chronic Care read
+
+- Admin không được đọc Enrollment trong DA2 hiện tại, kể cả list, detail hay raw
+  clinical projection. Route Enrollment tiếp tục chỉ dành cho Patient owner và
+  Assigned Doctor. Audit log hiện hữu không tự cấp clinical-data access.
+- Rule read API (`GET /care-programs/:id/rules`) vẫn là slice riêng. Patient không
+  có Rule read. Doctor chỉ đọc Rule `active` của Program `published` qua summary
+  `version`, `status`, `testSummary`; không nhận raw declarative conditions.
+- Admin được đọc Rule `draft` và raw declarative conditions. Admin cũng nhận
+  `dataSources`, nhưng `testResults` và simulation evidence chỉ là bounded summary
+  (validation/outcome/count/reason code/version/time); không trả raw Patient,
+  HealthMetric input hoặc full evaluation trace.
+- Không có Rule version history hay pagination trong P0. Mỗi role chỉ đọc một Rule
+  hiện hành: Doctor là `active`; Admin mặc định `active` hoặc draft mới nhất khi
+  yêu cầu view draft. Quy tắc chọn draft mới nhất phải deterministic theo version,
+  rồi `_id` trước khi route được triển khai.

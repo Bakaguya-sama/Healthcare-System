@@ -45,6 +45,14 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 18. Assigned Doctor được chuyển `active -> paused` và `paused -> active` với lý do. Patient có thể gửi yêu cầu pause; Doctor phải xử lý yêu cầu trước khi resume. Resume phải kiểm tra lại Doctor, Program/Rule, consent và entitlement.
 19. Assigned Doctor hoặc worker completion được duyệt có thể chuyển `active|paused -> completed` khi đạt completion criteria; phải lưu actor/reason. Patient rút consent làm enrollment chưa kết thúc chuyển `cancelled` ngay; chỉ Assigned Doctor được cancel với lý do.
 20. `completed` và `cancelled` là trạng thái cuối, không reopen. Nếu Patient tiếp tục chương trình, Doctor tạo enrollment mới để giữ nguyên lịch sử và snapshot cũ.
+21. Program catalog/read dùng projection theo audience: Patient và Doctor chỉ đọc version `published`; Patient không nhận baseline/task/source policy nội bộ, còn Admin nhận metadata lifecycle qua DTO tường minh thay vì raw document.
+22. Enrollment read lấy JWT làm authority. Patient chỉ đọc enrollment của mình; Doctor `active + approved` chỉ đọc enrollment được assign. Query `patientId` không được mở rộng ownership.
+23. Enrollment list/detail phải bounded, có pagination/filter/sort allowlist và stable `_id` tie-breaker. Detail chỉ trả summary/count có giới hạn, không populate toàn bộ task, metric, report hoặc audit log.
+24. Không trả raw task response, HealthMetric, CareReport input/statistics, CareRule snapshot, note/audit nội bộ trong Program/Enrollment read projection. Consent chỉ trả policy version, purposes và accepted timestamp cho participant được phép.
+25. Admin không có quyền read Care Enrollment trong DA2 hiện tại, kể cả list/detail hay clinical projection. `AuditLog` chỉ lưu evidence của command/lifecycle; nó không phải authority để mở dữ liệu clinical.
+26. Patient không đọc CareRule. Doctor `active + approved` chỉ đọc summary của Rule `active` thuộc Program `published`: version, status và bounded test summary; không nhận raw declarative condition, data source hoặc evaluation trace.
+27. Admin được đọc Rule draft cùng raw declarative conditions và `dataSources`. `testResults` và simulation evidence của Admin chỉ là bounded summary gồm validation/outcome/count/reason code/version/time; không chứa raw Patient/HealthMetric input hoặc full evaluation trace.
+28. P0 Rule read chỉ phục vụ một Rule hiện hành, không phục vụ pagination/version history. Doctor luôn nhận Rule `active`; Admin mặc định nhận active hoặc có thể yêu cầu draft mới nhất, chọn xác định theo version rồi `_id`.
 
 ## Monitoring Task và mức độ hoàn thành
 

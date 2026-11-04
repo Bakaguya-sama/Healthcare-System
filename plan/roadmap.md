@@ -8,7 +8,7 @@
 
 | Ưu tiên | Việc cần làm                                         | Lý do                                                                                                     | File/module liên quan                       | Cỡ  |
 | ------: | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- | :-: |
-|       1 | Hoàn thiện Chronic Care read API                     | Scheduled check-in/queue đã có; còn Program/Enrollment list-detail để dựng Patient/Doctor flow            | `chronic-care`, OpenAPI                     |  M  |
+|       1 | CareTask detail/response ngoài metric                | Program/Enrollment read đã có; task workspace vẫn thiếu response contract theo type                       | `chronic-care`, OpenAPI                     |  M  |
 |       2 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI          |  M  |
 |       3 | Đo và chốt policy vận hành scheduled booking         | Pilot đang dùng buffer 15 phút/min-notice 60 phút; cần dữ liệu để chốt policy dài hạn                     | config, `consultations`, runbook            |  S  |
 |       4 | Chạy release-readiness DA2                           | Regression, privacy/security, migration rehearsal và demo evidence vẫn thuộc DA2 dù KPI metrics được hoãn | `test`, `docs/runbooks`, contract artifacts |  L  |
@@ -18,7 +18,7 @@
 | Giai đoạn/module                                            |  Trạng thái   | Phạm vi đã chứng minh                                                                                 | Phần còn lại                                                      |
 | ----------------------------------------------------------- | :-----------: | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | RF-0..RF-13 — backend foundation                            |      ✅       | Modular monolith, migration runner/verifier, Redis, outbox, contract tooling                          | Chỉ bảo trì                                                       |
-| Chronic Care foundation — `CC-000..007`, `CC-011`, `CC-014` |      ✅       | Program/Rule/Enrollment command, task, evaluation, alert, inbox, report, AI summary, hai chương trình | Read API list/detail và page integration nằm ở phase P0 còn lại   |
+| Chronic Care foundation — `CC-000..007`, `CC-011`, `CC-014` |      ✅       | Program/Rule/Enrollment command, Program/Enrollment read, task, evaluation, alert, report, AI summary | Rule read và CareTask detail/response còn ở phase D               |
 | Monitoring automation — `CC-003A`                           |      ✅       | Metric event, scheduler, reminder, retry/dead-letter/recovery                                         | Bật flag theo runbook ở môi trường triển khai                     |
 | Consultation link/usage — `CC-008`, `CC-013/A/B`            |      ✅       | Alert link, quota ledger, urgent benefit, stale recovery, scheduled check-in/queue                    | On-demand queue policy còn mở                                     |
 | Plan, AI quota — `CC-012A/B`                                |      ✅       | Plan lifecycle, snapshot entitlement, AI reserve/commit/release                                       | Patient-facing Plan/Subscription read API                         |
@@ -98,8 +98,9 @@
 **Trạng thái:** 🚧 Đang làm
 
 - [x] Regenerate OpenAPI và xử lý drift Billing/Plan/`CC-PAY-001` ngày 03/11/2026.
-- [ ] Program/Rule read API theo role.
-- [ ] Enrollment list/detail theo Patient/Assigned Doctor.
+- [x] Program list/detail read API theo Patient/Doctor/Admin projection.
+- [ ] Rule read API theo role (`GET /care-programs/:id/rules`): Doctor active summary; Admin active/draft projection; không history/pagination.
+- [x] Enrollment list/detail theo Patient owner/Assigned Doctor; Admin bị cấm theo quyết định DA2 hiện hành.
 - [ ] CareTask detail/response cho task không phải metric.
 - [ ] Patient Plan/Subscription/usage API.
 - [ ] Report PDF/CSV export và download authorization.
@@ -191,3 +192,10 @@
   count quota. Check-in/call-next không đụng quota, PaymentOrder hoặc VNPAY.
 - `checkInEarlyMinutes` fail-closed khi thiếu snapshot/config; ETA trả null cùng
   reason code. On-demand queue và ETA policy tiếp tục là câu hỏi mở.
+- Bổ sung Chronic Care Program list/detail và Enrollment list/detail: DTO/projection
+  theo actor, filter allowlist, pagination hard cap, stable `_id` tie-breaker,
+  ownership từ JWT và bounded task/alert/report summary.
+- Chốt không bật Admin Enrollment read trong DA2 hiện hành; `AuditLog` không tự cấp
+  clinical-data access. Chốt Rule read P0 chỉ lấy current active/draft view, không
+  pagination/version history; không thêm index/migration vì query actor scope đã
+  khớp index hiện hữu.

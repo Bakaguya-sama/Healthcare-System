@@ -1,14 +1,24 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiHeader,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
 import { Roles } from '../../../../core/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
@@ -22,6 +32,12 @@ import {
   CreateCareEnrollmentDto,
   EnrollmentReasonDto,
 } from '../dto/care-enrollment.dto';
+import { ChronicCareReadService } from '../../application/services/chronic-care-read.service';
+import {
+  CareEnrollmentDetailDto,
+  CareEnrollmentPageDto,
+  QueryCareEnrollmentsDto,
+} from '../dto/chronic-care-read.dto';
 
 const Idempotent = ApiHeader({ name: 'Idempotency-Key', required: true });
 
@@ -30,7 +46,42 @@ const Idempotent = ApiHeader({ name: 'Idempotency-Key', required: true });
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('care-enrollments')
 export class CareEnrollmentController {
-  constructor(private readonly enrollments: CareEnrollmentService) {}
+  constructor(
+    private readonly enrollments: CareEnrollmentService,
+    private readonly reads: ChronicCareReadService,
+  ) {}
+
+  @Get()
+  @Roles(UserRole.PATIENT, UserRole.DOCTOR)
+  @ApiOperation({
+    summary: 'List the current patient or assigned doctor Care Enrollments',
+  })
+  @ApiOkResponse({ type: CareEnrollmentPageDto })
+  @ApiForbiddenResponse({
+    description: 'Actor is inactive, unapproved, or outside query scope',
+  })
+  async list(
+    @CurrentUser() actor: CareActor,
+    @Query() query: QueryCareEnrollmentsDto,
+  ) {
+    return this.reads.listEnrollments(actor, query);
+  }
+
+  @Get(':id')
+  @Roles(UserRole.PATIENT, UserRole.DOCTOR)
+  @ApiOperation({
+    summary: 'Read a participant-scoped Care Enrollment projection',
+  })
+  @ApiOkResponse({ type: CareEnrollmentDetailDto })
+  @ApiForbiddenResponse({
+    description: 'Role is not allowed to read clinical enrollment data',
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrollment does not exist or is outside actor scope',
+  })
+  async detail(@CurrentUser() actor: CareActor, @Param('id') id: string) {
+    return this.reads.getEnrollment(actor, id);
+  }
 
   @Post() @Roles(UserRole.DOCTOR) @Idempotent async create(
     @CurrentUser() actor: CareActor,

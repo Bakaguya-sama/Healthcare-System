@@ -19390,6 +19390,165 @@
       }
     },
     "/api/v1/care-programs": {
+      "get": {
+        "operationId": "CareProgramRule_listPrograms",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": -1,
+              "type": "number",
+              "enum": [
+                -1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "diseaseKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published",
+                "retired"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "publishedAt",
+                "name",
+                "programCode",
+                "version"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareProgramPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Actor is inactive or Doctor is not approved"
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List Care Programs using an actor-safe projection",
+        "tags": [
+          "care-programs"
+        ]
+      },
       "post": {
         "operationId": "CareProgramRule_createProgram",
         "parameters": [
@@ -19508,6 +19667,96 @@
       }
     },
     "/api/v1/care-programs/{id}": {
+      "get": {
+        "operationId": "CareProgramRule_getProgram",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareProgramDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Actor is inactive or Doctor is not approved"
+          },
+          "404": {
+            "description": "Program does not exist or is outside the actor catalog scope"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read one Care Program using an actor-safe projection",
+        "tags": [
+          "care-programs"
+        ]
+      },
       "patch": {
         "operationId": "CareProgramRule_updateProgram",
         "parameters": [
@@ -20414,6 +20663,174 @@
       }
     },
     "/api/v1/care-enrollments": {
+      "get": {
+        "operationId": "CareEnrollment_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": -1,
+              "type": "number",
+              "enum": [
+                -1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "active",
+                "paused",
+                "completed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "programCode",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": false,
+            "in": "query",
+            "description": "Conjunctive filter; never overrides JWT ownership.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "updatedAt"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareEnrollmentPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Actor is inactive, unapproved, or outside query scope"
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the current patient or assigned doctor Care Enrollments",
+        "tags": [
+          "care-enrollments"
+        ]
+      },
       "post": {
         "operationId": "CareEnrollment_create",
         "parameters": [
@@ -20524,6 +20941,98 @@
             "bearer": []
           }
         ],
+        "tags": [
+          "care-enrollments"
+        ]
+      }
+    },
+    "/api/v1/care-enrollments/{id}": {
+      "get": {
+        "operationId": "CareEnrollment_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareEnrollmentDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role is not allowed to read clinical enrollment data"
+          },
+          "404": {
+            "description": "Enrollment does not exist or is outside actor scope"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read a participant-scoped Care Enrollment projection",
         "tags": [
           "care-enrollments"
         ]
@@ -24594,6 +25103,191 @@
           }
         }
       },
+      "CareProgramSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "programCode": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "diseaseKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ]
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "retiredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "programCode",
+          "version",
+          "name",
+          "diseaseKey",
+          "status"
+        ]
+      },
+      "CareProgramPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CareProgramSummaryDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "CareProgramDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "programCode": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "diseaseKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ]
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "retiredAt": {
+            "type": "string"
+          },
+          "eligibilityForm": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "baselineForm": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "taskTemplates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "reminderPolicy": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "reviewPolicy": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "completionCriteria": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "doctorEditableFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contentJourney": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "dataSources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "revision": {
+            "type": "number"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "publishedBy": {
+            "type": "string"
+          },
+          "retiredBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "programCode",
+          "version",
+          "name",
+          "diseaseKey",
+          "status"
+        ]
+      },
       "CreateCareProgramDto": {
         "type": "object",
         "properties": {
@@ -24735,6 +25429,193 @@
         },
         "required": [
           "expectedRevision"
+        ]
+      },
+      "CareIdentitySummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "specialty": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fullName"
+        ]
+      },
+      "CareEnrollmentSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "program": {
+            "$ref": "#/components/schemas/CareProgramSummaryDto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "paused",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "patient": {
+            "$ref": "#/components/schemas/CareIdentitySummaryDto"
+          },
+          "assignedDoctor": {
+            "$ref": "#/components/schemas/CareIdentitySummaryDto"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "allowedActions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "expectedEndAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "program",
+          "status",
+          "timezone",
+          "allowedActions",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CareEnrollmentPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CareEnrollmentSummaryDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "CareEnrollmentDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "program": {
+            "$ref": "#/components/schemas/CareProgramSummaryDto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "paused",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "patient": {
+            "$ref": "#/components/schemas/CareIdentitySummaryDto"
+          },
+          "assignedDoctor": {
+            "$ref": "#/components/schemas/CareIdentitySummaryDto"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "allowedActions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "expectedEndAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "consent": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "baseline": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "taskSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "alertSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "latestReport": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "program",
+          "status",
+          "timezone",
+          "allowedActions",
+          "createdAt",
+          "updatedAt",
+          "taskSummary",
+          "alertSummary"
         ]
       },
       "CreateCareEnrollmentDto": {
