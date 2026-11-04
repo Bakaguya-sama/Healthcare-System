@@ -176,6 +176,12 @@ export function validateEnvironment(
       0,
       10_080,
     ),
+    CONSULTATION_CHECK_IN_EARLY_MINUTES: optionalInteger(
+      config,
+      'CONSULTATION_CHECK_IN_EARLY_MINUTES',
+      0,
+      1_440,
+    ),
     VNPAY_ENABLED: boolean(config, 'VNPAY_ENABLED', false),
     VNPAY_SANDBOX: boolean(config, 'VNPAY_SANDBOX', true),
     VNPAY_TMN_CODE: stringValue(config, 'VNPAY_TMN_CODE', '').trim(),

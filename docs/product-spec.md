@@ -244,15 +244,25 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 
 ## Check-in và hàng đợi
 
-1. Hàng đợi chỉ chứa consultation accepted có session status waiting.
-2. Bệnh nhân có lịch được check-in sớm tối đa check in early minutes; giá trị MVP đề xuất là 15 phút.
-3. Hàng đợi sắp theo scheduled start time, sau đó theo queue joined time. Vị trí hiển thị chỉ là snapshot, không phải nguồn dữ liệu chuẩn.
-4. Khi bác sĩ gọi người tiếp theo, backend atomically đổi một consultation từ waiting sang in consultation.
-5. Nếu bệnh nhân không xuất hiện sau no show after minutes tính từ giờ hẹn, session chuyển no show. Giá trị MVP đề xuất là 10 phút.
-6. Một consultation on-demand đã accepted cũng có thể vào waiting khi bác sĩ đang tư vấn cho người khác.
-7. Scheduled và on-demand dùng chung hàng đợi theo Doctor. Thứ tự mặc định: scheduled đã quá giờ, scheduled đã đến cửa sổ phục vụ, sau đó on-demand accepted theo `queueJoinedAt`. Không được ngắt phiên `in_consultation` để phục vụ phiên khác.
-8. `call-next` phải kiểm tra atomically Doctor chưa có phiên `in_consultation`; partial unique index là lớp bảo vệ cuối cùng chống hai request đồng thời.
-9. On-demand chỉ được gọi trong khoảng trống khi `now + expectedDurationMinutes + bufferMinutes` không vượt giờ scheduled tiếp theo. Nếu phiên hiện tại kéo dài, scheduled Patient nhận cập nhật trễ/ETA.
+1. Scheduled queue hiện chỉ chứa Consultation `scheduled + accepted + waiting`
+   có `queueJoinedAt` và `queuePriorityAt`; on-demand queue là câu hỏi mở, chưa
+   thuộc implementation hiện tại.
+2. Bệnh nhân có lịch được check-in sớm tối đa `checkInEarlyMinutes`. Giá trị 15
+   phút mới là khuyến nghị pilot, chưa được chốt: snapshot có giá trị thì dùng
+   snapshot; booking cũ dùng cấu hình có tên rõ; thiếu cả hai thì fail-closed.
+3. Scheduled queue sắp theo `queuePriorityAt = scheduledStartAt`, sau đó
+   `queueJoinedAt`, rồi `_id`. Vị trí hiển thị chỉ là snapshot do server tính.
+4. Khi bác sĩ gọi người tiếp theo, backend atomically ghi `calledAt` cho queue
+   head nhưng vẫn giữ session `waiting`. Chỉ command start sau đó mới chuyển
+   sang `in_consultation` và count quota.
+5. Nếu bệnh nhân không xuất hiện sau `noShowAfterMinutes` snapshot tính từ giờ
+   hẹn, Doctor có thể chuyển session sang `no_show`; baseline hiện tại là 10 phút.
+6. Một Doctor chỉ có tối đa một item đã called nhưng chưa start và tối đa một
+   Consultation `in_consultation`; hai partial unique index là lớp bảo vệ cuối.
+7. Check-in và call-next không reserve, release hoặc count quota, không tạo
+   PaymentOrder và không gọi VNPAY.
+8. ETA chưa có policy đo lường đáng tin cậy nên API trả `null` cùng reason code,
+   không nhân vị trí với duration mặc định.
 
 ## Kết thúc và gián đoạn Consultation
 
@@ -535,7 +545,8 @@ stateDiagram-v2
     pending --> expired: requestExpiresAt
     accepted --> waiting: Check-in/join queue
     accepted --> cancelled: Một bên hủy hợp lệ
-    waiting --> in_consultation: Doctor call-next atomically
+    waiting --> waiting: Doctor call-next atomically (calledAt)
+    waiting --> in_consultation: Doctor start called consultation
     waiting --> no_show: Quá hạn
     in_consultation --> interrupted: Mất heartbeat/kết nối
     interrupted --> in_consultation: Doctor resume
@@ -560,7 +571,12 @@ queueJoinedAt != null
 queuePriorityAt != null
 ```
 
-Scheduled và on-demand dùng chung hàng đợi theo Doctor. Ưu tiên lần lượt: scheduled quá giờ, scheduled đã đến cửa sổ phục vụ, rồi on-demand accepted theo thời điểm vào hàng đợi. On-demand chỉ được gọi trong khoảng trống nếu thời lượng dự kiến cộng buffer không đè lên scheduled kế tiếp. `queuePriorityAt` là khóa sắp xếp ổn định; `call-next` dùng conditional update/transaction để hai request đồng thời không claim cùng một consultation.
+Slice hiện tại chỉ đưa scheduled Consultation vào hàng đợi. Thứ tự là
+`queuePriorityAt = scheduledStartAt`, `queueJoinedAt`, `_id`; `call-next` dùng
+transaction/conditional update và unique index để hai request đồng thời không
+claim hai item. Call-next chỉ ghi `calledAt`; `/start` mới chuyển
+`in_consultation`. Việc trộn on-demand vào cùng queue và policy chen giữa hai
+lịch scheduled vẫn là câu hỏi mở, không phải behavior mặc định.
 
 ### 5.5 Chat, call và review
 

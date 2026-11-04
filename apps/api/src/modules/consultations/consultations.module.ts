@@ -39,6 +39,8 @@ import { AvailabilitySlotService } from './application/services/availability/ava
 import { AvailabilitySlotsController } from './presentation/controllers/availability/availability-slots.controller';
 import { BookingPolicyService } from './application/services/consultations/booking-policy';
 import { ScheduledBookingService } from './application/services/consultations/scheduled-booking.service';
+import { ConsultationQueueService } from './application/services/consultations/consultation-queue.service';
+import { DoctorQueueController } from './presentation/controllers/consultations/doctor-queue.controller';
 
 @Module({
   imports: [
@@ -63,6 +65,7 @@ import { ScheduledBookingService } from './application/services/consultations/sc
   controllers: [
     ConsultationsController,
     AvailabilitySlotsController,
+    DoctorQueueController,
     ChatController,
     ReviewsController,
   ],
@@ -78,6 +81,7 @@ import { ScheduledBookingService } from './application/services/consultations/sc
     BookingPolicyService,
     AvailabilitySlotService,
     ScheduledBookingService,
+    ConsultationQueueService,
     {
       provide: CARE_REPORT_PORT,
       useExisting: ConsultationsService,
@@ -95,6 +99,7 @@ import { ScheduledBookingService } from './application/services/consultations/sc
     CARE_ALERT_CONSULTATION_PORT,
     AvailabilitySlotService,
     ScheduledBookingService,
+    ConsultationQueueService,
   ],
 })
 export class ConsultationsModule {}

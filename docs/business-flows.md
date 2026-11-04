@@ -45,7 +45,7 @@ terminal; provider notification lỗi đi qua outbox retry/dead-letter.
 **Ràng buộc:** AI không quyết định severity; alert không thay thế cấp cứu;
 automation flag chỉ bật theo runbook và phải quan sát lag/dead-letter.
 
-## 3. Consultation từ Care Alert và scheduled booking — ✅ booking, 🚧 queue
+## 3. Consultation từ Care Alert và scheduled booking — ✅ booking và scheduled queue
 
 **Actor:** Assigned Doctor, Patient, consultation worker.
 
@@ -83,7 +83,38 @@ khoản phí consultation riêng; thiếu ledger không tự tạo miễn phí.
    mở slot cũ. Slot booked không được Doctor sửa/block/xóa trực tiếp.
 6. Admin không có API override/block/unblock slot.
 
-**P0 còn thiếu:** Patient check-in, Doctor queue/call-next và race/reconnect E2E.
+**Scheduled check-in và queue đã có**
+
+1. Patient owner gửi `POST /consultations/:id/check-in` cùng `Idempotency-Key`.
+   Backend chỉ nhận Consultation `scheduled/accepted/not_started`, kiểm tra cửa sổ
+   từ `scheduledStartAt - checkInEarlyMinutes` đến
+   `scheduledStartAt + noShowAfterMinutes`, rồi atomically ghi `waiting`,
+   `queueJoinedAt` và `queuePriorityAt = scheduledStartAt`.
+2. `checkInEarlyMinutes` ưu tiên snapshot của booking; booking cũ thiếu snapshot
+   chỉ được dùng cấu hình `CONSULTATION_CHECK_IN_EARLY_MINUTES`. Nếu cả hai đều
+   thiếu, command fail-closed với `CHECK_IN_POLICY_NOT_CONFIGURED`; không có
+   default ngầm.
+3. Patient chỉ đọc snapshot queue của chính Consultation mình qua
+   `GET /consultations/:id/queue`. Position được tính phía server; ETA trả
+   `null` cùng `ETA_POLICY_NOT_CONFIGURED` cho tới khi có policy đã được đo/chốt.
+4. Doctor `active + approved` đọc queue của chính mình qua
+   `GET /doctors/me/queue?page&limit`. Queue chỉ gồm scheduled Consultation hợp
+   lệ và sắp ổn định theo `queuePriorityAt`, `queueJoinedAt`, `_id`.
+5. `POST /doctors/me/queue/call-next` dùng transaction và partial unique index
+   để chỉ một item được gọi. Call-next ghi `calledAt` nhưng giữ `waiting`; Doctor
+   gọi `/start` mới chuyển sang `in_consultation` và count quota. Vì vậy
+   check-in/call-next không reserve, release, count quota và không tạo payment.
+6. Partial unique index chặn một Doctor có hai item `waiting + calledAt`; index
+   khác chặn hai Consultation `in_consultation`. Retry cùng idempotency key trả
+   state đã persist với `replayed = true` và không phát lại realtime event.
+
+**Ngoại lệ:** sai owner/role trả 403; quá sớm hoặc quá cửa sổ trả 422; state
+terminal/non-scheduled trả conflict xác định; queue rỗng, đã có item called hoặc
+đang có phiên active trả 409. MongoDB là source of truth; realtime chỉ phát sau
+persistence.
+
+**P0 còn mở:** đưa on-demand accepted vào cùng queue và policy ETA có căn cứ đo
+lường. Hai phần này không được bật ngầm trong scheduled slice.
 
 ## 4. Mua/gia hạn Subscription qua VNPAY — ✅ `CC-PAY-001`
 
@@ -143,3 +174,10 @@ như kết quả lâm sàng.
   `doctorProfile.bookingSettings` có hard limits như product spec.
 - Cutoff hủy/đổi lịch hiện dùng mốc 60 phút đã được chấp nhận ở CC-013. Nếu owner
   thay đổi, phải version/snapshot policy và bổ sung migration/test trước rollout.
+- `checkInEarlyMinutes` chưa được owner chốt. Runtime hiện fail-closed nếu booking
+  snapshot và `CONSULTATION_CHECK_IN_EARLY_MINUTES` đều thiếu. Khuyến nghị pilot
+  15 phút chỉ là đề xuất trong product spec; cần đo tỷ lệ đến sớm/muộn, no-show
+  và tải queue trước khi chốt, sau đó snapshot theo version.
+- ETA chưa có mô hình đáng tin cậy từ duration/overtime thực tế nên API trả
+  `estimatedWaitMinutes = null`, `etaReason = ETA_POLICY_NOT_CONFIGURED`. Không
+  suy ra ETA bằng cách nhân position với duration mặc định.

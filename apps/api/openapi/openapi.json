@@ -7938,6 +7938,244 @@
         ]
       }
     },
+    "/api/v1/consultations/{id}/check-in": {
+      "post": {
+        "operationId": "Consultations_checkIn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Check-in is too early or the check-in window has closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Check-in policy is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "consultations"
+        ]
+      }
+    },
+    "/api/v1/consultations/{id}/queue": {
+      "get": {
+        "operationId": "Consultations_getQueue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientQueueResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "consultations"
+        ]
+      }
+    },
     "/api/v1/consultations/{id}": {
       "get": {
         "operationId": "Consultations_findOne",
@@ -9888,6 +10126,229 @@
         ],
         "tags": [
           "availability-slots"
+        ]
+      }
+    },
+    "/api/v1/doctors/me/queue": {
+      "get": {
+        "operationId": "DoctorQueue_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorQueueListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "consultation-queue"
+        ]
+      }
+    },
+    "/api/v1/doctors/me/queue/call-next": {
+      "post": {
+        "operationId": "DoctorQueue_callNext",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallNextResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Queue is empty or Doctor already has a called/active item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "consultation-queue"
         ]
       }
     },
@@ -14303,7 +14764,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/Object"
+              "type": "string"
             }
           },
           {
@@ -15379,7 +15840,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/Object"
+              "type": "string"
             }
           },
           {
@@ -23320,6 +23781,172 @@
           "doctorId"
         ]
       },
+      "CheckedInConsultationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "requestStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "declined",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "sessionStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "waiting",
+              "in_consultation",
+              "interrupted",
+              "completed",
+              "no_show"
+            ]
+          },
+          "scheduledStartAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "queueJoinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "queuePriorityAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "calledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "patientId",
+          "doctorId",
+          "requestStatus",
+          "sessionStatus",
+          "scheduledStartAt",
+          "queueJoinedAt",
+          "queuePriorityAt",
+          "updatedAt"
+        ]
+      },
+      "PatientQueueSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "consultationId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "called"
+            ]
+          },
+          "position": {
+            "type": "number",
+            "minimum": 1
+          },
+          "estimatedWaitMinutes": {
+            "type": "number",
+            "nullable": true
+          },
+          "etaReason": {
+            "type": "object",
+            "nullable": true,
+            "example": "ETA_POLICY_NOT_CONFIGURED"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "consultationId",
+          "status",
+          "position",
+          "estimatedWaitMinutes",
+          "etaReason",
+          "updatedAt"
+        ]
+      },
+      "CheckInResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CheckedInConsultationDto"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/PatientQueueSnapshotDto"
+          },
+          "replayed": {
+            "type": "boolean",
+            "description": "True when this response replays persisted state"
+          }
+        },
+        "required": [
+          "data",
+          "queue",
+          "replayed"
+        ]
+      },
+      "PatientQueueResponseDto": {
+        "type": "object",
+        "properties": {
+          "consultationId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "called"
+            ]
+          },
+          "position": {
+            "type": "number",
+            "minimum": 1
+          },
+          "estimatedWaitMinutes": {
+            "type": "number",
+            "nullable": true
+          },
+          "etaReason": {
+            "type": "object",
+            "nullable": true,
+            "example": "ETA_POLICY_NOT_CONFIGURED"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "consultationId",
+          "status",
+          "position",
+          "estimatedWaitMinutes",
+          "etaReason",
+          "updatedAt"
+        ]
+      },
       "UpdateConsultationDto": {
         "type": "object",
         "properties": {
@@ -23521,6 +24148,158 @@
           "reason"
         ]
       },
+      "QueuePatientDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "DoctorQueueEntryDto": {
+        "type": "object",
+        "properties": {
+          "consultationId": {
+            "type": "string"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/QueuePatientDto"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "on_demand",
+              "scheduled"
+            ]
+          },
+          "scheduledStartAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "queueJoinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "queuePosition": {
+            "type": "number",
+            "minimum": 1
+          },
+          "estimatedWaitMinutes": {
+            "type": "number",
+            "nullable": true
+          },
+          "etaReason": {
+            "type": "object",
+            "nullable": true,
+            "example": "ETA_POLICY_NOT_CONFIGURED"
+          },
+          "isCurrent": {
+            "type": "boolean"
+          },
+          "isLate": {
+            "type": "boolean"
+          },
+          "calledAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "consultationId",
+          "patient",
+          "mode",
+          "scheduledStartAt",
+          "queueJoinedAt",
+          "queuePosition",
+          "estimatedWaitMinutes",
+          "etaReason",
+          "isCurrent",
+          "isLate"
+        ]
+      },
+      "CurrentConsultationDto": {
+        "type": "object",
+        "properties": {
+          "consultationId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "sessionStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "waiting",
+              "in_consultation",
+              "interrupted",
+              "completed",
+              "no_show"
+            ]
+          },
+          "sessionStartedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "consultationId",
+          "patientId",
+          "sessionStatus"
+        ]
+      },
+      "DoctorQueueListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoctorQueueEntryDto"
+            }
+          },
+          "currentSession": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CurrentConsultationDto"
+              }
+            ]
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PagePaginationDto"
+          }
+        },
+        "required": [
+          "data",
+          "currentSession",
+          "pagination"
+        ]
+      },
+      "CallNextResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CheckedInConsultationDto"
+          },
+          "replayed": {
+            "type": "boolean",
+            "description": "True when this response replays persisted state"
+          }
+        },
+        "required": [
+          "data",
+          "replayed"
+        ]
+      },
       "UpdateMessageDto": {
         "type": "object",
         "properties": {
@@ -23606,7 +24385,7 @@
         "type": "object",
         "properties": {
           "type": {
-            "type": "object",
+            "type": "string",
             "example": "health_inquiry",
             "description": "Type of conversation"
           },
@@ -23630,10 +24409,6 @@
           "type",
           "initialQuestion"
         ]
-      },
-      "Object": {
-        "type": "object",
-        "properties": {}
       },
       "ArchiveConversationDto": {
         "type": "object",
@@ -23743,7 +24518,7 @@
             "type": "string"
           },
           "status": {
-            "type": "object"
+            "type": "string"
           },
           "validUntil": {
             "type": "object",

@@ -8,7 +8,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, Types, type ClientSession } from 'mongoose';
+import { Connection, Model, Types, mongo, type ClientSession } from 'mongoose';
 import {
   CONSULTATION_USAGE_PORT,
   type ConsultationUsagePort,
@@ -289,31 +289,69 @@ export class ConsultationsService implements CareReportPort {
   }
 
   async start(userId: string, id: string) {
-    const consultation = await this.inTransaction(async (session) => {
-      const consultation = await this.load(id, session);
-      if (!this.same(consultation.doctorId, userId))
-        throw new ForbiddenException('Only doctor can start consultation');
-      if (
-        consultation.requestStatus !== ConsultationRequestStatus.ACCEPTED ||
-        consultation.sessionStatus !== ConsultationSessionStatus.WAITING
-      )
-        throw new BadRequestException(
-          'Consultation must be accepted before starting',
+    try {
+      const consultation = await this.inTransaction(async (session) => {
+        const consultation = await this.load(id, session);
+        if (!this.same(consultation.doctorId, userId))
+          throw new ForbiddenException('Only doctor can start consultation');
+        if (
+          consultation.requestStatus !== ConsultationRequestStatus.ACCEPTED ||
+          consultation.sessionStatus !== ConsultationSessionStatus.WAITING
+        )
+          throw new BadRequestException(
+            'Consultation must be accepted before starting',
+          );
+        if (consultation.queueJoinedAt && !consultation.calledAt) {
+          throw new BookingException(
+            HttpStatus.CONFLICT,
+            'CONSULTATION_NOT_CALLED',
+            'Doctor must call the queued consultation before starting it',
+          );
+        }
+        const active = await this.consultationModel
+          .findOne({
+            _id: { $ne: consultation._id },
+            doctorId: consultation.doctorId,
+            sessionStatus: ConsultationSessionStatus.IN_CONSULTATION,
+          })
+          .session(session)
+          .select('_id')
+          .lean()
+          .exec();
+        if (active) {
+          throw new BookingException(
+            HttpStatus.CONFLICT,
+            'DOCTOR_ACTIVE_SESSION_CONFLICT',
+            'Doctor already has an active consultation',
+            { consultationId: String(active._id) },
+          );
+        }
+        if (this.usesConsultationQuota(consultation)) {
+          const status = await this.usage.count({
+            consultationId: String(consultation._id),
+            session,
+          });
+          if (status !== 'counted')
+            throw new BadRequestException(
+              'Consultation quota cannot be counted',
+            );
+        }
+        consultation.sessionStatus = ConsultationSessionStatus.IN_CONSULTATION;
+        consultation.sessionStartedAt = new Date();
+        await consultation.save({ session });
+        return consultation;
+      });
+      return this.response('Consultation started successfully', consultation);
+    } catch (error: unknown) {
+      if (error instanceof mongo.MongoServerError && error.code === 11000) {
+        throw new BookingException(
+          HttpStatus.CONFLICT,
+          'DOCTOR_ACTIVE_SESSION_CONFLICT',
+          'A concurrent request already started another consultation',
         );
-      if (this.usesConsultationQuota(consultation)) {
-        const status = await this.usage.count({
-          consultationId: String(consultation._id),
-          session,
-        });
-        if (status !== 'counted')
-          throw new BadRequestException('Consultation quota cannot be counted');
       }
-      consultation.sessionStatus = ConsultationSessionStatus.IN_CONSULTATION;
-      consultation.sessionStartedAt = new Date();
-      await consultation.save({ session });
-      return consultation;
-    });
-    return this.response('Consultation started successfully', consultation);
+      throw error;
+    }
   }
 
   async complete(userId: string, id: string, dto: UpdateConsultationDto) {

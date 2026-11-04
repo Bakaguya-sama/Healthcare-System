@@ -215,6 +215,12 @@ import {
   SCHEDULED_BOOKING_NAME,
   SCHEDULED_BOOKING_VERSION,
 } from './202611031000-scheduled-booking';
+import {
+  applyConsultationQueue,
+  CONSULTATION_QUEUE_CHECKSUM,
+  CONSULTATION_QUEUE_NAME,
+  CONSULTATION_QUEUE_VERSION,
+} from './202611041000-consultation-queue';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -432,6 +438,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: SCHEDULED_BOOKING_NAME,
     checksum: SCHEDULED_BOOKING_CHECKSUM,
     up: applyScheduledBooking,
+  },
+  {
+    version: CONSULTATION_QUEUE_VERSION,
+    name: CONSULTATION_QUEUE_NAME,
+    checksum: CONSULTATION_QUEUE_CHECKSUM,
+    up: applyConsultationQueue,
   },
 ];
 

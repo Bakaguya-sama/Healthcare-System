@@ -1,17 +1,17 @@
 # HealthAI DA2 — Roadmap hiện hành
 
-> Cập nhật: **03/11/2026**
+> Cập nhật: **04/11/2026**
 > Nguồn xác minh: code, migration, test, OpenAPI và realtime contract trong repository.
 > Ký hiệu: ✅ Xong · 🚧 Đang làm · ⏳ Chưa bắt đầu · ⛔ Bị chặn
 
 ## ▶ TIẾP THEO CẦN LÀM
 
-| Ưu tiên | Việc cần làm                                         | Lý do                                                                                                     | File/module liên quan                              | Cỡ  |
-| ------: | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | :-: |
-|       1 | Hoàn thiện check-in, queue và Chronic Care read API  | P0 còn thiếu queue/check-in, Program/Enrollment list-detail để dựng Patient/Doctor flow                   | `consultations`, `chronic-care`, realtime contract |  L  |
-|       2 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI                 |  M  |
-|       3 | Đo và chốt policy vận hành scheduled booking         | Pilot đang dùng buffer 15 phút/min-notice 60 phút; cần dữ liệu để chốt policy dài hạn                     | config, `consultations`, runbook                   |  S  |
-|       4 | Chạy release-readiness DA2                           | Regression, privacy/security, migration rehearsal và demo evidence vẫn thuộc DA2 dù KPI metrics được hoãn | `test`, `docs/runbooks`, contract artifacts        |  L  |
+| Ưu tiên | Việc cần làm                                         | Lý do                                                                                                     | File/module liên quan                       | Cỡ  |
+| ------: | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- | :-: |
+|       1 | Hoàn thiện Chronic Care read API                     | Scheduled check-in/queue đã có; còn Program/Enrollment list-detail để dựng Patient/Doctor flow            | `chronic-care`, OpenAPI                     |  M  |
+|       2 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI          |  M  |
+|       3 | Đo và chốt policy vận hành scheduled booking         | Pilot đang dùng buffer 15 phút/min-notice 60 phút; cần dữ liệu để chốt policy dài hạn                     | config, `consultations`, runbook            |  S  |
+|       4 | Chạy release-readiness DA2                           | Regression, privacy/security, migration rehearsal và demo evidence vẫn thuộc DA2 dù KPI metrics được hoãn | `test`, `docs/runbooks`, contract artifacts |  L  |
 
 ## 1. Tổng quan tiến độ
 
@@ -20,11 +20,11 @@
 | RF-0..RF-13 — backend foundation                            |      ✅       | Modular monolith, migration runner/verifier, Redis, outbox, contract tooling                          | Chỉ bảo trì                                                       |
 | Chronic Care foundation — `CC-000..007`, `CC-011`, `CC-014` |      ✅       | Program/Rule/Enrollment command, task, evaluation, alert, inbox, report, AI summary, hai chương trình | Read API list/detail và page integration nằm ở phase P0 còn lại   |
 | Monitoring automation — `CC-003A`                           |      ✅       | Metric event, scheduler, reminder, retry/dead-letter/recovery                                         | Bật flag theo runbook ở môi trường triển khai                     |
-| Consultation link/usage — `CC-008`, `CC-013/A/B`            |      ✅       | Alert link, quota ledger, urgent benefit, stale recovery                                              | Availability, scheduled booking và queue/check-in chưa đủ         |
+| Consultation link/usage — `CC-008`, `CC-013/A/B`            |      ✅       | Alert link, quota ledger, urgent benefit, stale recovery, scheduled check-in/queue                    | On-demand queue policy còn mở                                     |
 | Plan, AI quota — `CC-012A/B`                                |      ✅       | Plan lifecycle, snapshot entitlement, AI reserve/commit/release                                       | Patient-facing Plan/Subscription read API                         |
 | Subscription payment — `CC-PAY-001`                         |      ✅       | VNPAY Sandbox IPN, order, grant, renewal queue, reconciliation                                        | Không bao gồm consultation charging hoặc refund                   |
 | Contract/API handoff                                        |      🚧       | OpenAPI và realtime artifact hiện khớp source                                                         | Một số target P0 API chưa triển khai                              |
-| Scheduled booking, queue/check-in                           |      🚧       | Availability Slot, atomic booking/reschedule/cancel, quota/idempotency/race test                      | Check-in, queue/call-next API và policy E2E                       |
+| Scheduled booking, queue/check-in                           |      ✅       | Availability, booking, scheduled check-in, own queue, Doctor queue/call-next, idempotency/race tests  | ETA và on-demand queue chưa có policy được chốt                   |
 | Report/data export                                          |      ⏳       | CareReport immutable và role projection đã có                                                         | PDF/CSV export job/download contract                              |
 | Web Patient/Doctor/Admin                                    | ⏳ Repo riêng | Đã chốt frontend không thuộc backend monorepo; tích hợp sau bằng OpenAPI/realtime                     | Full Web E2E thực hiện tại frontend repository sau khi ghép API   |
 | Release readiness DA2                                       |      ⏳       | Unit, E2E, targeted integration đang xanh                                                             | Full regression, migration/restore, security/privacy, demo matrix |
@@ -51,7 +51,7 @@
 
 ### Giai đoạn B — Consultation link, entitlement và usage
 
-**Trạng thái:** ✅ Xong cho backend scope đã ghi; 🚧 P0 consultation UX còn thiếu
+**Trạng thái:** ✅ Xong cho scheduled backend scope đã ghi; 🚧 on-demand queue policy còn mở
 
 - [x] Tạo Consultation từ Care Alert với authorization và unique link.
 - [x] Reservation/count/release ledger theo Subscription snapshot.
@@ -59,8 +59,9 @@
 - [x] Stale on-demand recovery, waiting-room signal và scheduled review.
 - [x] Availability Slot lifecycle, UTC/IANA contract, overlap buffer và write-fence chống race.
 - [x] Scheduled booking/reschedule/cancel chỉ từ slot hợp lệ, atomic với quota ledger và idempotency.
-- [ ] Patient check-in và Doctor queue/call-next API.
-- [ ] Queue/reconnect/race E2E và realtime handoff.
+- [x] Patient scheduled check-in và own-queue projection, fail-closed khi thiếu policy.
+- [x] Doctor paginated queue/call-next, realtime contract, idempotency và database race protection.
+- [ ] Chốt ETA và việc hợp nhất on-demand vào scheduled queue trước khi triển khai.
 
 **Tiêu chí hoàn thành P0 còn lại:** scheduled/on-demand journey, check-in/queue, start/complete/no-show/cancel và quota race đều chạy E2E không sửa DB tay.
 
@@ -143,6 +144,7 @@
 | Mức        | Rủi ro/câu hỏi                                         | Xử lý đề xuất                                                                                 |
 | ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
 | Trung bình | Policy pilot 15/60 chưa có dữ liệu vận hành đủ để chốt | Đo duration/overtime, lead time và hủy sát giờ; version/snapshot trước khi đổi policy         |
+| Trung bình | `checkInEarlyMinutes` và ETA chưa có dữ liệu để chốt   | Fail-closed check-in; ETA nullable; đo arrival/no-show/duration trước khi snapshot policy     |
 | Trung bình | Frontend tích hợp sau ở repository riêng               | Pin OpenAPI/realtime version, generate client và chạy contract/full Web E2E tại frontend repo |
 | Trung bình | Roadmap cũ và tracker cũ có thể tiếp tục bị dùng       | Chỉ giữ trong `plan/archive`; mọi file archive phải có banner lịch sử                         |
 | Trung bình | Target DBML còn collection P1/chưa deploy              | Mỗi slice tiếp tục đối chiếu DBML ↔ entity ↔ migration ↔ DTO/port                             |
@@ -182,3 +184,10 @@
   sort; tách query Patient để không expose filter trạng thái nội bộ.
 - Xác nhận `GET /consultations` đã có role-scoped filters và pagination cho
   Patient/Doctor; cập nhật integration contract theo code thực tế.
+- Bổ sung scheduled Patient check-in/own queue và Doctor queue/call-next: stable
+  ordering, pagination, actor scope, idempotent replay, transaction và partial
+  unique indexes chống hai item called/hai phiên active.
+- Giữ call-next ở `waiting + calledAt`; `/start` mới chuyển `in_consultation` và
+  count quota. Check-in/call-next không đụng quota, PaymentOrder hoặc VNPAY.
+- `checkInEarlyMinutes` fail-closed khi thiếu snapshot/config; ETA trả null cùng
+  reason code. On-demand queue và ETA policy tiếp tục là câu hỏi mở.

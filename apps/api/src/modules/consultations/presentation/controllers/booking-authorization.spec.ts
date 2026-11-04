@@ -2,6 +2,7 @@ import { ROLES_KEY } from '../../../../core/decorators/roles.decorator';
 import { UserRole } from '../../../../core/domain/user.enums';
 import { AvailabilitySlotsController } from './availability/availability-slots.controller';
 import { ConsultationsController } from './consultations/consultations.controller';
+import { DoctorQueueController } from './consultations/doctor-queue.controller';
 
 describe('booking route authorization metadata', () => {
   const rolesFor = (prototype: object, method: string): UserRole[] => {
@@ -40,4 +41,22 @@ describe('booking route authorization metadata', () => {
       UserRole.DOCTOR,
     ]);
   });
+
+  it.each(['checkIn', 'getQueue'] as const)(
+    'restricts ConsultationsController.%s to patients',
+    (method) => {
+      expect(rolesFor(ConsultationsController.prototype, method)).toEqual([
+        UserRole.PATIENT,
+      ]);
+    },
+  );
+
+  it.each(['list', 'callNext'] as const)(
+    'restricts DoctorQueueController.%s to doctors',
+    (method) => {
+      expect(rolesFor(DoctorQueueController.prototype, method)).toEqual([
+        UserRole.DOCTOR,
+      ]);
+    },
+  );
 });

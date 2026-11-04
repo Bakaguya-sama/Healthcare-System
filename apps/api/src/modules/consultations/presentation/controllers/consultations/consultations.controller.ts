@@ -37,6 +37,11 @@ import {
 } from '../../dto/consultations/scheduled-booking.dto';
 import { ScheduledBookingService } from '../../../application/services/consultations/scheduled-booking.service';
 import { ScheduledConsultationResponseDto } from '../../dto/booking-response.dto';
+import { ConsultationQueueService } from '../../../application/services/consultations/consultation-queue.service';
+import {
+  CheckInResponseDto,
+  PatientQueueResponseDto,
+} from '../../dto/consultations/consultation-queue.dto';
 
 @ApiTags('consultations')
 @ApiBearerAuth()
@@ -48,6 +53,7 @@ export class ConsultationsController {
     private readonly heartbeat: ConsultationHeartbeatService,
     private readonly gateway: ConsultationsGateway,
     private readonly scheduledBookings: ScheduledBookingService,
+    private readonly queue: ConsultationQueueService,
   ) {}
 
   @Post('scheduled')
@@ -107,6 +113,49 @@ export class ConsultationsController {
     @Query('days') days = 7,
   ) {
     return this.consultations.getUpcoming(userId, role, Number(days));
+  }
+
+  @Post(':id/check-in')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiOkResponse({ type: CheckInResponseDto })
+  @ApiResponse({
+    status: 422,
+    description: 'Check-in is too early or the check-in window has closed',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Check-in policy is not configured',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  async checkIn(
+    @CurrentUser('sub') patientId: string,
+    @Param('id') id: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+  ) {
+    const result = await this.queue.checkIn(patientId, id, idempotencyKey);
+    if (!result.replayed) {
+      this.emit('checked_in', result.data);
+      this.gateway.emitQueueChanged({
+        consultationId: result.queue.consultationId,
+        patientId: result.data.patientId,
+        doctorId: result.data.doctorId,
+        position: result.queue.position,
+        estimatedWaitMinutes: result.queue.estimatedWaitMinutes,
+        version: String(result.queue.updatedAt),
+      });
+    }
+    return result;
+  }
+
+  @Get(':id/queue')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @ApiOkResponse({ type: PatientQueueResponseDto })
+  getQueue(@CurrentUser('sub') patientId: string, @Param('id') id: string) {
+    return this.queue.getPatientQueue(patientId, id);
   }
 
   @Get(':id')

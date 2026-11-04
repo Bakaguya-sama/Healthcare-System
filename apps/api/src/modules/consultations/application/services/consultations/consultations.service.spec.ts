@@ -32,6 +32,18 @@ describe('ConsultationsService state machine', () => {
         return query;
       }),
       create: jest.fn().mockResolvedValue(consultation),
+      findOne: jest.fn().mockImplementation(() => {
+        const query = {
+          session: jest.fn(),
+          select: jest.fn(),
+          lean: jest.fn(),
+          exec: jest.fn().mockResolvedValue(null),
+        };
+        query.session.mockReturnValue(query);
+        query.select.mockReturnValue(query);
+        query.lean.mockReturnValue(query);
+        return query;
+      }),
     };
     const notifications = { create: jest.fn().mockResolvedValue(undefined) };
     const users = {

@@ -10,8 +10,8 @@ export type ScheduledBookingPolicy = {
 };
 
 /**
- * CC-013 accepted cancellation/no-show values. Buffer and notice remain an
- * owner decision, so scheduled commands fail closed until both are configured.
+ * CC-013 accepted cancellation/no-show values. Buffer/notice use the owner's
+ * pilot configuration; commands still fail closed if deployment omits them.
  */
 @Injectable()
 export class BookingPolicyService {
@@ -44,6 +44,22 @@ export class BookingPolicyService {
       cancellationDeadlineMinutes: 60,
       noShowAfterMinutes: 10,
     };
+  }
+
+  getCheckInEarlyMinutesIfConfigured(): number | undefined {
+    return this.config.get<number>('CONSULTATION_CHECK_IN_EARLY_MINUTES');
+  }
+
+  getCheckInEarlyMinutes(): number {
+    const minutes = this.getCheckInEarlyMinutesIfConfigured();
+    if (minutes === undefined) {
+      throw new ServiceUnavailableException({
+        code: 'CHECK_IN_POLICY_NOT_CONFIGURED',
+        message: 'Patient check-in requires an explicit early-window policy',
+        details: { required: ['CONSULTATION_CHECK_IN_EARLY_MINUTES'] },
+      });
+    }
+    return minutes;
   }
 }
 

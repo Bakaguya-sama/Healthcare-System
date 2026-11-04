@@ -89,6 +89,8 @@ export class ScheduledBookingService {
           1,
           Math.round((slot.endAt.getTime() - slot.startAt.getTime()) / 60_000),
         );
+        const checkInEarlyMinutes =
+          this.policy.getCheckInEarlyMinutesIfConfigured();
         const created = new this.consultations({
           _id: consultationId,
           patientId: new Types.ObjectId(patientId),
@@ -107,6 +109,9 @@ export class ScheduledBookingService {
           bookingSettingsSnapshot: {
             ...policy,
             defaultDurationMinutes: duration,
+            ...(checkInEarlyMinutes === undefined
+              ? {}
+              : { checkInEarlyMinutes }),
           },
           scheduledBookingKey: key,
           scheduledBookingRequestHash: requestHash,
@@ -200,6 +205,8 @@ export class ScheduledBookingService {
         1,
         Math.round((next.endAt.getTime() - next.startAt.getTime()) / 60_000),
       );
+      const checkInEarlyMinutes =
+        this.policy.getCheckInEarlyMinutesIfConfigured();
       current.availabilitySlotId = next._id;
       current.scheduledStartAt = next.startAt;
       current.scheduledEndAt = next.endAt;
@@ -208,6 +215,7 @@ export class ScheduledBookingService {
       current.bookingSettingsSnapshot = {
         ...policy,
         defaultDurationMinutes: duration,
+        ...(checkInEarlyMinutes === undefined ? {} : { checkInEarlyMinutes }),
       };
       current.lastRescheduleKey = key;
       current.lastRescheduleRequestHash = requestHash;

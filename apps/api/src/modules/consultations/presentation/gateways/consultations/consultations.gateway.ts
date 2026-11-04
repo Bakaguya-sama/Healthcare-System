@@ -22,7 +22,9 @@ export type ConsultationChangedAction =
   | 'started'
   | 'completed'
   | 'no_show'
-  | 'cancelled';
+  | 'cancelled'
+  | 'checked_in'
+  | 'called';
 
 interface AuthSocket extends Socket {
   userId: string;
@@ -82,7 +84,10 @@ export class ConsultationsGateway
       throw new WsException('consultationId is required');
     }
     try {
-      return await this.heartbeats.record(payload.consultationId, client.userId);
+      return await this.heartbeats.record(
+        payload.consultationId,
+        client.userId,
+      );
     } catch (error: unknown) {
       throw new WsException(
         error instanceof Error ? error.message : 'Heartbeat rejected',
@@ -102,5 +107,49 @@ export class ConsultationsGateway
     this.server
       .to(`user_${payload.doctorId}_consultations`)
       .emit('consultation_changed', payload);
+  }
+
+  emitQueueChanged(payload: {
+    consultationId: string;
+    patientId: string;
+    doctorId: string;
+    position: number;
+    estimatedWaitMinutes: number | null;
+    version: string;
+  }) {
+    this.server
+      .to(`user_${payload.patientId}_consultations`)
+      .emit('queue.v1.changed', {
+        consultationId: payload.consultationId,
+        position: payload.position,
+        estimatedWaitMinutes: payload.estimatedWaitMinutes,
+        version: payload.version,
+      });
+    this.server
+      .to(`user_${payload.doctorId}_consultations`)
+      .emit('queue.v1.changed', {
+        consultationId: payload.consultationId,
+        position: payload.position,
+        estimatedWaitMinutes: payload.estimatedWaitMinutes,
+        version: payload.version,
+      });
+  }
+
+  emitQueueCalled(payload: {
+    consultationId: string;
+    patientId: string;
+    doctorId: string;
+    calledAt: Date | string;
+  }) {
+    const event = {
+      consultationId: payload.consultationId,
+      calledAt: payload.calledAt,
+    };
+    this.server
+      .to(`user_${payload.patientId}_consultations`)
+      .emit('queue.v1.called', event);
+    this.server
+      .to(`user_${payload.doctorId}_consultations`)
+      .emit('queue.v1.called', event);
   }
 }
