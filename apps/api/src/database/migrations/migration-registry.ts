@@ -185,10 +185,36 @@ import {
   CC013B_STALE_CONSULTATION_RECOVERY_NAME,
   CC013B_STALE_CONSULTATION_RECOVERY_VERSION,
 } from './202610201100-cc013b-stale-consultation-recovery';
-import { applyCc7PaymentOrders, CC7_PAYMENT_ORDERS_CHECKSUM, CC7_PAYMENT_ORDERS_NAME, CC7_PAYMENT_ORDERS_VERSION } from './202610231000-cc7-payment-orders';
-import { applyCc012bAiQuota, CC012B_AI_QUOTA_CHECKSUM, CC012B_AI_QUOTA_NAME, CC012B_AI_QUOTA_VERSION } from './202610211000-cc012b-ai-quota';
-import { applyCc012bAiQuotaSettlement, CC012B_AI_QUOTA_SETTLEMENT_CHECKSUM, CC012B_AI_QUOTA_SETTLEMENT_NAME, CC012B_AI_QUOTA_SETTLEMENT_VERSION } from './202610221000-cc012b-ai-quota-settlement';
-import { applyCc012bUsageReconciliationName, CC012B_USAGE_RECONCILIATION_NAME_CHECKSUM, CC012B_USAGE_RECONCILIATION_NAME, CC012B_USAGE_RECONCILIATION_NAME_VERSION } from './202610221100-cc012b-usage-reconciliation-name';
+import {
+  applyCc7PaymentOrders,
+  CC7_PAYMENT_ORDERS_CHECKSUM,
+  CC7_PAYMENT_ORDERS_NAME,
+  CC7_PAYMENT_ORDERS_VERSION,
+} from './202610231000-cc7-payment-orders';
+import {
+  applyCc012bAiQuota,
+  CC012B_AI_QUOTA_CHECKSUM,
+  CC012B_AI_QUOTA_NAME,
+  CC012B_AI_QUOTA_VERSION,
+} from './202610211000-cc012b-ai-quota';
+import {
+  applyCc012bAiQuotaSettlement,
+  CC012B_AI_QUOTA_SETTLEMENT_CHECKSUM,
+  CC012B_AI_QUOTA_SETTLEMENT_NAME,
+  CC012B_AI_QUOTA_SETTLEMENT_VERSION,
+} from './202610221000-cc012b-ai-quota-settlement';
+import {
+  applyCc012bUsageReconciliationName,
+  CC012B_USAGE_RECONCILIATION_NAME_CHECKSUM,
+  CC012B_USAGE_RECONCILIATION_NAME,
+  CC012B_USAGE_RECONCILIATION_NAME_VERSION,
+} from './202610221100-cc012b-usage-reconciliation-name';
+import {
+  applyScheduledBooking,
+  SCHEDULED_BOOKING_CHECKSUM,
+  SCHEDULED_BOOKING_NAME,
+  SCHEDULED_BOOKING_VERSION,
+} from './202611031000-scheduled-booking';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -377,10 +403,36 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     checksum: CC013B_STALE_CONSULTATION_RECOVERY_CHECKSUM,
     up: applyCc013bStaleConsultationRecovery,
   },
-  { version: CC012B_AI_QUOTA_VERSION, name: CC012B_AI_QUOTA_NAME, checksum: CC012B_AI_QUOTA_CHECKSUM, up: applyCc012bAiQuota },
-  { version: CC012B_AI_QUOTA_SETTLEMENT_VERSION, name: CC012B_AI_QUOTA_SETTLEMENT_NAME, checksum: CC012B_AI_QUOTA_SETTLEMENT_CHECKSUM, up: applyCc012bAiQuotaSettlement },
-  { version: CC012B_USAGE_RECONCILIATION_NAME_VERSION, name: CC012B_USAGE_RECONCILIATION_NAME, checksum: CC012B_USAGE_RECONCILIATION_NAME_CHECKSUM, up: applyCc012bUsageReconciliationName },
-  { version: CC7_PAYMENT_ORDERS_VERSION, name: CC7_PAYMENT_ORDERS_NAME, checksum: CC7_PAYMENT_ORDERS_CHECKSUM, up: applyCc7PaymentOrders },
+  {
+    version: CC012B_AI_QUOTA_VERSION,
+    name: CC012B_AI_QUOTA_NAME,
+    checksum: CC012B_AI_QUOTA_CHECKSUM,
+    up: applyCc012bAiQuota,
+  },
+  {
+    version: CC012B_AI_QUOTA_SETTLEMENT_VERSION,
+    name: CC012B_AI_QUOTA_SETTLEMENT_NAME,
+    checksum: CC012B_AI_QUOTA_SETTLEMENT_CHECKSUM,
+    up: applyCc012bAiQuotaSettlement,
+  },
+  {
+    version: CC012B_USAGE_RECONCILIATION_NAME_VERSION,
+    name: CC012B_USAGE_RECONCILIATION_NAME,
+    checksum: CC012B_USAGE_RECONCILIATION_NAME_CHECKSUM,
+    up: applyCc012bUsageReconciliationName,
+  },
+  {
+    version: CC7_PAYMENT_ORDERS_VERSION,
+    name: CC7_PAYMENT_ORDERS_NAME,
+    checksum: CC7_PAYMENT_ORDERS_CHECKSUM,
+    up: applyCc7PaymentOrders,
+  },
+  {
+    version: SCHEDULED_BOOKING_VERSION,
+    name: SCHEDULED_BOOKING_NAME,
+    checksum: SCHEDULED_BOOKING_CHECKSUM,
+    up: applyScheduledBooking,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = Math.max(

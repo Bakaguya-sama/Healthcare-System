@@ -935,46 +935,49 @@ interface AdminDashboardDto {
 
 ### 5.2 Doctor discovery và verification
 
-| ID     | Method + path                               | Role                  | Request/query                   | Response                                  | Status                             |
-| ------ | ------------------------------------------- | --------------------- | ------------------------------- | ----------------------------------------- | ---------------------------------- |
-| DOC-01 | `GET /doctors`                              | Patient/Public policy | search, specialty, rating, page | `PageResult<DoctorCardDto>`               | Target P0; legacy `/users/doctors` |
-| DOC-02 | `GET /doctors/:doctorId`                    | Patient/Auth          | none                            | `DoctorCardDto` + public profile/settings | Target P0                          |
-| DOC-03 | `GET /doctors/:doctorId/availability-slots` | Patient               | from, to, timezone              | `AvailabilitySlotDto[]` available only    | Target P0                          |
-| DOC-04 | `GET /admin/doctors/applications`           | Admin                 | status, search, page            | page + verification summary               | Current/normalize                  |
-| DOC-05 | `POST /admin/doctors/:id/verify`            | Admin                 | `{ reason? }`                   | updated doctor profile                    | Current                            |
-| DOC-06 | `POST /admin/doctors/:id/reject`            | Admin                 | `{ reason }`                    | updated doctor profile                    | Current                            |
-| DOC-07 | `PATCH /doctors/me/booking-settings`        | Doctor approved       | booking settings                | updated settings                          | Target P0                          |
-| DOC-08 | `GET /doctors/me/reviews`                   | Doctor                | page, rating                    | `PageResult<ReviewDto>`                   | Target P0                          |
+| ID     | Method + path                               | Role                  | Request/query                    | Response                                         | Status                             |
+| ------ | ------------------------------------------- | --------------------- | -------------------------------- | ------------------------------------------------ | ---------------------------------- |
+| DOC-01 | `GET /doctors`                              | Patient/Public policy | search, specialty, rating, page  | `PageResult<DoctorCardDto>`                      | Target P0; legacy `/users/doctors` |
+| DOC-02 | `GET /doctors/:doctorId`                    | Patient/Auth          | none                             | `DoctorCardDto` + public profile/settings        | Target P0                          |
+| DOC-03 | `GET /availability-slots/doctors/:doctorId` | Patient               | from, to, page, limit, sortOrder | paginated `AvailabilitySlotDto[]` available only | Current canonical                  |
+| DOC-04 | `GET /admin/doctors/applications`           | Admin                 | status, search, page             | page + verification summary                      | Current/normalize                  |
+| DOC-05 | `POST /admin/doctors/:id/verify`            | Admin                 | `{ reason? }`                    | updated doctor profile                           | Current                            |
+| DOC-06 | `POST /admin/doctors/:id/reject`            | Admin                 | `{ reason }`                     | updated doctor profile                           | Current                            |
+| DOC-07 | `PATCH /doctors/me/booking-settings`        | Doctor approved       | booking settings                 | updated settings                                 | Target P0                          |
+| DOC-08 | `GET /doctors/me/reviews`                   | Doctor                | page, rating                     | `PageResult<ReviewDto>`                          | Target P0                          |
 
 ### 5.3 Availability, consultation, queue và chat
 
-| ID      | Method + path                            | Role                     | Request/query                                                     | Response                      | Status                                                                 |
-| ------- | ---------------------------------------- | ------------------------ | ----------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------- |
-| CON-01  | `POST /availability-slots`               | Doctor approved          | startAt, endAt, timezone + idempotency                            | `AvailabilitySlotDto`         | Target P0                                                              |
-| CON-02  | `GET /availability-slots`                | Doctor                   | from, to, status                                                  | `AvailabilitySlotDto[]`       | Target P0                                                              |
-| CON-03  | `PATCH /availability-slots/:id/block`    | Doctor owner             | reason                                                            | slot                          | Target P0                                                              |
-| CON-04  | `DELETE /availability-slots/:id`         | Doctor owner             | none                                                              | `204`                         | Target P0                                                              |
-| CON-05  | `POST /consultations/scheduled`          | Patient                  | `{ availabilitySlotId, patientNotes }` + idempotency              | `ConsultationDto`             | Target P0                                                              |
-| CON-06  | `POST /consultations/on-demand`          | Patient                  | `{ doctorId, patientNotes }` + idempotency                        | `ConsultationDto`             | Target P0                                                              |
-| CON-07  | `GET /consultations`                     | Patient/Doctor           | mode, requestStatus, sessionStatus, from/to, page                 | `PageResult<ConsultationDto>` | Current canonical                                                      |
-| CON-08  | `GET /consultations/:id`                 | Participant/Admin policy | none                                                              | `ConsultationDto`             | Target P0                                                              |
-| CON-09  | `POST /consultations/:id/accept`         | Doctor owner             | none + idempotency                                                | consultation                  | Current canonical                                                      |
-| CON-10  | `POST /consultations/:id/decline`        | Doctor owner             | `{ reason? }`                                                     | consultation                  | Current canonical                                                      |
-| CON-11  | `POST /consultations/:id/cancel`         | Participant              | `{ reason }` + idempotency                                        | consultation                  | Target P0                                                              |
-| CON-12  | `POST /consultations/:id/check-in`       | Patient                  | consultation consent policyVersion khi có chat/call + idempotency | consultation + queue snapshot | Target P0                                                              |
-| CON-13  | `GET /consultations/:id/queue`           | Patient participant      | none                                                              | own position/wait estimate    | Target P0                                                              |
-| CON-14  | `GET /doctors/me/queue`                  | Doctor                   | page/limit                                                        | `QueueEntryDto[]`             | Target P0                                                              |
-| CON-15  | `POST /doctors/me/queue/call-next`       | Doctor                   | idempotency                                                       | claimed consultation          | Target P0                                                              |
-| CON-16  | `POST /consultations/:id/start`          | Doctor owner             | consultation consent/version đã được Patient chấp nhận            | consultation                  | Target P0                                                              |
-| CON-17  | `POST /consultations/:id/complete`       | Doctor                   | `{ doctorNotes? }`                                                | consultation                  | Current canonical                                                      |
-| CON-17A | `POST /consultations/:id/resume`         | Doctor owner             | idempotency                                                       | consultation                  | Target P0; only from interrupted and when Doctor has no active session |
-| CON-18  | `GET /chat/consultation/:consultationId` | Participant              | cursor, limit                                                     | message page                  | Current canonical                                                      |
-| CON-19  | `POST /chat/consultation/messages`       | Participant              | consultationId, content/files/clientMessageId                     | message                       | Current canonical                                                      |
-| CON-20  | `POST /consultations/:id/review`         | Patient participant      | rating/comment                                                    | `ReviewDto`                   | Target P0; legacy `/reviews`                                           |
-| CON-21  | `PATCH /consultations/:id/review`        | Patient owner            | rating/comment                                                    | review                        | Target P0                                                              |
-| CON-22  | `POST /consultations/:id/report`         | Participant              | violation payload/files                                           | violation                     | Target P0                                                              |
-| CON-23  | `POST /consultations/:id/no-show`        | Doctor owner             | allowlisted reason + idempotency                                  | consultation `no_show`        | Target P0; chỉ từ waiting và đúng time policy                          |
-| CON-24  | `PUT /consultations/:id/follow-up`       | Doctor owner             | note, nextAction, followUpAt/taskId + idempotency                 | consultation with follow-up   | Target P0                                                              |
+| ID      | Method + path                            | Role                     | Request/query                                                                                             | Response                          | Status                                                                 |
+| ------- | ---------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
+| CON-01  | `POST /availability-slots`               | Doctor approved          | startAt, endAt, timezone                                                                                  | `AvailabilitySlotDto`             | Current canonical                                                      |
+| CON-02  | `GET /availability-slots`                | Doctor                   | from, to, status, page, limit, sortOrder                                                                  | paginated `AvailabilitySlotDto[]` | Current canonical; doctorId lấy từ access token                        |
+| CON-02A | `GET /availability-slots/doctors/:id`    | Patient                  | from, to, page, limit, sortOrder                                                                          | paginated `AvailabilitySlotDto[]` | Current canonical; server ép available/notice-compliant                |
+| CON-03  | `PATCH /availability-slots/:id/block`    | Doctor owner             | reason                                                                                                    | slot                              | Current canonical                                                      |
+| CON-03A | `PATCH /availability-slots/:id`          | Doctor owner             | startAt?, endAt?, timezone?                                                                               | slot                              | Current canonical; chỉ slot available                                  |
+| CON-04  | `DELETE /availability-slots/:id`         | Doctor owner             | none                                                                                                      | `204`                             | Current canonical; chỉ available/blocked                               |
+| CON-05  | `POST /consultations/scheduled`          | Patient                  | `{ availabilitySlotId, patientNotes? }` + `Idempotency-Key`                                               | `ConsultationDto`                 | Current canonical                                                      |
+| CON-05A | `POST /consultations/:id/reschedule`     | Patient owner            | `{ availabilitySlotId }` + `Idempotency-Key`                                                              | `ConsultationDto`                 | Current canonical; trước cutoff                                        |
+| CON-06  | `POST /consultations/on-demand`          | Patient                  | `{ doctorId, patientNotes }` + idempotency                                                                | `ConsultationDto`                 | Target P0                                                              |
+| CON-07  | `GET /consultations`                     | Patient/Doctor           | mode, requestStatus, sessionStatus, from/to, patientId/doctorId theo role, page, limit, sortBy, sortOrder | `PageResult<ConsultationDto>`     | Current canonical; actor scope lấy từ access token                     |
+| CON-08  | `GET /consultations/:id`                 | Participant/Admin policy | none                                                                                                      | `ConsultationDto`                 | Target P0                                                              |
+| CON-09  | `POST /consultations/:id/accept`         | Doctor owner             | none + idempotency                                                                                        | consultation                      | Current canonical                                                      |
+| CON-10  | `POST /consultations/:id/decline`        | Doctor owner             | `{ reason? }`                                                                                             | consultation                      | Current canonical                                                      |
+| CON-11  | `POST /consultations/:id/cancel`         | Participant              | `{ reason }` + idempotency                                                                                | consultation                      | Target P0                                                              |
+| CON-12  | `POST /consultations/:id/check-in`       | Patient                  | consultation consent policyVersion khi có chat/call + idempotency                                         | consultation + queue snapshot     | Target P0                                                              |
+| CON-13  | `GET /consultations/:id/queue`           | Patient participant      | none                                                                                                      | own position/wait estimate        | Target P0                                                              |
+| CON-14  | `GET /doctors/me/queue`                  | Doctor                   | page/limit                                                                                                | `QueueEntryDto[]`                 | Target P0                                                              |
+| CON-15  | `POST /doctors/me/queue/call-next`       | Doctor                   | idempotency                                                                                               | claimed consultation              | Target P0                                                              |
+| CON-16  | `POST /consultations/:id/start`          | Doctor owner             | consultation consent/version đã được Patient chấp nhận                                                    | consultation                      | Target P0                                                              |
+| CON-17  | `POST /consultations/:id/complete`       | Doctor                   | `{ doctorNotes? }`                                                                                        | consultation                      | Current canonical                                                      |
+| CON-17A | `POST /consultations/:id/resume`         | Doctor owner             | idempotency                                                                                               | consultation                      | Target P0; only from interrupted and when Doctor has no active session |
+| CON-18  | `GET /chat/consultation/:consultationId` | Participant              | cursor, limit                                                                                             | message page                      | Current canonical                                                      |
+| CON-19  | `POST /chat/consultation/messages`       | Participant              | consultationId, content/files/clientMessageId                                                             | message                           | Current canonical                                                      |
+| CON-20  | `POST /consultations/:id/review`         | Patient participant      | rating/comment                                                                                            | `ReviewDto`                       | Target P0; legacy `/reviews`                                           |
+| CON-21  | `PATCH /consultations/:id/review`        | Patient owner            | rating/comment                                                                                            | review                            | Target P0                                                              |
+| CON-22  | `POST /consultations/:id/report`         | Participant              | violation payload/files                                                                                   | violation                         | Target P0                                                              |
+| CON-23  | `POST /consultations/:id/no-show`        | Doctor owner             | allowlisted reason + idempotency                                                                          | consultation `no_show`            | Target P0; chỉ từ waiting và đúng time policy                          |
+| CON-24  | `PUT /consultations/:id/follow-up`       | Doctor owner             | note, nextAction, followUpAt/taskId + idempotency                                                         | consultation with follow-up       | Target P0                                                              |
 
 ### 5.4 Health và AI
 
@@ -1180,33 +1183,47 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 
 #### Availability, Consultation, Queue và Chat
 
-| ID      | Chức năng và hành vi chính                                                                                                                         |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CON-01  | Tạo slot làm việc cho Doctor approved; kiểm tra timezone, thời lượng, overlap và buffer trước khi ghi.                                             |
-| CON-02  | Liệt kê slot của chính Doctor theo khoảng thời gian/status để vận hành calendar; kết quả luôn bounded.                                             |
-| CON-03  | Chuyển slot available sang blocked với lý do; không cho block slot đã booked hoặc gây thay đổi consultation hiện hữu.                              |
-| CON-04  | Xóa slot chưa được sử dụng theo policy; slot booked phải được xử lý qua lifecycle consultation, không xóa trực tiếp.                               |
-| CON-05  | Đặt scheduled consultation bằng cách claim một AvailabilitySlot atomically, reserve consultation quota và chụp booking settings; conflict trả 409. |
-| CON-06  | Tạo on-demand request tới Doctor, reserve quota và ngăn trùng một pending request cho cùng cặp Patient–Doctor.                                     |
-| CON-07  | Liệt kê consultation trong scope Patient/Doctor theo mode và hai state machine; hỗ trợ filter, pagination và preview tin nhắn.                     |
-| CON-08  | Trả chi tiết consultation cho participant/Admin có quyền, gồm timeline, liên kết Care, queue/call/follow-up và `allowedActions`.                   |
-| CON-09  | Doctor accept on-demand request còn hạn; kiểm tra Doctor approved, xung đột policy và chuyển requestStatus theo conditional update.                |
-| CON-10  | Doctor decline pending request với lý do tùy policy; release quota reservation và thông báo Patient sau commit.                                    |
-| CON-11  | Một participant hủy consultation khi còn trong cửa sổ cho phép; cập nhật slot/quota liên quan và ghi actor/reason.                                 |
-| CON-12  | Patient check-in trong cửa sổ hợp lệ, ghi consent cần thiết và đưa consultation vào queue với khóa thứ tự ổn định.                                 |
-| CON-13  | Trả riêng vị trí/ETA của Patient trong queue; tuyệt đối không trả danh tính hoặc dữ liệu của Patient khác.                                         |
-| CON-14  | Trả queue của Doctor đã được server sắp theo scheduled/on-demand policy, kèm current session và late/wait indicators.                              |
-| CON-15  | Claim nguyên tử consultation kế tiếp cho Doctor; bảo đảm Doctor chỉ có một phiên `in_consultation` và chống hai lần call-next.                     |
-| CON-16  | Doctor bắt đầu consultation đã accepted/waiting và có consent hợp lệ; tạo/authorize room nhưng không phụ thuộc Care Program.                       |
-| CON-17  | Doctor hoàn tất phiên bằng thao tác chủ động, lưu note/thời điểm và count consultation usage; không tự kết thúc theo expected duration.            |
-| CON-17A | Khôi phục consultation từ interrupted khi Doctor chưa có phiên active khác; giữ timeline gián đoạn và ghi audit.                                   |
-| CON-18  | Lấy lịch sử message của consultation theo cursor/page sau khi kiểm tra participant và trạng thái truy cập room.                                    |
-| CON-19  | Gửi message/tệp trong consultation; dedupe bằng clientMessageId, kiểm tra file/room authorization và phát event sau persistence.                   |
-| CON-20  | Patient tạo một review cho consultation completed; kiểm tra ownership, unique consultation và rating 1–5 rồi cập nhật aggregate Doctor.            |
-| CON-21  | Patient sửa review của chính mình trong policy cho phép; cập nhật rating aggregate atomically và lưu moderation history cần thiết.                 |
-| CON-22  | Tạo ViolationReport từ consultation/message được phép, chụp source IDs và evidence mà không cho client tự kết luận vi phạm.                        |
-| CON-23  | Doctor đánh dấu no-show khi consultation đang waiting và đã quá ngưỡng; transition là terminal và xử lý quota theo policy.                         |
-| CON-24  | Doctor tạo/cập nhật kế hoạch follow-up cho consultation, có thể liên kết task; dữ liệu được audit và hiển thị cho Patient theo quyền.              |
+| ID      | Chức năng và hành vi chính                                                                                                                            |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CON-01  | Tạo slot làm việc cho Doctor approved; kiểm tra timezone, thời lượng, overlap và buffer trước khi ghi.                                                |
+| CON-02  | Liệt kê slot của chính Doctor theo khoảng thời gian/status để vận hành calendar; kết quả luôn bounded.                                                |
+| CON-03  | Chuyển slot available sang blocked với lý do; không cho block slot đã booked hoặc gây thay đổi consultation hiện hữu.                                 |
+| CON-04  | Xóa slot chưa được sử dụng theo policy; slot booked phải được xử lý qua lifecycle consultation, không xóa trực tiếp.                                  |
+| CON-05  | Đặt scheduled consultation bằng cách claim một AvailabilitySlot atomically, reserve consultation quota và chụp booking settings; conflict trả 409.    |
+| CON-05A | Đổi scheduled consultation trước cutoff bằng transaction claim slot mới, release slot cũ và giữ nguyên quota reservation; retry dùng idempotency key. |
+| CON-06  | Tạo on-demand request tới Doctor, reserve quota và ngăn trùng một pending request cho cùng cặp Patient–Doctor.                                        |
+| CON-07  | Liệt kê consultation trong scope Patient/Doctor theo mode và hai state machine; hỗ trợ filter, pagination và preview tin nhắn.                        |
+| CON-08  | Trả chi tiết consultation cho participant/Admin có quyền, gồm timeline, liên kết Care, queue/call/follow-up và `allowedActions`.                      |
+| CON-09  | Doctor accept on-demand request còn hạn; kiểm tra Doctor approved, xung đột policy và chuyển requestStatus theo conditional update.                   |
+| CON-10  | Doctor decline pending request với lý do tùy policy; release quota reservation và thông báo Patient sau commit.                                       |
+| CON-11  | Một participant hủy consultation khi còn trong cửa sổ cho phép; cập nhật slot/quota liên quan và ghi actor/reason.                                    |
+| CON-12  | Patient check-in trong cửa sổ hợp lệ, ghi consent cần thiết và đưa consultation vào queue với khóa thứ tự ổn định.                                    |
+| CON-13  | Trả riêng vị trí/ETA của Patient trong queue; tuyệt đối không trả danh tính hoặc dữ liệu của Patient khác.                                            |
+| CON-14  | Trả queue của Doctor đã được server sắp theo scheduled/on-demand policy, kèm current session và late/wait indicators.                                 |
+| CON-15  | Claim nguyên tử consultation kế tiếp cho Doctor; bảo đảm Doctor chỉ có một phiên `in_consultation` và chống hai lần call-next.                        |
+| CON-16  | Doctor bắt đầu consultation đã accepted/waiting và có consent hợp lệ; tạo/authorize room nhưng không phụ thuộc Care Program.                          |
+| CON-17  | Doctor hoàn tất phiên bằng thao tác chủ động, lưu note/thời điểm và count consultation usage; không tự kết thúc theo expected duration.               |
+| CON-17A | Khôi phục consultation từ interrupted khi Doctor chưa có phiên active khác; giữ timeline gián đoạn và ghi audit.                                      |
+| CON-18  | Lấy lịch sử message của consultation theo cursor/page sau khi kiểm tra participant và trạng thái truy cập room.                                       |
+| CON-19  | Gửi message/tệp trong consultation; dedupe bằng clientMessageId, kiểm tra file/room authorization và phát event sau persistence.                      |
+| CON-20  | Patient tạo một review cho consultation completed; kiểm tra ownership, unique consultation và rating 1–5 rồi cập nhật aggregate Doctor.               |
+| CON-21  | Patient sửa review của chính mình trong policy cho phép; cập nhật rating aggregate atomically và lưu moderation history cần thiết.                    |
+| CON-22  | Tạo ViolationReport từ consultation/message được phép, chụp source IDs và evidence mà không cho client tự kết luận vi phạm.                           |
+| CON-23  | Doctor đánh dấu no-show khi consultation đang waiting và đã quá ngưỡng; transition là terminal và xử lý quota theo policy.                            |
+| CON-24  | Doctor tạo/cập nhật kế hoạch follow-up cho consultation, có thể liên kết task; dữ liệu được audit và hiển thị cho Patient theo quyền.                 |
+
+Availability policy hiện đọc `SCHEDULED_BOOKING_BUFFER_MINUTES` và
+`SCHEDULED_BOOKING_MIN_NOTICE_MINUTES`. Baseline pilot do owner chọn là 15 phút
+buffer và 60 phút min-notice, được ghi trong `.env.example`; code không có
+fallback ngầm và API mutation/list available trả 503
+`BOOKING_POLICY_NOT_CONFIGURED` nếu môi trường triển khai bỏ thiếu. Timestamp là
+UTC instant và timezone phải là IANA identifier. Admin không có route override
+slot.
+
+Error bổ sung cho slice: `SLOT_OVERLAP`, `SLOT_ALREADY_BOOKED`,
+`SLOT_NOT_MUTABLE`, `MIN_NOTICE_NOT_MET`, `SUBSCRIPTION_INACTIVE`,
+`QUOTA_EXCEEDED`, `IDEMPOTENCY_CONFLICT`, `CANCELLATION_CUTOFF_PASSED` và
+`RESCHEDULE_CUTOFF_PASSED`.
 
 #### Health Metrics và AI
 

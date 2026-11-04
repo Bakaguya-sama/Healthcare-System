@@ -38,10 +38,20 @@ import {
   CC012_BILLING_INDEXES,
 } from './migrations/202610151000-cc012-billing-access';
 import { DATA001A_CONSULTATION_INDEXES } from './migrations/202610152000-data001a-consultation-contract';
-import { CC013B_CONSULTATION_COLLECTION } from './migrations/202610201100-cc013b-stale-consultation-recovery';
-import { CC012B_AI_QUOTA_COLLECTIONS, CC012B_AI_QUOTA_INDEXES } from './migrations/202610211000-cc012b-ai-quota';
+import {
+  SCHEDULED_BOOKING_COLLECTIONS,
+  SCHEDULED_BOOKING_CONSULTATION_COLLECTION,
+  SCHEDULED_BOOKING_INDEXES,
+} from './migrations/202611031000-scheduled-booking';
+import {
+  CC012B_AI_QUOTA_COLLECTIONS,
+  CC012B_AI_QUOTA_INDEXES,
+} from './migrations/202610211000-cc012b-ai-quota';
 import { CC012B_AI_QUOTA_SETTLEMENT_COLLECTIONS } from './migrations/202610221000-cc012b-ai-quota-settlement';
-import { CC7_PAYMENT_COLLECTIONS, CC7_PAYMENT_INDEXES } from './migrations/202610231000-cc7-payment-orders';
+import {
+  CC7_PAYMENT_COLLECTIONS,
+  CC7_PAYMENT_INDEXES,
+} from './migrations/202610231000-cc7-payment-orders';
 import { CC008_CARE_ALERT_CONSULTATION_INDEX } from './migrations/202610161000-cc008-care-alert-consultation-link';
 import {
   CC003A_ALERT_DEDUP_INDEXES,
@@ -123,7 +133,8 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   CC006_CARE_REPORT_COLLECTION,
   CC007_CARE_SUMMARIES_COLLECTION,
   HEALTH_METRIC_COLLECTION,
-  CC013B_CONSULTATION_COLLECTION,
+  SCHEDULED_BOOKING_CONSULTATION_COLLECTION,
+  ...SCHEDULED_BOOKING_COLLECTIONS,
   ...CC012_BILLING_COLLECTIONS,
   CC013_CONSULTATION_USAGE_COLLECTION,
   ...CC012B_AI_QUOTA_SETTLEMENT_COLLECTIONS,
@@ -231,12 +242,24 @@ export const MANAGED_DATABASE_INDEXES = [
   {
     collection: 'consultations',
     name: 'stale_on_demand_recovery',
-    key: { mode: 1, requestStatus: 1, sessionStatus: 1, respondedAt: 1, _id: 1 },
+    key: {
+      mode: 1,
+      requestStatus: 1,
+      sessionStatus: 1,
+      respondedAt: 1,
+      _id: 1,
+    },
   },
   {
     collection: 'consultations',
     name: 'stale_scheduled_review',
-    key: { mode: 1, requestStatus: 1, sessionStatus: 1, scheduledStartAt: 1, _id: 1 },
+    key: {
+      mode: 1,
+      requestStatus: 1,
+      sessionStatus: 1,
+      scheduledStartAt: 1,
+      _id: 1,
+    },
   },
   {
     collection: 'messages',
@@ -306,6 +329,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...CC003A_ALERT_DEDUP_INDEXES,
   ...CC012_BILLING_INDEXES,
   ...CC013_CONSULTATION_USAGE_INDEXES,
+  ...SCHEDULED_BOOKING_INDEXES,
   ...CC012B_AI_QUOTA_INDEXES,
   ...CC7_PAYMENT_INDEXES,
 ] as const;

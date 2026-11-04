@@ -8,9 +8,9 @@
 
 | Ưu tiên | Việc cần làm                                         | Lý do                                                                                                     | File/module liên quan                              | Cỡ  |
 | ------: | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | :-: |
-|       1 | Hoàn thiện Availability Slot và scheduled booking    | Đây vẫn là P0 DA2; source chưa có Slot API/model runtime và chưa chống double-booking theo contract       | `consultations`, migration, `docs/product-spec.md` |  L  |
-|       2 | Hoàn thiện check-in, queue và Chronic Care read API  | P0 còn thiếu queue/check-in, Program/Enrollment list-detail để dựng Patient/Doctor flow                   | `consultations`, `chronic-care`, realtime contract |  L  |
-|       3 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI                 |  M  |
+|       1 | Hoàn thiện check-in, queue và Chronic Care read API  | P0 còn thiếu queue/check-in, Program/Enrollment list-detail để dựng Patient/Doctor flow                   | `consultations`, `chronic-care`, realtime contract |  L  |
+|       2 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI                 |  M  |
+|       3 | Đo và chốt policy vận hành scheduled booking         | Pilot đang dùng buffer 15 phút/min-notice 60 phút; cần dữ liệu để chốt policy dài hạn                     | config, `consultations`, runbook                   |  S  |
 |       4 | Chạy release-readiness DA2                           | Regression, privacy/security, migration rehearsal và demo evidence vẫn thuộc DA2 dù KPI metrics được hoãn | `test`, `docs/runbooks`, contract artifacts        |  L  |
 
 ## 1. Tổng quan tiến độ
@@ -24,7 +24,7 @@
 | Plan, AI quota — `CC-012A/B`                                |      ✅       | Plan lifecycle, snapshot entitlement, AI reserve/commit/release                                       | Patient-facing Plan/Subscription read API                         |
 | Subscription payment — `CC-PAY-001`                         |      ✅       | VNPAY Sandbox IPN, order, grant, renewal queue, reconciliation                                        | Không bao gồm consultation charging hoặc refund                   |
 | Contract/API handoff                                        |      🚧       | OpenAPI và realtime artifact hiện khớp source                                                         | Một số target P0 API chưa triển khai                              |
-| Scheduled booking, queue/check-in                           |      ⏳       | Consultation core và waiting-room signal đã có                                                        | Availability Slot, booking contract, queue API và policy E2E      |
+| Scheduled booking, queue/check-in                           |      🚧       | Availability Slot, atomic booking/reschedule/cancel, quota/idempotency/race test                      | Check-in, queue/call-next API và policy E2E                       |
 | Report/data export                                          |      ⏳       | CareReport immutable và role projection đã có                                                         | PDF/CSV export job/download contract                              |
 | Web Patient/Doctor/Admin                                    | ⏳ Repo riêng | Đã chốt frontend không thuộc backend monorepo; tích hợp sau bằng OpenAPI/realtime                     | Full Web E2E thực hiện tại frontend repository sau khi ghép API   |
 | Release readiness DA2                                       |      ⏳       | Unit, E2E, targeted integration đang xanh                                                             | Full regression, migration/restore, security/privacy, demo matrix |
@@ -57,8 +57,8 @@
 - [x] Reservation/count/release ledger theo Subscription snapshot.
 - [x] `care_program_included` cho urgent Care Alert: không dùng quota thông thường và không thu phí consultation riêng.
 - [x] Stale on-demand recovery, waiting-room signal và scheduled review.
-- [ ] Availability Slot lifecycle và chống double-booking.
-- [ ] Scheduled booking chỉ từ slot hợp lệ.
+- [x] Availability Slot lifecycle, UTC/IANA contract, overlap buffer và write-fence chống race.
+- [x] Scheduled booking/reschedule/cancel chỉ từ slot hợp lệ, atomic với quota ledger và idempotency.
 - [ ] Patient check-in và Doctor queue/call-next API.
 - [ ] Queue/reconnect/race E2E và realtime handoff.
 
@@ -142,7 +142,7 @@
 
 | Mức        | Rủi ro/câu hỏi                                         | Xử lý đề xuất                                                                                 |
 | ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Cao        | P0 scheduled booking chưa có Availability Slot runtime | Làm vertical slice Slot → booking → quota → realtime → E2E                                    |
+| Trung bình | Policy pilot 15/60 chưa có dữ liệu vận hành đủ để chốt | Đo duration/overtime, lead time và hủy sát giờ; version/snapshot trước khi đổi policy         |
 | Trung bình | Frontend tích hợp sau ở repository riêng               | Pin OpenAPI/realtime version, generate client và chạy contract/full Web E2E tại frontend repo |
 | Trung bình | Roadmap cũ và tracker cũ có thể tiếp tục bị dùng       | Chỉ giữ trong `plan/archive`; mọi file archive phải có banner lịch sử                         |
 | Trung bình | Target DBML còn collection P1/chưa deploy              | Mỗi slice tiếp tục đối chiếu DBML ↔ entity ↔ migration ↔ DTO/port                             |
@@ -168,3 +168,17 @@
 - Cập nhật ưu tiên tiếp theo theo code và contract hiện tại.
 - Regenerate OpenAPI từ source; `openapi:check`, realtime check và boundary check xanh.
 - Chốt frontend Patient/Doctor/Admin và Payment Return UI nằm ở repository riêng; backend monorepo bàn giao canonical contracts để ghép API sau.
+- Bổ sung Availability Slot và scheduled booking: migration/validator/index,
+  Doctor-owned lifecycle, Patient discovery, atomic claim + quota reservation,
+  idempotent booking, cancel/reschedule cutoff và concurrency integration test.
+- Giữ `bufferMinutes`/`minNoticeMinutes` là cấu hình fail-closed chờ owner chốt;
+  không bật Admin slot override và không đụng payment/VNPAY.
+
+### 04/11/2026
+
+- Chọn baseline pilot `bufferMinutes = 15`, `minNoticeMinutes = 60` phút; runtime
+  vẫn fail-closed nếu môi trường triển khai bỏ thiếu cấu hình.
+- Chuẩn hóa list Availability Slot theo filter, pagination, hard limit và stable
+  sort; tách query Patient để không expose filter trạng thái nội bộ.
+- Xác nhận `GET /consultations` đã có role-scoped filters và pagination cho
+  Patient/Doctor; cập nhật integration contract theo code thực tế.

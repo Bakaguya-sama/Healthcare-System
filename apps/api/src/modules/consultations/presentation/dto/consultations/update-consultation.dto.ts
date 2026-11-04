@@ -12,7 +12,13 @@ export class UpdateConsultationDto {
   @IsString()
   doctorNotes?: string;
 
-  @ApiProperty({ required: false, example: '2026-10-20T10:00:00Z' })
+  @ApiProperty({
+    required: false,
+    deprecated: true,
+    description:
+      'Rejected for reschedule; use POST /consultations/:id/reschedule with availabilitySlotId.',
+    example: '2026-10-20T10:00:00Z',
+  })
   @IsOptional()
   @IsDateString()
   scheduledStartAt?: string;

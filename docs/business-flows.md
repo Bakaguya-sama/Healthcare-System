@@ -45,7 +45,7 @@ terminal; provider notification lỗi đi qua outbox retry/dead-letter.
 **Ràng buộc:** AI không quyết định severity; alert không thay thế cấp cứu;
 automation flag chỉ bật theo runbook và phải quan sát lag/dead-letter.
 
-## 3. Consultation từ Care Alert — ✅ backend link, 🚧 P0 booking/queue
+## 3. Consultation từ Care Alert và scheduled booking — ✅ booking, 🚧 queue
 
 **Actor:** Assigned Doctor, Patient, consultation worker.
 
@@ -63,8 +63,27 @@ không tự hủy mù quáng.
 **Ràng buộc:** `care_program_included` không dùng quota thông thường và không có
 khoản phí consultation riêng; thiếu ledger không tự tạo miễn phí.
 
-**P0 còn thiếu:** Availability Slot lifecycle, chống double-booking, scheduled
-booking từ slot, Patient check-in, Doctor queue/call-next và race/reconnect E2E.
+**Scheduled booking đã có**
+
+1. Doctor `active + approved` tạo/sửa/block/xóa slot của chính mình. Doctor list
+   slot theo `from/to/status` với pagination và stable sort; Patient list theo
+   `from/to` với pagination, còn backend luôn ép `status = available` và notice
+   window nên client không thể dùng query để xem slot booked/blocked/expired.
+2. Timestamp lưu UTC, slot giữ IANA timezone để hiển thị/policy. Slot active của
+   cùng Doctor không overlap và phải cách nhau theo buffer cấu hình.
+3. Patient claim slot bằng `Idempotency-Key`; transaction đồng thời đổi slot
+   `available → booked`, tạo Consultation `scheduled/accepted/not_started` và
+   reserve quota của chu kỳ Subscription đang hiệu lực. Unique index và
+   conditional claim bảo vệ lớp cuối; race hai request chỉ một request thành công.
+4. Scheduled booking dùng `consultation_limit`, không tạo PaymentOrder và không
+   gọi VNPAY. `care_program_included` vẫn chỉ dành cho urgent Care Alert đã được
+   backend xác minh; client không thể tự chọn policy.
+5. Patient hủy/đổi lịch trước cutoff snapshot 60 phút. Hủy đúng hạn release quota
+   và mở lại slot nếu slot chưa qua giờ; đổi lịch atomically claim slot mới rồi
+   mở slot cũ. Slot booked không được Doctor sửa/block/xóa trực tiếp.
+6. Admin không có API override/block/unblock slot.
+
+**P0 còn thiếu:** Patient check-in, Doctor queue/call-next và race/reconnect E2E.
 
 ## 4. Mua/gia hạn Subscription qua VNPAY — ✅ `CC-PAY-001`
 
@@ -109,3 +128,18 @@ review effort, summary acceptance và conversion/usage theo tier. Hoãn slice n�
 không hoãn release regression, security/privacy, migration rehearsal hoặc demo
 evidence của DA2. Không expose raw HealthMetrics và không trình bày dữ liệu demo
 như kết quả lâm sàng.
+
+## 7. Booking policy pilot và câu hỏi mở
+
+- Owner đã chọn giá trị pilot `bufferMinutes = 15` và `minNoticeMinutes = 60` phút,
+  được ghi trong `.env.example`. Runtime vẫn bắt buộc cấu hình rõ
+  `SCHEDULED_BOOKING_BUFFER_MINUTES` và
+  `SCHEDULED_BOOKING_MIN_NOTICE_MINUTES`; command slot/booking fail-closed với
+  `BOOKING_POLICY_NOT_CONFIGURED` nếu môi trường triển khai bỏ thiếu.
+- Hai giá trị trên là baseline pilot, chưa phải policy vĩnh viễn vì chưa có dữ
+  liệu vận hành thật và `CC-OPS-001` không thuộc slice này. Khuyến nghị đánh giá
+  lại bằng phân bố thời lượng phiên/overtime,
+  tỷ lệ hủy sát giờ và lead time đặt lịch; sau khi chốt nên chuyển sang
+  `doctorProfile.bookingSettings` có hard limits như product spec.
+- Cutoff hủy/đổi lịch hiện dùng mốc 60 phút đã được chấp nhận ở CC-013. Nếu owner
+  thay đổi, phải version/snapshot policy và bổ sung migration/test trước rollout.

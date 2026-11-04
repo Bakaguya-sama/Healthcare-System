@@ -1,9 +1,11 @@
 import {
   Injectable,
   Inject,
+  Optional,
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types, type ClientSession } from 'mongoose';
@@ -29,6 +31,8 @@ import {
 import { UsersService } from '../../../../users/public-api';
 import type { CareReportPort } from '../../ports/care-report.port';
 import { defaultBookingSettingsSnapshot } from './booking-policy';
+import { ScheduledBookingService } from './scheduled-booking.service';
+import { BookingException } from '../../errors/booking.exception';
 
 const CONSULTATION_PROJECTION =
   '_id patientId doctorId patientCareProgramId careAlertId availabilitySlotId mode requestStatus sessionStatus quotaPolicy requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
@@ -43,6 +47,8 @@ export class ConsultationsService implements CareReportPort {
     @Inject(CONSULTATION_USAGE_PORT)
     private readonly usage: ConsultationUsagePort,
     @InjectConnection() private readonly connection: Connection,
+    @Optional()
+    private readonly scheduledBookings?: ScheduledBookingService,
   ) {}
 
   async listForCareReport(input: {
@@ -89,30 +95,22 @@ export class ConsultationsService implements CareReportPort {
   async create(patientId: string, dto: CreateConsultationDto) {
     this.assertId(patientId, 'patient');
     this.assertId(dto.doctorId, 'doctor');
-    const scheduledStartAt = dto.scheduledStartAt
-      ? new Date(dto.scheduledStartAt)
-      : undefined;
-    if (scheduledStartAt && scheduledStartAt < new Date())
-      throw new BadRequestException('Cannot schedule consultation in the past');
+    if (dto.scheduledStartAt) {
+      throw new BookingException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'SCHEDULED_SLOT_REQUIRED',
+        'Scheduled consultations must be created from an availability slot',
+      );
+    }
     const expectedDurationMinutes = dto.expectedDurationMinutes ?? 30;
     const consultation = await this.consultationModel.create({
       patientId: new Types.ObjectId(patientId),
       doctorId: new Types.ObjectId(dto.doctorId),
-      mode: scheduledStartAt
-        ? ConsultationMode.SCHEDULED
-        : ConsultationMode.ON_DEMAND,
+      mode: ConsultationMode.ON_DEMAND,
       requestStatus: ConsultationRequestStatus.PENDING,
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
       quotaPolicy: ConsultationQuotaPolicy.CONSULTATION_LIMIT,
       requestedAt: new Date(),
-      scheduledStartAt,
-      ...(scheduledStartAt
-        ? {
-            scheduledEndAt: new Date(
-              scheduledStartAt.getTime() + expectedDurationMinutes * 60_000,
-            ),
-          }
-        : {}),
       timezone: dto.timezone,
       expectedDurationMinutes,
       patientNotes: dto.patientNotes,
@@ -205,20 +203,10 @@ export class ConsultationsService implements CareReportPort {
       if (dto.doctorNotes !== undefined)
         consultation.doctorNotes = dto.doctorNotes;
       if (dto.scheduledStartAt) {
-        if (consultation.requestStatus !== ConsultationRequestStatus.PENDING)
-          throw new BadRequestException(
-            'Cannot reschedule a confirmed consultation',
-          );
-        const scheduledStartAt = new Date(dto.scheduledStartAt);
-        if (scheduledStartAt < new Date())
-          throw new BadRequestException(
-            'Cannot schedule consultation in the past',
-          );
-        consultation.scheduledStartAt = scheduledStartAt;
-        consultation.mode = ConsultationMode.SCHEDULED;
-        consultation.scheduledEndAt = new Date(
-          scheduledStartAt.getTime() +
-            (consultation.expectedDurationMinutes ?? 30) * 60_000,
+        throw new BookingException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'SCHEDULED_SLOT_REQUIRED',
+          'Use the reschedule endpoint with an availability slot',
         );
       }
       await consultation.save({ session });
@@ -403,7 +391,10 @@ export class ConsultationsService implements CareReportPort {
         this.same(consultation.patientId, userId) &&
         consultation.requestStatus === ConsultationRequestStatus.ACCEPTED &&
         consultation.mode === ConsultationMode.SCHEDULED &&
-        consultation.sessionStatus === ConsultationSessionStatus.WAITING
+        [
+          ConsultationSessionStatus.NOT_STARTED,
+          ConsultationSessionStatus.WAITING,
+        ].includes(consultation.sessionStatus)
       ) {
         const minutes =
           consultation.bookingSettingsSnapshot?.cancellationDeadlineMinutes;
@@ -413,16 +404,27 @@ export class ConsultationsService implements CareReportPort {
           !Number.isFinite(minutes) ||
           minutes < 0
         )
-          throw new BadRequestException('Cancellation policy is unavailable');
+          throw new BookingException(
+            HttpStatus.CONFLICT,
+            'BOOKING_POLICY_UNAVAILABLE',
+            'Cancellation policy is unavailable',
+          );
         if (
           Date.now() >
           consultation.scheduledStartAt.getTime() - minutes * 60_000
         )
-          throw new BadRequestException('Cancellation deadline has passed');
+          throw new BookingException(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            'CANCELLATION_CUTOFF_PASSED',
+            'Cancellation deadline has passed',
+          );
       }
       if (
         consultation.requestStatus === ConsultationRequestStatus.ACCEPTED &&
-        consultation.sessionStatus === ConsultationSessionStatus.WAITING &&
+        [
+          ConsultationSessionStatus.NOT_STARTED,
+          ConsultationSessionStatus.WAITING,
+        ].includes(consultation.sessionStatus) &&
         this.usesConsultationQuota(consultation)
       ) {
         const status = await this.usage.release({
@@ -434,6 +436,12 @@ export class ConsultationsService implements CareReportPort {
           throw new BadRequestException(
             'Consultation quota cannot be released',
           );
+      }
+      if (this.scheduledBookings) {
+        await this.scheduledBookings.releaseSlotForCancellation(
+          consultation,
+          session,
+        );
       }
       consultation.requestStatus = ConsultationRequestStatus.CANCELLED;
       // Cancellation is expressed by requestStatus. Preserve that a live call

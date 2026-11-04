@@ -171,6 +171,8 @@ Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Docto
 
 **CC-013 MVP:** Cho đến khi cấu hình `bookingSettings` của Doctor được triển khai, khi xác nhận lịch scheduled backend snapshot `cancellationDeadlineMinutes = 60` và `noShowAfterMinutes = 10`. Patient không được hủy sau hạn; Doctor vẫn có thể hủy trước khi bắt đầu. Chưa hỗ trợ đánh dấu no-show cho on-demand. Reservation của lịch đã xác nhận không tự hết hạn khi qua giờ khám hoặc qua chu kỳ subscription: chỉ count khi bắt đầu/no-show hợp lệ, hoặc release khi hủy hợp lệ. Reservation và lượt đã count thuộc về chu kỳ tạo reservation; không làm thay đổi counter của chu kỳ mới.
 
+**Availability/Scheduled slice 04/11/2026:** Owner chọn baseline pilot `bufferMinutes = 15` và `minNoticeMinutes = 60` phút. Hai command policy vẫn lấy tường minh từ `SCHEDULED_BOOKING_BUFFER_MINUTES` và `SCHEDULED_BOOKING_MIN_NOTICE_MINUTES`, validation lần lượt trong khoảng 0–240 và 0–10.080 phút, và fail-closed khi môi trường triển khai bỏ thiếu. Booking snapshot hai giá trị này cùng `bookingPolicy = instant`, duration của slot, cutoff hủy 60 phút và no-show 10 phút. Đây là bridge có tên rõ ràng trước khi `doctorProfile.bookingSettings` được triển khai; giá trị pilot phải được đánh giá lại bằng dữ liệu vận hành và không được coi là chính sách vĩnh viễn.
+
 **Chính sách CC-013B — đã triển khai ở backend (cần bật `CONSULTATION_STALE_RECOVERY_ENABLED=true` khi rollout):**
 
 - Với on-demand `accepted` và `waiting`, thời hạn cơ bản là **60 phút** từ `respondedAt` — thời điểm backend ghi nhận Doctor accept, không phải lúc Patient gửi request. Consultation do Doctor tạo trực tiếp từ Care Alert cần ghi nhận mốc accept tương đương. Không reset thời hạn khi retry, reconnect hay cập nhật ETA. Pending chưa có reservation nên không thuộc timeout này.
@@ -198,6 +200,14 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 8. Khi bệnh nhân hủy đúng hạn cancellation deadline, slot quay lại available. Slot bị bác sĩ block hoặc đã hết giờ không được mở lại.
 9. Slot qua giờ mà không có consultation hợp lệ chuyển expired.
 10. Slot của cùng Doctor không được overlap và phải tôn trọng `bufferMinutes`; việc kiểm tra dùng transaction/conditional query, không chỉ dựa vào unique start time.
+11. MongoDB lưu `startAt/endAt` dưới dạng UTC instant; `timezone` bắt buộc là IANA timezone hợp lệ và chỉ là snapshot cho hiển thị/policy.
+12. Doctor có write-fence theo `doctorId` trong transaction để serialize kiểm tra overlap; Patient booking claim slot bằng conditional update và sparse unique `Consultation.availabilitySlotId`.
+13. Booking/reschedule bắt buộc `Idempotency-Key`. Retry cùng key/payload trả kết quả cũ; đổi payload trả `IDEMPOTENCY_CONFLICT`.
+14. Admin override slot không được bật trong DA2 slice này.
+15. Patient query slot bằng `from/to/page/limit/sortOrder`; backend luôn khóa
+    `status = available` và áp notice window. Doctor query slot của chính mình
+    bằng `from/to/status/page/limit/sortOrder`. Hai list dùng stable sort
+    `startAt + _id`, projection giới hạn và hard limit 100 bản ghi mỗi trang.
 
 ## Tư vấn nhanh theo yêu cầu
 

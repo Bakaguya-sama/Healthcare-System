@@ -92,6 +92,11 @@ export class Consultation {
   @Prop({ type: Number, min: 0 }) estimatedWaitMinutes?: number;
   @Prop() overtimeStartedAt?: Date;
   @Prop({ type: Object }) bookingSettingsSnapshot?: Record<string, unknown>;
+  /** Actor-scoped hash of Idempotency-Key for scheduled booking replay. */
+  @Prop({ maxlength: 64 }) scheduledBookingKey?: string;
+  @Prop({ maxlength: 64 }) scheduledBookingRequestHash?: string;
+  @Prop({ maxlength: 64 }) lastRescheduleKey?: string;
+  @Prop({ maxlength: 64 }) lastRescheduleRequestHash?: string;
   @Prop({
     type: String,
     enum: ConsultationQuotaPolicy,
@@ -173,6 +178,10 @@ ConsultationSchema.index(
 ConsultationSchema.index(
   { availabilitySlotId: 1 },
   { name: 'availabilitySlotId_1', unique: true, sparse: true },
+);
+ConsultationSchema.index(
+  { scheduledBookingKey: 1 },
+  { name: 'scheduledBookingKey_1', unique: true, sparse: true },
 );
 ConsultationSchema.index(
   {

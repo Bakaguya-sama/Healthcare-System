@@ -15,7 +15,13 @@ export class CreateConsultationDto {
   @IsMongoId()
   doctorId!: string;
 
-  @ApiProperty({ required: false, example: '2026-10-20T10:00:00Z' })
+  @ApiProperty({
+    required: false,
+    deprecated: true,
+    description:
+      'Rejected for scheduled booking; use POST /consultations/scheduled with availabilitySlotId.',
+    example: '2026-10-20T10:00:00Z',
+  })
   @IsOptional()
   @IsDateString()
   scheduledStartAt?: string;
