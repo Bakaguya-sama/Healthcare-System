@@ -68,6 +68,7 @@ import {
 } from './domain/entities/care-content.entity';
 import { CONTENT_CATALOG_PORT } from './application/ports/content-catalog.port';
 import { MongoContentCatalogAdapter } from './infrastructure/adapters/mongo-content-catalog.adapter';
+import { CareRuleReadService } from './application/services/care-rule-read.service';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { MongoContentCatalogAdapter } from './infrastructure/adapters/mongo-cont
     CareReportService,
     CareSummaryService,
     ChronicCareReadService,
+    CareRuleReadService,
     MongoContentCatalogAdapter,
     OutboxCareTaskQueue,
     {

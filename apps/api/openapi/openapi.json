@@ -20376,6 +20376,245 @@
         ]
       }
     },
+    "/api/v1/care-programs/{id}/rules": {
+      "get": {
+        "operationId": "CareProgramRule_getRule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "active",
+              "type": "string",
+              "enum": [
+                "active",
+                "draft"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DoctorCareRuleProjectionDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminCareRuleProjectionDto"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Patient, inactive/unapproved Doctor, or Doctor requesting draft"
+          },
+          "404": {
+            "description": "Program/Rule is missing or outside the actor/view scope"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The stored Rule cannot be mapped into the validated actor-safe projection"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read the current Care Rule using an actor-safe projection",
+        "tags": [
+          "care-programs"
+        ]
+      },
+      "post": {
+        "operationId": "CareProgramRule_createRule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Stable client command key; reuse only with the identical request.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCareRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a Care Rule draft",
+        "tags": [
+          "care-programs"
+        ]
+      }
+    },
     "/api/v1/care-programs/{id}/publish": {
       "post": {
         "operationId": "CareProgramRule_publishProgram",
@@ -20623,132 +20862,6 @@
           }
         ],
         "summary": "Retire a published Care Program version",
-        "tags": [
-          "care-programs"
-        ]
-      }
-    },
-    "/api/v1/care-programs/{id}/rules": {
-      "post": {
-        "operationId": "CareProgramRule_createRule",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "description": "Stable client command key; reuse only with the identical request.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCareRuleDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          },
-          "400": {
-            "description": "HTTP 400 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "HTTP 401 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "HTTP 403 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "HTTP 404 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "HTTP 409 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "HTTP 429 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "HTTP 500 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a Care Rule draft",
         "tags": [
           "care-programs"
         ]
@@ -26630,6 +26743,266 @@
             }
           }
         }
+      },
+      "CareRuleTestSummaryDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "unavailable"
+            ]
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0
+          },
+          "passed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "reasonCodes": {
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "interpreterVersion": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "executedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DoctorCareRuleProjectionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "careProgramId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active"
+            ]
+          },
+          "testSummary": {
+            "$ref": "#/components/schemas/CareRuleTestSummaryDto"
+          }
+        },
+        "required": [
+          "id",
+          "careProgramId",
+          "version",
+          "status"
+        ]
+      },
+      "SanitizedDeclarativeRuleDto": {
+        "type": "object",
+        "properties": {
+          "operator": {
+            "type": "string",
+            "enum": [
+              "all",
+              "any",
+              "not",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "between",
+              "exists",
+              "equal",
+              "not_equal"
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SanitizedDeclarativeRuleDto"
+            }
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "attention",
+              "urgent"
+            ]
+          }
+        },
+        "required": [
+          "operator"
+        ]
+      },
+      "SanitizedRuleDataSourceDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "care_task_check_in"
+            ]
+          },
+          "schemaVersion": {
+            "type": "string",
+            "enum": [
+              "health-check-in.v1"
+            ]
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "allowedFactPrefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "schemaVersion",
+          "templateKey",
+          "allowedFactPrefixes"
+        ]
+      },
+      "CareRuleScenarioResultDto": {
+        "type": "object",
+        "properties": {
+          "scenarioKey": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "expectedSeverity": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "attention",
+              "urgent"
+            ]
+          },
+          "actualSeverity": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "attention",
+              "urgent"
+            ]
+          },
+          "reasonCodes": {
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "scenarioKey",
+          "passed"
+        ]
+      },
+      "AdminCareRuleProjectionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "careProgramId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active"
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SanitizedDeclarativeRuleDto"
+            }
+          },
+          "dataSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SanitizedRuleDataSourceDto"
+            }
+          },
+          "testSummary": {
+            "$ref": "#/components/schemas/CareRuleTestSummaryDto"
+          },
+          "testResults": {
+            "maxItems": 50,
+            "description": "Sanitized evidence only; never raw CareRule.testResults.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CareRuleScenarioResultDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "careProgramId",
+          "version",
+          "revision",
+          "status",
+          "rules",
+          "dataSources"
+        ]
       },
       "CareProgramSummaryDto": {
         "type": "object",

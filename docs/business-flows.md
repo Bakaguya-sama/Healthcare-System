@@ -294,14 +294,32 @@ như kết quả lâm sàng.
 - Admin không được đọc Enrollment trong DA2 hiện tại, kể cả list, detail hay raw
   clinical projection. Route Enrollment tiếp tục chỉ dành cho Patient owner và
   Assigned Doctor. Audit log hiện hữu không tự cấp clinical-data access.
-- Rule read API (`GET /care-programs/:id/rules`) vẫn là slice riêng. Patient không
-  có Rule read. Doctor chỉ đọc Rule `active` của Program `published` qua summary
-  `version`, `status`, `testSummary`; không nhận raw declarative conditions.
-- Admin được đọc Rule `draft` và raw declarative conditions. Admin cũng nhận
-  `dataSources`, nhưng `testResults` và simulation evidence chỉ là bounded summary
-  (validation/outcome/count/reason code/version/time); không trả raw Patient,
-  HealthMetric input hoặc full evaluation trace.
-- Không có Rule version history hay pagination trong P0. Mỗi role chỉ đọc một Rule
-  hiện hành: Doctor là `active`; Admin mặc định `active` hoặc draft mới nhất khi
-  yêu cầu view draft. Quy tắc chọn draft mới nhất phải deterministic theo version,
-  rồi `_id` trước khi route được triển khai.
+- Rule read API (`GET /care-programs/:id/rules`) đã được triển khai theo projection
+  riêng cho từng actor. Patient bị từ chối. Doctor `active + approved` chỉ đọc Rule `active` của Program
+  `published` qua `version`, `status`, bounded `testSummary`; không nhận raw
+  declarative conditions, `dataSources`, scenario inputs hay evaluation trace. Doctor
+  gửi `view=draft` bị từ chối thay vì âm thầm đổi sang active.
+- Admin mặc định `view=active`; muốn đọc draft phải gửi rõ `view=draft`. Draft hiện
+  hành được chọn deterministic bằng `status=draft`, `version DESC`, `_id DESC`,
+  `limit=1`. Nhiều draft cùng version không được GET tự sửa; implementation phải ghi
+  technical warning/evidence phù hợp.
+- Admin được đọc raw declarative `rules` và `dataSources`. Test evidence chỉ trả
+  bounded DTO: summary có outcome/count/reason-code/interpreter-version/time và tối
+  đa 50 sanitized scenario results gồm scenario key, pass/fail, expected/actual
+  severity. Không trả raw Patient/Enrollment/HealthMetric/check-in input, stack trace
+  hay full interpreter trace. Vì entity hiện lưu `testResults` dạng Mixed, nếu không
+  map/validate an toàn thì chỉ trả summary hoặc bỏ evidence, không trả raw record.
+- Program `draft`: Admin chỉ đọc draft Rule. Program `published`: Admin đọc active
+  hoặc draft mới nhất theo view. Program `retired`: Admin chỉ được đọc active Rule
+  cuối cùng để audit/đối chiếu, không đọc draft; Doctor không đọc Rule của Program
+  retired. Doctor không cần có Enrollment trước để đọc active summary của public
+  published Program.
+- P0 không có Rule version history hay pagination. Program/Rule ngoài scope hoặc
+  không tồn tại dùng safe not-found; không có Rule theo view trả
+  `CARE_RULE_NOT_FOUND`; Doctor chưa active/approved hoặc yêu cầu draft trả forbidden;
+  projection/evidence hỏng trả `CARE_RULE_PROJECTION_UNAVAILABLE`, không leak raw data.
+- Read path chỉ query `CareProgram` và `CareRule`; không populate Enrollment hay dữ
+  liệu lâm sàng. Active dùng unique lifecycle constraint hiện hữu. Draft dùng
+  `careProgramId + status`, rồi sort `version DESC, _id DESC`; vì số version của một
+  Program bị giới hạn bởi catalog workflow và route chỉ lấy một record, Slice 5 không
+  thêm index/migration mới.
