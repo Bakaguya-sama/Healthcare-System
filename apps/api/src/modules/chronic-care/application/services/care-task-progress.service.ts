@@ -1,10 +1,17 @@
 import { createHash } from 'node:crypto';
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import type { PageResult } from '../../../../common/pagination';
 import { UserRole } from '../../../../core/domain/user.enums';
 import { AuditLog } from '../../../platform-audit/public-api';
+import { OutboxService } from '../../../../infrastructure/outbox/outbox.service';
 import {
   CareCommandIdempotency,
   CareCommandIdempotencyDocument,
@@ -24,7 +31,22 @@ import {
   CareTaskResponseAction,
   QueryEnrollmentCareTasksDto,
   SubmitCareTaskResponseDto,
+  SubmitDoctorReviewDto,
+  HealthCheckInSeverity,
 } from '../../presentation/dto/care-task.dto';
+import {
+  CONTENT_CATALOG_PORT,
+  type ContentCatalogPort,
+  type EducationContentRef,
+} from '../ports/content-catalog.port';
+import {
+  checkInAllowedSymptoms,
+  HEALTH_CHECK_IN_SCHEMA_VERSION,
+} from '../../domain/tasks/care-task-template.validator';
+import {
+  CARE_TASK_CONSULTATION_PORT,
+  type CareTaskConsultationPort,
+} from '../../../consultations/public-api';
 import { DOCTOR_REPOSITORY_PORT } from '../ports/doctor.repository.port';
 import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 import { PATIENT_REPOSITORY_PORT } from '../ports/patient.repository.port';
@@ -35,6 +57,7 @@ type PlainTask = Record<string, unknown> & {
   _id: Types.ObjectId;
   patientCareProgramId: Types.ObjectId;
   patientId: Types.ObjectId;
+  doctorId?: Types.ObjectId;
   taskType: CareTaskType;
   status: CareTaskStatus;
   templateKey: string;
@@ -43,7 +66,13 @@ type PlainTask = Record<string, unknown> & {
   windowStart: Date;
   windowEnd: Date;
   completionRule: Record<string, unknown>;
+  contentRef?: EducationContentRef;
   completionSourceId?: Types.ObjectId;
+  completionSourceType?: string;
+  response?: Record<string, unknown>;
+  completedAt?: Date;
+  missedAt?: Date;
+  cancelledAt?: Date;
 };
 
 @Injectable()
@@ -61,6 +90,13 @@ export class CareTaskProgressService {
     private readonly patients: PatientRepositoryPort,
     @Inject(DOCTOR_REPOSITORY_PORT)
     private readonly doctors: DoctorRepositoryPort,
+    @Optional() private readonly outbox?: OutboxService,
+    @Optional()
+    @Inject(CONTENT_CATALOG_PORT)
+    private readonly contentCatalog?: ContentCatalogPort,
+    @Optional()
+    @Inject(CARE_TASK_CONSULTATION_PORT)
+    private readonly consultationLinks?: CareTaskConsultationPort,
   ) {}
 
   async list(
@@ -100,9 +136,12 @@ export class CareTaskProgressService {
         .exec(),
       this.tasks.countDocuments(filter).exec(),
     ]);
+    const now = new Date();
     return {
-      items: rows.map((row) =>
-        this.summary(actor, row as unknown as PlainTask, new Date()),
+      items: await Promise.all(
+        rows.map((row) =>
+          this.summary(actor, row as unknown as PlainTask, now),
+        ),
       ),
       page: query.page,
       limit: query.limit,
@@ -122,7 +161,13 @@ export class CareTaskProgressService {
       _id: CareTaskStatus;
       count: number;
     }>([
-      { $match: { patientCareProgramId: enrollment._id, required: true } },
+      {
+        $match: {
+          patientCareProgramId: enrollment._id,
+          required: true,
+          taskType: { $ne: CareTaskType.DOCTOR_REVIEW },
+        },
+      },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
     const byStatus = Object.fromEntries(
@@ -213,7 +258,7 @@ export class CareTaskProgressService {
             HttpStatus.CONFLICT,
             'Care Enrollment is not active',
           );
-        this.assertResponsePolicy(task, input);
+        const response = await this.responseFor(task, input, now);
         if (
           ![CareTaskStatus.SCHEDULED, CareTaskStatus.DUE].includes(task.status)
         )
@@ -245,11 +290,7 @@ export class CareTaskProgressService {
                 status: CareTaskStatus.COMPLETED,
                 completedAt: now,
                 completionSourceType: 'patientResponse',
-                response: {
-                  kind: 'education_acknowledgement',
-                  action: CareTaskResponseAction.ACKNOWLEDGE,
-                  acknowledgedAt: now,
-                },
+                response,
               },
             },
             { returnDocument: 'after', session },
@@ -291,40 +332,467 @@ export class CareTaskProgressService {
           ],
           { session },
         );
+        if (task.taskType === CareTaskType.CHECK_IN)
+          await this.outbox?.enqueue(
+            {
+              eventType: 'care.task.check_in.submitted.v1',
+              aggregateType: 'careTask',
+              aggregateId: taskObjectId,
+              idempotencyKey: `care.task.check_in.evaluate.${taskObjectId}`,
+              payload: {
+                eventVersion: 1,
+                careTaskId: String(taskObjectId),
+                enrollmentId: String(task.patientCareProgramId),
+                schemaVersion: HEALTH_CHECK_IN_SCHEMA_VERSION,
+                submittedAt: now.toISOString(),
+              },
+            },
+            session,
+          );
       });
     } finally {
       await session.endSession();
     }
     return {
-      task: this.detailProjection(actor, result, now),
+      task: await this.detailProjection(actor, result, now),
       replayed,
     };
   }
 
-  private assertResponsePolicy(
+  async doctorReview(
+    actor: CareActor,
+    taskId: string,
+    input: SubmitDoctorReviewDto,
+    idempotencyKey: string,
+    now = new Date(),
+  ): Promise<{ task: Record<string, unknown>; replayed: boolean }> {
+    if (actor.role !== UserRole.DOCTOR)
+      this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+    if (!(await this.doctors.isActiveAndApproved(actor.id)))
+      this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+    if (!idempotencyKey?.trim())
+      this.fail(
+        'CARE_IDEMPOTENCY_KEY_REQUIRED',
+        HttpStatus.BAD_REQUEST,
+        'Idempotency-Key is required',
+      );
+
+    const actorId = this.objectId(actor.id, 'CARE_TASK_NOT_FOUND');
+    const taskObjectId = this.objectId(taskId, 'CARE_TASK_NOT_FOUND');
+    const operation = 'careTask.doctorReview';
+    const requestHash = this.hash({ taskId, input });
+    const session = await this.connection.startSession();
+    let result!: PlainTask;
+    let replayed = false;
+    try {
+      await session.withTransaction(async () => {
+        const old = await this.idempotency
+          .findOne({ actorId, operation, key: idempotencyKey })
+          .session(session)
+          .lean()
+          .exec();
+        if (old) {
+          if (old.requestHash !== requestHash)
+            this.fail(
+              'CARE_IDEMPOTENCY_CONFLICT',
+              HttpStatus.CONFLICT,
+              'Idempotency-Key was already used with another payload',
+            );
+          const replay = await this.tasks
+            .findOne({ _id: old.entityId, doctorId: actorId })
+            .session(session)
+            .lean()
+            .exec();
+          if (!replay)
+            this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+          result = replay as unknown as PlainTask;
+          replayed = true;
+          return;
+        }
+
+        const current = await this.tasks
+          .findOne({ _id: taskObjectId, doctorId: actorId })
+          .session(session)
+          .lean()
+          .exec();
+        if (!current)
+          this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+        const task = current as unknown as PlainTask;
+        if (task.taskType !== CareTaskType.DOCTOR_REVIEW)
+          this.fail(
+            'CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED',
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            'Task is not a Doctor Review task',
+          );
+        const enrollment = await this.enrollments
+          .findOne({
+            _id: task.patientCareProgramId,
+            doctorId: actorId,
+            status: PatientCareProgramStatus.ACTIVE,
+          })
+          .session(session)
+          .lean()
+          .exec();
+        if (!enrollment)
+          this.fail(
+            'CARE_TASK_ENROLLMENT_NOT_ACTIVE',
+            HttpStatus.CONFLICT,
+            'Care Enrollment is not active',
+          );
+        this.assertOpenWindow(task, now);
+        const updated = await this.tasks
+          .findOneAndUpdate(
+            {
+              _id: taskObjectId,
+              doctorId: actorId,
+              taskType: CareTaskType.DOCTOR_REVIEW,
+              status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
+              windowStart: { $lte: now },
+              windowEnd: { $gte: now },
+            },
+            {
+              $set: {
+                status: CareTaskStatus.COMPLETED,
+                completedAt: now,
+                completionSourceType: 'doctorReview',
+                completionSourceId: actorId,
+                response: {
+                  kind: 'doctor_review',
+                  reasonCode: input.reasonCode,
+                  ...(input.note ? { note: input.note } : {}),
+                  reviewedAt: now,
+                },
+              },
+            },
+            { returnDocument: 'after', session },
+          )
+          .lean()
+          .exec();
+        if (!updated)
+          this.fail(
+            'CARE_TASK_CONCURRENT_TRANSITION',
+            HttpStatus.CONFLICT,
+            'Care Task was already transitioned',
+          );
+        result = updated as unknown as PlainTask;
+        await this.audits.create(
+          [
+            {
+              domain: 'care',
+              entityType: 'careTask',
+              entityId: taskObjectId,
+              actorId,
+              action: 'care_task_doctor_review_completed',
+              fromStatus: task.status,
+              toStatus: CareTaskStatus.COMPLETED,
+              metadata: { reasonCode: input.reasonCode },
+            },
+          ],
+          { session },
+        );
+        await this.idempotency.create(
+          [
+            {
+              actorId,
+              operation,
+              key: idempotencyKey,
+              requestHash,
+              entityType: 'careTask',
+              entityId: taskObjectId,
+            },
+          ],
+          { session },
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
+    return {
+      task: await this.detailProjection(actor, result, now),
+      replayed,
+    };
+  }
+
+  async linkAppointment(
+    actor: CareActor,
+    taskId: string,
+    consultationId: string,
+    idempotencyKey: string,
+    now = new Date(),
+  ): Promise<{ task: Record<string, unknown>; replayed: boolean }> {
+    if (actor.role !== UserRole.PATIENT)
+      this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+    if (!(await this.patients.isActive(actor.id)))
+      this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+    if (!this.consultationLinks)
+      this.fail(
+        'CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Appointment linking is unavailable',
+      );
+    if (!idempotencyKey?.trim())
+      this.fail(
+        'CARE_IDEMPOTENCY_KEY_REQUIRED',
+        HttpStatus.BAD_REQUEST,
+        'Idempotency-Key is required',
+      );
+    const actorId = this.objectId(actor.id, 'CARE_TASK_NOT_FOUND');
+    const taskObjectId = this.objectId(taskId, 'CARE_TASK_NOT_FOUND');
+    const consultationObjectId = this.objectId(
+      consultationId,
+      'CARE_TASK_CONSULTATION_NOT_FOUND',
+    );
+    const operation = 'careTask.linkAppointment';
+    const requestHash = this.hash({ taskId, consultationId });
+    const session = await this.connection.startSession();
+    let result!: PlainTask;
+    let replayed = false;
+    try {
+      await session.withTransaction(async () => {
+        const old = await this.idempotency
+          .findOne({ actorId, operation, key: idempotencyKey })
+          .session(session)
+          .lean()
+          .exec();
+        if (old) {
+          if (old.requestHash !== requestHash)
+            this.fail(
+              'CARE_IDEMPOTENCY_CONFLICT',
+              HttpStatus.CONFLICT,
+              'Idempotency-Key was already used with another payload',
+            );
+          const replay = await this.tasks
+            .findOne({ _id: old.entityId, patientId: actorId })
+            .session(session)
+            .lean()
+            .exec();
+          if (!replay)
+            this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+          result = replay as unknown as PlainTask;
+          replayed = true;
+          return;
+        }
+        const task = (await this.tasks
+          .findOne({
+            _id: taskObjectId,
+            patientId: actorId,
+            taskType: CareTaskType.APPOINTMENT,
+          })
+          .session(session)
+          .lean()
+          .exec()) as unknown as PlainTask | null;
+        if (!task)
+          this.notFound('CARE_TASK_NOT_FOUND', 'Care Task not found');
+        if (
+          ![CareTaskStatus.SCHEDULED, CareTaskStatus.DUE].includes(task.status)
+        )
+          this.fail(
+            'CARE_TASK_TERMINAL',
+            HttpStatus.CONFLICT,
+            'Care Task can no longer be linked',
+          );
+        if (!task.doctorId)
+          this.fail(
+            'CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED',
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            'Appointment task has no assigned Doctor',
+          );
+        const enrollment = await this.enrollments
+          .findOne({
+            _id: task.patientCareProgramId,
+            patientId: actorId,
+            doctorId: task.doctorId,
+            status: PatientCareProgramStatus.ACTIVE,
+          })
+          .session(session)
+          .lean()
+          .exec();
+        if (!enrollment)
+          this.fail(
+            'CARE_TASK_ENROLLMENT_NOT_ACTIVE',
+            HttpStatus.CONFLICT,
+            'Care Enrollment is not active',
+          );
+        await this.consultationLinks!.linkCareTask({
+          consultationId,
+          careTaskId: taskId,
+          patientId: actor.id,
+          doctorId: String(task.doctorId),
+          session,
+        });
+        const updated = await this.tasks
+          .findOneAndUpdate(
+            {
+              _id: taskObjectId,
+              patientId: actorId,
+              taskType: CareTaskType.APPOINTMENT,
+              status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
+              $or: [
+                { completionSourceId: { $exists: false } },
+                { completionSourceId: consultationObjectId },
+              ],
+            },
+            {
+              $set: {
+                completionSourceType: 'consultation',
+                completionSourceId: consultationObjectId,
+              },
+            },
+            { returnDocument: 'after', session },
+          )
+          .lean()
+          .exec();
+        if (!updated)
+          this.fail(
+            'CARE_TASK_CONCURRENT_TRANSITION',
+            HttpStatus.CONFLICT,
+            'Appointment task was concurrently linked',
+          );
+        result = updated as unknown as PlainTask;
+        await this.audits.create(
+          [
+            {
+              domain: 'care',
+              entityType: 'careTask',
+              entityId: taskObjectId,
+              actorId,
+              action: 'care_task_consultation_linked',
+              metadata: { consultationId },
+            },
+          ],
+          { session },
+        );
+        await this.idempotency.create(
+          [
+            {
+              actorId,
+              operation,
+              key: idempotencyKey,
+              requestHash,
+              entityType: 'careTask',
+              entityId: taskObjectId,
+            },
+          ],
+          { session },
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
+    return {
+      task: await this.detailProjection(actor, result, now),
+      replayed,
+    };
+  }
+
+  private async responseFor(
     task: PlainTask,
     input: SubmitCareTaskResponseDto,
-  ) {
+    now: Date,
+  ): Promise<Record<string, unknown>> {
     if (task.taskType === CareTaskType.METRIC)
       this.fail(
         'CARE_TASK_RESPONSE_USE_HEALTH_METRIC',
         HttpStatus.CONFLICT,
         'Metric tasks must be completed through Health Tracking (HLTH-02)',
       );
+    if (task.taskType === CareTaskType.CHECK_IN) {
+      if (!this.outbox)
+        this.fail(
+          'CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'Check-in evaluation delivery is unavailable',
+        );
+      const allowed = checkInAllowedSymptoms(task.completionRule);
+      if (!allowed)
+        this.fail(
+          'CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'No approved check-in policy is configured for this task',
+        );
+      if (
+        input.action !== undefined ||
+        input.overallStatus === undefined ||
+        input.symptomCodes === undefined ||
+        input.severity === undefined
+      )
+        this.fail(
+          'CARE_TASK_RESPONSE_INVALID',
+          HttpStatus.BAD_REQUEST,
+          'Check-in must contain exactly overallStatus, symptomCodes and severity',
+        );
+      if (input.symptomCodes.some((code) => !allowed.includes(code)))
+        this.fail(
+          'CARE_TASK_SYMPTOM_NOT_ALLOWED',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'Check-in contains a symptom code outside the task snapshot',
+        );
+      const none = input.severity === HealthCheckInSeverity.NONE;
+      if (none !== (input.symptomCodes.length === 0))
+        this.fail(
+          'CARE_TASK_CHECK_IN_INCONSISTENT',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'severity none is only valid with an empty symptom list',
+        );
+      return {
+        kind: 'health_check_in_v1',
+        schemaVersion: HEALTH_CHECK_IN_SCHEMA_VERSION,
+        overallStatus: input.overallStatus,
+        symptomCodes: input.symptomCodes,
+        severity: input.severity,
+        submittedAt: now,
+      };
+    }
     if (
       task.taskType !== CareTaskType.EDUCATION ||
-      task.completionRule?.responseMode !== 'acknowledge'
+      task.completionRule?.responseMode !== 'acknowledge' ||
+      !task.contentRef
     )
       this.fail(
         'CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED',
         HttpStatus.UNPROCESSABLE_ENTITY,
         'No approved response policy is configured for this task',
       );
-    if (input.action !== CareTaskResponseAction.ACKNOWLEDGE)
+    if (
+      !this.contentCatalog ||
+      !(await this.contentCatalog.resolvePublished(task.contentRef))
+    )
+      this.fail(
+        'CARE_TASK_CONTENT_UNAVAILABLE',
+        HttpStatus.CONFLICT,
+        'The immutable education content is unavailable',
+      );
+    if (
+      input.action !== CareTaskResponseAction.ACKNOWLEDGE ||
+      input.overallStatus !== undefined ||
+      input.symptomCodes !== undefined ||
+      input.severity !== undefined
+    )
       this.fail(
         'CARE_TASK_RESPONSE_INVALID',
         HttpStatus.BAD_REQUEST,
         'Unsupported response action',
+      );
+    return {
+      kind: 'education_acknowledgement',
+      action: CareTaskResponseAction.ACKNOWLEDGE,
+      acknowledgedAt: now,
+      contentRef: task.contentRef,
+    };
+  }
+
+  private assertOpenWindow(task: PlainTask, now: Date) {
+    if (![CareTaskStatus.SCHEDULED, CareTaskStatus.DUE].includes(task.status))
+      this.fail(
+        'CARE_TASK_TERMINAL',
+        HttpStatus.CONFLICT,
+        'Care Task no longer accepts responses',
+      );
+    if (now < new Date(task.windowStart) || now > new Date(task.windowEnd))
+      this.fail(
+        'CARE_TASK_OUTSIDE_RESPONSE_WINDOW',
+        HttpStatus.CONFLICT,
+        'Care Task is outside its response window',
       );
   }
 
@@ -370,7 +838,7 @@ export class CareTaskProgressService {
     return enrollment;
   }
 
-  private summary(actor: CareActor, task: PlainTask, now: Date) {
+  private async summary(actor: CareActor, task: PlainTask, now: Date) {
     return {
       id: String(task._id),
       enrollmentId: String(task.patientCareProgramId),
@@ -384,14 +852,14 @@ export class CareTaskProgressService {
       completedAt: this.iso(task.completedAt),
       missedAt: this.iso(task.missedAt),
       cancelledAt: this.iso(task.cancelledAt),
-      allowedActions: this.allowedActions(actor, task, now),
+      allowedActions: await this.allowedActions(actor, task, now),
     };
   }
 
-  private detailProjection(actor: CareActor, task: PlainTask, now: Date) {
+  private async detailProjection(actor: CareActor, task: PlainTask, now: Date) {
     const detail: Record<string, unknown> = {
-      ...this.summary(actor, task, now),
-      presentation: this.presentation(task),
+      ...(await this.summary(actor, task, now)),
+      presentation: await this.presentation(task),
       progress: {
         status: task.status,
         completedAt: this.iso(task.completedAt),
@@ -400,6 +868,10 @@ export class CareTaskProgressService {
             ? 'patient_response'
             : task.completionSourceType === 'healthMetric'
               ? 'health_metric'
+              : task.completionSourceType === 'doctorReview'
+                ? 'doctor_review'
+                : task.completionSourceType === 'consultation'
+                  ? 'consultation'
               : undefined,
         acknowledged:
           task.taskType === CareTaskType.EDUCATION &&
@@ -418,18 +890,40 @@ export class CareTaskProgressService {
     return detail;
   }
 
-  private presentation(task: PlainTask): Record<string, unknown> {
+  private async presentation(task: PlainTask): Promise<Record<string, unknown>> {
     if (task.taskType === CareTaskType.METRIC)
       return {
         kind: 'metric',
         metricType: task.completionRule?.metricType,
         responseEndpoint: 'HLTH-02',
       };
+    if (task.taskType === CareTaskType.CHECK_IN) {
+      const allowedSymptomCodes = checkInAllowedSymptoms(task.completionRule);
+      if (allowedSymptomCodes)
+        return {
+          kind: 'check_in',
+          schemaVersion: HEALTH_CHECK_IN_SCHEMA_VERSION,
+          overallStatuses: ['improved', 'stable', 'worsened'],
+          severities: ['none', 'mild', 'moderate', 'severe'],
+          allowedSymptomCodes,
+        };
+    }
     if (
       task.taskType === CareTaskType.EDUCATION &&
-      task.completionRule?.responseMode === 'acknowledge'
-    )
-      return { kind: 'education', responseMode: 'acknowledge' };
+      task.completionRule?.responseMode === 'acknowledge' &&
+      task.contentRef
+    ) {
+      const content = await this.contentCatalog?.resolvePublished(task.contentRef);
+      if (content)
+        return { kind: 'education', responseMode: 'acknowledge', content };
+      return {
+        kind: 'education',
+        responseConfigured: false,
+        reasonCode: 'CARE_TASK_CONTENT_UNAVAILABLE',
+      };
+    }
+    if (task.taskType === CareTaskType.DOCTOR_REVIEW)
+      return { kind: 'doctor_review', responseMode: 'assigned_doctor' };
     return {
       kind: task.taskType,
       responseConfigured: false,
@@ -437,18 +931,31 @@ export class CareTaskProgressService {
     };
   }
 
-  private allowedActions(actor: CareActor, task: PlainTask, now: Date) {
+  private async allowedActions(actor: CareActor, task: PlainTask, now: Date) {
     if (
-      actor.role !== UserRole.PATIENT ||
       ![CareTaskStatus.SCHEDULED, CareTaskStatus.DUE].includes(task.status) ||
       now < new Date(task.windowStart) ||
       now > new Date(task.windowEnd)
     )
       return [];
+    if (
+      actor.role === UserRole.DOCTOR &&
+      task.taskType === CareTaskType.DOCTOR_REVIEW
+    )
+      return ['doctor_review'];
+    if (actor.role !== UserRole.PATIENT) return [];
     if (task.taskType === CareTaskType.METRIC) return ['record_metric'];
     if (
+      task.taskType === CareTaskType.CHECK_IN &&
+      checkInAllowedSymptoms(task.completionRule)
+    )
+      return ['submit_check_in'];
+    if (
       task.taskType === CareTaskType.EDUCATION &&
-      task.completionRule?.responseMode === 'acknowledge'
+      task.completionRule?.responseMode === 'acknowledge' &&
+      task.contentRef &&
+      this.contentCatalog &&
+      (await this.contentCatalog.resolvePublished(task.contentRef))
     )
       return [CareTaskResponseAction.ACKNOWLEDGE];
     return [];

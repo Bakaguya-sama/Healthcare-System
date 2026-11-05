@@ -146,6 +146,7 @@ export class CareTaskSchedulerService {
       windowEnd,
       completionRule: template.completionRule ?? {},
       reminderPolicy: template.reminderPolicy ?? snapshot.reminderPolicy ?? {},
+      ...(template.contentRef ? { contentRef: template.contentRef } : {}),
       uniqueKey,
     };
   }

@@ -23,6 +23,8 @@ import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 import { validateBaselineForm } from '../validators/baseline-form.validator';
 import { validateCareTaskTemplates } from '../../domain/tasks/care-task-template.validator';
 import { isCareRuleNode } from '../../domain/rules/care-rule-interpreter';
+import type { CareRuleNode } from '../../domain/rules/care-rule-interpreter';
+import { validateCareRuleDataSources } from '../../domain/rules/care-rule-data-source.validator';
 
 export type CareActor = { id: string; role: UserRole };
 type Entity = CareProgramDocument | CareRuleDocument;
@@ -83,6 +85,28 @@ export class CareProgramRuleService {
         'CARE_TASK_TEMPLATE_INVALID',
         HttpStatus.UNPROCESSABLE_ENTITY,
         'Task templates must use the supported daily schedule contract',
+      );
+  }
+
+  private requireValidRuleConfiguration(
+    rules: unknown,
+    dataSources: unknown,
+    taskTemplates: unknown,
+  ): void {
+    const templates = validateCareTaskTemplates(taskTemplates);
+    if (
+      !templates ||
+      !this.validateRules(rules) ||
+      !validateCareRuleDataSources(
+        rules as readonly CareRuleNode[],
+        dataSources ?? [],
+        templates,
+      )
+    )
+      this.fail(
+        'CARE_RULE_DATA_SOURCE_INVALID',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Rule facts must be covered by an approved data source mapping',
       );
   }
 
@@ -442,14 +466,21 @@ export class CareProgramRuleService {
           programId,
           'CARE_PROGRAM_NOT_FOUND',
         );
-        if (
-          !(await this.programs.exists({ _id: careProgramId }).session(session))
-        )
+        const program = await this.programs
+          .findById(careProgramId)
+          .session(session)
+          .exec();
+        if (!program)
           this.fail(
             'CARE_PROGRAM_NOT_FOUND',
             HttpStatus.NOT_FOUND,
             'Program not found',
           );
+        this.requireValidRuleConfiguration(
+          input.rules,
+          input.dataSources ?? [],
+          program.taskTemplates,
+        );
         const latest = await this.rules
           .findOne({ careProgramId })
           .sort({ version: -1 })
@@ -494,6 +525,36 @@ export class CareProgramRuleService {
       { programId, ruleId, expectedRevision, input },
       'careRule',
       async (session) => {
+        const current = await this.rules
+          .findOne({
+            _id: this.objectId(ruleId, 'CARE_RULE_NOT_FOUND'),
+            careProgramId: this.objectId(programId, 'CARE_PROGRAM_NOT_FOUND'),
+            status: CareRuleStatus.DRAFT,
+            revision: expectedRevision,
+          })
+          .session(session)
+          .exec();
+        if (!current)
+          this.fail(
+            'CARE_RULE_VERSION_CONFLICT',
+            HttpStatus.CONFLICT,
+            'Rule is not a current draft version',
+          );
+        const program = await this.programs
+          .findById(current.careProgramId)
+          .session(session)
+          .exec();
+        if (!program)
+          this.fail(
+            'CARE_PROGRAM_NOT_FOUND',
+            HttpStatus.NOT_FOUND,
+            'Program not found',
+          );
+        this.requireValidRuleConfiguration(
+          input.rules ?? current.rules,
+          input.dataSources ?? current.dataSources,
+          program.taskTemplates,
+        );
         const rule = await this.rules
           .findOneAndUpdate(
             {
@@ -600,6 +661,11 @@ export class CareProgramRuleService {
             HttpStatus.UNPROCESSABLE_ENTITY,
             'Rule contains a disallowed declarative operator',
           );
+        this.requireValidRuleConfiguration(
+          candidate.rules,
+          candidate.dataSources,
+          program.taskTemplates,
+        );
         const previous = await this.rules
           .findOneAndUpdate(
             { careProgramId, status: CareRuleStatus.ACTIVE },

@@ -35,7 +35,7 @@ idempotency key bắt buộc cho command; `completed|cancelled` không reopen.
 Read API dùng page/limit hard cap, filter/sort allowlist và `_id` tie-breaker. Admin
 Enrollment read bị cấm theo chính sách DA2 hiện hành.
 
-### 1.1. CareTask workspace — ✅ read surface, 🚧 response theo type
+### 1.1. CareTask workspace — ✅ read và policy contract v1
 
 1. Patient list task trong enrollment của chính mình; assigned Doctor chỉ list
    task của enrollment được assign. API dùng filter `status/type/from/to`, page
@@ -46,31 +46,60 @@ Enrollment read bị cấm theo chính sách DA2 hiện hành.
 3. Task `metric` chỉ dẫn consumer sang Health Tracking `HLTH-02`; endpoint
    response của CareTask từ chối loại này và không ghi đè HealthMetric.
 4. `POST /care-tasks/:id/responses` bắt buộc `Idempotency-Key`, chỉ Patient owner
-   được gọi. Hiện chỉ education task có snapshot
-   `completionRule.responseMode = acknowledge` nhận payload allowlist
-   `{ action: "acknowledge" }`; transition `scheduled|due → completed` chạy
-   conditional trong transaction và ghi audit sau persistence.
-5. Chính sách nghiệp vụ đã chốt cho phần mở rộng kế tiếp: `check_in` là khai báo
-   sức khỏe có schema versioned/allowlist; `appointment` chỉ complete khi
+   được gọi. Education task có snapshot `responseMode=acknowledge` nhận đúng
+   `{ action: "acknowledge" }`; `check_in` nhận `health-check-in.v1`. Cả hai dùng
+   conditional transition `scheduled|due → completed`, transaction và audit.
+5. Runtime policy v1: `check_in` là khai báo
+   sức khỏe schema `health-check-in.v1` chỉ gồm `overallStatus`, `symptomCodes`,
+   `severity`, không có free text. Sau persistence, backend phát event vào Rule
+   Engine; chỉ CareRule `active` đã được approve mới có thể tạo CareAlert.
+   `appointment` chỉ complete khi
    Consultation canonical `completed`, `no_show → missed`, cancellation làm task
    `cancelled` nếu mục tiêu chăm sóc không còn cần thiết, còn reschedule cùng mục
-   tiêu giữ task và thay consultation reference. `doctor_review` chỉ Assigned
-   Doctor complete, bắt buộc reason code và note plaintext tùy chọn; không nhận
+   tiêu giữ task và thay consultation reference. Consultation phải mang explicit
+   `careTaskId` để làm canonical link. `doctor_review` chỉ Assigned Doctor
+   complete, bắt buộc reason code thuộc allowlist `reviewed_no_action`,
+   `follow_up_needed`, `consultation_recommended`,
+   `care_plan_adjustment_needed`, và note plaintext tùy chọn; không nhận
    rich-text/free-form clinical note qua task response.
 6. Education chỉ được gọi là “đã xác nhận đã xem”, không suy diễn đã đọc/hiểu.
    Snapshot content phải dùng immutable `contentId`, `version`, `locale`,
    `displayType`; không dùng URL tự do hoặc HTML trực tiếp trong CareTask.
-7. **Trạng thái code hiện tại:** ngoài education acknowledgment đã có, các policy
-   mới ở trên chưa có endpoint/schema canonical nên vẫn fail-closed bằng
-   `CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED`. Task `completed|missed|cancelled`,
-   ngoài response window hoặc enrollment không active không nhận response; retry
-   cùng key/payload replay, cùng key khác request trả conflict.
+7. **Trạng thái code hiện tại:** check-in, Doctor review, immutable education
+   content và Consultation lifecycle đã là runtime behavior. Task thiếu template/
+   content published vẫn fail-closed; task `completed|missed|cancelled`, ngoài
+   response window hoặc enrollment không active không nhận response. Retry cùng
+   key/payload replay, cùng key khác request trả conflict.
 
-**Việc còn thiết kế trước khi code:** chốt exact field/range/reason code và safety
-escalation cho health check-in; định nghĩa event/outbox chuyển appointment task
-theo Consultation; định nghĩa endpoint/DTO doctor review; và chọn nguồn content
-được approve để resolve `contentId + version`. Backend không nhận free-form
-payload hoặc tự tạo Consultation/DoctorReview giả trong thời gian chờ.
+**Contract implementation runtime v1:** `overallStatus` dùng
+`improved|stable|worsened`; `severity` dùng `none|mild|moderate|severe`; và
+`symptomCodes` là mảng unique `0..8` code `snake_case` thuộc allowlist trong
+template snapshot. `severity=none` bắt buộc không có symptom; có symptom không
+được dùng `none`. Đây là giới hạn payload kỹ thuật, không phải ngưỡng lâm sàng.
+Backend chuẩn hóa response thành scalar facts (`check_in.overall_status`,
+`check_in.severity`, `check_in.severity_rank`, `check_in.symptom.<code>`) vì Rule
+Engine hiện chỉ evaluate scalar, không query trực tiếp mảng.
+
+Rule source mapping phải khai báo `kind=care_task_check_in`, schema version,
+template key và prefix fact được phép. Evaluation chỉ dùng Rule snapshot của
+Enrollment nếu CareRule hiện tại cùng ID vẫn `active`; trong model hiện tại,
+`active` là trạng thái đã được Admin activate/approve, không bổ sung cờ
+`approved` song song. Command lưu task response, audit và Outbox cùng transaction;
+event `care.task.check_in.submitted.v1` chỉ chứa `eventVersion`, `careTaskId`,
+`enrollmentId`, `schemaVersion`, `submittedAt`, không chứa raw health response.
+Worker đọc lại database, evaluate và chỉ sau đó tạo CareAlert.
+Event check-in tuân theo feature flag `CARE_MONITORING_AUTOMATION_ENABLED` hiện có;
+khi flag tắt worker defer event thay vì làm mất dữ liệu. Consultation cancellation
+hiện không có disposition canonical nên phát `objectiveDisposition=unknown` và
+giữ nguyên task; chỉ signal server-owned `no_longer_required` mới được cancel task.
+
+Doctor review dùng `POST /care-tasks/:id/doctor-review` với `Idempotency-Key`, DTO
+`reasonCode` allowlist và `note?: string` plaintext tối đa 500 ký tự. Assigned
+Doctor duy nhất được gọi; task phải còn active/in-window. Note được lưu như text,
+không nhận HTML/object/upload và client phải HTML-escape khi render. Review không
+tính Patient adherence. Education phải resolve chính xác content catalog published
+theo `{ contentId, version, locale, displayType }`; không tìm thấy bản immutable
+đó thì không trả URL/HTML fallback, `allowedActions=[]` và command fail-closed.
 
 ## 2. Theo dõi chỉ số → evaluation → alert — ✅
 

@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  Optional,
   OnApplicationShutdown,
   OnModuleInit,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { NotificationType } from '../../modules/notifications/domain/entities/no
 import { CareMetricEvaluationService } from '../../modules/chronic-care/application/services/care-metric-evaluation.service';
 import { ConsultationStaleRecoveryService } from '../../modules/consultations/application/services/consultations/consultation-stale-recovery.service';
 import { SubscriptionPaymentGrantService } from '../../modules/billing/application/services/subscription-payment-grant.service';
+import { CareTaskPolicyEventService } from '../../modules/chronic-care/application/services/care-task-policy-event.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
@@ -47,6 +49,8 @@ export class OutboxWorkerService
     private readonly careMetrics: CareMetricEvaluationService,
     private readonly staleConsultations: ConsultationStaleRecoveryService,
     private readonly subscriptionGrants: SubscriptionPaymentGrantService,
+    @Optional()
+    private readonly careTaskPolicyEvents?: CareTaskPolicyEventService,
   ) {
     this.careAutomationEnabled =
       this.config.get<boolean>('CARE_MONITORING_AUTOMATION_ENABLED') === true;
@@ -136,7 +140,11 @@ export class OutboxWorkerService
       30_000,
       this.careAutomationEnabled
         ? []
-        : ['health.metric.recorded', 'care.task.reminder'],
+        : [
+            'health.metric.recorded',
+            'care.task.reminder',
+            'care.task.check_in.submitted.v1',
+          ],
     );
     for (const event of events) {
       await this.queue!.add(
@@ -194,7 +202,11 @@ export class OutboxWorkerService
     if (!event) return;
     if (
       !this.careAutomationEnabled &&
-      ['health.metric.recorded', 'care.task.reminder'].includes(event.eventType)
+      [
+        'health.metric.recorded',
+        'care.task.reminder',
+        'care.task.check_in.submitted.v1',
+      ].includes(event.eventType)
     ) {
       await this.outbox.deferUntil(event._id, new Date(Date.now() + 60_000));
       return;
@@ -211,6 +223,60 @@ export class OutboxWorkerService
         const payload = event.payload as { metricId?: string };
         if (!payload.metricId) throw new Error('Invalid care metric event');
         await this.careMetrics.evaluateRecordedMetric(payload.metricId);
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'care.task.check_in.submitted.v1') {
+        const payload = event.payload as {
+          eventVersion?: number;
+          careTaskId?: string;
+          enrollmentId?: string;
+          schemaVersion?: string;
+          submittedAt?: string;
+        };
+        if (
+          payload.eventVersion !== 1 ||
+          !payload.careTaskId ||
+          !payload.enrollmentId ||
+          payload.schemaVersion !== 'health-check-in.v1' ||
+          !payload.submittedAt
+        )
+          throw new Error('Invalid Care Task check-in event');
+        if (!this.careTaskPolicyEvents)
+          throw new Error('Care Task policy event handler is unavailable');
+        await this.careTaskPolicyEvents.evaluateCheckIn(
+          payload.careTaskId,
+          payload.enrollmentId,
+        );
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'consultation.care-task.lifecycle.v1') {
+        const payload = event.payload as {
+          eventVersion?: number;
+          careTaskId?: string;
+          consultationId?: string;
+          outcome?: 'completed' | 'no_show' | 'cancelled' | 'rescheduled';
+          occurredAt?: string;
+          objectiveDisposition?: 'no_longer_required' | 'unknown';
+        };
+        if (
+          payload.eventVersion !== 1 ||
+          !payload.careTaskId ||
+          !payload.consultationId ||
+          !payload.outcome ||
+          !payload.occurredAt
+        )
+          throw new Error('Invalid consultation Care Task lifecycle event');
+        if (!this.careTaskPolicyEvents)
+          throw new Error('Care Task policy event handler is unavailable');
+        await this.careTaskPolicyEvents.applyConsultationLifecycle({
+          careTaskId: payload.careTaskId,
+          consultationId: payload.consultationId,
+          outcome: payload.outcome,
+          occurredAt: payload.occurredAt,
+          objectiveDisposition: payload.objectiveDisposition,
+        });
         await this.outbox.markDelivered(event._id);
         return;
       }

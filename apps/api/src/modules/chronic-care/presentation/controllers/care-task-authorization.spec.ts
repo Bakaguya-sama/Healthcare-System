@@ -6,6 +6,7 @@ import { CareTaskController } from './care-task.controller';
 import {
   QueryEnrollmentCareTasksDto,
   SubmitCareTaskResponseDto,
+  SubmitDoctorReviewDto,
 } from '../dto/care-task.dto';
 
 function roles(controller: object, method: string): UserRole[] {
@@ -36,6 +37,8 @@ describe('Care Task route authorization and query contract', () => {
 
   it('limits response submission to Patient', () => {
     expect(roles(controller, 'respond')).toEqual([UserRole.PATIENT]);
+    expect(roles(controller, 'appointmentLink')).toEqual([UserRole.PATIENT]);
+    expect(roles(controller, 'doctorReview')).toEqual([UserRole.DOCTOR]);
   });
 
   it('rejects raw fields, invalid filters and values above the hard limit', async () => {
@@ -71,5 +74,23 @@ describe('Care Task route authorization and query contract', () => {
     expect(errors.map((error) => error.property)).toEqual(
       expect.arrayContaining(['action', 'answer']),
     );
+  });
+
+  it('rejects unbounded check-in arrays and HTML Doctor notes', async () => {
+    const checkIn = await validate(
+      plainToInstance(SubmitCareTaskResponseDto, {
+        overallStatus: 'stable',
+        symptomCodes: Array.from({ length: 9 }, (_, index) => `symptom_${index}`),
+        severity: 'mild',
+      }),
+    );
+    expect(checkIn.map((error) => error.property)).toContain('symptomCodes');
+    const review = await validate(
+      plainToInstance(SubmitDoctorReviewDto, {
+        reasonCode: 'reviewed_no_action',
+        note: '<b>unsafe</b>',
+      }),
+    );
+    expect(review.map((error) => error.property)).toContain('note');
   });
 });
