@@ -66,6 +66,10 @@ CareTaskSchema.index(
   { name: 'patientCareProgramId_1_status_1_windowStart_1' },
 );
 CareTaskSchema.index(
+  { patientCareProgramId: 1, scheduledFor: 1, _id: 1 },
+  { name: 'patientCareProgramId_1_scheduledFor_1__id_1' },
+);
+CareTaskSchema.index(
   { doctorId: 1, taskType: 1, status: 1, scheduledFor: 1 },
   { name: 'doctorId_1_taskType_1_status_1_scheduledFor_1' },
 );

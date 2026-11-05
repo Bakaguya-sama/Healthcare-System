@@ -71,6 +71,17 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 13. Worker chuyển `scheduled -> due` tại `windowStart`; nguồn hoàn thành hợp lệ chuyển `scheduled|due -> completed`; quá `windowEnd` chuyển `due -> missed`. Enrollment bị pause/cancel hoặc task không còn áp dụng có thể chuyển `scheduled|due -> cancelled` với reason.
 14. `completed`, `missed`, `cancelled` là trạng thái cuối trong DA2. Dữ liệu nhập sau hạn vẫn được lưu, hiển thị trong biểu đồ và có thể tạo evaluation mới nhưng không đổi task `missed` thành completed và không hồi tố adherence của cửa sổ cũ.
 15. HealthMetric correction dùng append-only replacement/void. Nếu có metric thay thế hợp lệ, task đã completed có thể đổi `completionSourceId` trong transaction và ghi audit; không đảo ngược trạng thái task. Evaluation/report/summary bị ảnh hưởng phải được tạo version thay thế, không ghi đè lịch sử.
+16. CareTask list/detail lấy JWT làm authority: Patient chỉ đọc task của enrollment mình, assigned Doctor chỉ đọc task của enrollment được assign; Admin không đọc CareTask clinical data trong DA2.
+17. List dùng filter allowlist, pagination hard cap và stable `_id` tie-breaker. List/detail không trả raw response, completion rule, reminder/rule snapshot, HealthMetric hoặc audit metadata.
+18. Response command bắt buộc idempotency và conditional transition. Retry cùng key/payload replay kết quả đã lưu; cùng key khác request conflict; concurrent submit chỉ tạo một completion/audit.
+19. Metric task không nhận response qua CareTask API. Consumer phải ghi HealthMetric qua `HLTH-02`; Health Tracking tiếp tục là source of truth.
+20. Non-metric response fail-closed. P0 hiện chỉ cho phép Patient owner acknowledge education task khi snapshot khai báo rõ `completionRule.responseMode = acknowledge`; payload duy nhất là action allowlist `acknowledge`. Không nhận object tự do hoặc clinical score.
+21. `check_in` là khai báo sức khỏe, không phải acknowledgement đơn thuần. Payload phải dùng schema versioned và field/value allowlist do product/clinical owner chốt; không nhận text tự do. Nếu check-in có dấu hiệu cần xử lý, escalation phải theo safety policy canonical, không do frontend tự suy diễn.
+22. Appointment task chỉ complete khi Consultation canonical có state `completed`. Consultation `no_show` chuyển task thành `missed`; cancellation chuyển task thành `cancelled` khi mục tiêu chăm sóc không còn cần thực hiện; reschedule cùng mục tiêu giữ task và thay canonical consultation reference. CareTask không tự tạo Consultation.
+23. Chỉ Assigned Doctor được complete `doctor_review`; command phải bắt buộc reason code, note plaintext tùy chọn và AuditLog. Patient không submit/complete `doctor_review`; task này không tính adherence Patient. Không dùng rich-text hoặc free-form clinical note trong task response.
+24. Education acknowledgment chỉ mang nghĩa “đã xác nhận đã xem”, không chứng minh đã đọc, hiểu hoặc tuân thủ. Không dùng dwell time, scroll depth hay quiz score làm completion signal P0.
+25. Education content snapshot/reference tối thiểu gồm `contentId`, `version`, `locale`, `displayType`; không dùng URL tự do hoặc HTML trực tiếp trong CareTask. Content được resolve từ nguồn approved theo reference/version bất biến.
+26. Các rule 21–25 là policy đã chốt nhưng chưa có runtime DTO/endpoint/event implementation ngoài education acknowledgment hiện hữu. Trong thời gian đó `check_in`, `appointment`, `doctor_review`, hoặc education thiếu `responseMode=acknowledge` phải trả `CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED`.
 
 ## Người thân đồng hành và nhắc nhở hỗ trợ (P1)
 

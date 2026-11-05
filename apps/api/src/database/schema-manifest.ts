@@ -13,7 +13,10 @@ import {
   NOTIFICATION_CAMPAIGN_RECIPIENT_VALIDATOR,
   RETIRED_AI_CONVERSATION_INDEX_NAMES,
 } from './migrations/202609291200-schema-simplification';
-import { CC001B_CARE_COMMAND_IDEMPOTENCY_VALIDATOR } from './migrations/202609291100-cc001b-enrollment';
+import {
+  CARE_TASK_COMMAND_IDEMPOTENCY_VALIDATOR,
+  CARE_TASK_READ_RESPONSE_INDEXES,
+} from './migrations/202611042000-care-task-read-response';
 import { CC014_BASELINE_SCHEMA_COLLECTIONS } from './migrations/202609291300-cc014-baseline-schema-engine';
 import { CC014_PATIENT_CARE_PROGRAM_VALIDATOR } from './migrations/202609300900-cc014-remove-redundant-baseline-version';
 import {
@@ -125,7 +128,7 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   ),
   {
     name: 'carecommandidempotencies',
-    validator: CC001B_CARE_COMMAND_IDEMPOTENCY_VALIDATOR,
+    validator: CARE_TASK_COMMAND_IDEMPOTENCY_VALIDATOR,
   },
   {
     name: 'notificationcampaignrecipients',
@@ -151,6 +154,7 @@ export const MANAGED_DATABASE_INDEXES = [
     key: { version: 1 },
     unique: true,
   },
+  ...CARE_TASK_READ_RESPONSE_INDEXES,
   {
     collection: SCHEMA_MIGRATIONS_COLLECTION,
     name: 'name_1',

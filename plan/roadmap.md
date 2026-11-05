@@ -1,6 +1,6 @@
 # HealthAI DA2 — Roadmap hiện hành
 
-> Cập nhật: **04/11/2026**
+> Cập nhật: **05/11/2026**
 > Nguồn xác minh: code, migration, test, OpenAPI và realtime contract trong repository.
 > Ký hiệu: ✅ Xong · 🚧 Đang làm · ⏳ Chưa bắt đầu · ⛔ Bị chặn
 
@@ -8,7 +8,7 @@
 
 | Ưu tiên | Việc cần làm                                         | Lý do                                                                                                     | File/module liên quan                       | Cỡ  |
 | ------: | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- | :-: |
-|       1 | CareTask detail/response ngoài metric                | Program/Enrollment read đã có; task workspace vẫn thiếu response contract theo type                       | `chronic-care`, OpenAPI                     |  M  |
+|       1 | Implement CareTask policy đã chốt theo type         | Cần DTO/validation/event cho health check-in, appointment lifecycle, doctor review và education content ref | `chronic-care`, consultations, OpenAPI       |  M  |
 |       2 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI          |  M  |
 |       3 | Đo và chốt policy vận hành scheduled booking         | Pilot đang dùng buffer 15 phút/min-notice 60 phút; cần dữ liệu để chốt policy dài hạn                     | config, `consultations`, runbook            |  S  |
 |       4 | Chạy release-readiness DA2                           | Regression, privacy/security, migration rehearsal và demo evidence vẫn thuộc DA2 dù KPI metrics được hoãn | `test`, `docs/runbooks`, contract artifacts |  L  |
@@ -18,12 +18,12 @@
 | Giai đoạn/module                                            |  Trạng thái   | Phạm vi đã chứng minh                                                                                 | Phần còn lại                                                      |
 | ----------------------------------------------------------- | :-----------: | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | RF-0..RF-13 — backend foundation                            |      ✅       | Modular monolith, migration runner/verifier, Redis, outbox, contract tooling                          | Chỉ bảo trì                                                       |
-| Chronic Care foundation — `CC-000..007`, `CC-011`, `CC-014` |      ✅       | Program/Rule/Enrollment command, Program/Enrollment read, task, evaluation, alert, report, AI summary | Rule read và CareTask detail/response còn ở phase D               |
+| Chronic Care foundation — `CC-000..007`, `CC-011`, `CC-014` |      ✅       | Program/Rule/Enrollment command, Program/Enrollment read, task, evaluation, alert, report, AI summary | Rule read và non-metric response policy còn mở                    |
 | Monitoring automation — `CC-003A`                           |      ✅       | Metric event, scheduler, reminder, retry/dead-letter/recovery                                         | Bật flag theo runbook ở môi trường triển khai                     |
 | Consultation link/usage — `CC-008`, `CC-013/A/B`            |      ✅       | Alert link, quota ledger, urgent benefit, stale recovery, scheduled check-in/queue                    | On-demand queue policy còn mở                                     |
 | Plan, AI quota — `CC-012A/B`                                |      ✅       | Plan lifecycle, snapshot entitlement, AI reserve/commit/release                                       | Patient-facing Plan/Subscription read API                         |
 | Subscription payment — `CC-PAY-001`                         |      ✅       | VNPAY Sandbox IPN, order, grant, renewal queue, reconciliation                                        | Không bao gồm consultation charging hoặc refund                   |
-| Contract/API handoff                                        |      🚧       | OpenAPI và realtime artifact hiện khớp source                                                         | Một số target P0 API chưa triển khai                              |
+| Contract/API handoff                                        |      🚧       | Program/Enrollment/CareTask read và typed education response đã có OpenAPI/test                        | Rule read, billing read, export và response policy còn mở         |
 | Scheduled booking, queue/check-in                           |      ✅       | Availability, booking, scheduled check-in, own queue, Doctor queue/call-next, idempotency/race tests  | ETA và on-demand queue chưa có policy được chốt                   |
 | Report/data export                                          |      ⏳       | CareReport immutable và role projection đã có                                                         | PDF/CSV export job/download contract                              |
 | Web Patient/Doctor/Admin                                    | ⏳ Repo riêng | Đã chốt frontend không thuộc backend monorepo; tích hợp sau bằng OpenAPI/realtime                     | Full Web E2E thực hiện tại frontend repository sau khi ghép API   |
@@ -101,7 +101,10 @@
 - [x] Program list/detail read API theo Patient/Doctor/Admin projection.
 - [ ] Rule read API theo role (`GET /care-programs/:id/rules`): Doctor active summary; Admin active/draft projection; không history/pagination.
 - [x] Enrollment list/detail theo Patient owner/Assigned Doctor; Admin bị cấm theo quyết định DA2 hiện hành.
-- [ ] CareTask detail/response cho task không phải metric.
+- [x] CareTask list/detail bounded theo Patient owner/Assigned Doctor; Admin bị cấm.
+- [x] Idempotent response command: metric giữ ở HLTH-02, configured education nhận acknowledgment.
+- [x] Chốt policy: check-in health declaration; appointment complete/no-show/cancel/reschedule mapping; Assigned Doctor review; immutable education content reference.
+- [ ] Implement DTO/validation/state transition/event cho policy CareTask đã chốt; các type mới hiện fail-closed.
 - [ ] Patient Plan/Subscription/usage API.
 - [ ] Report PDF/CSV export và download authorization.
 - [ ] Đồng bộ `docs/integration-contract.md`, OpenAPI và sequence diagram cùng một PR/slice.
@@ -109,6 +112,21 @@
 **Tiêu chí hoàn thành:** mọi API P0 dùng trong demo tồn tại trong OpenAPI, có authorization/error contract và test; không còn nhãn “Target P0” cho route đã triển khai.
 
 **Phụ thuộc:** Giai đoạn A–C.
+
+**Quyết định đã chốt CareTask:** (1) `check_in` là health declaration; (2)
+appointment chỉ complete từ Consultation `completed`, `no_show → missed`, cancel
+→ `cancelled` khi mục tiêu không còn áp dụng, same-goal reschedule giữ task và
+đổi reference; (3) chỉ Assigned Doctor complete `doctor_review`, required reason
+code và optional plaintext note; (4) education content dùng immutable
+`contentId/version/locale/displayType`; acknowledgment chỉ nghĩa “đã xác nhận đã
+xem”; (5) task terminal, ngoài window hoặc enrollment inactive không nhận late
+response.
+
+**Câu hỏi thiết kế còn lại, không phải policy business:** exact field/range và
+safety-escalation mapping của health declaration; event/outbox nào từ
+Consultation cập nhật appointment task; endpoint/DTO cụ thể cho doctor review;
+và content service/catalog nào resolve immutable education reference. Các type
+tương ứng vẫn fail-closed cho đến khi các contract này được code/test/OpenAPI.
 
 ### Giai đoạn E — Release readiness DA2
 

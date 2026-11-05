@@ -1,6 +1,6 @@
 # Luồng nghiệp vụ P0 DA2
 
-> Cập nhật: 04/11/2026. Tài liệu này tóm tắt hành vi để review nghiệp vụ;
+> Cập nhật: 05/11/2026. Tài liệu này tóm tắt hành vi để review nghiệp vụ;
 > `product-spec.md` và `chronic-care-spec.md` vẫn là nguồn quy tắc chi tiết.
 > Ký hiệu: ✅ có code/test · 🚧 có một phần · ⏳ chưa triển khai.
 
@@ -34,6 +34,43 @@
 idempotency key bắt buộc cho command; `completed|cancelled` không reopen.
 Read API dùng page/limit hard cap, filter/sort allowlist và `_id` tie-breaker. Admin
 Enrollment read bị cấm theo chính sách DA2 hiện hành.
+
+### 1.1. CareTask workspace — ✅ read surface, 🚧 response theo type
+
+1. Patient list task trong enrollment của chính mình; assigned Doctor chỉ list
+   task của enrollment được assign. API dùng filter `status/type/from/to`, page
+   hard cap và stable sort có `_id` tie-breaker. Admin không được đọc clinical
+   CareTask trong DA2.
+2. List/detail chỉ trả projection bounded và `allowedActions` tính ở server;
+   không trả raw `response`, `completionRule`, reminder/rule snapshot hoặc audit.
+3. Task `metric` chỉ dẫn consumer sang Health Tracking `HLTH-02`; endpoint
+   response của CareTask từ chối loại này và không ghi đè HealthMetric.
+4. `POST /care-tasks/:id/responses` bắt buộc `Idempotency-Key`, chỉ Patient owner
+   được gọi. Hiện chỉ education task có snapshot
+   `completionRule.responseMode = acknowledge` nhận payload allowlist
+   `{ action: "acknowledge" }`; transition `scheduled|due → completed` chạy
+   conditional trong transaction và ghi audit sau persistence.
+5. Chính sách nghiệp vụ đã chốt cho phần mở rộng kế tiếp: `check_in` là khai báo
+   sức khỏe có schema versioned/allowlist; `appointment` chỉ complete khi
+   Consultation canonical `completed`, `no_show → missed`, cancellation làm task
+   `cancelled` nếu mục tiêu chăm sóc không còn cần thiết, còn reschedule cùng mục
+   tiêu giữ task và thay consultation reference. `doctor_review` chỉ Assigned
+   Doctor complete, bắt buộc reason code và note plaintext tùy chọn; không nhận
+   rich-text/free-form clinical note qua task response.
+6. Education chỉ được gọi là “đã xác nhận đã xem”, không suy diễn đã đọc/hiểu.
+   Snapshot content phải dùng immutable `contentId`, `version`, `locale`,
+   `displayType`; không dùng URL tự do hoặc HTML trực tiếp trong CareTask.
+7. **Trạng thái code hiện tại:** ngoài education acknowledgment đã có, các policy
+   mới ở trên chưa có endpoint/schema canonical nên vẫn fail-closed bằng
+   `CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED`. Task `completed|missed|cancelled`,
+   ngoài response window hoặc enrollment không active không nhận response; retry
+   cùng key/payload replay, cùng key khác request trả conflict.
+
+**Việc còn thiết kế trước khi code:** chốt exact field/range/reason code và safety
+escalation cho health check-in; định nghĩa event/outbox chuyển appointment task
+theo Consultation; định nghĩa endpoint/DTO doctor review; và chọn nguồn content
+được approve để resolve `contentId + version`. Backend không nhận free-form
+payload hoặc tự tạo Consultation/DoctorReview giả trong thời gian chờ.
 
 ## 2. Theo dõi chỉ số → evaluation → alert — ✅
 

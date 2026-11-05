@@ -467,35 +467,39 @@ interface PatientCareProgramDto {
 
 interface CareTaskDto {
   id: Id;
-  patientCareProgramId: Id;
+  enrollmentId: Id;
   templateKey: string;
   taskType:
     | "metric"
     | "check_in"
     | "education"
     | "appointment"
-    | "doctor_review"
-    | "medication"
-    | "journal";
+    | "doctor_review";
   status: "scheduled" | "due" | "completed" | "missed" | "cancelled";
-  title: string;
   required: boolean;
   scheduledFor: IsoDateTime;
   windowStart: IsoDateTime;
   windowEnd: IsoDateTime;
-  response?: Record<string, unknown>;
-  completionSourceType?:
-    | "healthMetric"
-    | "response"
-    | "contentProgress"
-    | "consultation"
-    | "doctorReview";
-  completionSourceId?: Id;
   completedAt?: IsoDateTime;
   missedAt?: IsoDateTime;
   cancelledAt?: IsoDateTime;
   cancellationReason?: string;
   allowedActions: string[];
+  presentation?:
+    | { kind: "metric"; metricType?: string; responseEndpoint: "HLTH-02" }
+    | { kind: "education"; responseMode: "acknowledge" }
+    | {
+        kind: string;
+        responseConfigured: false;
+        reasonCode: "CARE_TASK_RESPONSE_POLICY_NOT_CONFIGURED";
+      };
+  progress?: {
+    status: CareTaskDto["status"];
+    completedAt?: IsoDateTime;
+    completionSource?: "patient_response" | "health_metric";
+    acknowledged: boolean;
+  };
+  consultationReference?: { consultationId: Id };
 }
 
 interface CareAlertDto {
@@ -612,7 +616,17 @@ interface MedicalFacilityDto {
 }
 ```
 
-`POST /care-tasks/schedule` is an Admin operational endpoint that advances due/missed states and schedules the next seven local calendar days for active enrollments. Patients read only their own tasks and completion rate through `GET /care-enrollments/:id/tasks` and `GET /care-enrollments/:id/completion-rate`. Completion rate is deterministic: `completed / (completed + missed)` for required scheduled tasks; it is `null` before a required task has reached a terminal outcome.
+`POST /care-tasks/schedule` is an Admin operational endpoint that advances due/missed states and schedules the next seven local calendar days for active enrollments. Patient owner và assigned Doctor đọc task/completion rate theo enrollment scope; Admin bị cấm. `GET /care-enrollments/:id/tasks` trả page bounded, còn `GET /care-tasks/:id` trả projection type-specific nhưng không trả raw response/rule/reminder/audit. Completion rate là `completed / (completed + missed)` cho required task và là `null` trước terminal outcome. `POST /care-tasks/:id/responses` bắt buộc idempotency; metric bị chuyển hướng logic sang `HLTH-02`, còn P0 hiện chỉ nhận education acknowledgment khi snapshot khai báo `responseMode=acknowledge`.
+
+**Đã chốt cho extension tiếp theo, chưa phải behavior runtime hiện tại:** `check_in`
+dùng health-declaration schema versioned/allowlist; appointment complete từ
+Consultation `completed`, `no_show → missed`, cancellation → `cancelled` nếu mục
+tiêu không còn áp dụng, reschedule cùng mục tiêu giữ task và đổi reference;
+Assigned Doctor complete `doctor_review` với required reason code và optional
+plaintext note; education content reference là `contentId`, `version`, `locale`,
+`displayType`, còn acknowledgment chỉ nghĩa “đã xác nhận đã xem”. Các command
+này tiếp tục fail-closed đến khi DTO, validation, transition/event contract và
+OpenAPI của chúng được triển khai.
 
 `programConfig.baselineSchemaVersion` identifies the immutable baseline-form snapshot used to validate answers. The form renderer must use its `fields[].visibility` to project answers: `patient` sees only patient-visible fields; `care_team` may see both. API validation rejects unknown fields and invalid required/type/range values with safe field keys and reason codes only.
 
@@ -1009,8 +1023,8 @@ interface AdminDashboardDto {
 | CARE-06 | `GET /care-enrollments`                             | Patient owner/Assigned Doctor                     | status, programCode, patientId?, page, limit, sortBy/order | actor-scoped bounded enrollment page                           | Implemented 04/11/2026; JWT ownership; `patientId` is conjunctive only                                      |
 | CARE-07 | `GET /care-enrollments/:id`                         | Patient owner/Assigned Doctor                     | none                                                       | bounded enrollment + Program/task/alert/report summary         | Implemented 04/11/2026; Admin denied pending explicit clinical audit permission                             |
 | CARE-08 | `POST /care-enrollments/:id/consent`                | Patient owner                                     | policyVersion, purposes, baseline answers + idempotency    | updated enrollment                                             | Target P0                                                                                                   |
-| CARE-09 | `GET /care-enrollments/:id/tasks`                   | Participant                                       | status, type, from/to, page                                | `PageResult<CareTaskDto>`                                      | Target P0                                                                                                   |
-| CARE-10 | `POST /care-tasks/:id/responses`                    | Authorized task actor                             | structured response + idempotency                          | updated task                                                   | Target P0; metric task hoàn thành từ HLTH-02                                                                |
+| CARE-09 | `GET /care-enrollments/:id/tasks`                   | Patient owner/Assigned Doctor                     | status, type, from/to, page, limit, sortBy/order           | bounded `PageResult<CareTaskDto>`                              | Implemented 04/11/2026; Admin denied, no raw response/policy metadata                                        |
+| CARE-10 | `POST /care-tasks/:id/responses`                    | Patient owner                                     | typed action + required `Idempotency-Key`                  | `{ task, replayed }`                                           | Implemented 04/11/2026 for configured education acknowledgment; metric uses HLTH-02; check-in/appointment/doctor-review extension policy is decided but remains fail-closed pending implementation |
 | CARE-11 | `GET /care-enrollments/:id/reports`                 | Patient owner/Assigned Doctor                     | reportType                                                 | bounded deterministic reports + role-scoped `SummaryInput v1`  | CC-006                                                                                                      |
 | CARE-12 | `GET /care-alerts`                                  | Assigned Doctor                                   | cursor, limit, severity, status                            | cursor page of bounded alert summaries                         | CC-005; stable `severity DESC, detectedAt DESC, _id DESC`                                                   |
 | CARE-13 | `POST /care-alerts/:id/acknowledge`                 | Assigned Doctor                                   | note? + idempotency                                        | updated alert                                                  | Target P0                                                                                                   |
@@ -1026,7 +1040,7 @@ interface AdminDashboardDto {
 | CARE-23 | `POST /care-programs/:id/retire`                    | Admin                                             | reason + idempotency                                       | retired Program version                                        | Target P0                                                                                                   |
 | CARE-24 | `POST /care-programs/:id/rules/:ruleId/retire`      | Admin có rule-management permission               | reason + idempotency                                       | retired Rule version                                           | Target P0                                                                                                   |
 | CARE-25 | `GET /care-alerts/:id/detail`                       | Assigned Doctor                                   | none                                                       | alert + bounded evaluation/timeline context + `allowedActions` | CC-005; Patient summary remains `GET /care-alerts/:id`, Admin audit remains `GET /care-alerts/:id/audit`    |
-| CARE-26 | `GET /care-tasks/:id`                               | Authorized task actor                             | none                                                       | `CareTaskDto` + type-specific approved content/form/action     | Target P0                                                                                                   |
+| CARE-26 | `GET /care-tasks/:id`                               | Patient owner/Assigned Doctor                     | none                                                       | bounded task + presentation/progress/allowedActions            | Implemented 04/11/2026; Admin denied, appointment ref only when canonical link exists                        |
 | CARE-27 | `GET /care-programs/:id`                            | Patient/Doctor/Admin theo scope                   | none                                                       | audience-safe Program projection                               | Implemented 04/11/2026; non-Admin published-only; no raw Rule internals                                     |
 | CARE-28 | `GET /care-reports/:id`                             | Patient owner/Assigned Doctor                     | none                                                       | immutable `CareReportDto` + role-scoped `SummaryInput v1`      | CC-006                                                                                                      |
 | CARE-29 | `POST /care-summaries/:id/review`                   | Assigned Doctor                                   | `review                                                    | reject`, note + idempotency                                    | updated Doctor-audience summary                                                                             | Target P0 khi Doctor review được bật                                                                                                        |
@@ -1264,8 +1278,8 @@ trả `replayed = true` và server không emit lại realtime event.
 | CARE-06 | Liệt kê enrollment theo JWT Patient owner hoặc assigned Doctor; query filter chỉ thu hẹp scope và response không chứa raw clinical/task/report payload.                                                                                                        |
 | CARE-07 | Trả bounded enrollment workspace: Program version, safe participant, lifecycle, consent/baseline được phép và task/alert/report summary; không trả raw Rule snapshot.                                                                                          |
 | CARE-08 | Patient chấp nhận consent version/purpose/channel và gửi baseline; chỉ activate khi toàn bộ guard 1A cùng hợp lệ.                                                                                                                                              |
-| CARE-09 | Liệt kê task của một enrollment theo status/type/time range, bảo toàn timezone và terminal states.                                                                                                                                                             |
-| CARE-10 | Ghi response hoặc tiến độ cho task phù hợp type/completionRule; chống submit lặp và không cho hoàn thành task missed/terminal.                                                                                                                                 |
+| CARE-09 | Liệt kê task của enrollment thuộc Patient/assigned Doctor theo filter allowlist, page hard cap và stable sort; projection không chứa raw response/completionRule/reminder/audit.                                                                                 |
+| CARE-10 | Patient owner acknowledge education task đã opt-in `responseMode=acknowledge`; transaction/idempotency chặn duplicate và terminal transition. Metric dùng HLTH-02; type thiếu policy fail-closed.                                                               |
 | CARE-11 | Liệt kê tối đa 100 deterministic report của enrollment theo reportType; Patient không nhận source IDs, Doctor nhận bounded provenance để điều tra.                                                                                                             |
 | CARE-12 | Trả Priority Inbox của assigned Doctor bằng cursor; sort ổn định theo severity–detectedAt–id, filter status/severity và chỉ projection summary bounded.                                                                                                        |
 | CARE-13 | Doctor acknowledge alert open, ghi actor/time/note; gọi lặp không tạo thêm transition hoặc notification trùng.                                                                                                                                                 |
@@ -1281,7 +1295,7 @@ trả `replayed = true` và server không emit lại realtime event.
 | CARE-23 | Retire Program version để ngăn enrollment mới; enrollment hiện hữu tiếp tục theo snapshot trừ khi policy yêu cầu chuyển đổi riêng.                                                                                                                             |
 | CARE-24 | Retire CareRule version để ngăn gán mới; giữ version cho khả năng tái hiện evaluation/report lịch sử.                                                                                                                                                          |
 | CARE-25 | Doctor detail chỉ trả alert được gán cho chính Doctor, bounded evaluation context và action allowlist; Patient chỉ nhận safe summary, Admin chỉ nhận audit projection.                                                                                         |
-| CARE-26 | Trả chi tiết task cùng form/content/action theo taskType; chỉ cung cấp nội dung approved và `allowedActions` ở thời điểm đọc.                                                                                                                                  |
+| CARE-26 | Trả bounded detail/presentation/progress và `allowedActions` theo actor/type/state/window; không expose raw response, clinical metric, completion rule, reminder/rule snapshot hoặc audit.                                                                         |
 | CARE-27 | Trả chi tiết Program và projection schema/template/source theo role; Patient không nhận rule nội bộ hoặc draft content.                                                                                                                                        |
 | CARE-28 | Trả immutable deterministic report và `SummaryInput v1` đúng audience; facts hoạt động độc lập dù AI chưa bật hoặc failed/fallback.                                                                                                                            |
 | CARE-29 | Assigned Doctor review/reject Doctor-audience AI summary, ghi reviewer/note/version; không thay đổi statistics hoặc alert severity.                                                                                                                            |

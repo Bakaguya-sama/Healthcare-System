@@ -221,6 +221,12 @@ import {
   CONSULTATION_QUEUE_NAME,
   CONSULTATION_QUEUE_VERSION,
 } from './202611041000-consultation-queue';
+import {
+  applyCareTaskReadResponse,
+  CARE_TASK_READ_RESPONSE_CHECKSUM,
+  CARE_TASK_READ_RESPONSE_NAME,
+  CARE_TASK_READ_RESPONSE_VERSION,
+} from './202611042000-care-task-read-response';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -444,6 +450,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CONSULTATION_QUEUE_NAME,
     checksum: CONSULTATION_QUEUE_CHECKSUM,
     up: applyConsultationQueue,
+  },
+  {
+    version: CARE_TASK_READ_RESPONSE_VERSION,
+    name: CARE_TASK_READ_RESPONSE_NAME,
+    checksum: CARE_TASK_READ_RESPONSE_CHECKSUM,
+    up: applyCareTaskReadResponse,
   },
 ];
 
