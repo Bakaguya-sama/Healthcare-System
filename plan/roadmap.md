@@ -81,7 +81,8 @@
 - [x] Transactional outbox và Subscription grant/queued renewal.
 - [x] Paid-without-grant reconciliation.
 - [x] Public Sandbox happy path và targeted integration regression.
-- [ ] Patient xem Plan published, Subscription hiện tại và usage còn lại.
+- [x] Patient xem Plan published, owner-scoped Subscription history/current immutable
+  entitlement và ordinary consultation usage còn lại qua bounded projection.
 
 **Ranh giới đã chốt:**
 
@@ -105,13 +106,32 @@
 - [x] Idempotent response command: metric giữ ở HLTH-02, configured education nhận acknowledgment.
 - [x] Chốt policy: check-in `health-check-in.v1` (`overallStatus`, `symptomCodes`, `severity`); approved Rule-only CareAlert; explicit Consultation `careTaskId`; Doctor-review reason-code allowlist; immutable education content reference.
 - [x] Implement CareTask policy contract v1: check-in DTO/normalization/outbox/evaluation source, `Consultation.careTaskId` lifecycle sync, Assigned-Doctor review command và immutable education catalog resolver; thiếu template/content vẫn fail-closed.
-- [ ] Patient Plan/Subscription/usage API.
+- [x] Patient Plan/Subscription/usage API: Patient-only, effective Plan window,
+  immutable Subscription snapshot, current-cycle atomic consultation counters,
+  OpenAPI và authorization/integration tests.
 - [ ] Report PDF/CSV export và download authorization.
 - [x] Đồng bộ docs contract và OpenAPI cho CareTask policy v1; sequence được mô tả trong business flow của slice.
 
 **Tiêu chí hoàn thành:** mọi API P0 dùng trong demo tồn tại trong OpenAPI, có authorization/error contract và test; không còn nhãn “Target P0” cho route đã triển khai.
 
 **Phụ thuộc:** Giai đoạn A–C.
+
+**Bằng chứng Slice D4 — Patient Billing read (05/11/2026):** `GET /plans` và
+`GET /plans/:id` chỉ trả effective published catalog bằng bounded public projection;
+`GET /subscriptions/me` trả history owner-scoped và `effective` entitlement từ
+immutable snapshot; `GET /subscriptions/me/usage` dùng cùng atomic reserved/counted
+counters với Scheduled Booking. Patient-only role metadata, DTO filter/hard limit,
+stable `_id` tie-breaker, integration tests và generated OpenAPI đã được bổ sung.
+Không có schema/index migration: published catalog dùng partial published index và có
+cardinality thấp; Subscription luôn scope theo một `userId` và unique active index;
+usage đọc O(1) atomic counters thay vì scan ledger.
+
+**Câu hỏi mở sau Slice D4:** (1) BILL-04 Patient PaymentOrder list vẫn là P0 riêng,
+không mở trong billing read slice này; (2) BILL-18 hiện chỉ có consultation meter theo
+scope đã chốt — AI request/token, Care Program và family-link aggregate cần contract
+projection/index riêng trước khi thêm; (3) consultation unlimited chưa tồn tại trong
+Plan schema, do đó runtime luôn trả `unlimited=false`, không dùng magic number; (4)
+public refund-policy summary chưa có DTO business-safe nên không expose raw policy.
 
 **Quyết định đã chốt CareTask:** (1) `check_in` dùng `health-check-in.v1` gồm
 `overallStatus`, `symptomCodes`, `severity`, không free text; persistence phát

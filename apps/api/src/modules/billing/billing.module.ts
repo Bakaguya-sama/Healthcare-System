@@ -32,6 +32,8 @@ import { SubscriptionPaymentGrantService } from './application/services/subscrip
 import { PaymentsController } from './presentation/controllers/payments.controller';
 import { PaymentEvidenceService } from './application/services/payment-evidence.service';
 import { PaymentQrService } from './infrastructure/qr/payment-qr.service';
+import { PatientBillingReadService } from './application/services/patient-billing-read.service';
+import { PatientBillingReadController } from './presentation/controllers/patient-billing-read.controller';
 
 @Module({
   imports: [
@@ -48,7 +50,7 @@ import { PaymentQrService } from './infrastructure/qr/payment-qr.service';
       { name: PaymentTransaction.name, schema: PaymentTransactionSchema },
     ]),
   ],
-  controllers: [PlansController, PaymentsController],
+  controllers: [PlansController, PaymentsController, PatientBillingReadController],
   providers: [
     FreeSubscriptionGrantService,
     SubscriptionCareProgramAccessService,
@@ -59,6 +61,7 @@ import { PaymentQrService } from './infrastructure/qr/payment-qr.service';
     PaymentEvidenceService,
     PaymentQrService,
     SubscriptionPaymentGrantService,
+    PatientBillingReadService,
     VnpayPaymentGatewayAdapter,
     {
       provide: BILLING_CARE_PROGRAM_ACCESS,

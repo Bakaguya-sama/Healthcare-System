@@ -13420,6 +13420,500 @@
         ]
       }
     },
+    "/api/v1/plans": {
+      "get": {
+        "operationId": "PatientBillingRead_listPlans",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": -1,
+              "type": "number",
+              "enum": [
+                -1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "code",
+                "name",
+                "price",
+                "version",
+                "effectiveFrom"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPlanPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Patient role is required"
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List effective published Plans for Patient",
+        "tags": [
+          "patient-billing"
+        ]
+      }
+    },
+    "/api/v1/plans/{id}": {
+      "get": {
+        "operationId": "PatientBillingRead_getPlan",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPlanSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan is invalid, missing, unpublished, retired or outside its effective window"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read one effective published Plan for Patient",
+        "tags": [
+          "patient-billing"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/me": {
+      "get": {
+        "operationId": "PatientBillingRead_subscriptions",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": -1,
+              "type": "number",
+              "enum": [
+                -1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "expired",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "startedAt",
+                "currentPeriodStart",
+                "currentPeriodEnd",
+                "expiresAt"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientSubscriptionPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "An immutable snapshot is corrupt"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List Patient Subscription history and current effective entitlement",
+        "tags": [
+          "patient-billing"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/me/usage": {
+      "get": {
+        "operationId": "PatientBillingRead_usage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientSubscriptionUsageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No current Subscription is available"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cycle, snapshot or atomic usage counters are inconsistent"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read current-cycle ordinary consultation quota",
+        "tags": [
+          "patient-billing"
+        ]
+      }
+    },
     "/api/v1/admin/doctors/applications": {
       "get": {
         "operationId": "Admin_getDoctorApplication",
@@ -25477,6 +25971,434 @@
       "CreatePaymentOrderDto": {
         "type": "object",
         "properties": {}
+      },
+      "PatientPlanQuotaDto": {
+        "type": "object",
+        "properties": {
+          "aiRequestLimit": {
+            "type": "number"
+          },
+          "aiTokenLimit": {
+            "type": "number"
+          },
+          "aiQuotaPeriod": {
+            "type": "string",
+            "enum": [
+              "day",
+              "subscription_cycle"
+            ]
+          },
+          "consultationLimitPerCycle": {
+            "type": "number"
+          },
+          "activeCareProgramLimit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "aiRequestLimit",
+          "aiTokenLimit",
+          "aiQuotaPeriod",
+          "consultationLimitPerCycle",
+          "activeCareProgramLimit"
+        ]
+      },
+      "PatientPlanBenefitsDto": {
+        "type": "object",
+        "properties": {
+          "weeklyAiSummary": {
+            "type": "boolean"
+          },
+          "reports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "weekly",
+                "thirty_day",
+                "ninety_day"
+              ]
+            }
+          },
+          "smartReminder": {
+            "type": "boolean"
+          },
+          "medicationReminder": {
+            "type": "boolean"
+          },
+          "exports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pdf",
+                "csv"
+              ]
+            }
+          },
+          "doctorReview": {
+            "type": "boolean"
+          },
+          "priorityInbox": {
+            "type": "boolean"
+          },
+          "followUp": {
+            "type": "boolean"
+          },
+          "familyLinkLimit": {
+            "type": "number"
+          },
+          "facilitySearch": {
+            "type": "boolean"
+          },
+          "summaryTokenBudget": {
+            "type": "number"
+          }
+        }
+      },
+      "PatientPlanSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "example": "VND"
+          },
+          "durationDays": {
+            "type": "number"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/PatientPlanQuotaDto"
+          },
+          "benefits": {
+            "$ref": "#/components/schemas/PatientPlanBenefitsDto"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "True for the effective published catalog window."
+          },
+          "purchasable": {
+            "type": "boolean",
+            "description": "True only when the existing VNPAY order flow can buy this Plan."
+          },
+          "effectiveFrom": {
+            "type": "string"
+          },
+          "effectiveUntil": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version",
+          "name",
+          "price",
+          "currency",
+          "durationDays",
+          "quota",
+          "benefits",
+          "available",
+          "purchasable"
+        ]
+      },
+      "PatientPlanPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientPlanSummaryDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "PatientSubscriptionPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version",
+          "name"
+        ]
+      },
+      "PatientSubscriptionCycleDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endsAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "startedAt",
+          "endsAt"
+        ]
+      },
+      "PatientSubscriptionBenefitsDto": {
+        "type": "object",
+        "properties": {
+          "aiRequestLimit": {
+            "type": "number"
+          },
+          "aiTokenLimit": {
+            "type": "number"
+          },
+          "aiQuotaPeriod": {
+            "type": "string",
+            "enum": [
+              "day",
+              "subscription_cycle"
+            ]
+          },
+          "consultationLimitPerCycle": {
+            "type": "number"
+          },
+          "activeCareProgramLimit": {
+            "type": "number"
+          },
+          "benefits": {
+            "$ref": "#/components/schemas/PatientPlanBenefitsDto"
+          }
+        },
+        "required": [
+          "aiRequestLimit",
+          "aiTokenLimit",
+          "aiQuotaPeriod",
+          "consultationLimitPerCycle",
+          "activeCareProgramLimit",
+          "benefits"
+        ]
+      },
+      "PatientSubscriptionRenewalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "effectiveAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version",
+          "name",
+          "effectiveAt"
+        ]
+      },
+      "PatientSubscriptionSummaryDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "expired",
+              "cancelled"
+            ]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PatientSubscriptionPlanDto"
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/PatientSubscriptionCycleDto"
+          },
+          "entitlement": {
+            "$ref": "#/components/schemas/PatientSubscriptionBenefitsDto"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "renewal": {
+            "description": "Safe queued-renewal snapshot; no PaymentOrder identifier is exposed.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PatientSubscriptionRenewalDto"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subscriptionId",
+          "status",
+          "plan",
+          "cycle",
+          "entitlement",
+          "startedAt",
+          "expiresAt",
+          "updatedAt"
+        ]
+      },
+      "PatientSubscriptionPageDto": {
+        "type": "object",
+        "properties": {
+          "effective": {
+            "nullable": true,
+            "description": "Current effective Subscription selected by the billing lifecycle authority.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PatientSubscriptionSummaryDto"
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientSubscriptionSummaryDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "effective",
+          "items",
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "ConsultationUsageProjectionDto": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null only for a future unlimited entitlement."
+          },
+          "counted": {
+            "type": "number"
+          },
+          "reserved": {
+            "type": "number"
+          },
+          "available": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null only when unlimited=true."
+          },
+          "unlimited": {
+            "type": "boolean",
+            "description": "Current Plan schema has no unlimited consultation sentinel; currently false."
+          }
+        },
+        "required": [
+          "limit",
+          "counted",
+          "reserved",
+          "available",
+          "unlimited"
+        ]
+      },
+      "PatientSubscriptionUsageDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "string"
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/PatientSubscriptionCycleDto"
+          },
+          "consultations": {
+            "$ref": "#/components/schemas/ConsultationUsageProjectionDto"
+          },
+          "asOf": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subscriptionId",
+          "cycle",
+          "consultations",
+          "asOf"
+        ]
       },
       "VerifyDoctorDto": {
         "type": "object",

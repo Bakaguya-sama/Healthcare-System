@@ -210,7 +210,39 @@ order; feature flag tắt chỉ chặn order mới.
 query; QR/signed URL không persist; slice này không thu tiền từng Consultation
 và không bao gồm refund.
 
-**P0 còn thiếu:** Patient Plan catalog, Subscription/usage read API và order list.
+### Patient Billing read — ✅ Slice D4
+
+1. Patient gọi `GET /plans` hoặc `GET /plans/:id`; backend chỉ query Plan
+   `published` đang nằm trong `effectiveFrom/effectiveUntil`, phân trang bounded và
+   trả public projection. Draft, retired, refund policy nội bộ, audit và cấu hình
+   VNPAY không đi ra consumer.
+2. Patient gọi `GET /subscriptions/me`; JWT subject là ownership authority. Billing
+   lifecycle service xác định `effective` Subscription (và provision/renew Free theo
+   behavior hiện hữu), còn lịch sử được query riêng theo chính `userId`, filter status
+   allowlist, pagination và stable `_id` tie-breaker.
+3. Entitlement luôn lấy từ immutable `Subscription.planSnapshot`; Plan catalog hiện
+   tại chỉ dùng cho màn hình chọn gói và không hồi tố quyền lợi đã grant. Queued renewal
+   chỉ trả safe snapshot + thời điểm hiệu lực, không trả `nextPlanOrderId`.
+4. `GET /subscriptions/me/usage` đọc đúng cycle và hai atomic counter mà Scheduled
+   Booking dùng. Công thức là
+   `available = consultationLimitPerCycle - consultationUsageCounted - consultationUsageReserved`.
+   Dữ liệu thiếu, counter âm hoặc tổng vượt limit làm projection fail-closed; endpoint
+   không tự sửa/reconcile lịch sử.
+5. `care_program_included` không gọi reserve/count/release của ordinary ledger, nên
+   không tăng `counted`/`reserved`, không giảm `available` và không tạo charge. Không
+   được suy ra policy này chỉ vì thiếu ledger.
+
+**Authorization/privacy:** ba route self-service chỉ cho Patient; Doctor/Admin không
+dùng route này. Response không chứa raw ledger row, PaymentOrder, transaction/gateway,
+IPN/Return, audit actor hay reconciliation metadata.
+
+**Ngoại lệ đọc:** nếu lifecycle không tìm/provision được Subscription hiệu lực thì
+`GET /subscriptions/me` trả `effective=null` nhưng vẫn có history bounded; usage trả
+`BILLING_SUBSCRIPTION_NOT_FOUND`. Snapshot/cycle/counter hỏng trả
+`BILLING_PROJECTION_UNAVAILABLE` thay vì đoán quota bằng 0 hoặc unlimited. Plan ID
+invalid, không tồn tại hoặc ngoài public catalog đều trả cùng safe not-found behavior.
+
+**P0 còn thiếu ngoài Slice D4:** Patient PaymentOrder list và PDF/CSV report export.
 
 ## 5. Báo cáo và export — ✅ report, ⏳ export
 

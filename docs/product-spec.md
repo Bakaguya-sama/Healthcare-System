@@ -361,6 +361,25 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 42. Khi đã có thay đổi gói kế tiếp, lần mua mới bị từ chối cho tới khi thay đổi cũ được hủy theo policy hoặc đã có hiệu lực. DA2 không prorate, không cộng dồn hai Plan và không nâng cấp giữa chu kỳ; chính sách này phải hiển thị trước thanh toán.
 43. Worker chuyển chu kỳ bằng conditional update: kiểm tra active subscription và `nextPlanStartsAt`, tăng `cycleNumber`, áp dụng snapshot mới, xóa các field `nextPlan*` và ghi `AuditLogs`. Retry không được chuyển chu kỳ hai lần.
 44. `Plans` được version hóa. Admin chỉ sửa version `draft`; publish tạo version bán được với `effectiveFrom/effectiveUntil`. PaymentOrder và Subscription luôn snapshot Plan đã publish, nên sửa Plan mới không âm thầm đổi quyền lợi đã mua.
+45. Patient Plan catalog chỉ trả Plan `published` trong cửa sổ hiệu lực, dùng public
+    projection bounded và pagination hard limit. Draft/retired, refund policy nội bộ,
+    audit/source và provider configuration không thuộc Patient response.
+46. `GET /subscriptions/me` trả history owner-scoped cùng `effective` Subscription do
+    billing lifecycle authority hiện hữu lựa chọn. Entitlement lấy từ immutable
+    `planSnapshot`, không join ngược mutable Plan. Safe queued-renewal summary không
+    chứa PaymentOrder/gateway identifier.
+47. Patient consultation usage dùng chính counter atomically maintained trên current
+    Subscription: `available = limit - counted - reserved`. Released/cancelled/stale
+    reservation đã được transition/reconcile ra khỏi active counter và không được read
+    endpoint cộng lại. Snapshot/cycle/counter không nhất quán phải fail-closed, không
+    giả thành `0` hoặc unlimited.
+48. Schema Plan hiện tại không có unlimited sentinel cho consultation. Patient usage
+    trả `unlimited=false` và numeric `limit/available`; không dùng magic number. Nếu
+    domain bổ sung unlimited sau này thì contract dùng `unlimited=true` với
+    `limit/available=null` sau migration/versioned policy.
+49. `care_program_included` không đi qua ordinary consultation ledger/counter, không
+    giảm quota và không tạo charge. Billing read không trả clinical origin và không
+    được suy ra included policy từ một ledger row bị thiếu.
 
 ## Quản lý cấu hình hệ thống và cấu hình kinh doanh
 
