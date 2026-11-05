@@ -8,8 +8,8 @@
 
 | Ưu tiên | Việc cần làm                                         | Lý do                                                                                                     | File/module liên quan                       | Cỡ  |
 | ------: | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- | :-: |
-|       1 | Implement CareTask policy đã chốt theo type         | Cần DTO/validation/event cho health check-in, appointment lifecycle, doctor review và education content ref | `chronic-care`, consultations, OpenAPI       |  M  |
-|       2 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI          |  M  |
+|       1 | Hoàn thiện P0 export và Patient billing read surface | Còn thiếu report export, Plan catalog và Subscription/usage cho Patient                                   | `chronic-care`, `billing`, OpenAPI          |  M  |
+|       2 | Rule read API theo role                              | Doctor chỉ xem active summary; Admin xem active/draft declarative rule theo projection đã chốt             | `chronic-care`, OpenAPI                     |  S  |
 |       3 | Đo và chốt policy vận hành scheduled booking         | Pilot đang dùng buffer 15 phút/min-notice 60 phút; cần dữ liệu để chốt policy dài hạn                     | config, `consultations`, runbook            |  S  |
 |       4 | Chạy release-readiness DA2                           | Regression, privacy/security, migration rehearsal và demo evidence vẫn thuộc DA2 dù KPI metrics được hoãn | `test`, `docs/runbooks`, contract artifacts |  L  |
 
@@ -23,7 +23,7 @@
 | Consultation link/usage — `CC-008`, `CC-013/A/B`            |      ✅       | Alert link, quota ledger, urgent benefit, stale recovery, scheduled check-in/queue                    | On-demand queue policy còn mở                                     |
 | Plan, AI quota — `CC-012A/B`                                |      ✅       | Plan lifecycle, snapshot entitlement, AI reserve/commit/release                                       | Patient-facing Plan/Subscription read API                         |
 | Subscription payment — `CC-PAY-001`                         |      ✅       | VNPAY Sandbox IPN, order, grant, renewal queue, reconciliation                                        | Không bao gồm consultation charging hoặc refund                   |
-| Contract/API handoff                                        |      🚧       | Program/Enrollment/CareTask read và typed education response đã có OpenAPI/test                        | Rule read, billing read, export và response policy còn mở         |
+| Contract/API handoff                                        |      🚧       | Program/Enrollment/CareTask read và CareTask policy v1 đã có OpenAPI/test                              | Rule read, billing read và export còn mở                           |
 | Scheduled booking, queue/check-in                           |      ✅       | Availability, booking, scheduled check-in, own queue, Doctor queue/call-next, idempotency/race tests  | ETA và on-demand queue chưa có policy được chốt                   |
 | Report/data export                                          |      ⏳       | CareReport immutable và role projection đã có                                                         | PDF/CSV export job/download contract                              |
 | Web Patient/Doctor/Admin                                    | ⏳ Repo riêng | Đã chốt frontend không thuộc backend monorepo; tích hợp sau bằng OpenAPI/realtime                     | Full Web E2E thực hiện tại frontend repository sau khi ghép API   |
@@ -103,30 +103,43 @@
 - [x] Enrollment list/detail theo Patient owner/Assigned Doctor; Admin bị cấm theo quyết định DA2 hiện hành.
 - [x] CareTask list/detail bounded theo Patient owner/Assigned Doctor; Admin bị cấm.
 - [x] Idempotent response command: metric giữ ở HLTH-02, configured education nhận acknowledgment.
-- [x] Chốt policy: check-in health declaration; appointment complete/no-show/cancel/reschedule mapping; Assigned Doctor review; immutable education content reference.
-- [ ] Implement DTO/validation/state transition/event cho policy CareTask đã chốt; các type mới hiện fail-closed.
+- [x] Chốt policy: check-in `health-check-in.v1` (`overallStatus`, `symptomCodes`, `severity`); approved Rule-only CareAlert; explicit Consultation `careTaskId`; Doctor-review reason-code allowlist; immutable education content reference.
+- [x] Implement CareTask policy contract v1: check-in DTO/normalization/outbox/evaluation source, `Consultation.careTaskId` lifecycle sync, Assigned-Doctor review command và immutable education catalog resolver; thiếu template/content vẫn fail-closed.
 - [ ] Patient Plan/Subscription/usage API.
 - [ ] Report PDF/CSV export và download authorization.
-- [ ] Đồng bộ `docs/integration-contract.md`, OpenAPI và sequence diagram cùng một PR/slice.
+- [x] Đồng bộ docs contract và OpenAPI cho CareTask policy v1; sequence được mô tả trong business flow của slice.
 
 **Tiêu chí hoàn thành:** mọi API P0 dùng trong demo tồn tại trong OpenAPI, có authorization/error contract và test; không còn nhãn “Target P0” cho route đã triển khai.
 
 **Phụ thuộc:** Giai đoạn A–C.
 
-**Quyết định đã chốt CareTask:** (1) `check_in` là health declaration; (2)
-appointment chỉ complete từ Consultation `completed`, `no_show → missed`, cancel
-→ `cancelled` khi mục tiêu không còn áp dụng, same-goal reschedule giữ task và
-đổi reference; (3) chỉ Assigned Doctor complete `doctor_review`, required reason
-code và optional plaintext note; (4) education content dùng immutable
-`contentId/version/locale/displayType`; acknowledgment chỉ nghĩa “đã xác nhận đã
-xem”; (5) task terminal, ngoài window hoặc enrollment inactive không nhận late
-response.
+**Quyết định đã chốt CareTask:** (1) `check_in` dùng `health-check-in.v1` gồm
+`overallStatus`, `symptomCodes`, `severity`, không free text; persistence phát
+event vào Rule Engine và chỉ CareRule `active` đã approved mới tạo CareAlert; (2)
+Consultation mang explicit `careTaskId`, appointment chỉ complete từ Consultation
+`completed`, `no_show → missed`, cancel → `cancelled` khi mục tiêu không còn áp
+dụng, same-goal reschedule giữ task và đổi reference; (3) chỉ Assigned Doctor
+complete `doctor_review`, required reason code thuộc `reviewed_no_action`,
+`follow_up_needed`, `consultation_recommended`,
+`care_plan_adjustment_needed` và optional plaintext note; (4) education content
+dùng immutable `contentId/version/locale/displayType`; acknowledgment chỉ nghĩa
+“đã xác nhận đã xem”; (5) task terminal, ngoài window hoặc enrollment inactive
+không nhận late response.
 
-**Câu hỏi thiết kế còn lại, không phải policy business:** exact field/range và
-safety-escalation mapping của health declaration; event/outbox nào từ
-Consultation cập nhật appointment task; endpoint/DTO cụ thể cho doctor review;
-và content service/catalog nào resolve immutable education reference. Các type
-tương ứng vẫn fail-closed cho đến khi các contract này được code/test/OpenAPI.
+**Contract kỹ thuật runtime v1:** `health-check-in.v1` dùng
+`overallStatus=improved|stable|worsened`, `severity=none|mild|moderate|severe`,
+và `symptomCodes` unique `0..8` từ allowlist template (`none` chỉ đi với mảng
+rỗng). Rule dùng scalar fact mapping đã khai báo, và chỉ Enrollment snapshot Rule
+cùng ID còn `active` mới evaluate; `active` là approval authority hiện có. Event
+`care.task.check_in.submitted.v1` mang metadata tối thiểu, worker reload database;
+raw clinical response không vào outbox. Doctor review là
+`POST /care-tasks/:id/doctor-review`, idempotent, reason-code allowlist và note
+plaintext ≤500. Education resolve exact published catalog record theo
+`contentId/version/locale/displayType`, P0 display type
+`article|video|document`; thiếu content thì fail-closed. Migration, integration
+test và OpenAPI của slice đã xác minh behavior runtime này ngày 05/11/2026.
+Cancellation hiện fail-closed vì API Consultation chưa có disposition canonical:
+`unknown` giữ task, chỉ server-owned `no_longer_required` mới cancel task.
 
 ### Giai đoạn E — Release readiness DA2
 

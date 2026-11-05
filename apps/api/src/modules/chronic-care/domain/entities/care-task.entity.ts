@@ -38,6 +38,8 @@ export class CareTask {
   completionRule: Record<string, unknown>;
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   reminderPolicy: Record<string, unknown>;
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  contentRef?: Record<string, unknown>;
   @Prop({ maxlength: 32 }) completionSourceType?: string;
   @Prop({ type: Types.ObjectId }) completionSourceId?: Types.ObjectId;
   @Prop({ type: MongooseSchema.Types.Mixed }) response?: Record<

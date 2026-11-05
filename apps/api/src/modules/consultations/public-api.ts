@@ -10,3 +10,7 @@ export {
   CARE_ALERT_CONSULTATION_PORT,
   type CareAlertConsultationPort,
 } from './application/ports/care-alert-consultation.port';
+export {
+  CARE_TASK_CONSULTATION_PORT,
+  type CareTaskConsultationPort,
+} from './application/ports/care-task-consultation.port';

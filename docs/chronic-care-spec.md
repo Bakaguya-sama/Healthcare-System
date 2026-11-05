@@ -84,18 +84,68 @@ Chronic Care asks Billing through a public port; it neither imports a Billing mo
 
 `taskTemplates` is also snapshotted inside `programConfig`. The current P0 contract accepts only a unique snake_case `key`, a supported type (`metric`, `check_in`, `education`, `appointment`, `doctor_review`), and `schedule: { frequency: "daily", time: "HH:mm", windowMinutes }`. The scheduler resolves that IANA-local time to UTC, creates tasks for a rolling seven-day window, and uses `enrollment + template + scheduleVersion + local date` as its idempotent unique key. A task moves `scheduled → due → completed|missed|cancelled`; terminal tasks are never reopened by late metric input. Metric tasks query Health Tracking through its public `HEALTH_METRIC` port and persist only the matching metric ID. Reminder work is an idempotent outbox event, never a provider call in the task transaction.
 
-The approved next-type policy is deliberately narrower than a generic task form:
-`check_in` records health declarations through a versioned, allowlisted clinical
-schema; `appointment` completes only from a canonical Consultation `completed`
-event (`no_show → missed`, and cancellation → `cancelled` when the care objective
-is no longer required); a same-objective reschedule retains the task and replaces
-the consultation reference. Only the assigned Doctor may complete
-`doctor_review`, with a required reason code, optional plaintext note, and audit.
-Education completion means only “acknowledged as viewed”; content is immutable by
+The implemented v1 type policy is deliberately narrower than a generic task form:
+`check_in` uses the versioned `health-check-in.v1` clinical schema with only
+`overallStatus`, `symptomCodes`, and `severity`, never free text. Persisting it
+emits a deterministic evaluation event; only an active, approved CareRule can
+produce a CareAlert. `appointment` completes only from a canonical Consultation
+`completed` event (`no_show → missed`, and cancellation → `cancelled` when the
+care objective is no longer required); a same-objective reschedule retains the
+task and replaces the consultation reference. Consultation stores explicit
+`careTaskId` for this link. Only the assigned Doctor may complete
+`doctor_review`, with a required reason code from `reviewed_no_action`,
+`follow_up_needed`, `consultation_recommended`, or
+`care_plan_adjustment_needed`, optional plaintext note, and audit. Education
+completion means only “acknowledged as viewed”; content is immutable by
 `contentId`, `version`, `locale`, and `displayType`, never an arbitrary URL or
-HTML blob. Until their DTOs, event wiring, and validation are implemented, these
-new type-specific commands remain fail-closed; the existing education
-`responseMode=acknowledge` action is the only non-metric Patient response.
+HTML blob. Check-in, Doctor review, canonical Consultation lifecycle and immutable
+education lookup are now wired at runtime. Missing template policy or an exact
+published content record remains fail-closed.
+
+#### Type-specific implementation contract v1 — implemented
+
+`health-check-in.v1` is `{ overallStatus, symptomCodes, severity }` where
+`overallStatus` is `improved|stable|worsened`, `severity` is
+`none|mild|moderate|severe`, and `symptomCodes` is a deduplicated `0..8` list of
+template-allowlisted snake_case codes. `severity=none` requires an empty symptom
+list, while a non-empty list requires a non-`none` severity. Eight is a bounded
+transport/storage limit only; programs own the clinically approved symptom catalog
+and Rule thresholds. The response is normalized to scalar rule facts:
+`check_in.overall_status`, `check_in.severity`, `check_in.severity_rank`, and
+`check_in.symptom.<code>`.
+
+CareRule `dataSources` must declare `{ kind: "care_task_check_in",
+schemaVersion, templateKey, allowedFactPrefixes }`; publish/activation rejects a
+condition outside this mapping. A check-in uses its enrollment Rule snapshot only
+when the current Rule with that exact ID is still `active`. In the existing model
+the Admin activation transition is the approval authority, so no independent
+`approved` boolean is introduced. A check-in transaction writes the task response,
+audit row and `care.task.check_in.submitted.v1` outbox event. Its payload is
+bounded to `{ eventVersion, careTaskId, enrollmentId, schemaVersion, submittedAt }`;
+the worker re-loads Task/Enrollment and never receives raw clinical response in
+outbox payload. `HealthEvaluation` uses the source discriminator
+`health_metric|care_task_check_in`; metric source requires `healthMetricId`, and
+check-in source requires `careTaskId`. Existing CareAlert dedupe/escalation remains
+the sole alert path.
+
+Check-in evaluation uses the existing `CARE_MONITORING_AUTOMATION_ENABLED` gate;
+disabled automation defers the durable outbox event. Current Consultation cancel
+commands have no canonical care-objective disposition, so they emit `unknown` and
+leave the task open. Only a server-owned `no_longer_required` disposition may
+transition the linked task to `cancelled`.
+
+Doctor review is an Assigned-Doctor-only idempotent command
+`POST /care-tasks/:id/doctor-review`. The request has required `reasonCode` from
+the four approved values and optional plaintext `note` with a 500-character limit.
+It rejects HTML/object/upload values; consumers escape text on render. It is valid
+only for active enrollment and an in-window `scheduled|due` task, persists its
+canonical response on CareTask, and never contributes to Patient adherence.
+
+Education has a typed immutable reference `{ contentId, version, locale,
+displayType }`; P0 `displayType` is `article|video|document`. A `ContentCatalog`
+port resolves an exact published record, not a mutable journey item, URL or HTML
+blob. If resolution fails, the task detail exposes no fallback content, calculates
+no acknowledge action, and command processing fails closed.
 
 **Source audit 18/10/2026:** The scheduling service is invoked by the Admin `POST /care-tasks/schedule`; the outbox worker does not schedule care tasks or independently consume new metrics for evaluation. The task path evaluates the first matching metric in its window. A `normal` evaluation creates no Care Alert; `attention` and `urgent` evaluations can create one. The outbox worker does deliver `care.alert.opened` to an idempotent patient notification, but its supported event list does not currently include `care.task.reminder`. Evaluation creation and alert creation are separate writes; a failed alert creation after evaluation persistence is not repaired by the existing early-return path. These gaps require `CC-003A` before claiming an automatic, retry-safe end-to-end pipeline.
 

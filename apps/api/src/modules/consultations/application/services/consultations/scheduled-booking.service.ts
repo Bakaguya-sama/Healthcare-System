@@ -6,6 +6,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Connection, Model, Types } from 'mongoose';
@@ -31,6 +32,7 @@ import {
 import { CreateScheduledBookingDto } from '../../../presentation/dto/consultations/scheduled-booking.dto';
 import { AvailabilitySlotService } from '../availability/availability-slot.service';
 import { BookingPolicyService } from './booking-policy';
+import { OutboxService } from '../../../../../infrastructure/outbox/outbox.service';
 
 @Injectable()
 export class ScheduledBookingService {
@@ -45,6 +47,7 @@ export class ScheduledBookingService {
     @Inject(CONSULTATION_USAGE_PORT)
     private readonly usage: ConsultationUsagePort,
     @InjectConnection() private readonly connection: Connection,
+    @Optional() private readonly outbox?: OutboxService,
   ) {}
 
   async book(
@@ -220,6 +223,23 @@ export class ScheduledBookingService {
       current.lastRescheduleKey = key;
       current.lastRescheduleRequestHash = requestHash;
       await current.save({ session });
+      if (current.careTaskId)
+        await this.outbox?.enqueue(
+          {
+            eventType: 'consultation.care-task.lifecycle.v1',
+            aggregateType: 'consultation',
+            aggregateId: current._id,
+            idempotencyKey: `consultation.care-task.${current._id}.rescheduled.${key}`,
+            payload: {
+              eventVersion: 1,
+              careTaskId: String(current.careTaskId),
+              consultationId: String(current._id),
+              outcome: 'rescheduled',
+              occurredAt: new Date().toISOString(),
+            },
+          },
+          session,
+        );
       return current;
     });
     return this.response(consultation);

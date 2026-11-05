@@ -45,6 +45,9 @@ export class Consultation {
   @Prop({ type: Types.ObjectId, ref: 'CareAlert' })
   careAlertId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'CareTask' })
+  careTaskId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'AvailabilitySlot' })
   availabilitySlotId?: Types.ObjectId;
 
@@ -219,6 +222,10 @@ ConsultationSchema.index({ roomId: 1 }, { unique: true, sparse: true });
 ConsultationSchema.index(
   { careAlertId: 1 },
   { name: 'careAlertId_1_unique', unique: true, sparse: true },
+);
+ConsultationSchema.index(
+  { careTaskId: 1 },
+  { name: 'careTaskId_1_unique', unique: true, sparse: true },
 );
 ConsultationSchema.index(
   { availabilitySlotId: 1 },

@@ -6,6 +6,7 @@ import { UserRole } from '../src/core/domain/user.enums';
 import { AuditLog } from '../src/modules/platform-audit/public-api';
 import { AuditLogSchema } from '../src/modules/platform-audit/domain/entities/audit-log.entity';
 import { CareTaskProgressService } from '../src/modules/chronic-care/application/services/care-task-progress.service';
+import { CareTaskPolicyEventService } from '../src/modules/chronic-care/application/services/care-task-policy-event.service';
 import {
   CareCommandIdempotency,
   CareCommandIdempotencySchema,
@@ -21,7 +22,12 @@ import {
   PatientCareProgramSchema,
   PatientCareProgramStatus,
 } from '../src/modules/chronic-care/domain/entities/patient-care-program.entity';
-import { CareTaskResponseAction } from '../src/modules/chronic-care/presentation/dto/care-task.dto';
+import {
+  CareTaskResponseAction,
+  DoctorReviewReasonCode,
+  HealthCheckInOverallStatus,
+  HealthCheckInSeverity,
+} from '../src/modules/chronic-care/presentation/dto/care-task.dto';
 
 jest.setTimeout(45_000);
 
@@ -36,6 +42,10 @@ describe('P0 Care Task read and non-metric response service', () => {
   let enrollments: Model<PatientCareProgram>;
   let idempotency: Model<CareCommandIdempotency>;
   let audits: Model<AuditLog>;
+  const enqueue = jest.fn().mockResolvedValue(undefined);
+  const linkCareTask = jest.fn().mockResolvedValue(undefined);
+  const evaluateCheckIn = jest.fn().mockResolvedValue(null);
+  let eventService: CareTaskPolicyEventService;
   const patientId = new ObjectId();
   const otherPatientId = new ObjectId();
   const doctorId = new ObjectId();
@@ -82,6 +92,20 @@ describe('P0 Care Task read and non-metric response service', () => {
         isActiveAndApproved: (id: string) =>
           Promise.resolve(activeDoctors.has(id)),
       },
+      { enqueue } as never,
+      {
+        resolvePublished: async (reference: Record<string, unknown>) =>
+          reference.contentId === 'approved_education'
+            ? { ...reference, title: 'Approved education content' }
+            : null,
+      } as never,
+      { linkCareTask } as never,
+    );
+    eventService = new CareTaskPolicyEventService(
+      tasks as never,
+      audits as never,
+      connection,
+      { evaluateCheckIn } as never,
     );
   });
 
@@ -98,6 +122,9 @@ describe('P0 Care Task read and non-metric response service', () => {
       idempotency.deleteMany({}),
       audits.deleteMany({}),
     ]);
+    enqueue.mockClear();
+    linkCareTask.mockClear();
+    evaluateCheckIn.mockClear();
   });
 
   it('lists owned tasks with filters, pagination, stable ordering and no raw fields', async () => {
@@ -182,11 +209,7 @@ describe('P0 Care Task read and non-metric response service', () => {
       CareTaskStatus.COMPLETED,
     );
 
-    for (const taskType of [
-      CareTaskType.CHECK_IN,
-      CareTaskType.APPOINTMENT,
-      CareTaskType.DOCTOR_REVIEW,
-    ]) {
+    for (const taskType of [CareTaskType.CHECK_IN, CareTaskType.APPOINTMENT]) {
       const unsupported = await createTask(enrollment._id, {
         taskType,
         completionRule: { mode: 'not-configured' },
@@ -205,6 +228,21 @@ describe('P0 Care Task read and non-metric response service', () => {
         allowedActions: [],
       });
     }
+
+    const doctorReview = await createTask(enrollment._id, {
+      taskType: CareTaskType.DOCTOR_REVIEW,
+      completionRule: { responseMode: 'doctor_review' },
+      contentRef: undefined,
+    });
+    await expect(
+      service.detail(
+        actor(UserRole.PATIENT, patientId),
+        String(doctorReview._id),
+      ),
+    ).resolves.toMatchObject({
+      presentation: { kind: CareTaskType.DOCTOR_REVIEW },
+      allowedActions: [],
+    });
 
     const consultationId = new ObjectId();
     const appointment = await createTask(enrollment._id, {
@@ -355,6 +393,362 @@ describe('P0 Care Task read and non-metric response service', () => {
     });
   });
 
+  it('accepts a bounded check-in and enqueues metadata without raw health values', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const task = await createTask(enrollment._id, {
+      taskType: CareTaskType.CHECK_IN,
+      completionRule: {
+        responseMode: 'health_check_in',
+        schemaVersion: 'health-check-in.v1',
+        allowedSymptomCodes: ['dizziness', 'headache'],
+      },
+      contentRef: undefined,
+    });
+    const result = await service.respond(
+      actor(UserRole.PATIENT, patientId),
+      String(task._id),
+      {
+        overallStatus: HealthCheckInOverallStatus.WORSENED,
+        symptomCodes: ['dizziness'],
+        severity: HealthCheckInSeverity.SEVERE,
+      },
+      'check-in-key',
+      new Date(),
+    );
+    expect(result.task).toMatchObject({ status: CareTaskStatus.COMPLETED });
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    const event = enqueue.mock.calls[0][0];
+    expect(event).toMatchObject({
+      eventType: 'care.task.check_in.submitted.v1',
+      payload: {
+        eventVersion: 1,
+        careTaskId: String(task._id),
+        enrollmentId: String(enrollment._id),
+        schemaVersion: 'health-check-in.v1',
+      },
+    });
+    expect(JSON.stringify(event.payload)).not.toContain('dizziness');
+    expect(JSON.stringify(event.payload)).not.toContain('severe');
+  });
+
+  it('rejects symptom codes outside the snapshot and inconsistent none severity', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const completionRule = {
+      responseMode: 'health_check_in',
+      schemaVersion: 'health-check-in.v1',
+      allowedSymptomCodes: ['dizziness'],
+    };
+    const outside = await createTask(enrollment._id, {
+      taskType: CareTaskType.CHECK_IN,
+      completionRule,
+      contentRef: undefined,
+    });
+    await expect(
+      service.respond(
+        actor(UserRole.PATIENT, patientId),
+        String(outside._id),
+        {
+          overallStatus: HealthCheckInOverallStatus.STABLE,
+          symptomCodes: ['unknown_symptom'],
+          severity: HealthCheckInSeverity.MILD,
+        },
+        'outside-code',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CARE_TASK_SYMPTOM_NOT_ALLOWED' },
+    });
+    const inconsistent = await createTask(enrollment._id, {
+      taskType: CareTaskType.CHECK_IN,
+      completionRule,
+      contentRef: undefined,
+    });
+    await expect(
+      service.respond(
+        actor(UserRole.PATIENT, patientId),
+        String(inconsistent._id),
+        {
+          overallStatus: HealthCheckInOverallStatus.STABLE,
+          symptomCodes: ['dizziness'],
+          severity: HealthCheckInSeverity.NONE,
+        },
+        'inconsistent',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CARE_TASK_CHECK_IN_INCONSISTENT' },
+    });
+  });
+
+  it('allows only the assigned Doctor to complete review and excludes it from adherence', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const task = await createTask(enrollment._id, {
+      taskType: CareTaskType.DOCTOR_REVIEW,
+      contentRef: undefined,
+      completionRule: { responseMode: 'doctor_review' },
+    });
+    await expect(
+      service.doctorReview(
+        actor(UserRole.DOCTOR, otherDoctorId),
+        String(task._id),
+        { reasonCode: DoctorReviewReasonCode.FOLLOW_UP_NEEDED },
+        'wrong-doctor-review',
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    const completed = await service.doctorReview(
+      actor(UserRole.DOCTOR, doctorId),
+      String(task._id),
+      {
+        reasonCode: DoctorReviewReasonCode.FOLLOW_UP_NEEDED,
+        note: 'Theo dõi lại trong lần kế tiếp.',
+      },
+      'doctor-review',
+    );
+    expect(completed.task).toMatchObject({
+      status: CareTaskStatus.COMPLETED,
+      progress: { completionSource: 'doctor_review' },
+    });
+    const rate = await service.getCompletionRate(
+      actor(UserRole.PATIENT, patientId),
+      String(enrollment._id),
+    );
+    expect(rate).toEqual({
+      expected: 0,
+      completed: 0,
+      missed: 0,
+      completionRate: null,
+    });
+    const detail = await service.detail(
+      actor(UserRole.DOCTOR, doctorId),
+      String(task._id),
+    );
+    expect(detail).not.toHaveProperty('response');
+    expect(JSON.stringify(detail)).not.toContain('Theo dõi lại');
+  });
+
+  it('allows only one concurrent Doctor review completion', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const task = await createTask(enrollment._id, {
+      taskType: CareTaskType.DOCTOR_REVIEW,
+      contentRef: undefined,
+      completionRule: { responseMode: 'doctor_review' },
+    });
+    const results = await Promise.allSettled([
+      service.doctorReview(
+        actor(UserRole.DOCTOR, doctorId),
+        String(task._id),
+        { reasonCode: DoctorReviewReasonCode.REVIEWED_NO_ACTION },
+        'review-race-a',
+      ),
+      service.doctorReview(
+        actor(UserRole.DOCTOR, doctorId),
+        String(task._id),
+        { reasonCode: DoctorReviewReasonCode.FOLLOW_UP_NEEDED },
+        'review-race-b',
+      ),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(
+      1,
+    );
+    expect(
+      await audits.countDocuments({
+        entityId: task._id,
+        action: 'care_task_doctor_review_completed',
+      }),
+    ).toBe(1);
+  });
+
+  it('links an owned appointment task to one canonical Consultation', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const task = await createTask(enrollment._id, {
+      taskType: CareTaskType.APPOINTMENT,
+      contentRef: undefined,
+      completionRule: { responseMode: 'canonical_consultation' },
+    });
+    const consultationId = new ObjectId();
+    const result = await service.linkAppointment(
+      actor(UserRole.PATIENT, patientId),
+      String(task._id),
+      String(consultationId),
+      'appointment-link',
+    );
+    expect(result.task).toMatchObject({
+      progress: {
+        completionSource: 'consultation',
+      },
+      consultationReference: { consultationId: String(consultationId) },
+    });
+    expect(linkCareTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        careTaskId: String(task._id),
+        consultationId: String(consultationId),
+        patientId: String(patientId),
+        doctorId: String(doctorId),
+        session: expect.anything(),
+      }),
+    );
+    const replay = await service.linkAppointment(
+      actor(UserRole.PATIENT, patientId),
+      String(task._id),
+      String(consultationId),
+      'appointment-link',
+    );
+    expect(replay.replayed).toBe(true);
+    expect(linkCareTask).toHaveBeenCalledTimes(1);
+    await expect(
+      service.linkAppointment(
+        actor(UserRole.PATIENT, otherPatientId),
+        String(task._id),
+        String(consultationId),
+        'appointment-cross-owner',
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('fails closed when immutable education content cannot be resolved', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const task = await createTask(enrollment._id, {
+      contentRef: {
+        contentId: 'missing_content',
+        version: '1.0.0',
+        locale: 'vi-VN',
+        displayType: 'article',
+      },
+    });
+    const detail = await service.detail(
+      actor(UserRole.PATIENT, patientId),
+      String(task._id),
+    );
+    expect(detail).toMatchObject({
+      allowedActions: [],
+      presentation: { reasonCode: 'CARE_TASK_CONTENT_UNAVAILABLE' },
+    });
+    await expect(
+      service.respond(
+        actor(UserRole.PATIENT, patientId),
+        String(task._id),
+        { action: CareTaskResponseAction.ACKNOWLEDGE },
+        'missing-content',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CARE_TASK_CONTENT_UNAVAILABLE' },
+    });
+  });
+
+  it('normalizes persisted check-in values into scalar rule facts', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const completedAt = new Date();
+    const task = await createTask(enrollment._id, {
+      taskType: CareTaskType.CHECK_IN,
+      status: CareTaskStatus.COMPLETED,
+      completedAt,
+      completionSourceType: 'patientResponse',
+      contentRef: undefined,
+      response: {
+        kind: 'health_check_in_v1',
+        schemaVersion: 'health-check-in.v1',
+        overallStatus: 'worsened',
+        symptomCodes: ['dizziness'],
+        severity: 'severe',
+        submittedAt: completedAt,
+      },
+    });
+    await eventService.evaluateCheckIn(
+      String(task._id),
+      String(enrollment._id),
+    );
+    expect(evaluateCheckIn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        careTaskId: String(task._id),
+        enrollmentId: String(enrollment._id),
+        facts: {
+          'check_in.overall_status': 'worsened',
+          'check_in.severity': 'severe',
+          'check_in.severity_rank': 3,
+          'check_in.symptom.dizziness': true,
+        },
+      }),
+    );
+  });
+
+  it('applies canonical Consultation outcomes and fails closed for ambiguous cancellation', async () => {
+    const enrollment = await createEnrollment(patientId, doctorId);
+    const completed = await createTask(enrollment._id, {
+      taskType: CareTaskType.APPOINTMENT,
+      contentRef: undefined,
+    });
+    const consultationId = new ObjectId();
+    await eventService.applyConsultationLifecycle({
+      careTaskId: String(completed._id),
+      consultationId: String(consultationId),
+      outcome: 'completed',
+      occurredAt: new Date().toISOString(),
+    });
+    expect(await tasks.findById(completed._id).lean()).toMatchObject({
+      status: CareTaskStatus.COMPLETED,
+      completionSourceType: 'consultation',
+      completionSourceId: consultationId,
+    });
+
+    const cancelled = await createTask(enrollment._id, {
+      taskType: CareTaskType.APPOINTMENT,
+      contentRef: undefined,
+    });
+    await eventService.applyConsultationLifecycle({
+      careTaskId: String(cancelled._id),
+      consultationId: String(new ObjectId()),
+      outcome: 'cancelled',
+      occurredAt: new Date().toISOString(),
+      objectiveDisposition: 'unknown',
+    });
+    expect((await tasks.findById(cancelled._id).lean())?.status).toBe(
+      CareTaskStatus.DUE,
+    );
+
+    await eventService.applyConsultationLifecycle({
+      careTaskId: String(cancelled._id),
+      consultationId: String(new ObjectId()),
+      outcome: 'cancelled',
+      occurredAt: new Date().toISOString(),
+      objectiveDisposition: 'no_longer_required',
+    });
+    expect(await tasks.findById(cancelled._id).lean()).toMatchObject({
+      status: CareTaskStatus.CANCELLED,
+      cancellationReason: 'care_objective_no_longer_required',
+    });
+
+    const missed = await createTask(enrollment._id, {
+      taskType: CareTaskType.APPOINTMENT,
+      contentRef: undefined,
+    });
+    const missedConsultationId = new ObjectId();
+    await eventService.applyConsultationLifecycle({
+      careTaskId: String(missed._id),
+      consultationId: String(missedConsultationId),
+      outcome: 'no_show',
+      occurredAt: new Date().toISOString(),
+    });
+    expect(await tasks.findById(missed._id).lean()).toMatchObject({
+      status: CareTaskStatus.MISSED,
+      completionSourceId: missedConsultationId,
+    });
+
+    const rescheduled = await createTask(enrollment._id, {
+      taskType: CareTaskType.APPOINTMENT,
+      contentRef: undefined,
+    });
+    const rescheduledConsultationId = new ObjectId();
+    await eventService.applyConsultationLifecycle({
+      careTaskId: String(rescheduled._id),
+      consultationId: String(rescheduledConsultationId),
+      outcome: 'rescheduled',
+      occurredAt: new Date().toISOString(),
+    });
+    expect(await tasks.findById(rescheduled._id).lean()).toMatchObject({
+      status: CareTaskStatus.DUE,
+      completionSourceType: 'consultation',
+      completionSourceId: rescheduledConsultationId,
+    });
+  });
+
   async function createEnrollment(patient: ObjectId, doctor: ObjectId) {
     return enrollments.create({
       revision: 1,
@@ -389,6 +783,12 @@ describe('P0 Care Task read and non-metric response service', () => {
       windowStart: new Date(now.getTime() - 60_000),
       windowEnd: new Date(now.getTime() + 60_000),
       completionRule: { responseMode: 'acknowledge' },
+      contentRef: {
+        contentId: 'approved_education',
+        version: '1.0.0',
+        locale: 'vi-VN',
+        displayType: 'article',
+      },
       reminderPolicy: { enabled: false },
       uniqueKey: randomUUID(),
       ...overrides,

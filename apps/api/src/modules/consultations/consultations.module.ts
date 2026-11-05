@@ -41,6 +41,8 @@ import { BookingPolicyService } from './application/services/consultations/booki
 import { ScheduledBookingService } from './application/services/consultations/scheduled-booking.service';
 import { ConsultationQueueService } from './application/services/consultations/consultation-queue.service';
 import { DoctorQueueController } from './presentation/controllers/consultations/doctor-queue.controller';
+import { CARE_TASK_CONSULTATION_PORT } from './application/ports/care-task-consultation.port';
+import { CareTaskConsultationLinkService } from './application/services/consultations/care-task-consultation-link.service';
 
 @Module({
   imports: [
@@ -82,6 +84,7 @@ import { DoctorQueueController } from './presentation/controllers/consultations/
     AvailabilitySlotService,
     ScheduledBookingService,
     ConsultationQueueService,
+    CareTaskConsultationLinkService,
     {
       provide: CARE_REPORT_PORT,
       useExisting: ConsultationsService,
@@ -89,6 +92,10 @@ import { DoctorQueueController } from './presentation/controllers/consultations/
     {
       provide: CARE_ALERT_CONSULTATION_PORT,
       useExisting: CareAlertConsultationService,
+    },
+    {
+      provide: CARE_TASK_CONSULTATION_PORT,
+      useExisting: CareTaskConsultationLinkService,
     },
   ],
   exports: [
@@ -100,6 +107,7 @@ import { DoctorQueueController } from './presentation/controllers/consultations/
     AvailabilitySlotService,
     ScheduledBookingService,
     ConsultationQueueService,
+    CARE_TASK_CONSULTATION_PORT,
   ],
 })
 export class ConsultationsModule {}

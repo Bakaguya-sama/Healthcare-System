@@ -17,6 +17,7 @@ describe('ConsultationsService state machine', () => {
       doctorId,
       requestStatus: ConsultationRequestStatus.PENDING,
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
+      careTaskId: undefined as Types.ObjectId | undefined,
       interruptionReason: undefined as string | undefined,
       save: jest.fn().mockResolvedValue(undefined),
       toObject: jest.fn(function (this: unknown) {
@@ -62,6 +63,7 @@ describe('ConsultationsService state machine', () => {
       endSession: jest.fn(),
     };
     const connection = { startSession: jest.fn().mockResolvedValue(session) };
+    const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
     return {
       service: new ConsultationsService(
         model as never,
@@ -69,11 +71,14 @@ describe('ConsultationsService state machine', () => {
         users as never,
         usage as never,
         connection as never,
+        undefined,
+        outbox as never,
       ),
       consultation,
       patientId,
       doctorId,
       usage,
+      outbox,
     };
   }
 
@@ -96,6 +101,30 @@ describe('ConsultationsService state machine', () => {
     );
     expect(consultation.sessionStatus).toBe(
       ConsultationSessionStatus.COMPLETED,
+    );
+  });
+
+  it('enqueues a bounded linked Care Task completion event transactionally', async () => {
+    const { service, consultation, doctorId, outbox } = createService();
+    consultation.requestStatus = ConsultationRequestStatus.ACCEPTED;
+    consultation.sessionStatus = ConsultationSessionStatus.IN_CONSULTATION;
+    consultation.careTaskId = new Types.ObjectId();
+
+    await service.complete(
+      doctorId.toString(),
+      consultation._id.toString(),
+      {} as never,
+    );
+
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'consultation.care-task.lifecycle.v1',
+        payload: expect.objectContaining({
+          careTaskId: consultation.careTaskId.toString(),
+          outcome: 'completed',
+        }),
+      }),
+      expect.anything(),
     );
   });
 

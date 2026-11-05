@@ -62,6 +62,12 @@ import { CareSummaryService } from './application/services/care-summary.service'
 import { ChronicCareReadService } from './application/services/chronic-care-read.service';
 import { UsersCareIdentityAdapter } from './infrastructure/adapters/care-identity.adapter';
 import { CARE_IDENTITY_READER_PORT } from './application/ports/care-identity-reader.port';
+import {
+  CareContent,
+  CareContentSchema,
+} from './domain/entities/care-content.entity';
+import { CONTENT_CATALOG_PORT } from './application/ports/content-catalog.port';
+import { MongoContentCatalogAdapter } from './infrastructure/adapters/mongo-content-catalog.adapter';
 
 @Module({
   imports: [
@@ -81,6 +87,7 @@ import { CARE_IDENTITY_READER_PORT } from './application/ports/care-identity-rea
       { name: CareAlert.name, schema: CareAlertSchema },
       { name: CareReport.name, schema: CareReportSchema },
       { name: CareSummary.name, schema: CareSummarySchema },
+      { name: CareContent.name, schema: CareContentSchema },
       {
         name: CareCommandIdempotency.name,
         schema: CareCommandIdempotencySchema,
@@ -104,6 +111,7 @@ import { CARE_IDENTITY_READER_PORT } from './application/ports/care-identity-rea
     CareReportService,
     CareSummaryService,
     ChronicCareReadService,
+    MongoContentCatalogAdapter,
     OutboxCareTaskQueue,
     {
       provide: CARE_TASK_QUEUE,
@@ -128,6 +136,10 @@ import { CARE_IDENTITY_READER_PORT } from './application/ports/care-identity-rea
     {
       provide: CARE_PROGRAM_ACCESS_PORT,
       useExisting: BillingCareProgramAccessAdapter,
+    },
+    {
+      provide: CONTENT_CATALOG_PORT,
+      useExisting: MongoContentCatalogAdapter,
     },
   ],
   exports: [MongooseModule, CareProgramRuleService],

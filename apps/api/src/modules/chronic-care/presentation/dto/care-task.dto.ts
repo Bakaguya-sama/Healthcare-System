@@ -1,5 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsIn, IsOptional } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  IsMongoId,
+} from 'class-validator';
 import { PageSortQueryDto } from '../../../../common/pagination';
 import {
   CareTaskStatus,
@@ -41,10 +53,75 @@ export enum CareTaskResponseAction {
   ACKNOWLEDGE = 'acknowledge',
 }
 
+export enum HealthCheckInOverallStatus {
+  IMPROVED = 'improved',
+  STABLE = 'stable',
+  WORSENED = 'worsened',
+}
+
+export enum HealthCheckInSeverity {
+  NONE = 'none',
+  MILD = 'mild',
+  MODERATE = 'moderate',
+  SEVERE = 'severe',
+}
+
+export enum DoctorReviewReasonCode {
+  REVIEWED_NO_ACTION = 'reviewed_no_action',
+  FOLLOW_UP_NEEDED = 'follow_up_needed',
+  CONSULTATION_RECOMMENDED = 'consultation_recommended',
+  CARE_PLAN_ADJUSTMENT_NEEDED = 'care_plan_adjustment_needed',
+}
+
 export class SubmitCareTaskResponseDto {
-  @ApiProperty({ enum: CareTaskResponseAction })
+  @ApiPropertyOptional({ enum: CareTaskResponseAction })
+  @IsOptional()
   @IsEnum(CareTaskResponseAction)
-  action: CareTaskResponseAction;
+  action?: CareTaskResponseAction;
+
+  @ApiPropertyOptional({ enum: HealthCheckInOverallStatus })
+  @IsOptional()
+  @IsEnum(HealthCheckInOverallStatus)
+  overallStatus?: HealthCheckInOverallStatus;
+
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: 8,
+    description: 'Unique snake_case codes allowlisted by the task snapshot',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @ArrayUnique()
+  @IsString({ each: true })
+  @Matches(/^[a-z][a-z0-9_]{0,63}$/, { each: true })
+  symptomCodes?: string[];
+
+  @ApiPropertyOptional({ enum: HealthCheckInSeverity })
+  @IsOptional()
+  @IsEnum(HealthCheckInSeverity)
+  severity?: HealthCheckInSeverity;
+}
+
+export class SubmitDoctorReviewDto {
+  @ApiProperty({ enum: DoctorReviewReasonCode })
+  @IsEnum(DoctorReviewReasonCode)
+  reasonCode: DoctorReviewReasonCode;
+
+  @ApiPropertyOptional({ maxLength: 500, description: 'Plain text only' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  @Matches(/^(?![\s\S]*<[^>]+>)[\s\S]*$/, {
+    message: 'note must be plain text without HTML markup',
+  })
+  note?: string;
+}
+
+export class LinkCareTaskConsultationDto {
+  @ApiProperty()
+  @IsMongoId()
+  consultationId: string;
 }
 
 export class CareTaskSummaryDto {

@@ -419,6 +419,7 @@ export class CareEnrollmentService {
               version: r.version,
               revision: r.revision,
               rules: r.rules,
+              dataSources: r.dataSources,
             },
             taskTemplates: p.taskTemplates,
             reminderPolicy: p.reminderPolicy,

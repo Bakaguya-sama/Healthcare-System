@@ -33,9 +33,10 @@ import type { CareReportPort } from '../../ports/care-report.port';
 import { defaultBookingSettingsSnapshot } from './booking-policy';
 import { ScheduledBookingService } from './scheduled-booking.service';
 import { BookingException } from '../../errors/booking.exception';
+import { OutboxService } from '../../../../../infrastructure/outbox/outbox.service';
 
 const CONSULTATION_PROJECTION =
-  '_id patientId doctorId patientCareProgramId careAlertId availabilitySlotId mode requestStatus sessionStatus quotaPolicy requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
+  '_id patientId doctorId patientCareProgramId careAlertId careTaskId availabilitySlotId mode requestStatus sessionStatus quotaPolicy requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
 
 @Injectable()
 export class ConsultationsService implements CareReportPort {
@@ -49,6 +50,7 @@ export class ConsultationsService implements CareReportPort {
     @InjectConnection() private readonly connection: Connection,
     @Optional()
     private readonly scheduledBookings?: ScheduledBookingService,
+    @Optional() private readonly outbox?: OutboxService,
   ) {}
 
   async listForCareReport(input: {
@@ -355,18 +357,28 @@ export class ConsultationsService implements CareReportPort {
   }
 
   async complete(userId: string, id: string, dto: UpdateConsultationDto) {
-    const consultation = await this.load(id);
-    if (!this.same(consultation.doctorId, userId))
-      throw new ForbiddenException('Only doctor can complete consultation');
-    if (
-      consultation.sessionStatus !== ConsultationSessionStatus.IN_CONSULTATION
-    )
-      throw new BadRequestException('Consultation is not in progress');
-    consultation.sessionStatus = ConsultationSessionStatus.COMPLETED;
-    consultation.completedAt = new Date();
-    consultation.completedBy = new Types.ObjectId(userId);
-    consultation.doctorNotes = dto.doctorNotes;
-    await consultation.save();
+    const consultation = await this.inTransaction(async (session) => {
+      const consultation = await this.load(id, session);
+      if (!this.same(consultation.doctorId, userId))
+        throw new ForbiddenException('Only doctor can complete consultation');
+      if (
+        consultation.sessionStatus !== ConsultationSessionStatus.IN_CONSULTATION
+      )
+        throw new BadRequestException('Consultation is not in progress');
+      const now = new Date();
+      consultation.sessionStatus = ConsultationSessionStatus.COMPLETED;
+      consultation.completedAt = now;
+      consultation.completedBy = new Types.ObjectId(userId);
+      consultation.doctorNotes = dto.doctorNotes;
+      await consultation.save({ session });
+      await this.enqueueCareTaskLifecycle(
+        consultation,
+        'completed',
+        now,
+        session,
+      );
+      return consultation;
+    });
     return this.response('Consultation completed successfully', consultation);
   }
 
@@ -408,6 +420,12 @@ export class ConsultationsService implements CareReportPort {
       consultation.noShowAt = new Date();
       consultation.noShowReason = reason;
       await consultation.save({ session });
+      await this.enqueueCareTaskLifecycle(
+        consultation,
+        'no_show',
+        consultation.noShowAt,
+        session,
+      );
       return consultation;
     });
     return this.response('Consultation marked as no-show', consultation);
@@ -498,6 +516,13 @@ export class ConsultationsService implements CareReportPort {
       consultation.cancelledBy = new Types.ObjectId(userId);
       consultation.cancellationReason = dto.reason;
       await consultation.save({ session });
+      await this.enqueueCareTaskLifecycle(
+        consultation,
+        'cancelled',
+        consultation.cancelledAt,
+        session,
+        'unknown',
+      );
       return consultation;
     });
     return this.response('Consultation cancelled successfully', consultation);
@@ -734,5 +759,32 @@ export class ConsultationsService implements CareReportPort {
     return typeof (item as any).toObject === 'function'
       ? (item as any).toObject()
       : item;
+  }
+
+  private async enqueueCareTaskLifecycle(
+    consultation: ConsultationDocument,
+    outcome: 'completed' | 'no_show' | 'cancelled',
+    occurredAt: Date,
+    session: ClientSession,
+    objectiveDisposition?: 'unknown',
+  ) {
+    if (!consultation.careTaskId) return;
+    await this.outbox?.enqueue(
+      {
+        eventType: 'consultation.care-task.lifecycle.v1',
+        aggregateType: 'consultation',
+        aggregateId: consultation._id,
+        idempotencyKey: `consultation.care-task.${consultation._id}.${outcome}`,
+        payload: {
+          eventVersion: 1,
+          careTaskId: String(consultation.careTaskId),
+          consultationId: String(consultation._id),
+          outcome,
+          occurredAt: occurredAt.toISOString(),
+          ...(objectiveDisposition ? { objectiveDisposition } : {}),
+        },
+      },
+      session,
+    );
   }
 }

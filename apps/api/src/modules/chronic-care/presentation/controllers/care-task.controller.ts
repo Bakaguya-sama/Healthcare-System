@@ -31,6 +31,8 @@ import {
   CareTaskResponseResultDto,
   QueryEnrollmentCareTasksDto,
   SubmitCareTaskResponseDto,
+  SubmitDoctorReviewDto,
+  LinkCareTaskConsultationDto,
 } from '../dto/care-task.dto';
 
 @ApiTags('care-tasks')
@@ -95,5 +97,45 @@ export class CareTaskController {
     @Headers('idempotency-key') idempotencyKey: string,
   ) {
     return this.progress.respond(actor, taskId, body, idempotencyKey);
+  }
+
+  @Post('care-tasks/:id/doctor-review')
+  @Roles(UserRole.DOCTOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Complete an assigned Doctor Review Care Task' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiOkResponse({ type: CareTaskResponseResultDto })
+  doctorReview(
+    @CurrentUser() actor: CareActor,
+    @Param('id') taskId: string,
+    @Body() body: SubmitDoctorReviewDto,
+    @Headers('idempotency-key') idempotencyKey: string,
+  ) {
+    return this.progress.doctorReview(
+      actor,
+      taskId,
+      body,
+      idempotencyKey,
+    );
+  }
+
+  @Post('care-tasks/:id/appointment-link')
+  @Roles(UserRole.PATIENT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Link an owned appointment task to a scheduled consultation' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiOkResponse({ type: CareTaskResponseResultDto })
+  appointmentLink(
+    @CurrentUser() actor: CareActor,
+    @Param('id') taskId: string,
+    @Body() body: LinkCareTaskConsultationDto,
+    @Headers('idempotency-key') idempotencyKey: string,
+  ) {
+    return this.progress.linkAppointment(
+      actor,
+      taskId,
+      body.consultationId,
+      idempotencyKey,
+    );
   }
 }

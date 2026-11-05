@@ -8,6 +8,11 @@ export enum HealthEvaluationSeverity {
   URGENT = 'urgent',
 }
 
+export enum HealthEvaluationSourceType {
+  HEALTH_METRIC = 'health_metric',
+  CARE_TASK_CHECK_IN = 'care_task_check_in',
+}
+
 @Schema({
   timestamps: { createdAt: true, updatedAt: false },
   collection: 'healthevaluations',
@@ -18,8 +23,15 @@ export class HealthEvaluation {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   patientId: Types.ObjectId;
   @Prop({ type: Types.ObjectId, ref: 'CareTask' }) careTaskId?: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'HealthMetric', required: true })
-  healthMetricId: Types.ObjectId;
+  @Prop({
+    type: String,
+    enum: HealthEvaluationSourceType,
+    required: true,
+    default: HealthEvaluationSourceType.HEALTH_METRIC,
+  })
+  sourceType: HealthEvaluationSourceType;
+  @Prop({ type: Types.ObjectId, ref: 'HealthMetric' })
+  healthMetricId?: Types.ObjectId;
   @Prop({ type: Types.ObjectId, ref: 'CareRule', required: true })
   careRuleId: Types.ObjectId;
   @Prop({ type: String, required: true, enum: HealthEvaluationSeverity })

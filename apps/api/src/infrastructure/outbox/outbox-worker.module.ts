@@ -45,6 +45,8 @@ import { BillingModule } from '../../modules/billing/billing.module';
 import { Consultation, ConsultationSchema } from '../../modules/consultations/domain/entities/consultations/consultation.entity';
 import { AuditLog, AuditLogSchema } from '../../modules/platform-audit/domain/entities/audit-log.entity';
 import { ConsultationStaleRecoveryService } from '../../modules/consultations/application/services/consultations/consultation-stale-recovery.service';
+import { CareRule, CareRuleSchema } from '../../modules/chronic-care/domain/entities/care-rule.entity';
+import { CareTaskPolicyEventService } from '../../modules/chronic-care/application/services/care-task-policy-event.service';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -64,6 +66,7 @@ import { ConsultationStaleRecoveryService } from '../../modules/consultations/ap
       { name: PatientCareProgram.name, schema: PatientCareProgramSchema },
       { name: HealthEvaluation.name, schema: HealthEvaluationSchema },
       { name: CareAlert.name, schema: CareAlertSchema },
+      { name: CareRule.name, schema: CareRuleSchema },
       { name: Consultation.name, schema: ConsultationSchema },
       { name: AuditLog.name, schema: AuditLogSchema },
     ]),
@@ -80,6 +83,7 @@ import { ConsultationStaleRecoveryService } from '../../modules/consultations/ap
     CareTaskSchedulerService,
     CareTaskReminderService,
     CareMetricEvaluationService,
+    CareTaskPolicyEventService,
     ConsultationStaleRecoveryService,
   ],
 })
