@@ -1,0 +1,32 @@
+OK
+@startuml
+autoactivate on
+title Xem báo cáo và xác nhận
+actor "Bác sĩ" as A
+boundary "Care Report Page" as UI
+control ReportController as C
+control ReportService as S
+database MongoDB as DB
+A -> UI : Chọn báo cáo bệnh nhân
+UI -> C : GET report(enrollmentId)
+C -> S : getDoctorReport()
+S -> DB : Kiểm tra assignment và lấy report
+DB --> S : report | error
+alt Không được authorize
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S --> C : report
+ C --> UI : report
+ UI --> A : Hiển thị báo cáo
+ A -> UI : Xác nhận đã xem
+ UI -> C : PATCH review status
+ C -> S : markDoctorReviewed()
+ S -> DB : Lưu review status
+ DB --> S : updated
+ S --> C : successResponse
+ C --> UI : successResponse
+ UI --> A : Hiển thị kết quả
+end
+@enduml

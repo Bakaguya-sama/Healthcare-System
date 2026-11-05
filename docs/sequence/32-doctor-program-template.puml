@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Tạo và cấu hình chương trình theo dõi
+actor "Bác sĩ" as A
+boundary "Program Builder Page" as UI
+control ProgramTemplateController as C
+control ProgramTemplateService as S
+database MongoDB as DB
+A -> UI : Nhập cấu hình chương trình, task và rule
+UI -> C : POST/PATCH program template
+C -> S : createOrUpdateDraft(data)
+S -> DB : Kiểm tra quyền và dữ liệu template
+DB --> S : validation result
+alt Không hợp lệ hoặc không đủ quyền
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Lưu draft template/version
+ DB --> S : saved template
+ S --> C : template
+ C --> UI : successResponse
+ UI --> A : Hiển thị template nháp
+end
+@enduml

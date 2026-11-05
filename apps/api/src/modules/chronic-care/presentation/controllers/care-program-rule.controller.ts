@@ -1,18 +1,23 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiForbiddenResponse,
   ApiHeader,
   ApiOperation,
+  ApiOkResponse,
+  ApiNotFoundResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
@@ -29,6 +34,12 @@ import {
   UpdateCareProgramDto,
   UpdateCareRuleDto,
 } from '../dto/care-program-rule.dto';
+import { ChronicCareReadService } from '../../application/services/chronic-care-read.service';
+import {
+  CareProgramDetailDto,
+  CareProgramPageDto,
+  QueryCareProgramsDto,
+} from '../dto/chronic-care-read.dto';
 
 const IDEMPOTENCY = ApiHeader({
   name: 'Idempotency-Key',
@@ -42,7 +53,42 @@ const IDEMPOTENCY = ApiHeader({
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('care-programs')
 export class CareProgramRuleController {
-  constructor(private readonly catalog: CareProgramRuleService) {}
+  constructor(
+    private readonly catalog: CareProgramRuleService,
+    private readonly reads: ChronicCareReadService,
+  ) {}
+
+  @Get()
+  @Roles(UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'List Care Programs using an actor-safe projection',
+  })
+  @ApiOkResponse({ type: CareProgramPageDto })
+  @ApiForbiddenResponse({
+    description: 'Actor is inactive or Doctor is not approved',
+  })
+  async listPrograms(
+    @CurrentUser() actor: CareActor,
+    @Query() query: QueryCareProgramsDto,
+  ) {
+    return this.reads.listPrograms(actor, query);
+  }
+
+  @Get(':id')
+  @Roles(UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Read one Care Program using an actor-safe projection',
+  })
+  @ApiOkResponse({ type: CareProgramDetailDto })
+  @ApiForbiddenResponse({
+    description: 'Actor is inactive or Doctor is not approved',
+  })
+  @ApiNotFoundResponse({
+    description: 'Program does not exist or is outside the actor catalog scope',
+  })
+  async getProgram(@CurrentUser() actor: CareActor, @Param('id') id: string) {
+    return this.reads.getProgram(actor, id);
+  }
 
   @Post()
   @Roles(UserRole.ADMIN)

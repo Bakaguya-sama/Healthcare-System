@@ -92,6 +92,11 @@ export class Consultation {
   @Prop({ type: Number, min: 0 }) estimatedWaitMinutes?: number;
   @Prop() overtimeStartedAt?: Date;
   @Prop({ type: Object }) bookingSettingsSnapshot?: Record<string, unknown>;
+  /** Actor-scoped hash of Idempotency-Key for scheduled booking replay. */
+  @Prop({ maxlength: 64 }) scheduledBookingKey?: string;
+  @Prop({ maxlength: 64 }) scheduledBookingRequestHash?: string;
+  @Prop({ maxlength: 64 }) lastRescheduleKey?: string;
+  @Prop({ maxlength: 64 }) lastRescheduleRequestHash?: string;
   @Prop({
     type: String,
     enum: ConsultationQuotaPolicy,
@@ -106,6 +111,10 @@ export class Consultation {
   @Prop() queueJoinedAt?: Date;
   @Prop() queuePriorityAt?: Date;
   @Prop() calledAt?: Date;
+  @Prop({ maxlength: 64 }) checkInKey?: string;
+  @Prop({ maxlength: 64 }) checkInRequestHash?: string;
+  @Prop({ maxlength: 64 }) lastCallNextKey?: string;
+  @Prop({ maxlength: 64 }) lastCallNextRequestHash?: string;
   @Prop() sessionStartedAt?: Date;
   @Prop() interruptedAt?: Date;
   @Prop({ maxlength: 64 }) interruptionReason?: string;
@@ -138,6 +147,47 @@ ConsultationSchema.index({
 ConsultationSchema.index(
   { mode: 1, requestStatus: 1, sessionStatus: 1, respondedAt: 1, _id: 1 },
   { name: 'stale_on_demand_recovery' },
+);
+ConsultationSchema.index(
+  {
+    doctorId: 1,
+    requestStatus: 1,
+    sessionStatus: 1,
+    queuePriorityAt: 1,
+    queueJoinedAt: 1,
+    _id: 1,
+  },
+  { name: 'doctor_queue_order' },
+);
+ConsultationSchema.index(
+  { doctorId: 1 },
+  {
+    name: 'one_called_waiting_per_doctor',
+    unique: true,
+    partialFilterExpression: {
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING,
+      calledAt: { $type: 'date' },
+    },
+  },
+);
+ConsultationSchema.index(
+  { doctorId: 1 },
+  {
+    name: 'one_active_consultation_per_doctor',
+    unique: true,
+    partialFilterExpression: {
+      sessionStatus: ConsultationSessionStatus.IN_CONSULTATION,
+    },
+  },
+);
+ConsultationSchema.index(
+  { checkInKey: 1 },
+  { name: 'checkInKey_1', unique: true, sparse: true },
+);
+ConsultationSchema.index(
+  { lastCallNextKey: 1 },
+  { name: 'lastCallNextKey_1', unique: true, sparse: true },
 );
 ConsultationSchema.index(
   { mode: 1, requestStatus: 1, sessionStatus: 1, scheduledStartAt: 1, _id: 1 },
@@ -173,6 +223,10 @@ ConsultationSchema.index(
 ConsultationSchema.index(
   { availabilitySlotId: 1 },
   { name: 'availabilitySlotId_1', unique: true, sparse: true },
+);
+ConsultationSchema.index(
+  { scheduledBookingKey: 1 },
+  { name: 'scheduledBookingKey_1', unique: true, sparse: true },
 );
 ConsultationSchema.index(
   {

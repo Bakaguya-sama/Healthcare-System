@@ -45,6 +45,14 @@ export type DoctorReviewMetrics = {
   rating_distribution: Record<number, number>;
 };
 
+export type CareIdentitySummary = {
+  id: string;
+  fullName: string;
+  avatarUrl?: string;
+  role: UserRole.PATIENT | UserRole.DOCTOR;
+  specialty?: string;
+};
+
 export type UserProfileResponse = {
   id: string;
   full_name: string;
@@ -125,6 +133,33 @@ export class UsersService {
         ? { ...user, specialty: user.doctorProfile?.specialty }
         : user,
     );
+  }
+
+  async findCareIdentitySummaries(
+    ids: readonly string[],
+  ): Promise<CareIdentitySummary[]> {
+    const objectIds = [...new Set(ids)]
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+    if (!objectIds.length) return [];
+    const users = await this.userModel
+      .find({
+        _id: { $in: objectIds },
+        role: { $in: [UserRole.PATIENT, UserRole.DOCTOR] },
+      })
+      .select('_id fullName avatarUrl role doctorProfile.specialty')
+      .lean()
+      .exec();
+    return users.map((user) => ({
+      id: String(user._id),
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl || undefined,
+      role: user.role as UserRole.PATIENT | UserRole.DOCTOR,
+      specialty:
+        user.role === UserRole.DOCTOR
+          ? user.doctorProfile?.specialty || undefined
+          : undefined,
+    }));
   }
 
   async findAllPaged(query: QueryUsersDto) {

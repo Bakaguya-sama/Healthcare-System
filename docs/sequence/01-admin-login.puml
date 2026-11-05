@@ -1,0 +1,45 @@
+OK
+    @startuml
+autoactivate on
+    title Đăng nhập Admin
+    actor Admin
+    boundary "Admin Login Page" as UI
+    control AuthController as C
+    control AuthService as S
+    database MongoDB as DB
+    Admin -> UI : Nhập email, mật khẩu
+    UI -> UI : validateInput()
+    alt Dữ liệu không hợp lệ
+    UI --> Admin : Hiển thị lỗi form
+    else Hợp lệ
+    UI -> C : POST /auth/login
+    C -> S : login(credentials)
+    S -> DB : Tìm tài khoản theo email
+    DB --> S : User | null
+    alt Sai email hoặc mật khẩu
+    S --> C : 401 Invalid credentials
+    C --> UI : loginFailed()
+    UI --> Admin : Hiển thị lỗi
+    else Tài khoản bị khóa
+    S --> C : 403 Account banned
+    C --> UI : loginFailed()
+    UI --> Admin : Hiển thị tài khoản bị khóa
+    else Thành công
+    S -> DB : Lưu hash refresh token và audit login
+    DB --> S : saved
+    S --> C : accessToken, user, Set-Cookie(refreshToken)
+    C --> UI : 200 LoginResponse
+    alt role != admin
+    UI --> Admin : Báo không có quyền Admin
+    else role = admin
+    UI -> C : GET /auth/me (Bearer accessToken)
+    C -> S : getProfile(userId)
+    S -> DB : Lấy profile và adminRole
+    DB --> S : Admin profile
+    S --> C : currentAdmin
+    C --> UI : currentAdmin
+    UI --> Admin : Hiển thị Admin Dashboard
+    end
+    end
+    end
+    @enduml

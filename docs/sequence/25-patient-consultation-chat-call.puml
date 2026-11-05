@@ -1,0 +1,31 @@
+OK
+@startuml
+autoactivate on
+title Nhắn tin hoặc gọi bác sĩ trong phiên tư vấn
+actor "Bệnh nhân" as Patient
+boundary "Consultation Room" as UI
+control ChatController as C
+control ChatService as S
+database MongoDB as DB
+actor "Realtime Gateway" as RT
+Patient -> UI : Gửi message hoặc bắt đầu cuộc gọi
+UI -> C : sendMessage(consultationId, content)
+C -> S : sendMessage(senderId, consultationId, content)
+S -> DB : Lấy Consultation theo consultationId
+DB --> S : consultation | null
+alt Consultation không tồn tại hoặc chưa accepted
+ S --> C : Forbidden
+ C --> UI : errorResponse
+ UI --> Patient : Hiển thị không thể trao đổi
+else Patient không phải participant của Consultation
+ S --> C : Forbidden
+ C --> UI : errorResponse
+ UI --> Patient : Hiển thị không có quyền truy cập
+else Được authorize
+ S -> DB : Lưu ConsultationMessage(senderId, content)
+ DB --> S : saved message
+ S -> RT : broadcastMessage(consultationId, message)
+ RT --> UI : newMessage / WebRTC signaling
+ UI --> Patient : Hiển thị message hoặc kết nối gọi
+end
+@enduml

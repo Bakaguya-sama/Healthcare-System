@@ -12,12 +12,13 @@ describe('ConsultationHeartbeatService', () => {
     client: { set },
     run: jest.fn((operation: Promise<unknown>) => operation),
   } as unknown as RedisService;
+  const build = jest.fn((...parts: string[]) => parts.join(':'));
   const redisKeys = {
-    build: jest.fn((...parts: string[]) => parts.join(':')),
+    build,
   } as unknown as RedisKeyService;
   const consultations = {
     findAccessible: jest.fn(),
-  } as unknown as ConsultationsService;
+  };
   const config = {
     getOrThrow: jest.fn(() => 90),
   } as unknown as ConfigService;
@@ -30,7 +31,7 @@ describe('ConsultationHeartbeatService', () => {
     service = new ConsultationHeartbeatService(
       redis,
       redisKeys,
-      consultations,
+      consultations as unknown as ConsultationsService,
       config,
     );
   });
@@ -44,7 +45,7 @@ describe('ConsultationHeartbeatService', () => {
 
     const result = await service.record('consultation-1', 'user-1');
 
-    expect(redisKeys.build).toHaveBeenCalledWith(
+    expect(build).toHaveBeenCalledWith(
       'consultation',
       'heartbeat',
       'consultation-1',
@@ -91,7 +92,7 @@ describe('ConsultationHeartbeatService', () => {
 
     await service.recordWaitingRoomPresence('consultation-1', 'user-1');
 
-    expect(redisKeys.build).toHaveBeenCalledWith(
+    expect(build).toHaveBeenCalledWith(
       'consultation',
       'waiting-room',
       'consultation-1',

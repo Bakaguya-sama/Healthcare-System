@@ -1,0 +1,53 @@
+OK
+@startuml
+autoactivate on
+title Đăng ký và xác thực Email OTP — Bệnh nhân
+
+actor "Bệnh nhân" as Patient
+boundary "Register Page" as UI
+control AuthController as Controller
+control AuthService as Service
+database MongoDB as DB
+actor "Email Service" as Mail
+
+Patient -> UI : Nhập thông tin đăng ký
+UI -> UI : validateRegistration()
+
+alt Dữ liệu không hợp lệ
+  UI --> Patient : Hiển thị lỗi form
+else Dữ liệu hợp lệ
+  UI -> Controller : POST /auth/register(role=patient)
+  Controller -> Service : register(patientData)
+  Service -> DB : Kiểm tra email đã tồn tại
+  DB --> Service : User | null
+
+  alt Email đã tồn tại
+    Service --> Controller : Conflict error
+    Controller --> UI : errorResponse
+    UI --> Patient : Hiển thị lỗi email đã tồn tại
+  else Email hợp lệ
+    Service -> DB : Tạo tài khoản chờ xác thực email
+    DB --> Service : created User
+    Service -> Mail : sendOtpEmail(email, registrationOtp)
+    Mail --> Service : sent
+    Service --> Controller : registrationPendingVerification
+    Controller --> UI : Hiển thị màn hình xác nhận OTP
+
+    Patient -> UI : Nhập mã OTP
+    UI -> Controller : POST /auth/confirm-otp(email, otp)
+    Controller -> Service : confirmOtp(email, otp, registration)
+    Service -> DB : Xác minh OTP và cập nhật email verified
+    DB --> Service : verification result
+
+    alt OTP sai hoặc đã hết hạn
+      Service --> Controller : Invalid/expired OTP error
+      Controller --> UI : errorResponse
+      UI --> Patient : Hiển thị lỗi xác thực
+    else OTP hợp lệ
+      Service --> Controller : registrationConfirmed
+      Controller --> UI : successResponse
+      UI --> Patient : Thông báo đăng ký thành công
+    end
+  end
+end
+@enduml

@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Check-in và chờ hàng đợi
+actor "Bệnh nhân" as A
+boundary "Waiting Room Page" as UI
+control ConsultationController as C
+control ConsultationService as S
+database MongoDB as DB
+A -> UI : Check-in cho lịch tư vấn
+UI -> C : POST consultations/{id}/check-in
+C -> S : checkIn(patientId, consultationId)
+S -> DB : Kiểm tra thời gian check-in và trạng thái accepted
+DB --> S : validation result
+alt Check-in quá sớm, muộn hoặc không hợp lệ
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Cập nhật session waiting và queueJoinedAt
+ DB --> S : queue status
+ S --> C : waiting result
+ C --> UI : queue position
+ UI --> A : Hiển thị trạng thái chờ
+end
+@enduml

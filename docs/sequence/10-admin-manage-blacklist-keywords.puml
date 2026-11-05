@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Quản lý từ khóa cấm
+actor Admin
+boundary "AI Moderation Page" as UI
+control BlacklistKeywordController as C
+control BlacklistKeywordService as S
+database MongoDB as DB
+Admin -> UI : Thêm, sửa hoặc xóa từ khóa cấm
+UI -> C : POST/PATCH/DELETE blacklist keywords
+C -> S : manageKeyword(keywordData)
+S -> DB : Kiểm tra từ khóa trùng hoặc quyền Admin
+DB --> S : validation result
+alt Từ khóa không hợp lệ hoặc đã tồn tại
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> Admin : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Lưu hoặc xóa từ khóa
+ DB --> S : updated
+ S --> C : result
+ C --> UI : successResponse
+ UI --> Admin : Cập nhật danh sách từ khóa
+end
+@enduml

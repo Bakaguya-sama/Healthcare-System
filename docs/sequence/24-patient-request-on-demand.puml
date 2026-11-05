@@ -1,0 +1,27 @@
+OK
+@startuml
+autoactivate on
+title Gửi yêu cầu tư vấn trực tiếp
+actor "Bệnh nhân" as A
+boundary "Consultation Request Page" as UI
+control ConsultationController as C
+control ConsultationService as S
+database MongoDB as DB
+actor "Notification Service" as N
+A -> UI : Chọn bác sĩ và gửi yêu cầu
+UI -> C : POST consultation requests
+C -> S : createOnDemandRequest(data)
+S -> DB : Kiểm tra bác sĩ, quota và request pending
+DB --> S : validation result
+alt Không đủ điều kiện hoặc đã có request pending
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Tạo Consultation pending
+ S -> N : notifyDoctor(request)
+ S --> C : request
+ C --> UI : successResponse
+ UI --> A : Hiển thị trạng thái chờ bác sĩ
+end
+@enduml

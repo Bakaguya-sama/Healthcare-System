@@ -1,0 +1,23 @@
+OK
+@startuml
+autoactivate on
+title Tìm kiếm cơ sở y tế phù hợp
+actor "Bệnh nhân" as A
+boundary "Facility Search Page" as UI
+control FacilityController as C
+control FacilityService as S
+database MongoDB as DB
+actor "Map Service" as Map
+A -> UI : Nhập vị trí và nhu cầu tìm kiếm
+UI -> C : GET facilities(query, location)
+C -> S : searchFacilities(query, location)
+S -> DB : Lấy cơ sở đã được Admin xác minh
+DB --> S : facility catalogue
+opt Có vị trí hợp lệ
+ S -> Map : calculateDistance(location, facilities)
+ Map --> S : distance data
+end
+S --> C : ranked facilities
+C --> UI : search results
+UI --> A : Hiển thị cơ sở và hướng dẫn an toàn
+@enduml

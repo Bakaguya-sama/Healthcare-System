@@ -107,7 +107,18 @@ describe('RF-4 database foundation', () => {
     await client
       .db()
       .collection('consultations')
-      .insertOne({ _id: consultationId });
+      .insertOne({
+        _id: consultationId,
+        patientId: new ObjectId(),
+        doctorId: new ObjectId(),
+        mode: 'on_demand',
+        requestStatus: 'accepted',
+        sessionStatus: 'waiting',
+        requestedAt: new Date(),
+        expectedDurationMinutes: 30,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     await client
       .db()
       .collection('aisessions')

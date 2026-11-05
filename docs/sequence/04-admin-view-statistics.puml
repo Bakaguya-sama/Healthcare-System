@@ -1,0 +1,18 @@
+OK
+@startuml
+autoactivate on
+title Xem thống kê
+actor Admin
+boundary "Admin Dashboard" as UI
+control AdminController as C
+control AdminService as S
+database MongoDB as DB
+Admin -> UI : Mở Dashboard và chọn khoảng thời gian
+UI -> C : GET /admin/dashboard/stats(filters)
+C -> S : getDashboardStats(filters)
+S -> DB : Aggregate users, consultations, alerts, payments
+DB --> S : Statistics data
+S --> C : dashboard statistics
+C --> UI : 200 statistics
+UI --> Admin : Hiển thị biểu đồ và chỉ số
+@enduml

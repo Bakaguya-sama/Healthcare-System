@@ -1,0 +1,25 @@
+OK
+@startuml
+autoactivate on
+title Đăng nhập Bác sĩ
+actor "Bác sĩ" as A
+boundary "Login Page" as UI
+control AuthController as C
+control AuthService as S
+database MongoDB as DB
+A -> UI : Nhập email và mật khẩu
+UI -> C : POST /auth/login
+C -> S : login(credentials)
+S -> DB : Tìm User, kiểm tra mật khẩu, status và verification
+DB --> S : User | null
+alt Sai credentials, bị khóa hoặc chưa approved
+ S --> C : 401/403 Error
+ C --> UI : errorResponse
+ UI --> A : Hiển thị lỗi
+else Thành công
+ S -> DB : Lưu refresh-session hash và audit login
+ S --> C : accessToken, user, Set-Cookie(refreshToken)
+ C --> UI : LoginResponse
+ UI --> A : Hiển thị Doctor Dashboard
+end
+@enduml

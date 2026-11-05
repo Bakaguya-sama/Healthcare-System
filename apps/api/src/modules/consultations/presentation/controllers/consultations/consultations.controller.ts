@@ -6,11 +6,22 @@ import {
   Patch,
   Post,
   Query,
+  Headers,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiHeader,
+  ApiOkResponse,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
+import { Roles } from '../../../../../core/decorators/roles.decorator';
+import { UserRole } from '../../../../../core/domain/user.enums';
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../../core/guards/roles.guard';
 import {
   ConsultationChangedAction,
   ConsultationsGateway,
@@ -20,6 +31,17 @@ import { ConsultationHeartbeatService } from '../../../application/services/cons
 import { CreateConsultationDto } from '../../dto/consultations/create-consultation.dto';
 import { QueryConsultationDto } from '../../dto/consultations/query-consultation.dto';
 import { UpdateConsultationDto } from '../../dto/consultations/update-consultation.dto';
+import {
+  CreateScheduledBookingDto,
+  RescheduleBookingDto,
+} from '../../dto/consultations/scheduled-booking.dto';
+import { ScheduledBookingService } from '../../../application/services/consultations/scheduled-booking.service';
+import { ScheduledConsultationResponseDto } from '../../dto/booking-response.dto';
+import { ConsultationQueueService } from '../../../application/services/consultations/consultation-queue.service';
+import {
+  CheckInResponseDto,
+  PatientQueueResponseDto,
+} from '../../dto/consultations/consultation-queue.dto';
 
 @ApiTags('consultations')
 @ApiBearerAuth()
@@ -30,7 +52,38 @@ export class ConsultationsController {
     private readonly consultations: ConsultationsService,
     private readonly heartbeat: ConsultationHeartbeatService,
     private readonly gateway: ConsultationsGateway,
+    private readonly scheduledBookings: ScheduledBookingService,
+    private readonly queue: ConsultationQueueService,
   ) {}
+
+  @Post('scheduled')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiCreatedResponse({ type: ScheduledConsultationResponseDto })
+  @ApiResponse({
+    status: 422,
+    description: 'Subscription/quota/notice policy rejected the booking',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Scheduled booking policy is not configured',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  async createScheduled(
+    @CurrentUser('sub') userId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() dto: CreateScheduledBookingDto,
+  ) {
+    const result = await this.scheduledBookings.book(
+      userId,
+      idempotencyKey,
+      dto,
+    );
+    this.emit('created', result.data);
+    return result;
+  }
 
   @Post()
   async create(
@@ -43,6 +96,8 @@ export class ConsultationsController {
   }
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT, UserRole.DOCTOR)
   findAll(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
@@ -58,6 +113,49 @@ export class ConsultationsController {
     @Query('days') days = 7,
   ) {
     return this.consultations.getUpcoming(userId, role, Number(days));
+  }
+
+  @Post(':id/check-in')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiOkResponse({ type: CheckInResponseDto })
+  @ApiResponse({
+    status: 422,
+    description: 'Check-in is too early or the check-in window has closed',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Check-in policy is not configured',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  async checkIn(
+    @CurrentUser('sub') patientId: string,
+    @Param('id') id: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+  ) {
+    const result = await this.queue.checkIn(patientId, id, idempotencyKey);
+    if (!result.replayed) {
+      this.emit('checked_in', result.data);
+      this.gateway.emitQueueChanged({
+        consultationId: result.queue.consultationId,
+        patientId: result.data.patientId,
+        doctorId: result.data.doctorId,
+        position: result.queue.position,
+        estimatedWaitMinutes: result.queue.estimatedWaitMinutes,
+        version: String(result.queue.updatedAt),
+      });
+    }
+    return result;
+  }
+
+  @Get(':id/queue')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @ApiOkResponse({ type: PatientQueueResponseDto })
+  getQueue(@CurrentUser('sub') patientId: string, @Param('id') id: string) {
+    return this.queue.getPatientQueue(patientId, id);
   }
 
   @Get(':id')
@@ -139,6 +237,37 @@ export class ConsultationsController {
   ) {
     const result = await this.consultations.cancel(userId, id, dto);
     this.emit('cancelled', result.data);
+    return result;
+  }
+
+  @Post(':id/reschedule')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiOkResponse({ type: ScheduledConsultationResponseDto })
+  @ApiResponse({
+    status: 422,
+    description: 'Reschedule cutoff/notice policy rejected the command',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Scheduled booking policy is not configured',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  async reschedule(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() dto: RescheduleBookingDto,
+  ) {
+    const result = await this.scheduledBookings.reschedule(
+      userId,
+      id,
+      idempotencyKey,
+      dto.availabilitySlotId,
+    );
+    this.emit('updated', result.data);
     return result;
   }
 

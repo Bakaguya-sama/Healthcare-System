@@ -1,0 +1,46 @@
+OK
+@startuml
+autoactivate on
+title Đăng ký và xác thực Email OTP — Bác sĩ
+actor "Bác sĩ" as Doctor
+boundary "Doctor Register Page" as UI
+control AuthController as C
+control AuthService as S
+actor "File Storage" as Storage
+actor "Email Service" as Mail
+database MongoDB as DB
+Doctor -> UI : Nhập thông tin và chọn giấy tờ chuyên môn
+UI -> UI : validateRegistration()
+UI -> C : POST /auth/register(data, files)
+C -> S : registerDoctor(data, files)
+S -> DB : Kiểm tra email đã tồn tại
+DB --> S : User | null
+alt Dữ liệu không hợp lệ hoặc email đã tồn tại
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> Doctor : Hiển thị lỗi
+else Hợp lệ
+ S -> Storage : uploadVerificationDocuments(files)
+ Storage --> S : document metadata
+ S -> DB : Tạo Doctor profile status=pending và email chưa xác thực
+ DB --> S : created doctor
+ S -> Mail : sendOtpEmail(email, registrationOtp)
+ Mail --> S : sent
+ S --> C : registrationPendingVerification
+ C --> UI : Hiển thị form xác nhận OTP
+ Doctor -> UI : Nhập OTP
+ UI -> C : POST /auth/confirm-otp(email, otp)
+ C -> S : confirmOtp(email, otp, registration)
+ S -> DB : Xác minh OTP và cập nhật email verified
+ DB --> S : verification result
+ alt OTP sai hoặc đã hết hạn
+  S --> C : Invalid/expired OTP error
+  C --> UI : errorResponse
+  UI --> Doctor : Hiển thị lỗi xác thực
+ else OTP hợp lệ
+  S --> C : registrationConfirmed
+  C --> UI : successResponse
+  UI --> Doctor : Thông báo chờ Admin duyệt hồ sơ
+ end
+end
+@enduml

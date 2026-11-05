@@ -1,0 +1,28 @@
+OK
+@startuml
+autoactivate on
+title Xem danh sách và hồ sơ bác sĩ
+actor "Bệnh nhân" as A
+boundary "Doctor Directory Page" as UI
+control DoctorController as C
+control DoctorDirectoryService as S
+database MongoDB as DB
+A -> UI : Tìm kiếm/lọc bác sĩ
+UI -> C : GET doctors(filters, page)
+C -> S : searchApprovedDoctors(filters)
+S -> DB : Truy vấn bác sĩ approved
+DB --> S : doctor list
+S --> C : paginated results
+C --> UI : doctor list
+UI --> A : Hiển thị danh sách bác sĩ
+opt Xem chi tiết
+ A -> UI : Chọn bác sĩ
+ UI -> C : GET doctor detail
+ C -> S : getDoctorProfile(doctorId)
+ S -> DB : Lấy hồ sơ và rating
+ DB --> S : doctor profile
+ S --> C : profile
+ C --> UI : detail response
+ UI --> A : Hiển thị hồ sơ bác sĩ
+end
+@enduml

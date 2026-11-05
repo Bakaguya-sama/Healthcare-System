@@ -1,0 +1,21 @@
+OK
+@startuml
+autoactivate on
+title Hoàn thành check-in và nhập chỉ số sức khỏe
+actor "Bệnh nhân" as A
+boundary "Today / Check-in Page" as UI
+control HealthMetricController as C
+control HealthMetricService as S
+database MongoDB as DB
+A -> UI : Nhập chỉ số và hoàn thành check-in
+UI -> UI : validateMetric(unit, value, time)
+UI -> C : POST /health-metrics
+C -> S : recordMetric(metricData)
+S -> DB : Kiểm tra enrollment/task và lưu HealthMetric
+DB --> S : saved metric
+S -> DB : Đánh giá rule, cập nhật task và tạo alert nếu cần
+DB --> S : evaluation result
+S --> C : metric and alert result
+C --> UI : successResponse
+UI --> A : Hiển thị kết quả check-in/cảnh báo
+@enduml

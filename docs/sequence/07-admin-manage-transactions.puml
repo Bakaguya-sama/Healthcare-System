@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Quản lý giao dịch
+actor Admin
+boundary "Transaction Management Page" as UI
+control BillingController as C
+control BillingService as S
+database MongoDB as DB
+Admin -> UI : Tìm và xem chi tiết giao dịch
+UI -> C : GET payment orders(filters)
+C -> S : getPaymentOrders(filters)
+S -> DB : Truy vấn PaymentOrder, Transaction, Subscription
+DB --> S : Transaction data
+S --> C : paginated results
+C --> UI : 200 transaction list
+UI --> Admin : Hiển thị giao dịch và trạng thái
+opt Admin yêu cầu đối soát giao dịch
+ UI -> C : POST reconcile(orderId)
+ C -> S : reconcileOrder(orderId)
+ S -> DB : Đọc và cập nhật dữ liệu đối soát
+ DB --> S : reconciliation result
+ S --> C : result
+ C --> UI : updated status
+end
+@enduml

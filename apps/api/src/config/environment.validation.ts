@@ -32,6 +32,16 @@ function integer(
   return value;
 }
 
+function optionalInteger(
+  config: Record<string, unknown>,
+  key: string,
+  minimum: number,
+  maximum: number,
+): number | undefined {
+  if (config[key] === undefined || config[key] === '') return undefined;
+  return integer(config, key, minimum, minimum, maximum);
+}
+
 function boolean(
   config: Record<string, unknown>,
   key: string,
@@ -153,6 +163,24 @@ export function validateEnvironment(
       config,
       'CONSULTATION_STALE_RECOVERY_ENABLED',
       false,
+    ),
+    SCHEDULED_BOOKING_BUFFER_MINUTES: optionalInteger(
+      config,
+      'SCHEDULED_BOOKING_BUFFER_MINUTES',
+      0,
+      240,
+    ),
+    SCHEDULED_BOOKING_MIN_NOTICE_MINUTES: optionalInteger(
+      config,
+      'SCHEDULED_BOOKING_MIN_NOTICE_MINUTES',
+      0,
+      10_080,
+    ),
+    CONSULTATION_CHECK_IN_EARLY_MINUTES: optionalInteger(
+      config,
+      'CONSULTATION_CHECK_IN_EARLY_MINUTES',
+      0,
+      1_440,
     ),
     VNPAY_ENABLED: boolean(config, 'VNPAY_ENABLED', false),
     VNPAY_SANDBOX: boolean(config, 'VNPAY_SANDBOX', true),

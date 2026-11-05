@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+.pnpm-store
+.turbo
+coverage
+dist
+tmp
+docx-review-render
+
+.env
+.env.*
+*.log
+*.pem

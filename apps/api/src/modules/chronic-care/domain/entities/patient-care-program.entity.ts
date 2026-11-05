@@ -62,6 +62,9 @@ export class PatientCareProgram {
   @Prop({ maxlength: 500 }) cancellationReason?: string;
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
+
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const PatientCareProgramSchema =

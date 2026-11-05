@@ -1,0 +1,24 @@
+OK
+@startuml
+autoactivate on
+title Quản lý tài khoản người dùng
+actor Admin
+boundary "User Management Page" as UI
+control AdminController as C
+control AdminService as S
+database MongoDB as DB
+Admin -> UI : Chọn danh sách / khóa / mở khóa tài khoản
+UI -> C : GET users hoặc POST account action
+C -> S : getUsers() / changeAccountStatus()
+S -> DB : Đọc hoặc cập nhật User
+DB --> S : User list / updated User
+alt Không đủ quyền hoặc không tìm thấy tài khoản
+ S --> C : Error
+ C --> UI : errorResponse
+ UI --> Admin : Hiển thị lỗi
+else Thành công
+ S --> C : result
+ C --> UI : user list / updated status
+ UI --> Admin : Hiển thị danh sách hoặc trạng thái mới
+end
+@enduml

@@ -1,0 +1,28 @@
+OK
+@startuml
+autoactivate on
+title Xem tiến độ, cảnh báo, báo cáo và xuất báo cáo
+actor "Bệnh nhân" as A
+boundary "Care Report Page" as UI
+control ReportController as C
+control ReportService as S
+database MongoDB as DB
+A -> UI : Chọn khoảng thời gian báo cáo
+UI -> C : GET care report(window)
+C -> S : getPatientReport(window)
+S -> DB : Lấy metrics, tasks, alerts, consultations
+DB --> S : report data
+S --> C : report
+C --> UI : report response
+UI --> A : Hiển thị tiến độ, cảnh báo và báo cáo
+opt Bệnh nhân xuất báo cáo
+ A -> UI : Chọn PDF/CSV
+ UI -> C : POST export report
+ C -> S : exportReport(format, window)
+ S -> DB : Lấy dữ liệu đã authorize
+ DB --> S : export data
+ S --> C : report file
+ C --> UI : file download
+ UI --> A : Tải báo cáo
+end
+@enduml

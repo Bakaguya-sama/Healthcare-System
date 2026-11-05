@@ -1,0 +1,26 @@
+OK
+@startuml
+autoactivate on
+title Tạo lịch tư vấn
+actor "Bác sĩ" as A
+boundary "Availability Page" as UI
+control AvailabilityController as C
+control AvailabilityService as S
+database MongoDB as DB
+A -> UI : Nhập thời gian slot và cấu hình booking
+UI -> C : POST availability slots
+C -> S : createSlot(data)
+S -> DB : Kiểm tra approved, overlap và buffer
+DB --> S : validation
+alt Không hợp lệ
+ S --> C : Error
+ C --> UI : error
+ UI --> A : Hiển thị lỗi
+else Hợp lệ
+ S -> DB : Lưu available slot
+ DB --> S : saved
+ S --> C :  success
+ C --> UI : success
+ UI --> A : Hiển thị lịch tư vấn
+end
+@enduml

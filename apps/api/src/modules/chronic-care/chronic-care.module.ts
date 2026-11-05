@@ -59,6 +59,9 @@ import {
   CareSummarySchema,
 } from './domain/entities/care-summary.entity';
 import { CareSummaryService } from './application/services/care-summary.service';
+import { ChronicCareReadService } from './application/services/chronic-care-read.service';
+import { UsersCareIdentityAdapter } from './infrastructure/adapters/care-identity.adapter';
+import { CARE_IDENTITY_READER_PORT } from './application/ports/care-identity-reader.port';
 
 @Module({
   imports: [
@@ -100,6 +103,7 @@ import { CareSummaryService } from './application/services/care-summary.service'
     CareAlertService,
     CareReportService,
     CareSummaryService,
+    ChronicCareReadService,
     OutboxCareTaskQueue,
     {
       provide: CARE_TASK_QUEUE,
@@ -107,6 +111,7 @@ import { CareSummaryService } from './application/services/care-summary.service'
     },
     UsersDoctorAdapter,
     UsersPatientAdapter,
+    UsersCareIdentityAdapter,
     // Retained as an explicit deny-by-default fallback for isolated tests;
     // production composition always receives Billing-backed access decisions.
     NoEntitlementAdapter,
@@ -116,6 +121,10 @@ import { CareSummaryService } from './application/services/care-summary.service'
       useExisting: UsersDoctorAdapter,
     },
     { provide: PATIENT_REPOSITORY_PORT, useExisting: UsersPatientAdapter },
+    {
+      provide: CARE_IDENTITY_READER_PORT,
+      useExisting: UsersCareIdentityAdapter,
+    },
     {
       provide: CARE_PROGRAM_ACCESS_PORT,
       useExisting: BillingCareProgramAccessAdapter,

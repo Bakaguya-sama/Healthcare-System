@@ -49,7 +49,12 @@ import {
 } from '../src/infrastructure/outbox/entities/outbox-event.entity';
 import { OutboxService } from '../src/infrastructure/outbox/outbox.service';
 import { AiQuotaService } from '../src/modules/billing/application/services/ai-quota.service';
-import { AiQuotaReservation, AiQuotaReservationSchema, AiUsageDaily, AiUsageDailySchema } from '../src/modules/billing/domain/entities/ai-usage.entity';
+import {
+  AiQuotaReservation,
+  AiQuotaReservationSchema,
+  AiUsageDaily,
+  AiUsageDailySchema,
+} from '../src/modules/billing/domain/entities/ai-usage.entity';
 
 jest.setTimeout(30_000);
 
@@ -534,6 +539,7 @@ describe('CC-013 consultation usage ledger', () => {
     );
     await service.start(String(doctorId), String(start._id));
     await service.cancel(String(doctorId), String(cancel._id), {});
+    await service.complete(String(doctorId), String(start._id), {});
     await expect(
       service.start(String(doctorId), String(unmarked._id)),
     ).rejects.toThrow('Consultation quota cannot be counted');
@@ -635,12 +641,18 @@ describe('CC-013 consultation usage ledger', () => {
       requestedAt: respondedAt,
       respondedAt,
     });
-    await usage.reserve({ consultationId: String(consultation._id), patientId });
+    await usage.reserve({
+      consultationId: String(consultation._id),
+      patientId,
+    });
     const recovery = new ConsultationStaleRecoveryService(
       model as never,
       connection.model(AuditLog.name) as never,
       connection,
-      { run: async <T>(operation: Promise<T>) => operation, client: { get: jest.fn().mockResolvedValue(null) } } as never,
+      {
+        run: async <T>(operation: Promise<T>) => operation,
+        client: { get: jest.fn().mockResolvedValue(null) },
+      } as never,
       { build: (...parts: string[]) => parts.join(':') } as never,
       new OutboxService(connection.model(OutboxEvent.name) as never),
       usage,
@@ -651,10 +663,18 @@ describe('CC-013 consultation usage ledger', () => {
       onDemandTimeoutWarningQueuedAt: expect.any(Date),
       requestStatus: ConsultationRequestStatus.ACCEPTED,
     });
-    expect(await connection.model(OutboxEvent.name).countDocuments({ eventType: 'consultation.on-demand-timeout-warning' })).toBe(1);
+    expect(
+      await connection
+        .model(OutboxEvent.name)
+        .countDocuments({
+          eventType: 'consultation.on-demand-timeout-warning',
+        }),
+    ).toBe(1);
 
     await recovery.recover(new Date(respondedAt.getTime() + 60 * 60_000));
-    expect(await model.findById(consultation._id).lean()).toMatchObject({ requestStatus: ConsultationRequestStatus.ACCEPTED });
+    expect(await model.findById(consultation._id).lean()).toMatchObject({
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+    });
 
     await recovery.recover(new Date(respondedAt.getTime() + 61 * 60_000));
     expect(await model.findById(consultation._id).lean()).toMatchObject({
@@ -662,37 +682,74 @@ describe('CC-013 consultation usage ledger', () => {
       sessionStatus: ConsultationSessionStatus.NOT_STARTED,
       cancellationReason: 'system_timeout',
     });
-    expect(await connection.db!.collection('consultationusages').findOne({ consultationId: consultation._id })).toMatchObject({ status: 'released' });
-    expect(await connection.model(AuditLog.name).countDocuments({ entityId: consultation._id, action: 'on_demand_timeout_cancelled' })).toBe(1);
+    expect(
+      await connection
+        .db!.collection('consultationusages')
+        .findOne({ consultationId: consultation._id }),
+    ).toMatchObject({ status: 'released' });
+    expect(
+      await connection
+        .model(AuditLog.name)
+        .countDocuments({
+          entityId: consultation._id,
+          action: 'on_demand_timeout_cancelled',
+        }),
+    ).toBe(1);
   });
 
   it('extends once for waiting-room presence, never creates a ledger for included care, and queues scheduled review without release', async () => {
     const model = connection.model(Consultation.name);
     const now = new Date('2026-10-21T00:00:00.000Z');
     const included = await model.create({
-      patientId: new ObjectId(), doctorId: new ObjectId(), mode: ConsultationMode.ON_DEMAND,
-      requestStatus: ConsultationRequestStatus.ACCEPTED, sessionStatus: ConsultationSessionStatus.WAITING,
-      quotaPolicy: ConsultationQuotaPolicy.CARE_PROGRAM_INCLUDED, requestedAt: now, respondedAt: new Date(now.getTime() - 61 * 60_000),
+      patientId: new ObjectId(),
+      doctorId: new ObjectId(),
+      mode: ConsultationMode.ON_DEMAND,
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING,
+      quotaPolicy: ConsultationQuotaPolicy.CARE_PROGRAM_INCLUDED,
+      requestedAt: now,
+      respondedAt: new Date(now.getTime() - 61 * 60_000),
       onDemandTimeoutWarningQueuedAt: new Date(now.getTime() - 16 * 60_000),
     });
     const scheduled = await model.create({
-      patientId: new ObjectId(), doctorId: new ObjectId(), mode: ConsultationMode.SCHEDULED,
-      requestStatus: ConsultationRequestStatus.ACCEPTED, sessionStatus: ConsultationSessionStatus.WAITING,
-      requestedAt: now, scheduledStartAt: new Date(now.getTime() - 25 * 60 * 60_000),
+      patientId: new ObjectId(),
+      doctorId: new ObjectId(),
+      mode: ConsultationMode.SCHEDULED,
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING,
+      requestedAt: now,
+      scheduledStartAt: new Date(now.getTime() - 25 * 60 * 60_000),
     });
     const redisGet = jest.fn().mockResolvedValue('1');
     const recovery = new ConsultationStaleRecoveryService(
-      model as never, connection.model(AuditLog.name) as never, connection,
-      { run: async <T>(operation: Promise<T>) => operation, client: { get: redisGet } } as never,
+      model as never,
+      connection.model(AuditLog.name) as never,
+      connection,
+      {
+        run: async <T>(operation: Promise<T>) => operation,
+        client: { get: redisGet },
+      } as never,
       { build: (...parts: string[]) => parts.join(':') } as never,
-      new OutboxService(connection.model(OutboxEvent.name) as never), usage,
+      new OutboxService(connection.model(OutboxEvent.name) as never),
+      usage,
     );
     await recovery.recover(now);
-    expect(await model.findById(included._id).lean()).toMatchObject({ onDemandTimeoutExtensionExpiresAt: new Date(now.getTime() + 10 * 60_000) });
-    expect(await model.findById(scheduled._id).lean()).toMatchObject({ scheduledStaleReviewQueuedAt: expect.any(Date), requestStatus: ConsultationRequestStatus.ACCEPTED });
+    expect(await model.findById(included._id).lean()).toMatchObject({
+      onDemandTimeoutExtensionExpiresAt: new Date(now.getTime() + 10 * 60_000),
+    });
+    expect(await model.findById(scheduled._id).lean()).toMatchObject({
+      scheduledStaleReviewQueuedAt: expect.any(Date),
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+    });
     await recovery.recover(new Date(now.getTime() + 11 * 60_000));
-    expect(await model.findById(included._id).lean()).toMatchObject({ requestStatus: ConsultationRequestStatus.CANCELLED });
-    expect(await connection.db!.collection('consultationusages').countDocuments({ consultationId: included._id })).toBe(0);
+    expect(await model.findById(included._id).lean()).toMatchObject({
+      requestStatus: ConsultationRequestStatus.CANCELLED,
+    });
+    expect(
+      await connection
+        .db!.collection('consultationusages')
+        .countDocuments({ consultationId: included._id }),
+    ).toBe(0);
   });
 
   it('defers cancellation when Redis cannot verify waiting-room presence, and remains consistent when recovery races Doctor start', async () => {
@@ -700,43 +757,77 @@ describe('CC-013 consultation usage ledger', () => {
     const doctorId = new ObjectId();
     const model = connection.model(Consultation.name);
     const now = new Date('2026-10-21T02:00:00.000Z');
-    const create = () => model.create({
-      patientId: new ObjectId(patientId), doctorId,
-      mode: ConsultationMode.ON_DEMAND, requestStatus: ConsultationRequestStatus.ACCEPTED,
-      sessionStatus: ConsultationSessionStatus.WAITING, requestedAt: now,
-      respondedAt: new Date(now.getTime() - 61 * 60_000),
-      onDemandTimeoutWarningQueuedAt: new Date(now.getTime() - 16 * 60_000),
-    });
+    const create = () =>
+      model.create({
+        patientId: new ObjectId(patientId),
+        doctorId,
+        mode: ConsultationMode.ON_DEMAND,
+        requestStatus: ConsultationRequestStatus.ACCEPTED,
+        sessionStatus: ConsultationSessionStatus.WAITING,
+        requestedAt: now,
+        respondedAt: new Date(now.getTime() - 61 * 60_000),
+        onDemandTimeoutWarningQueuedAt: new Date(now.getTime() - 16 * 60_000),
+      });
     const deferred = await create();
     await usage.reserve({ consultationId: String(deferred._id), patientId });
     const unavailableRecovery = new ConsultationStaleRecoveryService(
-      model as never, connection.model(AuditLog.name) as never, connection,
-      { run: async <T>(operation: Promise<T>) => operation, client: { get: jest.fn().mockRejectedValue(new Error('Redis unavailable')) } } as never,
+      model as never,
+      connection.model(AuditLog.name) as never,
+      connection,
+      {
+        run: async <T>(operation: Promise<T>) => operation,
+        client: {
+          get: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
+        },
+      } as never,
       { build: (...parts: string[]) => parts.join(':') } as never,
-      new OutboxService(connection.model(OutboxEvent.name) as never), usage,
+      new OutboxService(connection.model(OutboxEvent.name) as never),
+      usage,
     );
     await unavailableRecovery.recover(now);
-    expect(await model.findById(deferred._id).lean()).toMatchObject({ requestStatus: ConsultationRequestStatus.ACCEPTED, sessionStatus: ConsultationSessionStatus.WAITING });
+    expect(await model.findById(deferred._id).lean()).toMatchObject({
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING,
+    });
 
     const raced = await create();
     await usage.reserve({ consultationId: String(raced._id), patientId });
     const recovery = new ConsultationStaleRecoveryService(
-      model as never, connection.model(AuditLog.name) as never, connection,
-      { run: async <T>(operation: Promise<T>) => operation, client: { get: jest.fn().mockResolvedValue(null) } } as never,
+      model as never,
+      connection.model(AuditLog.name) as never,
+      connection,
+      {
+        run: async <T>(operation: Promise<T>) => operation,
+        client: { get: jest.fn().mockResolvedValue(null) },
+      } as never,
       { build: (...parts: string[]) => parts.join(':') } as never,
-      new OutboxService(connection.model(OutboxEvent.name) as never), usage,
+      new OutboxService(connection.model(OutboxEvent.name) as never),
+      usage,
     );
-    const consultations = new ConsultationsService(model as never, { create: jest.fn() } as never, {} as never, usage, connection);
-    await Promise.allSettled([recovery.recover(now), consultations.start(String(doctorId), String(raced._id))]);
+    const consultations = new ConsultationsService(
+      model as never,
+      { create: jest.fn() } as never,
+      {} as never,
+      usage,
+      connection,
+    );
+    await Promise.allSettled([
+      recovery.recover(now),
+      consultations.start(String(doctorId), String(raced._id)),
+    ]);
     const result = (await model.findById(raced._id).lean()) as {
       requestStatus?: ConsultationRequestStatus;
       sessionStatus?: ConsultationSessionStatus;
     } | null;
-    const ledger = await connection.db!.collection('consultationusages').findOne({ consultationId: raced._id });
+    const ledger = await connection
+      .db!.collection('consultationusages')
+      .findOne({ consultationId: raced._id });
     if (result?.requestStatus === ConsultationRequestStatus.CANCELLED) {
       expect(ledger?.status).toBe('released');
     } else {
-      expect(result?.sessionStatus).toBe(ConsultationSessionStatus.IN_CONSULTATION);
+      expect(result?.sessionStatus).toBe(
+        ConsultationSessionStatus.IN_CONSULTATION,
+      );
       expect(ledger?.status).toBe('counted');
     }
   });
@@ -748,26 +839,93 @@ describe('CC-013 consultation usage ledger', () => {
       connection.model(AiQuotaReservation.name) as never,
       connection.model(AuditLog.name) as never,
       connection,
-      new FreeSubscriptionGrantService(connection.model(Plan.name) as never, connection.model(Subscription.name) as never),
+      new FreeSubscriptionGrantService(
+        connection.model(Plan.name) as never,
+        connection.model(Subscription.name) as never,
+      ),
     );
-    const first = await quota.reserve({ userId: patientId, idempotencyKey: 'chat-one', estimatedInputTokens: 100, maxOutputTokens: 500 });
-    const replay = await quota.reserve({ userId: patientId, idempotencyKey: 'chat-one', estimatedInputTokens: 100, maxOutputTokens: 500 });
+    const first = await quota.reserve({
+      userId: patientId,
+      idempotencyKey: 'chat-one',
+      estimatedInputTokens: 100,
+      maxOutputTokens: 500,
+    });
+    const replay = await quota.reserve({
+      userId: patientId,
+      idempotencyKey: 'chat-one',
+      estimatedInputTokens: 100,
+      maxOutputTokens: 500,
+    });
     expect(replay.reservationId).toBe(first.reservationId);
-    await quota.commit({ reservationId: first.reservationId, inputTokens: 100, outputTokens: 200 });
+    await quota.commit({
+      reservationId: first.reservationId,
+      inputTokens: 100,
+      outputTokens: 200,
+    });
     await quota.release(first.reservationId);
-    expect(await connection.model(AiUsageDaily.name).findOne({ userId: new ObjectId(patientId) }).lean()).toMatchObject({ chatRequestCount: 1, chatTotalTokens: 300, reservedTokens: 0 });
+    expect(
+      await connection
+        .model(AiUsageDaily.name)
+        .findOne({ userId: new ObjectId(patientId) })
+        .lean(),
+    ).toMatchObject({
+      chatRequestCount: 1,
+      chatTotalTokens: 300,
+      reservedTokens: 0,
+    });
 
-    const failed = await quota.reserve({ userId: patientId, idempotencyKey: 'provider-failed', estimatedInputTokens: 100, maxOutputTokens: 500 });
+    const failed = await quota.reserve({
+      userId: patientId,
+      idempotencyKey: 'provider-failed',
+      estimatedInputTokens: 100,
+      maxOutputTokens: 500,
+    });
     await quota.release(failed.reservationId);
-    expect(await connection.model(AiQuotaReservation.name).findById(failed.reservationId).lean()).toMatchObject({ status: 'released' });
+    expect(
+      await connection
+        .model(AiQuotaReservation.name)
+        .findById(failed.reservationId)
+        .lean(),
+    ).toMatchObject({ status: 'released' });
 
-    const missingUsage = await quota.reserve({ userId: patientId, idempotencyKey: 'usage-missing', estimatedInputTokens: 10, maxOutputTokens: 20 });
-    await quota.markUsageReconciliationRequired(missingUsage.reservationId, 'provider_usage_metadata_missing');
-    expect(await connection.model(AiQuotaReservation.name).findById(missingUsage.reservationId).lean()).toMatchObject({ status: 'usage_reconciliation_required', settlementFailureReason: 'provider_usage_metadata_missing' });
-    expect(await connection.db!.collection('auditlogs').countDocuments({ action: 'ai_quota_usage_reconciliation_required' })).toBe(1);
+    const missingUsage = await quota.reserve({
+      userId: patientId,
+      idempotencyKey: 'usage-missing',
+      estimatedInputTokens: 10,
+      maxOutputTokens: 20,
+    });
+    await quota.markUsageReconciliationRequired(
+      missingUsage.reservationId,
+      'provider_usage_metadata_missing',
+    );
+    expect(
+      await connection
+        .model(AiQuotaReservation.name)
+        .findById(missingUsage.reservationId)
+        .lean(),
+    ).toMatchObject({
+      status: 'usage_reconciliation_required',
+      settlementFailureReason: 'provider_usage_metadata_missing',
+    });
+    expect(
+      await connection
+        .db!.collection('auditlogs')
+        .countDocuments({ action: 'ai_quota_usage_reconciliation_required' }),
+    ).toBe(1);
 
-    const results = await Promise.allSettled(Array.from({ length: 12 }, (_, index) => quota.reserve({ userId: patientId, idempotencyKey: `race-${index}`, estimatedInputTokens: 1, maxOutputTokens: 1 })));
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(8);
+    const results = await Promise.allSettled(
+      Array.from({ length: 12 }, (_, index) =>
+        quota.reserve({
+          userId: patientId,
+          idempotencyKey: `race-${index}`,
+          estimatedInputTokens: 1,
+          maxOutputTokens: 1,
+        }),
+      ),
+    );
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(8);
   });
 
   async function activeSubscription(limit: number) {

@@ -64,6 +64,12 @@ export const realtimeContract = {
         consultation_changed: {
           $ref: '#/components/messages/consultationChanged',
         },
+        'queue.v1.changed': {
+          $ref: '#/components/messages/queueChanged',
+        },
+        'queue.v1.called': {
+          $ref: '#/components/messages/queueCalled',
+        },
       },
     },
     notifications: {
@@ -144,6 +150,39 @@ export const realtimeContract = {
         payload: {
           type: 'object',
           required: ['action', 'consultationId', 'patientId', 'doctorId'],
+        },
+      },
+      queueChanged: {
+        description:
+          'Safe queue projection for the owning Patient and assigned Doctor; reconnect must refetch REST state.',
+        payload: {
+          type: 'object',
+          required: [
+            'consultationId',
+            'position',
+            'estimatedWaitMinutes',
+            'version',
+          ],
+          properties: {
+            consultationId: { type: 'string' },
+            position: { type: 'integer', minimum: 1 },
+            estimatedWaitMinutes: {
+              oneOf: [{ type: 'integer', minimum: 0 }, { type: 'null' }],
+            },
+            version: { type: 'string' },
+          },
+        },
+      },
+      queueCalled: {
+        description:
+          'The assigned Doctor called this consultation; the Patient may proceed to the consultation start flow.',
+        payload: {
+          type: 'object',
+          required: ['consultationId', 'calledAt'],
+          properties: {
+            consultationId: { type: 'string' },
+            calledAt: { type: 'string', format: 'date-time' },
+          },
         },
       },
       notificationChanged: {

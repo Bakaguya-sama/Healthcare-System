@@ -11,7 +11,8 @@ export class CareCommandIdempotency {
   @Prop({ required: true, trim: true }) operation: string;
   @Prop({ required: true, trim: true }) key: string;
   @Prop({ required: true }) requestHash: string;
-  @Prop({ required: true, trim: true }) entityType: 'careProgram' | 'careRule' | 'careEnrollment';
+  @Prop({ required: true, trim: true })
+  entityType: 'careProgram' | 'careRule' | 'careEnrollment' | 'careTask';
   @Prop({ type: Types.ObjectId, required: true }) entityId: Types.ObjectId;
 }
 

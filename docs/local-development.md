@@ -1,6 +1,8 @@
 # Local backend development
 
-Tài liệu này là entry gate cho RF-1. Backend dùng Node `24.9.0`, pnpm `9.0.0`, MongoDB `8.0.30` chạy single-node replica set và Redis `8.2.9`.
+Tài liệu này là hướng dẫn phát triển backend hiện hành. Backend dùng Node
+`24.9.0`, pnpm `9.0.0`, MongoDB `8.0.30` chạy single-node replica set và Redis
+`8.2.9`.
 
 ## 1. Yêu cầu
 
