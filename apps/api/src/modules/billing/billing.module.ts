@@ -23,8 +23,18 @@ import { AiQuotaService } from './application/services/ai-quota.service';
 import { PlanAdministrationService } from './application/services/plan-administration.service';
 import { PlansController } from './presentation/controllers/plans.controller';
 import { AI_QUOTA_PORT } from './application/ports/ai-quota.port';
-import { AiUsageDaily, AiUsageDailySchema, AiQuotaReservation, AiQuotaReservationSchema } from './domain/entities/ai-usage.entity';
-import { PaymentOrder, PaymentOrderSchema, PaymentTransaction, PaymentTransactionSchema } from './domain/entities/payment.entity';
+import {
+  AiUsageDaily,
+  AiUsageDailySchema,
+  AiQuotaReservation,
+  AiQuotaReservationSchema,
+} from './domain/entities/ai-usage.entity';
+import {
+  PaymentOrder,
+  PaymentOrderSchema,
+  PaymentTransaction,
+  PaymentTransactionSchema,
+} from './domain/entities/payment.entity';
 import { PAYMENT_PROVIDER } from './application/ports/payment-provider.port';
 import { VnpayPaymentGatewayAdapter } from './infrastructure/vnpay/vnpay-payment-gateway.adapter';
 import { PaymentOrderService } from './application/services/payment-order.service';
@@ -34,12 +44,22 @@ import { PaymentEvidenceService } from './application/services/payment-evidence.
 import { PaymentQrService } from './infrastructure/qr/payment-qr.service';
 import { PatientBillingReadService } from './application/services/patient-billing-read.service';
 import { PatientBillingReadController } from './presentation/controllers/patient-billing-read.controller';
+import { PatientPaymentOrderReadService } from './application/services/patient-payment-order-read.service';
 
 @Module({
   imports: [
     PlatformAuditModule,
     OutboxModule,
-    VnpayModule.registerAsync({ imports: [ConfigModule], inject: [ConfigService], useFactory: (config: ConfigService) => ({ tmnCode: config.get<string>('VNPAY_TMN_CODE') ?? 'DISABLED', secureSecret: config.get<string>('VNPAY_HASH_SECRET') ?? 'DISABLED', testMode: config.get<boolean>('VNPAY_SANDBOX') === true, loggerFn: ignoreLogger }) }),
+    VnpayModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        tmnCode: config.get<string>('VNPAY_TMN_CODE') ?? 'DISABLED',
+        secureSecret: config.get<string>('VNPAY_HASH_SECRET') ?? 'DISABLED',
+        testMode: config.get<boolean>('VNPAY_SANDBOX') === true,
+        loggerFn: ignoreLogger,
+      }),
+    }),
     MongooseModule.forFeature([
       { name: Plan.name, schema: PlanSchema },
       { name: Subscription.name, schema: SubscriptionSchema },
@@ -50,7 +70,11 @@ import { PatientBillingReadController } from './presentation/controllers/patient
       { name: PaymentTransaction.name, schema: PaymentTransactionSchema },
     ]),
   ],
-  controllers: [PlansController, PaymentsController, PatientBillingReadController],
+  controllers: [
+    PlansController,
+    PaymentsController,
+    PatientBillingReadController,
+  ],
   providers: [
     FreeSubscriptionGrantService,
     SubscriptionCareProgramAccessService,
@@ -62,6 +86,7 @@ import { PatientBillingReadController } from './presentation/controllers/patient
     PaymentQrService,
     SubscriptionPaymentGrantService,
     PatientBillingReadService,
+    PatientPaymentOrderReadService,
     VnpayPaymentGatewayAdapter,
     {
       provide: BILLING_CARE_PROGRAM_ACCESS,
@@ -74,6 +99,11 @@ import { PatientBillingReadController } from './presentation/controllers/patient
     { provide: AI_QUOTA_PORT, useExisting: AiQuotaService },
     { provide: PAYMENT_PROVIDER, useExisting: VnpayPaymentGatewayAdapter },
   ],
-  exports: [BILLING_CARE_PROGRAM_ACCESS, CONSULTATION_USAGE_PORT, AI_QUOTA_PORT, SubscriptionPaymentGrantService],
+  exports: [
+    BILLING_CARE_PROGRAM_ACCESS,
+    CONSULTATION_USAGE_PORT,
+    AI_QUOTA_PORT,
+    SubscriptionPaymentGrantService,
+  ],
 })
 export class BillingModule {}

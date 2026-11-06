@@ -854,6 +854,28 @@ interface PaymentOrderDto {
   updatedAt: IsoDateTime;
 }
 
+interface PatientPaymentOrderListItemDto {
+  id: Id;
+  orderCode: string;
+  status: PaymentOrderStatus;
+  amount: MoneyVnd;
+  currency: string;
+  plan: Pick<PlanDto, "code" | "name" | "version">;
+  expiresAt: IsoDateTime;
+  paidAt?: IsoDateTime;
+  cancelledAt?: IsoDateTime;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+interface PatientPaymentOrderPageDto {
+  items: PatientPaymentOrderListItemDto[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface SubscriptionDto {
   id: Id;
   sourceOrderId?: Id;
@@ -1258,24 +1280,31 @@ Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; 
 | BILL-01 | `GET /plans`                                | Patient                  | page/limit/sort allowlist; effective published only  | paged public Plan projection                                       | Implemented Slice D4; bounded projection + stable `_id` sort                                |
 | BILL-02 | `GET /subscriptions/me`                     | Patient                  | status/page/limit/sort allowlist                     | paged owner history + nullable `effective` immutable entitlement   | Implemented Slice D4; lifecycle authority selects current                                   |
 | BILL-03 | `POST /billing/payments/orders`             | Patient                  | `{ planId }` + `Idempotency-Key`                     | `PaymentOrderDto` + transient `paymentUrl`/`paymentQrDataUrl`      | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
-| BILL-04 | `GET /billing/payments/orders`              | Patient                  | status/page                                          | order page                                                         | Target P0; list chưa có trong source                                                        |
+| BILL-04 | `GET /billing/payments/orders`              | Patient                  | status/page/limit; `sortBy=createdAt`; `sortOrder=±1` | `PatientPaymentOrderPageDto`                                       | Implemented Slice D7; JWT owner scope, hard limit 100, stable `createdAt + _id` sort        |
 | BILL-05 | `GET /billing/payments/orders/:id`          | Patient owner            | none                                                 | owner-scoped order                                                 | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
 | BILL-06 | `POST /billing/payments/orders/:id/cancel`  | Patient owner            | none                                                 | cancelled unpaid order                                             | Implemented `CC-PAY-001`; reason/idempotency hardening chưa thuộc runtime contract hiện tại |
 | BILL-07 | `GET /billing/payments/vnpay/return`        | Public/provider redirect | VNPAY params                                         | display-only `payment_verification_pending`                        | Implemented `CC-PAY-001`; IPN vẫn là authority                                              |
 | BILL-08 | `GET /billing/payments/vnpay/ipn`           | VNPAY                    | signed params                                        | provider-required acknowledgement                                  | Implemented `CC-PAY-001`; public GET                                                        |
 | BILL-09 | `POST /billing/orders/:id/refunds`          | Patient owner            | reason/reasonCode + idempotency                      | `PaymentRefundDto`                                                 | Target P1                                                                                   |
 | BILL-10 | `GET /billing/refunds/:id`                  | Owner/Admin              | none                                                 | refund                                                             | Target P1                                                                                   |
-| BILL-11 | `GET /admin/billing/orders`                 | Admin                    | status/date/user/orderCode/page                      | order page + totals                                                | Target P0                                                                                   |
-| BILL-12 | `GET /admin/billing/orders/:id`             | Admin                    | none                                                 | order, transaction, subscription, refund                           | Target P0                                                                                   |
+| BILL-11 | `GET /admin/billing/orders`                 | Admin                    | status/date/user/orderCode/page                      | order page + totals                                                | Post-DA2/P1; Admin billing dashboard không thuộc P0 consumer handoff                         |
+| BILL-12 | `GET /admin/billing/orders/:id`             | Admin                    | none                                                 | order, transaction, subscription, refund                           | Post-DA2/P1; không mở rộng quyền qua Patient self-service route                              |
 | BILL-13 | `GET /admin/billing/refunds`                | Admin                    | status/date/user/page                                | refund page + status totals                                        | Target P1                                                                                   |
 | BILL-14 | `POST /admin/billing/refunds/:id/approve`   | Admin                    | review note + optional override reason + idempotency | refund approved after server re-evaluation                         | Target P1                                                                                   |
 | BILL-15 | `POST /admin/billing/refunds/:id/reject`    | Admin                    | rejectionReason                                      | refund rejected                                                    | Target P1                                                                                   |
 | BILL-16 | `POST /admin/billing/refunds/:id/reconcile` | Admin                    | none + idempotency                                   | refreshed refund status                                            | Target P1                                                                                   |
 | BILL-17 | `GET /billing/refunds`                      | Patient owner            | status/page                                          | `PageResult<PaymentRefundDto>`                                     | Target P1                                                                                   |
 | BILL-18 | `GET /subscriptions/me/usage`               | Patient                  | none                                                 | effective cycle + ordinary consultation counted/reserved/available | Implemented Slice D4 consultation meter; AI/Program/family aggregate remains separate scope |
-| BILL-19 | `POST /admin/billing/orders/:id/reconcile`  | Authorized Admin         | none + idempotency                                   | refreshed order/transaction/grant status                           | Target P0; không mark-paid thủ công                                                         |
+| BILL-19 | `POST /admin/billing/orders/:id/reconcile`  | Authorized Admin         | none + idempotency                                   | refreshed order/transaction/grant status                           | Post-DA2/P1; không mark-paid thủ công                                                        |
 
 IPN và refund provider callbacks không được gọi bằng browser client. `paymentUrl` và `paymentQrDataUrl` chỉ được dùng sau khi BILL-03 trả về; QR mã hóa đúng signed URL và không được persist/cache vượt quá hạn order. Payment Return UI nằm ở frontend repository riêng, chỉ hiển thị trạng thái và gọi BILL-05 để lấy nguồn chuẩn; backend Return endpoint không cấp quyền và IPN vẫn là authority. `CC-PAY-001` chỉ thu tiền mua/gia hạn Subscription; không tạo khoản phí từng Consultation. Mọi consultation-charging slice tương lai phải từ chối charge khi snapshot `quotaPolicy = care_program_included`.
+
+`BILL-04` lấy ownership duy nhất từ JWT, không nhận owner filter, và chỉ trả immutable
+Plan summary cùng amount/currency/status/timestamps cần cho history UI. Endpoint không
+populate mutable Plan, không trả raw `orderSnapshot`, `PaymentTransaction`, VNPAY
+params/signature, IPN/Return payload, gateway reference, reconciliation/grant/outbox
+hay audit metadata; empty history trả page rỗng và snapshot corrupt fail-closed bằng
+`BILLING_PROJECTION_UNAVAILABLE`. `BILL-05` vẫn là route mở chi tiết owner-scoped.
 
 ### 5.7 Notification, moderation và admin dashboard
 

@@ -118,3 +118,19 @@ RF-2E đã bật duy nhất doctor directory sau khi đáp ứng key version, TT
 - Integration: 2 suites, 4 tests pass với MongoDB replica set, Redis và index-plan regression.
 - E2E: 1 suite, 2 tests pass.
 - `git diff --check`: pass.
+
+## DA2 addendum — BILL-04 Patient PaymentOrder history (2026-11-06)
+
+| Query ID | Actor scope/filter | Stable sort | Managed index |
+| --- | --- | --- | --- |
+| `Q-PAY-001` | `userId = JWT sub` | `createdAt DESC, _id DESC` | `userId_1_createdAt_-1__id_-1` |
+| `Q-PAY-002` | `userId = JWT sub`, exact allowlisted `status` | `createdAt DESC, _id DESC` | `userId_1_status_1_createdAt_-1__id_-1` |
+
+Hai query dùng page/limit với hard limit 100 và chỉ select bounded Patient projection.
+`countDocuments` dùng cùng owner/status filter; read path không populate mutable Plan
+hoặc `PaymentTransactions`. Index cũ `userId_1_status_1_createdAt_-1` không support
+`Q-PAY-001` vì `status` nằm giữa owner và sort, đồng thời thiếu `_id` tie-breaker.
+
+`patient-payment-order-read.integration-spec.ts` tạo fixture owner/cross-owner, apply
+migration idempotent và chạy `explain('executionStats')` với hint cho cả hai shape;
+winning plan phải có `IXSCAN`, không `COLLSCAN` và không blocking `SORT`.

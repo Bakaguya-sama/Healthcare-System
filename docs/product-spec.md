@@ -368,6 +368,14 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 42. Khi đã có thay đổi gói kế tiếp, lần mua mới bị từ chối cho tới khi thay đổi cũ được hủy theo policy hoặc đã có hiệu lực. DA2 không prorate, không cộng dồn hai Plan và không nâng cấp giữa chu kỳ; chính sách này phải hiển thị trước thanh toán.
 43. Worker chuyển chu kỳ bằng conditional update: kiểm tra active subscription và `nextPlanStartsAt`, tăng `cycleNumber`, áp dụng snapshot mới, xóa các field `nextPlan*` và ghi `AuditLogs`. Retry không được chuyển chu kỳ hai lần.
 44. `Plans` được version hóa. Admin chỉ sửa version `draft`; publish tạo version bán được với `effectiveFrom/effectiveUntil`. PaymentOrder và Subscription luôn snapshot Plan đã publish, nên sửa Plan mới không âm thầm đổi quyền lợi đã mua.
+45. Patient xem lịch sử PaymentOrder qua owner-scoped read API. JWT subject là authority;
+    client không truyền patient/user owner. List chỉ nhận status/sort allowlist, có
+    pagination hard limit 100 và stable sort `createdAt + _id`.
+46. PaymentOrder history chỉ trả bounded projection gồm order identity, public status,
+    amount/currency, Plan `code/name/version` từ immutable order snapshot và các
+    timestamp public có nguồn thật. Không trả raw order snapshot, benefit/refund rule,
+    PaymentTransaction, VNPAY/IPN/Return, gateway, reconciliation, grant, outbox hoặc
+    audit metadata. Empty history là kết quả hợp lệ; projection corrupt fail-closed.
 45. Patient Plan catalog chỉ trả Plan `published` trong cửa sổ hiệu lực, dùng public
     projection bounded và pagination hard limit. Draft/retired, refund policy nội bộ,
     audit/source và provider configuration không thuộc Patient response.
@@ -515,7 +523,8 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Nhận Care Alert có lý do rõ ràng và chuyển sang đặt lịch/on-demand consultation khi cần.
 - Tìm cơ sở y tế theo chuyên khoa, địa điểm và khoảng cách; xem lý do gợi ý, nguồn dữ liệu và liên kết chỉ đường. Kết quả không phải khuyến nghị về chất lượng chuyên môn.
 - Hỏi AI, xem citation/lịch sử và phần trăm quota token còn lại.
-- Xem Plans, tạo PaymentOrder, theo dõi kết quả thanh toán và Subscription.
+- Xem Plans, tạo PaymentOrder, xem lịch sử PaymentOrder owner-scoped, mở chi tiết để
+  theo dõi kết quả thanh toán và xem Subscription.
 - Cancel order chưa thanh toán; gửi full-refund request cho order đã paid.
 - Review bác sĩ sau consultation completed và gửi ViolationReport.
 - Nhận notification trong app và FCM trên mobile.
@@ -682,7 +691,7 @@ stateDiagram-v2
 ```
 
 - Return URL chỉ hiển thị trạng thái; IPN hợp lệ mới ghi nhận paid và tạo outbox event yêu cầu cấp quyền lợi.
-- API P0: `POST /billing/payments/orders` (Patient, bắt buộc `Idempotency-Key`, server nhận `planId` nhưng tự chụp giá/quyền lợi và trả `paymentUrl`/`paymentQrDataUrl` khi order còn payable), `GET /billing/payments/orders/:id` (chỉ owner; Return UI dùng để đọc trạng thái), `POST /billing/payments/orders/:id/cancel` (chỉ owner, chỉ unpaid) và public `GET /billing/payments/vnpay/ipn` theo callback contract của VNPAY. API không nhận amount, benefit, transaction reference hoặc trạng thái từ client.
+- API P0: `POST /billing/payments/orders` (Patient, bắt buộc `Idempotency-Key`, server nhận `planId` nhưng tự chụp giá/quyền lợi và trả `paymentUrl`/`paymentQrDataUrl` khi order còn payable), `GET /billing/payments/orders` (Patient-only owner history, status/page/limit/sort allowlist, bounded snapshot projection), `GET /billing/payments/orders/:id` (chỉ owner; Return UI dùng để đọc trạng thái), `POST /billing/payments/orders/:id/cancel` (chỉ owner, chỉ unpaid) và public `GET /billing/payments/vnpay/ipn` theo callback contract của VNPAY. API không nhận amount, benefit, transaction reference hoặc trạng thái từ client.
 - Khi provider feature flag tắt, hệ thống từ chối tạo order mới nhưng vẫn nhận IPN hợp lệ cho order đã tạo; điều này ngăn phát sinh giao dịch mới mà không bỏ sót tiền đã thu.
 - Duplicate IPN không tạo hai subscriptions.
 - Mỗi paid order tạo một Subscription grant có `sourceOrderId` unique.

@@ -54,6 +54,7 @@ registry quản lý tiếp theo như sau:
 | 202611042000 | `care-task-read-response` | CareTask read/typed-response persistence alignment |
 | 202611052000 | `care-task-policy-v1` | Check-in, education catalog, doctor review và Consultation link contract |
 | 202611061000 | `care-report-exports` | Durable PDF/CSV export job, idempotency, worker lease và expiry cleanup indexes |
+| 202611062000 | `patient-payment-order-read-indexes` | BILL-04 owner/status stable pagination indexes |
 
 ### `202611061000-care-report-exports`
 
@@ -72,3 +73,16 @@ Migration đã được đăng ký trong `migration-registry.ts`, collection/ind
 
 Không sửa migration lịch sử `cc006-care-reports`: export job có lifecycle và query
 shape riêng, còn `CareReport` tiếp tục là immutable clinical snapshot.
+
+### `202611062000-patient-payment-order-read-indexes`
+
+Migration additive, không sửa validator hay migration PaymentOrder lịch sử. Hai index:
+
+1. `{ userId: 1, createdAt: -1, _id: -1 }` — owner history không status.
+2. `{ userId: 1, status: 1, createdAt: -1, _id: -1 }` — owner history có status.
+
+`_id` là tie-breaker của stable page sort. Migration được đăng ký trong registry và
+hai index được khai báo trong schema manifest. Evidence local replica set ngày
+2026-11-06: `applied 202611062000-patient-payment-order-read-indexes`; verifier pass
+`version=202611062000, collections=37, managedIndexes=117`; lần migrate thứ hai trả
+`skip 202611062000-patient-payment-order-read-indexes`.

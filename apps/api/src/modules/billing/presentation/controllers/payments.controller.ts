@@ -7,10 +7,20 @@ import {
   Ip,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
 import { Roles } from '../../../../core/decorators/roles.decorator';
@@ -19,13 +29,19 @@ import { RolesGuard } from '../../../../core/guards/roles.guard';
 import { UserRole } from '../../../../core/domain/user.enums';
 import { PaymentOrderService } from '../../application/services/payment-order.service';
 import { PaymentEvidenceService } from '../../application/services/payment-evidence.service';
+import { PatientPaymentOrderReadService } from '../../application/services/patient-payment-order-read.service';
 import { CreatePaymentOrderDto } from '../dto/payment.dto';
+import {
+  PatientPaymentOrderPageDto,
+  QueryPatientPaymentOrdersDto,
+} from '../dto/patient-payment-order-read.dto';
 @ApiTags('billing-payments')
 @Controller('billing/payments')
 export class PaymentsController {
   constructor(
     private readonly payments: PaymentOrderService,
     private readonly evidence: PaymentEvidenceService,
+    private readonly patientReads: PatientPaymentOrderReadService,
   ) {}
   @Post('orders')
   @ApiBearerAuth()
@@ -38,6 +54,24 @@ export class PaymentsController {
     @Ip() ip: string,
   ) {
     return this.payments.create(userId, dto.planId, key, ip);
+  }
+  @Get('orders')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List the current Patient payment-order history' })
+  @ApiOkResponse({ type: PatientPaymentOrderPageDto })
+  @ApiBadRequestResponse({ description: 'Invalid status or pagination query' })
+  @ApiUnauthorizedResponse({ description: 'Bearer token is required' })
+  @ApiForbiddenResponse({ description: 'Patient role is required' })
+  @ApiServiceUnavailableResponse({
+    description: 'An immutable payment-order snapshot is corrupt',
+  })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PATIENT)
+  list(
+    @CurrentUser('sub') userId: string,
+    @Query() query: QueryPatientPaymentOrdersDto,
+  ) {
+    return this.patientReads.list(userId, query);
   }
   @Post('orders/:id/cancel')
   @ApiBearerAuth()

@@ -239,6 +239,12 @@ import {
   CARE_REPORT_EXPORTS_NAME,
   CARE_REPORT_EXPORTS_VERSION,
 } from './202611061000-care-report-exports';
+import {
+  applyPatientPaymentOrderReadIndexes,
+  PATIENT_PAYMENT_ORDER_READ_INDEXES_CHECKSUM,
+  PATIENT_PAYMENT_ORDER_READ_INDEXES_NAME,
+  PATIENT_PAYMENT_ORDER_READ_INDEXES_VERSION,
+} from './202611062000-patient-payment-order-read-indexes';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -480,6 +486,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CARE_REPORT_EXPORTS_NAME,
     checksum: CARE_REPORT_EXPORTS_CHECKSUM,
     up: applyCareReportExports,
+  },
+  {
+    version: PATIENT_PAYMENT_ORDER_READ_INDEXES_VERSION,
+    name: PATIENT_PAYMENT_ORDER_READ_INDEXES_NAME,
+    checksum: PATIENT_PAYMENT_ORDER_READ_INDEXES_CHECKSUM,
+    up: applyPatientPaymentOrderReadIndexes,
   },
 ];
 

@@ -56,6 +56,14 @@ PaymentOrderSchema.index(
   { userId: 1, status: 1, createdAt: -1 },
   { name: 'userId_1_status_1_createdAt_-1' },
 );
+PaymentOrderSchema.index(
+  { userId: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_createdAt_-1__id_-1' },
+);
+PaymentOrderSchema.index(
+  { userId: 1, status: 1, createdAt: -1, _id: -1 },
+  { name: 'userId_1_status_1_createdAt_-1__id_-1' },
+);
 PaymentOrderSchema.index({ expiresAt: 1 }, { name: 'expiresAt_1' });
 
 @Schema({ timestamps: true, collection: 'paymenttransactions' })

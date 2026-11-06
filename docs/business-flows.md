@@ -242,7 +242,28 @@ IPN/Return, audit actor hay reconciliation metadata.
 `BILLING_PROJECTION_UNAVAILABLE` thay vì đoán quota bằng 0 hoặc unlimited. Plan ID
 invalid, không tồn tại hoặc ngoài public catalog đều trả cùng safe not-found behavior.
 
-**P0 còn thiếu ngoài Slice D4:** Patient PaymentOrder list và PDF/CSV report export.
+### Patient PaymentOrder history — ✅ Slice D7
+
+1. Patient gọi `GET /billing/payments/orders`; JWT subject là ownership authority và
+   API không nhận `patientId/userId` từ query.
+2. Backend query trực tiếp `PaymentOrders.userId`, tùy chọn filter đúng enum `status`,
+   phân trang bounded (`limit <= 100`) và sắp xếp ổn định theo
+   `createdAt DESC, _id DESC` mặc định. Kết quả rỗng là một page hợp lệ.
+3. Mỗi item chỉ lấy giá, currency và Plan `code/name/version` từ immutable
+   `orderSnapshot`; Plan catalog hiện tại không hồi tố lịch sử thanh toán.
+4. Projection không chứa `PaymentTransaction`, VNPAY/IPN/Return payload, chữ ký,
+   gateway reference, idempotency key, reconciliation/grant/outbox hay audit metadata.
+5. Patient mở một item bằng owner-scoped `BILL-05`; Doctor/Admin không dùng
+   self-service list route này. List là read-only, không tạo payment, gọi VNPAY hoặc
+   sửa trạng thái/grant Subscription.
+
+**Ngoại lệ đọc:** query ngoài allowlist bị validation từ chối; snapshot hoặc timestamp
+bắt buộc bị hỏng trả `BILLING_PROJECTION_UNAVAILABLE` thay vì lấy mutable Plan hoặc
+điền giá trị giả. Cross-patient bị chặn ngay trong database filter.
+
+**P0 API handoff sau Slice D7:** Patient PaymentOrder history và PDF/CSV report export
+đều đã có runtime route, authorization, bounded projection và OpenAPI. Công việc tiếp
+theo là release-readiness DA2; Admin billing dashboard/refund vẫn ngoài slice này.
 
 ## 5. Báo cáo và export — ✅ report và PDF/CSV export
 
@@ -281,6 +302,9 @@ vẫn trả deterministic report; projection theo role không lộ dữ liệu n
    immutable CareReport. Chính xác TTL, PDF layout/branding/locale và CSV column schema
    dùng hai config bắt buộc `CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES` và
    `CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS`; thiếu config thì command fail-closed.
+   Đơn vị lần lượt là phút và giây; khuyến nghị deploy hiện tại `1440`/`300`, signed
+   URL phải ngắn hơn artifact lifetime. Cloudinary credential và Outbox worker phải
+   được cấu hình/chạy riêng; không ghi credential vào source/docs.
    PDF/CSV hiện dùng renderer deterministic `care-report-export.v1`; thay branding,
    locale hoặc CSV columns phải tăng renderer version.
 

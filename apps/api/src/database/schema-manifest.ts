@@ -78,6 +78,7 @@ import {
   CARE_REPORT_EXPORT_COLLECTION,
   CARE_REPORT_EXPORT_INDEXES,
 } from './migrations/202611061000-care-report-exports';
+import { PATIENT_PAYMENT_ORDER_READ_INDEXES } from './migrations/202611062000-patient-payment-order-read-indexes';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -171,6 +172,7 @@ export const MANAGED_DATABASE_INDEXES = [
   ...CARE_TASK_READ_RESPONSE_INDEXES,
   ...CARE_TASK_POLICY_V1_INDEXES,
   ...CARE_REPORT_EXPORT_INDEXES,
+  ...PATIENT_PAYMENT_ORDER_READ_INDEXES,
   {
     collection: SCHEMA_MIGRATIONS_COLLECTION,
     name: 'name_1',

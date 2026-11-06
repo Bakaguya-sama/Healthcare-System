@@ -124,7 +124,11 @@ Quy ước ownership và retention:
   projection.
 - Signed URL không persist. Artifact retention lấy từ
   `CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES`; URL lifetime lấy từ
-  `CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS`. Thiếu config thì export fail-closed.
+  `CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS`. Hai giá trị không phải secret, lần lượt
+  có đơn vị phút và giây; thiếu config thì export fail-closed. Khuyến nghị deploy hiện
+  tại là `1440` phút cho private artifact và `300` giây cho signed URL. Signed URL phải
+  ngắn hơn artifact lifetime; Cloudinary credential và Outbox worker vẫn phải được
+  cấu hình/chạy riêng, không ghi secret vào tài liệu hoặc source.
 - Outbox chỉ mang opaque `exportId`; database job record mới là source of truth cho
   trạng thái, retry, recovery và expiry.
 
@@ -136,3 +140,20 @@ Nguồn schema authoritative:
 
 Database verification sau migration: schema version `202611061000`, collection
 được validator quản lý và ba index trên được schema verifier nhận diện.
+
+## 8. Post-baseline addendum — Patient PaymentOrder read (2026-11-06)
+
+Slice 7 không thêm collection hay field. Migration
+`202611062000-patient-payment-order-read-indexes` chỉ thêm hai managed indexes khớp
+hai query shape owner-scoped của `BILL-04`:
+
+1. `{ userId: 1, createdAt: -1, _id: -1 }` cho history không filter status.
+2. `{ userId: 1, status: 1, createdAt: -1, _id: -1 }` cho history có status.
+
+Index cũ `{ userId, status, createdAt }` không phục vụ sort theo `createdAt` khi thiếu
+status và không chứa `_id` tie-breaker. Read service chỉ select bounded public fields;
+`paymenttransactions` không được join/populate vào Patient history.
+
+Fresh local replica-set rehearsal ngày 2026-11-06: migration áp dụng tới schema
+`202611062000`, verifier pass với `37` managed collections/`117` managed indexes, và
+lần migrate thứ hai skip toàn bộ migration (no-op).
