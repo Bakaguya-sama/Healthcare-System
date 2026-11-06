@@ -4,6 +4,7 @@
 // Product scope: health monitoring and consultation support, not diagnosis.
 // Approved on 2026-09-25 as the DA2 target schema. Approval does not imply deployment;
 // physical collections/indexes still require versioned migrations and verification.
+// Runtime addendum 2026-11-06: CareReportExports reflects applied migration 202611061000.
 // MongoDB partial, sparse, TTL, time-series and Atlas Vector Search indexes
 // must be created and verified by versioned migration files.
 // Set Mongoose autoIndex/autoCreate=false in staging and production-like environments.
@@ -825,6 +826,38 @@ Table CareReports {
   }
 }
 
+Table CareReportExports {
+  id ObjectID [pk]
+  careReportId ObjectID [not null, note: "Immutable CareReport selected when the job is created"]
+  patientCareProgramId ObjectID [not null]
+  reportVersion int [not null]
+  inputHash varchar [not null, note: "Must still match the persisted CareReport before rendering"]
+  ownerId ObjectID [not null, note: "Patient owner or Assigned Doctor who created the export; authority for status/download"]
+  audience varchar [not null, note: "patient, doctor; snapshots the bounded projection used by the renderer"]
+  format varchar [not null, note: "pdf, csv"]
+  rendererVersion varchar [not null, note: "care-report-export.v1"]
+  status varchar [not null, note: "pending, processing, ready, failed, expired"]
+  idempotencyKey varchar [not null]
+  requestHash varchar [not null, note: "Hash of careReportId + format; same key with a different hash is a conflict"]
+  storageKey varchar [note: "Private provider key; internal only and never returned by the API"]
+  mimeType varchar
+  byteSize int
+  checksum varchar [note: "SHA-256 of the rendered artifact"]
+  expiresAt datetime [note: "Artifact retention deadline; expiry never deletes or mutates CareReport"]
+  failureReasonCode varchar [note: "Bounded machine-readable code; no raw provider error or stack trace"]
+  attemptCount int [not null, default: 0]
+  leaseOwner varchar [note: "Worker claim token"]
+  leaseExpiresAt datetime [note: "Allows recovery of an abandoned processing claim"]
+  createdAt datetime [not null]
+  updatedAt datetime [not null]
+
+  Indexes {
+    (ownerId, idempotencyKey) [unique]
+    (status, leaseExpiresAt, id) [note: "Atomic worker claim and stale-lease recovery"]
+    (status, expiresAt, id) [note: "Bounded artifact cleanup scan"]
+  }
+}
+
 Table CareSummaries {
   id ObjectID [pk]
   reportId ObjectID [not null]
@@ -1325,6 +1358,9 @@ Ref: CareReports.patientCareProgramId > PatientCarePrograms.id
 Ref: CareReports.patientId > Users.id
 Ref: CareReports.careRuleId > CareRules.id
 Ref: CareReports.replacesReportId > CareReports.id
+Ref: CareReportExports.careReportId > CareReports.id
+Ref: CareReportExports.patientCareProgramId > PatientCarePrograms.id
+Ref: CareReportExports.ownerId > Users.id
 Ref: CareSummaries.reportId > CareReports.id
 Ref: CareSummaries.patientCareProgramId > PatientCarePrograms.id
 Ref: CareSummaries.patientId > Users.id

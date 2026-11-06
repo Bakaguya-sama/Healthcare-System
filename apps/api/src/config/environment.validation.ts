@@ -182,6 +182,18 @@ export function validateEnvironment(
       0,
       1_440,
     ),
+    CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES: optionalInteger(
+      config,
+      'CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES',
+      1,
+      525_600,
+    ),
+    CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS: optionalInteger(
+      config,
+      'CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS',
+      1,
+      86_400,
+    ),
     VNPAY_ENABLED: boolean(config, 'VNPAY_ENABLED', false),
     VNPAY_SANDBOX: boolean(config, 'VNPAY_SANDBOX', true),
     VNPAY_TMN_CODE: stringValue(config, 'VNPAY_TMN_CODE', '').trim(),

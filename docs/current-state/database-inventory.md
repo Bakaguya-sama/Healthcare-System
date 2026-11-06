@@ -102,3 +102,37 @@ Các index mới chỉ được quyết định sau query catalog + `explain('ex
 - RF-2: query catalog, representative dataset và explain baseline trước khi thay index.
 - RF-4: migration runner, `_schema_migrations`, lock/checksum, verifier, idempotent seed, replica-set integration tests và source-controlled index/search definitions.
 - Mọi rename/drop collection cần migration forward, verification và rollback/restore procedure; không dùng startup sync để thay migration.
+
+## 7. Post-baseline addendum — CareReport export (2026-11-06)
+
+Phần 1–6 phía trên là ảnh chụp RF-0 ngày 2026-09-15 và được giữ nguyên để không
+viết lại lịch sử. Trạng thái runtime mới hơn đã thêm collection
+`carereportexports` bằng migration `202611061000-care-report-exports` cho Slice 6
+CareReport PDF/CSV Export.
+
+| Model/schema | Collection | Trường chính | Managed indexes |
+| --- | --- | --- | --- |
+| `CareReportExport` | `carereportexports` (explicit) | immutable `careReportId/reportVersion/inputHash`; `ownerId/audience`; `format/rendererVersion`; lifecycle `pending/processing/ready/failed/expired`; idempotency; private artifact metadata; worker lease và expiry | unique `ownerId+idempotencyKey`; `status+leaseExpiresAt+_id`; `status+expiresAt+_id` |
+
+Quy ước ownership và retention:
+
+- `CareReport` tiếp tục là clinical snapshot bất biến; export job không sửa hoặc
+  xóa report gốc.
+- `ownerId` là authority cho status/download. Admin không có clinical export mặc
+  định; Patient/Assigned Doctor vẫn phải qua participant scope và entitlement.
+- `storageKey`, checksum, lease và provider metadata là nội bộ, không thuộc public
+  projection.
+- Signed URL không persist. Artifact retention lấy từ
+  `CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES`; URL lifetime lấy từ
+  `CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS`. Thiếu config thì export fail-closed.
+- Outbox chỉ mang opaque `exportId`; database job record mới là source of truth cho
+  trạng thái, retry, recovery và expiry.
+
+Nguồn schema authoritative:
+
+- `apps/api/src/database/migrations/202611061000-care-report-exports.ts`
+- `apps/api/src/database/schema-manifest.ts`
+- `apps/api/src/modules/chronic-care/domain/entities/care-report-export.entity.ts`
+
+Database verification sau migration: schema version `202611061000`, collection
+được validator quản lý và ba index trên được schema verifier nhận diện.

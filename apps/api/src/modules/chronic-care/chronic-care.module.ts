@@ -69,6 +69,15 @@ import {
 import { CONTENT_CATALOG_PORT } from './application/ports/content-catalog.port';
 import { MongoContentCatalogAdapter } from './infrastructure/adapters/mongo-content-catalog.adapter';
 import { CareRuleReadService } from './application/services/care-rule-read.service';
+import {
+  CareReportExport,
+  CareReportExportSchema,
+} from './domain/entities/care-report-export.entity';
+import { CareReportExportService } from './application/services/care-report-export.service';
+import { CareReportExportProcessorService } from './application/services/care-report-export-processor.service';
+import { CloudinaryCareReportExportStorageAdapter } from './infrastructure/adapters/cloudinary-care-report-export-storage.adapter';
+import { CARE_REPORT_EXPORT_STORAGE } from './application/ports/care-report-export-storage.port';
+import { FilesModule } from '../../infrastructure/files/files.module';
 
 @Module({
   imports: [
@@ -79,6 +88,7 @@ import { CareRuleReadService } from './application/services/care-rule-read.servi
     AiAdvisoryModule,
     BillingModule,
     UsersModule,
+    FilesModule,
     MongooseModule.forFeature([
       { name: CareProgram.name, schema: CareProgramSchema },
       { name: CareRule.name, schema: CareRuleSchema },
@@ -89,6 +99,7 @@ import { CareRuleReadService } from './application/services/care-rule-read.servi
       { name: CareReport.name, schema: CareReportSchema },
       { name: CareSummary.name, schema: CareSummarySchema },
       { name: CareContent.name, schema: CareContentSchema },
+      { name: CareReportExport.name, schema: CareReportExportSchema },
       {
         name: CareCommandIdempotency.name,
         schema: CareCommandIdempotencySchema,
@@ -113,6 +124,9 @@ import { CareRuleReadService } from './application/services/care-rule-read.servi
     CareSummaryService,
     ChronicCareReadService,
     CareRuleReadService,
+    CareReportExportService,
+    CareReportExportProcessorService,
+    CloudinaryCareReportExportStorageAdapter,
     MongoContentCatalogAdapter,
     OutboxCareTaskQueue,
     {
@@ -143,7 +157,15 @@ import { CareRuleReadService } from './application/services/care-rule-read.servi
       provide: CONTENT_CATALOG_PORT,
       useExisting: MongoContentCatalogAdapter,
     },
+    {
+      provide: CARE_REPORT_EXPORT_STORAGE,
+      useExisting: CloudinaryCareReportExportStorageAdapter,
+    },
   ],
-  exports: [MongooseModule, CareProgramRuleService],
+  exports: [
+    MongooseModule,
+    CareProgramRuleService,
+    CareReportExportProcessorService,
+  ],
 })
 export class ChronicCareModule {}

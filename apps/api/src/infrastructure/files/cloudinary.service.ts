@@ -76,6 +76,60 @@ export class CloudinaryService {
     this.logger.log('✅ Cloudinary initialized');
   }
 
+  /** Private raw-object operations used by bounded server-side export ports. */
+  async putPrivateRawObject(input: {
+    key: string;
+    body: Buffer;
+    mimeType: string;
+  }): Promise<{ byteSize: number }> {
+    if (
+      !/^healthcare\/care-report-exports\/[a-f0-9]{24}\/(report\.(pdf|csv))$/.test(
+        input.key,
+      )
+    )
+      throw new Error('Invalid private export storage key');
+    const result = await new Promise<{ bytes: number }>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          public_id: input.key,
+          resource_type: 'raw',
+          type: 'authenticated',
+          overwrite: true,
+        },
+        (error, uploaded) => {
+          if (error || !uploaded)
+            return reject(new Error(error?.message ?? 'Upload failed'));
+          resolve({ bytes: uploaded.bytes });
+        },
+      );
+      stream.end(input.body);
+    });
+    return { byteSize: result.bytes };
+  }
+
+  createPrivateRawDownloadUrl(input: {
+    key: string;
+    filename: string;
+    expiresAt: Date;
+  }): string {
+    return cloudinary.url(input.key, {
+      resource_type: 'raw',
+      type: 'authenticated',
+      sign_url: true,
+      secure: true,
+      expires_at: Math.floor(input.expiresAt.getTime() / 1000),
+      flags: `attachment:${input.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+    });
+  }
+
+  async deletePrivateRawObject(key: string): Promise<void> {
+    await cloudinary.uploader.destroy(key, {
+      resource_type: 'raw',
+      type: 'authenticated',
+      invalidate: true,
+    });
+  }
+
   /**
    * 📤 UPLOAD SINGLE FILE (ảnh hoặc document)
    *

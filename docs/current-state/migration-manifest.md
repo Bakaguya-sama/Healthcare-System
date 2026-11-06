@@ -16,3 +16,59 @@ Registry chuẩn nằm tại `apps/api/src/database/migrations/migration-registr
 | 202609202100 | `rf10c-physical-cleanup` | Reconcile bắt buộc, drop collection/index và unset field legacy |
 
 RF-10C đã thêm migration riêng, không sửa migration lịch sử. Migration chỉ cleanup sau khi tất cả blocker reconciliation bằng 0; nếu còn Session/AI/Message/Review/Feedback chưa ánh xạ canonical thì migration fail trước thao tác drop. Trên môi trường đích luôn chạy `rf10c:reconcile` và kiểm tra backup trước `database:migrate`.
+
+## DA2 migration addendum — registry hiện hành
+
+Bảng RF-10 phía trên được giữ như lịch sử foundation. Các migration DA2 hiện được
+registry quản lý tiếp theo như sau:
+
+| Version | Migration | Vai trò |
+| ---: | --- | --- |
+| 202609281000 | `cc000-chronic-care-foundation` | Chronic Care collections/index foundation |
+| 202609291000 | `cc001a-care-catalog` | Care Program/Rule catalog |
+| 202609291100 | `cc001b-enrollment` | Patient Care Program enrollment |
+| 202609291200 | `schema-simplification` | Canonical schema simplification |
+| 202609291300 | `cc014-baseline-schema-engine` | Versioned baseline schema contract |
+| 202609300900 | `cc014-remove-redundant-baseline-version` | Remove redundant baseline version field |
+| 202609301000 | `cc002-care-tasks` | CareTask persistence/indexes |
+| 202610020900 | `cc003-cc004-evaluations-alerts` | HealthEvaluation và CareAlert |
+| 202610061000 | `cc005-doctor-priority-inbox` | Doctor priority inbox query index |
+| 202610061100 | `cc006-care-reports` | Immutable CareReport persistence/indexes |
+| 202610061200 | `health-metric-contract-alignment` | HealthMetric canonical contract alignment |
+| 202610091200 | `cc007-care-summaries` | CareSummary persistence/indexes |
+| 202610151000 | `cc012-billing-access` | Plan/Subscription entitlement foundation |
+| 202610152000 | `data001a-consultation-contract` | Consultation data contract alignment |
+| 202610161000 | `cc008-care-alert-consultation-link` | CareAlert–Consultation canonical link |
+| 202610161100 | `cc013-consultation-usage-ledger` | Consultation usage reservation/count/release ledger |
+| 202610181000 | `cc013-booking-policy-snapshot` | Booking policy snapshot fields |
+| 202610181100 | `cc013-legacy-quota-exemption` | Explicit audited legacy quota exemption |
+| 202610191000 | `cc003a-alert-deduplication` | CareAlert dedupe/escalation indexes |
+| 202610201000 | `cc013a-urgent-alert-consultation-benefit` | Included urgent Care Program consultation policy |
+| 202610201100 | `cc013b-stale-consultation-recovery` | Stale consultation recovery evidence |
+| 202610211000 | `cc012b-ai-quota` | AI quota/reservation persistence |
+| 202610221000 | `cc012b-ai-quota-settlement` | AI quota settlement fields |
+| 202610221100 | `cc012b-usage-reconciliation-name` | Usage reconciliation naming alignment |
+| 202610231000 | `cc7-payment-orders` | PaymentOrder/VNPAY/subscription grant foundation |
+| 202611031000 | `scheduled-booking-availability-slots` | Availability Slot và Scheduled Booking |
+| 202611041000 | `patient-check-in-doctor-queue` | Scheduled check-in và Doctor queue/call-next |
+| 202611042000 | `care-task-read-response` | CareTask read/typed-response persistence alignment |
+| 202611052000 | `care-task-policy-v1` | Check-in, education catalog, doctor review và Consultation link contract |
+| 202611061000 | `care-report-exports` | Durable PDF/CSV export job, idempotency, worker lease và expiry cleanup indexes |
+
+### `202611061000-care-report-exports`
+
+Migration tạo/đồng bộ validator cho `carereportexports` và ba query-shape index:
+
+1. `{ ownerId: 1, idempotencyKey: 1 }` unique — HTTP replay/race protection.
+2. `{ status: 1, leaseExpiresAt: 1, _id: 1 }` — atomic worker claim và stale-lease recovery.
+3. `{ status: 1, expiresAt: 1, _id: 1 }` — bounded expiry cleanup.
+
+Migration đã được đăng ký trong `migration-registry.ts`, collection/index đã được
+đăng ký trong `schema-manifest.ts`. Evidence ngày 2026-11-06:
+
+- lần chạy đầu: `applied 202611061000-care-report-exports`;
+- lần chạy thứ hai: `skip 202611061000-care-report-exports` (idempotent/no-op);
+- verifier: schema version `202611061000`, `43` collections, `115` managed indexes.
+
+Không sửa migration lịch sử `cc006-care-reports`: export job có lifecycle và query
+shape riêng, còn `CareReport` tiếp tục là immutable clinical snapshot.

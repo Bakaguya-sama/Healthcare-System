@@ -73,4 +73,27 @@ describe('validateEnvironment', () => {
       validateEnvironment({ ...validConfig, SWAGGER_ENABLED: 'true' }),
     ).toThrow('SWAGGER_ENABLED');
   });
+
+  it('validates explicit CareReport export retention without inventing defaults', () => {
+    expect(
+      validateEnvironment({
+        ...validConfig,
+        CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES: '60',
+        CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS: '120',
+      }),
+    ).toMatchObject({
+      CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES: 60,
+      CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS: 120,
+    });
+    expect(validateEnvironment(validConfig)).toMatchObject({
+      CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES: undefined,
+      CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS: undefined,
+    });
+    expect(() =>
+      validateEnvironment({
+        ...validConfig,
+        CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS: '0',
+      }),
+    ).toThrow('CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS');
+  });
 });

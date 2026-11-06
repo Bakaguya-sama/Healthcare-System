@@ -244,7 +244,7 @@ invalid, không tồn tại hoặc ngoài public catalog đều trả cùng safe
 
 **P0 còn thiếu ngoài Slice D4:** Patient PaymentOrder list và PDF/CSV report export.
 
-## 5. Báo cáo và export — ✅ report, ⏳ export
+## 5. Báo cáo và export — ✅ report và PDF/CSV export
 
 **Actor:** Patient owner, Assigned Doctor.
 
@@ -254,10 +254,44 @@ canonical input để replay idempotent, tạo AI narrative có grounding/guard/
 **Ngoại lệ:** correction tạo report version mới và supersede version cũ; AI lỗi
 vẫn trả deterministic report; projection theo role không lộ dữ liệu ngoài quyền.
 
-**Ràng buộc:** summary không tạo severity/chẩn đoán; provenance bắt buộc; query
-bounded; export chỉ cấp short-lived download cho actor có entitlement.
+**Runtime Slice 6:**
 
-**P0 còn thiếu:** PDF/CSV export job, status/download API và authorization E2E.
+1. Patient owner hoặc Assigned Doctor có quyền trên Enrollment gọi
+   `POST /care-reports/:id/exports` với `format=pdf|csv` và `Idempotency-Key`.
+   Backend kiểm tra lại report, participant scope và entitlement; JWT là actor
+   authority. Admin không được mở clinical export chỉ từ vai trò quản trị.
+2. Command tạo/replay một export job bền vững rồi trả ngay; không render file trong
+   HTTP request. Job có lifecycle `pending -> processing -> ready|failed`, và
+   `ready -> expired` khi artifact hết hạn. Database là source of truth; queue/outbox
+   chỉ vận chuyển metadata tối thiểu, không chứa report projection hay health data.
+3. Worker reload immutable `CareReport`, đúng report version/input hash và audience
+   của actor, dựng bounded export projection rồi render PDF/CSV. Correction tạo report
+   version mới không làm thay nội dung export job đã gắn với version cũ.
+4. Artifact được upload vào private storage. Storage key, provider response và URL
+   gốc không đi ra API. `GET /care-report-exports/:id` chỉ cho đúng export owner và
+   chỉ mint short-lived signed download URL khi job `ready`; URL không persist trong
+   job, outbox, log hoặc cache dài hạn.
+5. Retry cùng idempotency key và payload trả job cũ; cùng key khác report/format trả
+   conflict. Worker retry không tạo artifact/job song song và phải xử lý recovery theo
+   outbox/job convention hiện hữu.
+6. PDF và CSV dùng cùng audience-safe source projection. Không export raw
+   HealthMetric, CareTask response, Rule input/snapshot, audit metadata, AI/provider
+   prompt hay dữ liệu ngoài persisted CareReport/CareSummary được phép cho actor.
+7. Job/file có expiry và cleanup. Expiry chỉ xóa/thu hồi artifact, không xóa hoặc sửa
+   immutable CareReport. Chính xác TTL, PDF layout/branding/locale và CSV column schema
+   dùng hai config bắt buộc `CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES` và
+   `CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS`; thiếu config thì command fail-closed.
+   PDF/CSV hiện dùng renderer deterministic `care-report-export.v1`; thay branding,
+   locale hoặc CSV columns phải tăng renderer version.
+
+**Ngoại lệ:** report/job ngoài scope dùng safe not-found; thiếu entitlement hoặc
+participant authority bị từ chối; job chưa ready không phát URL; artifact mất/hỏng
+không trả storage path mà chuyển/giữ trạng thái lỗi xác định được. Endpoint đọc không
+tự render lại hay reconcile dữ liệu lâm sàng.
+
+**Evidence runtime:** durable entity/index/migration, transaction job+outbox, leased
+worker/retry, private authenticated storage adapter, deterministic PDF/CSV renderer,
+owner-only status/signed URL, expiry cleanup và integration race/authorization tests.
 
 ## 6. Operations metrics — ⏳ hậu DA2
 

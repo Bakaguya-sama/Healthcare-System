@@ -233,6 +233,12 @@ import {
   CARE_TASK_POLICY_V1_NAME,
   CARE_TASK_POLICY_V1_VERSION,
 } from './202611052000-care-task-policy-v1';
+import {
+  applyCareReportExports,
+  CARE_REPORT_EXPORTS_CHECKSUM,
+  CARE_REPORT_EXPORTS_NAME,
+  CARE_REPORT_EXPORTS_VERSION,
+} from './202611061000-care-report-exports';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -468,6 +474,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CARE_TASK_POLICY_V1_NAME,
     checksum: CARE_TASK_POLICY_V1_CHECKSUM,
     up: applyCareTaskPolicyV1,
+  },
+  {
+    version: CARE_REPORT_EXPORTS_VERSION,
+    name: CARE_REPORT_EXPORTS_NAME,
+    checksum: CARE_REPORT_EXPORTS_CHECKSUM,
+    up: applyCareReportExports,
   },
 ];
 
