@@ -12956,6 +12956,149 @@
         "tags": [
           "billing-payments"
         ]
+      },
+      "get": {
+        "operationId": "Payments_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": -1,
+              "type": "number",
+              "enum": [
+                -1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "pending",
+                "processing",
+                "paid",
+                "expired",
+                "cancelled",
+                "failed",
+                "refund_pending",
+                "refunded"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "createdAt",
+              "type": "string",
+              "enum": [
+                "createdAt"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPaymentOrderPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status or pagination query"
+          },
+          "401": {
+            "description": "Bearer token is required"
+          },
+          "403": {
+            "description": "Patient role is required"
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "An immutable payment-order snapshot is corrupt"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the current Patient payment-order history",
+        "tags": [
+          "billing-payments"
+        ]
       }
     },
     "/api/v1/billing/payments/orders/{id}/cancel": {
@@ -13417,6 +13560,500 @@
         },
         "tags": [
           "billing-payments"
+        ]
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "operationId": "PatientBillingRead_listPlans",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": -1,
+              "type": "number",
+              "enum": [
+                -1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "code",
+                "name",
+                "price",
+                "version",
+                "effectiveFrom"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPlanPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Patient role is required"
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List effective published Plans for Patient",
+        "tags": [
+          "patient-billing"
+        ]
+      }
+    },
+    "/api/v1/plans/{id}": {
+      "get": {
+        "operationId": "PatientBillingRead_getPlan",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPlanSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan is invalid, missing, unpublished, retired or outside its effective window"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read one effective published Plan for Patient",
+        "tags": [
+          "patient-billing"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/me": {
+      "get": {
+        "operationId": "PatientBillingRead_subscriptions",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": -1,
+              "type": "number",
+              "enum": [
+                -1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "expired",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "startedAt",
+                "currentPeriodStart",
+                "currentPeriodEnd",
+                "expiresAt"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientSubscriptionPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "An immutable snapshot is corrupt"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List Patient Subscription history and current effective entitlement",
+        "tags": [
+          "patient-billing"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/me/usage": {
+      "get": {
+        "operationId": "PatientBillingRead_usage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientSubscriptionUsageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No current Subscription is available"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cycle, snapshot or atomic usage counters are inconsistent"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read current-cycle ordinary consultation quota",
+        "tags": [
+          "patient-billing"
         ]
       }
     },
@@ -19882,6 +20519,245 @@
         ]
       }
     },
+    "/api/v1/care-programs/{id}/rules": {
+      "get": {
+        "operationId": "CareProgramRule_getRule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "active",
+              "type": "string",
+              "enum": [
+                "active",
+                "draft"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DoctorCareRuleProjectionDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminCareRuleProjectionDto"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Patient, inactive/unapproved Doctor, or Doctor requesting draft"
+          },
+          "404": {
+            "description": "Program/Rule is missing or outside the actor/view scope"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The stored Rule cannot be mapped into the validated actor-safe projection"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read the current Care Rule using an actor-safe projection",
+        "tags": [
+          "care-programs"
+        ]
+      },
+      "post": {
+        "operationId": "CareProgramRule_createRule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Stable client command key; reuse only with the identical request.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCareRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a Care Rule draft",
+        "tags": [
+          "care-programs"
+        ]
+      }
+    },
     "/api/v1/care-programs/{id}/publish": {
       "post": {
         "operationId": "CareProgramRule_publishProgram",
@@ -20129,132 +21005,6 @@
           }
         ],
         "summary": "Retire a published Care Program version",
-        "tags": [
-          "care-programs"
-        ]
-      }
-    },
-    "/api/v1/care-programs/{id}/rules": {
-      "post": {
-        "operationId": "CareProgramRule_createRule",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "description": "Stable client command key; reuse only with the identical request.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCareRuleDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          },
-          "400": {
-            "description": "HTTP 400 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "HTTP 401 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "HTTP 403 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "HTTP 404 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "HTTP 409 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "HTTP 429 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "HTTP 500 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a Care Rule draft",
         "tags": [
           "care-programs"
         ]
@@ -24070,6 +24820,230 @@
           "care-reports"
         ]
       }
+    },
+    "/api/v1/care-reports/{id}/exports": {
+      "post": {
+        "operationId": "CareReport_createExport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCareReportExportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable export job accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareReportExportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict or entitlement projection unavailable"
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create or replay an asynchronous private report export",
+        "tags": [
+          "care-reports"
+        ]
+      }
+    },
+    "/api/v1/care-report-exports/{id}": {
+      "get": {
+        "operationId": "CareReport_getExport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped export status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareReportExportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Export is missing or belongs to another actor"
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read own export status and a short-lived URL when ready",
+        "tags": [
+          "care-reports"
+        ]
+      }
     }
   },
   "info": {
@@ -25478,6 +26452,544 @@
         "type": "object",
         "properties": {}
       },
+      "PatientPaymentOrderPlanDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "version"
+        ]
+      },
+      "PatientPaymentOrderListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "pending",
+              "processing",
+              "paid",
+              "expired",
+              "cancelled",
+              "failed",
+              "refund_pending",
+              "refunded"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "example": "VND"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PatientPaymentOrderPlanDto"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string"
+          },
+          "cancelledAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "orderCode",
+          "status",
+          "amount",
+          "currency",
+          "plan",
+          "expiresAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PatientPaymentOrderPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientPaymentOrderListItemDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "PatientPlanQuotaDto": {
+        "type": "object",
+        "properties": {
+          "aiRequestLimit": {
+            "type": "number"
+          },
+          "aiTokenLimit": {
+            "type": "number"
+          },
+          "aiQuotaPeriod": {
+            "type": "string",
+            "enum": [
+              "day",
+              "subscription_cycle"
+            ]
+          },
+          "consultationLimitPerCycle": {
+            "type": "number"
+          },
+          "activeCareProgramLimit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "aiRequestLimit",
+          "aiTokenLimit",
+          "aiQuotaPeriod",
+          "consultationLimitPerCycle",
+          "activeCareProgramLimit"
+        ]
+      },
+      "PatientPlanBenefitsDto": {
+        "type": "object",
+        "properties": {
+          "weeklyAiSummary": {
+            "type": "boolean"
+          },
+          "reports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "weekly",
+                "thirty_day",
+                "ninety_day"
+              ]
+            }
+          },
+          "smartReminder": {
+            "type": "boolean"
+          },
+          "medicationReminder": {
+            "type": "boolean"
+          },
+          "exports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pdf",
+                "csv"
+              ]
+            }
+          },
+          "doctorReview": {
+            "type": "boolean"
+          },
+          "priorityInbox": {
+            "type": "boolean"
+          },
+          "followUp": {
+            "type": "boolean"
+          },
+          "familyLinkLimit": {
+            "type": "number"
+          },
+          "facilitySearch": {
+            "type": "boolean"
+          },
+          "summaryTokenBudget": {
+            "type": "number"
+          }
+        }
+      },
+      "PatientPlanSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "example": "VND"
+          },
+          "durationDays": {
+            "type": "number"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/PatientPlanQuotaDto"
+          },
+          "benefits": {
+            "$ref": "#/components/schemas/PatientPlanBenefitsDto"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "True for the effective published catalog window."
+          },
+          "purchasable": {
+            "type": "boolean",
+            "description": "True only when the existing VNPAY order flow can buy this Plan."
+          },
+          "effectiveFrom": {
+            "type": "string"
+          },
+          "effectiveUntil": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version",
+          "name",
+          "price",
+          "currency",
+          "durationDays",
+          "quota",
+          "benefits",
+          "available",
+          "purchasable"
+        ]
+      },
+      "PatientPlanPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientPlanSummaryDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "PatientSubscriptionPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version",
+          "name"
+        ]
+      },
+      "PatientSubscriptionCycleDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endsAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "startedAt",
+          "endsAt"
+        ]
+      },
+      "PatientSubscriptionBenefitsDto": {
+        "type": "object",
+        "properties": {
+          "aiRequestLimit": {
+            "type": "number"
+          },
+          "aiTokenLimit": {
+            "type": "number"
+          },
+          "aiQuotaPeriod": {
+            "type": "string",
+            "enum": [
+              "day",
+              "subscription_cycle"
+            ]
+          },
+          "consultationLimitPerCycle": {
+            "type": "number"
+          },
+          "activeCareProgramLimit": {
+            "type": "number"
+          },
+          "benefits": {
+            "$ref": "#/components/schemas/PatientPlanBenefitsDto"
+          }
+        },
+        "required": [
+          "aiRequestLimit",
+          "aiTokenLimit",
+          "aiQuotaPeriod",
+          "consultationLimitPerCycle",
+          "activeCareProgramLimit",
+          "benefits"
+        ]
+      },
+      "PatientSubscriptionRenewalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "effectiveAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version",
+          "name",
+          "effectiveAt"
+        ]
+      },
+      "PatientSubscriptionSummaryDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "expired",
+              "cancelled"
+            ]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PatientSubscriptionPlanDto"
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/PatientSubscriptionCycleDto"
+          },
+          "entitlement": {
+            "$ref": "#/components/schemas/PatientSubscriptionBenefitsDto"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "renewal": {
+            "description": "Safe queued-renewal snapshot; no PaymentOrder identifier is exposed.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PatientSubscriptionRenewalDto"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subscriptionId",
+          "status",
+          "plan",
+          "cycle",
+          "entitlement",
+          "startedAt",
+          "expiresAt",
+          "updatedAt"
+        ]
+      },
+      "PatientSubscriptionPageDto": {
+        "type": "object",
+        "properties": {
+          "effective": {
+            "nullable": true,
+            "description": "Current effective Subscription selected by the billing lifecycle authority.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PatientSubscriptionSummaryDto"
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientSubscriptionSummaryDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "effective",
+          "items",
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "ConsultationUsageProjectionDto": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null only for a future unlimited entitlement."
+          },
+          "counted": {
+            "type": "number"
+          },
+          "reserved": {
+            "type": "number"
+          },
+          "available": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null only when unlimited=true."
+          },
+          "unlimited": {
+            "type": "boolean",
+            "description": "Current Plan schema has no unlimited consultation sentinel; currently false."
+          }
+        },
+        "required": [
+          "limit",
+          "counted",
+          "reserved",
+          "available",
+          "unlimited"
+        ]
+      },
+      "PatientSubscriptionUsageDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "string"
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/PatientSubscriptionCycleDto"
+          },
+          "consultations": {
+            "$ref": "#/components/schemas/ConsultationUsageProjectionDto"
+          },
+          "asOf": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subscriptionId",
+          "cycle",
+          "consultations",
+          "asOf"
+        ]
+      },
       "VerifyDoctorDto": {
         "type": "object",
         "properties": {
@@ -25708,6 +27220,266 @@
             }
           }
         }
+      },
+      "CareRuleTestSummaryDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "unavailable"
+            ]
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0
+          },
+          "passed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "reasonCodes": {
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "interpreterVersion": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "executedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DoctorCareRuleProjectionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "careProgramId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active"
+            ]
+          },
+          "testSummary": {
+            "$ref": "#/components/schemas/CareRuleTestSummaryDto"
+          }
+        },
+        "required": [
+          "id",
+          "careProgramId",
+          "version",
+          "status"
+        ]
+      },
+      "SanitizedDeclarativeRuleDto": {
+        "type": "object",
+        "properties": {
+          "operator": {
+            "type": "string",
+            "enum": [
+              "all",
+              "any",
+              "not",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "between",
+              "exists",
+              "equal",
+              "not_equal"
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SanitizedDeclarativeRuleDto"
+            }
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "attention",
+              "urgent"
+            ]
+          }
+        },
+        "required": [
+          "operator"
+        ]
+      },
+      "SanitizedRuleDataSourceDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "care_task_check_in"
+            ]
+          },
+          "schemaVersion": {
+            "type": "string",
+            "enum": [
+              "health-check-in.v1"
+            ]
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "allowedFactPrefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "schemaVersion",
+          "templateKey",
+          "allowedFactPrefixes"
+        ]
+      },
+      "CareRuleScenarioResultDto": {
+        "type": "object",
+        "properties": {
+          "scenarioKey": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "expectedSeverity": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "attention",
+              "urgent"
+            ]
+          },
+          "actualSeverity": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "attention",
+              "urgent"
+            ]
+          },
+          "reasonCodes": {
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "scenarioKey",
+          "passed"
+        ]
+      },
+      "AdminCareRuleProjectionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "careProgramId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active"
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SanitizedDeclarativeRuleDto"
+            }
+          },
+          "dataSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SanitizedRuleDataSourceDto"
+            }
+          },
+          "testSummary": {
+            "$ref": "#/components/schemas/CareRuleTestSummaryDto"
+          },
+          "testResults": {
+            "maxItems": 50,
+            "description": "Sanitized evidence only; never raw CareRule.testResults.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CareRuleScenarioResultDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "careProgramId",
+          "version",
+          "revision",
+          "status",
+          "rules",
+          "dataSources"
+        ]
       },
       "CareProgramSummaryDto": {
         "type": "object",
@@ -26600,6 +28372,99 @@
             ]
           }
         }
+      },
+      "CreateCareReportExportDto": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "csv"
+            ]
+          }
+        },
+        "required": [
+          "format"
+        ]
+      },
+      "CareReportExportDownloadDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "url",
+          "expiresAt"
+        ]
+      },
+      "CareReportExportDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "careReportId": {
+            "type": "string"
+          },
+          "reportVersion": {
+            "type": "number"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "csv"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "ready",
+              "failed",
+              "expired"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "download": {
+            "$ref": "#/components/schemas/CareReportExportDownloadDto"
+          },
+          "failureReasonCode": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean",
+            "description": "True only when POST replayed the same key and payload"
+          }
+        },
+        "required": [
+          "id",
+          "careReportId",
+          "reportVersion",
+          "format",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "ErrorResponse": {
         "type": "object",

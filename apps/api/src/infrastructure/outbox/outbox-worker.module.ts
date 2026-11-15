@@ -42,11 +42,21 @@ import { CareTaskSchedulerService } from '../../modules/chronic-care/application
 import { CareTaskReminderService } from '../../modules/chronic-care/application/services/care-task-reminder.service';
 import { CareMetricEvaluationService } from '../../modules/chronic-care/application/services/care-metric-evaluation.service';
 import { BillingModule } from '../../modules/billing/billing.module';
-import { Consultation, ConsultationSchema } from '../../modules/consultations/domain/entities/consultations/consultation.entity';
-import { AuditLog, AuditLogSchema } from '../../modules/platform-audit/domain/entities/audit-log.entity';
+import {
+  Consultation,
+  ConsultationSchema,
+} from '../../modules/consultations/domain/entities/consultations/consultation.entity';
+import {
+  AuditLog,
+  AuditLogSchema,
+} from '../../modules/platform-audit/domain/entities/audit-log.entity';
 import { ConsultationStaleRecoveryService } from '../../modules/consultations/application/services/consultations/consultation-stale-recovery.service';
-import { CareRule, CareRuleSchema } from '../../modules/chronic-care/domain/entities/care-rule.entity';
+import {
+  CareRule,
+  CareRuleSchema,
+} from '../../modules/chronic-care/domain/entities/care-rule.entity';
 import { CareTaskPolicyEventService } from '../../modules/chronic-care/application/services/care-task-policy-event.service';
+import { ChronicCareModule } from '../../modules/chronic-care/chronic-care.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -59,6 +69,7 @@ import { CareTaskPolicyEventService } from '../../modules/chronic-care/applicati
     OutboxModule,
     PlatformAuditModule,
     BillingModule,
+    ChronicCareModule,
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
       { name: HealthMetric.name, schema: HealthMetricSchema },

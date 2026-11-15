@@ -13,12 +13,15 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiExtraModels,
   ApiForbiddenResponse,
   ApiHeader,
   ApiOperation,
   ApiOkResponse,
   ApiNotFoundResponse,
+  ApiServiceUnavailableResponse,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
 import { Roles } from '../../../../core/decorators/roles.decorator';
@@ -40,6 +43,12 @@ import {
   CareProgramPageDto,
   QueryCareProgramsDto,
 } from '../dto/chronic-care-read.dto';
+import { CareRuleReadService } from '../../application/services/care-rule-read.service';
+import {
+  AdminCareRuleProjectionDto,
+  DoctorCareRuleProjectionDto,
+  QueryCareRuleDto,
+} from '../dto/care-rule-read.dto';
 
 const IDEMPOTENCY = ApiHeader({
   name: 'Idempotency-Key',
@@ -50,12 +59,14 @@ const IDEMPOTENCY = ApiHeader({
 
 @ApiTags('care-programs')
 @ApiBearerAuth()
+@ApiExtraModels(DoctorCareRuleProjectionDto, AdminCareRuleProjectionDto)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('care-programs')
 export class CareProgramRuleController {
   constructor(
     private readonly catalog: CareProgramRuleService,
     private readonly reads: ChronicCareReadService,
+    private readonly ruleReads: CareRuleReadService,
   ) {}
 
   @Get()
@@ -88,6 +99,38 @@ export class CareProgramRuleController {
   })
   async getProgram(@CurrentUser() actor: CareActor, @Param('id') id: string) {
     return this.reads.getProgram(actor, id);
+  }
+
+  @Get(':id/rules')
+  @Roles(UserRole.DOCTOR, UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Read the current Care Rule using an actor-safe projection',
+  })
+  @ApiOkResponse({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(DoctorCareRuleProjectionDto) },
+        { $ref: getSchemaPath(AdminCareRuleProjectionDto) },
+      ],
+    },
+  })
+  @ApiForbiddenResponse({
+    description:
+      'Patient, inactive/unapproved Doctor, or Doctor requesting draft',
+  })
+  @ApiNotFoundResponse({
+    description: 'Program/Rule is missing or outside the actor/view scope',
+  })
+  @ApiServiceUnavailableResponse({
+    description:
+      'The stored Rule cannot be mapped into the validated actor-safe projection',
+  })
+  async getRule(
+    @CurrentUser() actor: CareActor,
+    @Param('id') id: string,
+    @Query() query: QueryCareRuleDto,
+  ) {
+    return this.ruleReads.getCurrentRule(actor, id, query.view);
   }
 
   @Post()

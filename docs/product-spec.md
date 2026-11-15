@@ -50,9 +50,16 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 23. Enrollment list/detail phải bounded, có pagination/filter/sort allowlist và stable `_id` tie-breaker. Detail chỉ trả summary/count có giới hạn, không populate toàn bộ task, metric, report hoặc audit log.
 24. Không trả raw task response, HealthMetric, CareReport input/statistics, CareRule snapshot, note/audit nội bộ trong Program/Enrollment read projection. Consent chỉ trả policy version, purposes và accepted timestamp cho participant được phép.
 25. Admin không có quyền read Care Enrollment trong DA2 hiện tại, kể cả list/detail hay clinical projection. `AuditLog` chỉ lưu evidence của command/lifecycle; nó không phải authority để mở dữ liệu clinical.
-26. Patient không đọc CareRule. Doctor `active + approved` chỉ đọc summary của Rule `active` thuộc Program `published`: version, status và bounded test summary; không nhận raw declarative condition, data source hoặc evaluation trace.
-27. Admin được đọc Rule draft cùng raw declarative conditions và `dataSources`. `testResults` và simulation evidence của Admin chỉ là bounded summary gồm validation/outcome/count/reason code/version/time; không chứa raw Patient/HealthMetric input hoặc full evaluation trace.
-28. P0 Rule read chỉ phục vụ một Rule hiện hành, không phục vụ pagination/version history. Doctor luôn nhận Rule `active`; Admin mặc định nhận active hoặc có thể yêu cầu draft mới nhất, chọn xác định theo version rồi `_id`.
+26. Patient không đọc CareRule. Doctor `active + approved` chỉ đọc summary của Rule `active` thuộc Program `published`: version, status và bounded test summary; không nhận raw declarative condition, `dataSources`, scenario input hoặc evaluation trace. Doctor không cần Enrollment trước để đánh giá Program, nhưng `view=draft` luôn bị từ chối.
+27. Admin mặc định đọc `view=active`, hoặc yêu cầu rõ `view=draft`. Admin nhận raw declarative `rules`/`dataSources`; test evidence phải được map sang DTO allowlist, tối đa 50 sanitized scenario result và không chứa raw Patient/Enrollment/HealthMetric/check-in input, stack trace hay full interpreter trace. `CareRule.testResults` dạng Mixed không bao giờ được trả thẳng; thiếu schema an toàn thì chỉ trả summary hoặc bỏ evidence.
+28. P0 Rule read chỉ phục vụ một Rule hiện hành, không pagination/version history. Draft mới nhất chọn deterministic bằng `status=draft`, `version DESC`, `_id DESC`. Program draft chỉ cho Admin đọc draft; Program published cho Admin đọc active/draft theo view và Doctor đọc active; Program retired chỉ cho Admin đọc active cuối cùng để audit, không cho Doctor đọc và không expose draft.
+29. Rule không tồn tại theo view trả `CARE_RULE_NOT_FOUND`; Program/Rule ngoài actor scope dùng safe not-found; Doctor chưa active/approved hoặc yêu cầu draft trả forbidden; projection/evidence hỏng trả `CARE_RULE_PROJECTION_UNAVAILABLE`. Read endpoint không tự sửa duplicate draft hoặc lifecycle data.
+30. CareRule read projection chỉ chấp nhận operator, fact key, primitive/range, severity và reason code thuộc declarative contract hiện hữu. `dataSources` chỉ nhận mapping `care_task_check_in` hợp lệ với Task Template. Evidence chỉ map các field allowlist; dữ liệu legacy/corrupt không được trả một phần mà fail closed.
+31. CareReport PDF/CSV export P0 là asynchronous job, không render trong request. Patient owner hoặc Assigned Doctor tạo export cho report/enrollment thuộc scope và có entitlement; Admin không được cấp clinical export ngầm. `Idempotency-Key` bắt buộc và cùng key khác payload phải conflict.
+32. Export luôn gắn immutable `careReportId`, `reportVersion`, `inputHash`, actor owner/audience và format. Worker reload persisted report/projection; không query lại raw clinical history để tạo một kết quả có thể thay đổi theo thời điểm chạy.
+33. Export job có trạng thái `pending`, `processing`, `ready`, `failed`, `expired`. Chỉ owner đọc job; chỉ trạng thái `ready` mới được mint short-lived signed URL. URL không persist; storage luôn private và API không trả storage key/provider metadata.
+34. PDF/CSV dùng cùng bounded audience-safe projection và không chứa raw HealthMetric, CareTask response, Rule input/snapshot, audit metadata, provider prompt hoặc dữ liệu ngoài report/summary được phép. Expiry/cleanup chỉ xóa artifact, không xóa immutable CareReport.
+35. Queue/outbox event của export chỉ mang opaque export ID/version; không mang report body hoặc health data. TTL artifact và signed-link là config bắt buộc; thiếu config thì runtime fail closed. Renderer `care-report-export.v1` dùng deterministic unbranded PDF và explicit CSV v1 columns; thay branding/locale/columns phải tăng renderer version, không đổi ngầm output đã snapshot.
 
 ## Monitoring Task và mức độ hoàn thành
 
@@ -361,6 +368,33 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 42. Khi đã có thay đổi gói kế tiếp, lần mua mới bị từ chối cho tới khi thay đổi cũ được hủy theo policy hoặc đã có hiệu lực. DA2 không prorate, không cộng dồn hai Plan và không nâng cấp giữa chu kỳ; chính sách này phải hiển thị trước thanh toán.
 43. Worker chuyển chu kỳ bằng conditional update: kiểm tra active subscription và `nextPlanStartsAt`, tăng `cycleNumber`, áp dụng snapshot mới, xóa các field `nextPlan*` và ghi `AuditLogs`. Retry không được chuyển chu kỳ hai lần.
 44. `Plans` được version hóa. Admin chỉ sửa version `draft`; publish tạo version bán được với `effectiveFrom/effectiveUntil`. PaymentOrder và Subscription luôn snapshot Plan đã publish, nên sửa Plan mới không âm thầm đổi quyền lợi đã mua.
+45. Patient xem lịch sử PaymentOrder qua owner-scoped read API. JWT subject là authority;
+    client không truyền patient/user owner. List chỉ nhận status/sort allowlist, có
+    pagination hard limit 100 và stable sort `createdAt + _id`.
+46. PaymentOrder history chỉ trả bounded projection gồm order identity, public status,
+    amount/currency, Plan `code/name/version` từ immutable order snapshot và các
+    timestamp public có nguồn thật. Không trả raw order snapshot, benefit/refund rule,
+    PaymentTransaction, VNPAY/IPN/Return, gateway, reconciliation, grant, outbox hoặc
+    audit metadata. Empty history là kết quả hợp lệ; projection corrupt fail-closed.
+45. Patient Plan catalog chỉ trả Plan `published` trong cửa sổ hiệu lực, dùng public
+    projection bounded và pagination hard limit. Draft/retired, refund policy nội bộ,
+    audit/source và provider configuration không thuộc Patient response.
+46. `GET /subscriptions/me` trả history owner-scoped cùng `effective` Subscription do
+    billing lifecycle authority hiện hữu lựa chọn. Entitlement lấy từ immutable
+    `planSnapshot`, không join ngược mutable Plan. Safe queued-renewal summary không
+    chứa PaymentOrder/gateway identifier.
+47. Patient consultation usage dùng chính counter atomically maintained trên current
+    Subscription: `available = limit - counted - reserved`. Released/cancelled/stale
+    reservation đã được transition/reconcile ra khỏi active counter và không được read
+    endpoint cộng lại. Snapshot/cycle/counter không nhất quán phải fail-closed, không
+    giả thành `0` hoặc unlimited.
+48. Schema Plan hiện tại không có unlimited sentinel cho consultation. Patient usage
+    trả `unlimited=false` và numeric `limit/available`; không dùng magic number. Nếu
+    domain bổ sung unlimited sau này thì contract dùng `unlimited=true` với
+    `limit/available=null` sau migration/versioned policy.
+49. `care_program_included` không đi qua ordinary consultation ledger/counter, không
+    giảm quota và không tạo charge. Billing read không trả clinical origin và không
+    được suy ra included policy từ một ledger row bị thiếu.
 
 ## Quản lý cấu hình hệ thống và cấu hình kinh doanh
 
@@ -489,7 +523,8 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 - Nhận Care Alert có lý do rõ ràng và chuyển sang đặt lịch/on-demand consultation khi cần.
 - Tìm cơ sở y tế theo chuyên khoa, địa điểm và khoảng cách; xem lý do gợi ý, nguồn dữ liệu và liên kết chỉ đường. Kết quả không phải khuyến nghị về chất lượng chuyên môn.
 - Hỏi AI, xem citation/lịch sử và phần trăm quota token còn lại.
-- Xem Plans, tạo PaymentOrder, theo dõi kết quả thanh toán và Subscription.
+- Xem Plans, tạo PaymentOrder, xem lịch sử PaymentOrder owner-scoped, mở chi tiết để
+  theo dõi kết quả thanh toán và xem Subscription.
 - Cancel order chưa thanh toán; gửi full-refund request cho order đã paid.
 - Review bác sĩ sau consultation completed và gửi ViolationReport.
 - Nhận notification trong app và FCM trên mobile.
@@ -656,7 +691,7 @@ stateDiagram-v2
 ```
 
 - Return URL chỉ hiển thị trạng thái; IPN hợp lệ mới ghi nhận paid và tạo outbox event yêu cầu cấp quyền lợi.
-- API P0: `POST /billing/payments/orders` (Patient, bắt buộc `Idempotency-Key`, server nhận `planId` nhưng tự chụp giá/quyền lợi và trả `paymentUrl`/`paymentQrDataUrl` khi order còn payable), `GET /billing/payments/orders/:id` (chỉ owner; Return UI dùng để đọc trạng thái), `POST /billing/payments/orders/:id/cancel` (chỉ owner, chỉ unpaid) và public `GET /billing/payments/vnpay/ipn` theo callback contract của VNPAY. API không nhận amount, benefit, transaction reference hoặc trạng thái từ client.
+- API P0: `POST /billing/payments/orders` (Patient, bắt buộc `Idempotency-Key`, server nhận `planId` nhưng tự chụp giá/quyền lợi và trả `paymentUrl`/`paymentQrDataUrl` khi order còn payable), `GET /billing/payments/orders` (Patient-only owner history, status/page/limit/sort allowlist, bounded snapshot projection), `GET /billing/payments/orders/:id` (chỉ owner; Return UI dùng để đọc trạng thái), `POST /billing/payments/orders/:id/cancel` (chỉ owner, chỉ unpaid) và public `GET /billing/payments/vnpay/ipn` theo callback contract của VNPAY. API không nhận amount, benefit, transaction reference hoặc trạng thái từ client.
 - Khi provider feature flag tắt, hệ thống từ chối tạo order mới nhưng vẫn nhận IPN hợp lệ cho order đã tạo; điều này ngăn phát sinh giao dịch mới mà không bỏ sót tiền đã thu.
 - Duplicate IPN không tạo hai subscriptions.
 - Mỗi paid order tạo một Subscription grant có `sourceOrderId` unique.

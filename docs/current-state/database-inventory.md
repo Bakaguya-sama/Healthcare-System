@@ -102,3 +102,58 @@ Các index mới chỉ được quyết định sau query catalog + `explain('ex
 - RF-2: query catalog, representative dataset và explain baseline trước khi thay index.
 - RF-4: migration runner, `_schema_migrations`, lock/checksum, verifier, idempotent seed, replica-set integration tests và source-controlled index/search definitions.
 - Mọi rename/drop collection cần migration forward, verification và rollback/restore procedure; không dùng startup sync để thay migration.
+
+## 7. Post-baseline addendum — CareReport export (2026-11-06)
+
+Phần 1–6 phía trên là ảnh chụp RF-0 ngày 2026-09-15 và được giữ nguyên để không
+viết lại lịch sử. Trạng thái runtime mới hơn đã thêm collection
+`carereportexports` bằng migration `202611061000-care-report-exports` cho Slice 6
+CareReport PDF/CSV Export.
+
+| Model/schema | Collection | Trường chính | Managed indexes |
+| --- | --- | --- | --- |
+| `CareReportExport` | `carereportexports` (explicit) | immutable `careReportId/reportVersion/inputHash`; `ownerId/audience`; `format/rendererVersion`; lifecycle `pending/processing/ready/failed/expired`; idempotency; private artifact metadata; worker lease và expiry | unique `ownerId+idempotencyKey`; `status+leaseExpiresAt+_id`; `status+expiresAt+_id` |
+
+Quy ước ownership và retention:
+
+- `CareReport` tiếp tục là clinical snapshot bất biến; export job không sửa hoặc
+  xóa report gốc.
+- `ownerId` là authority cho status/download. Admin không có clinical export mặc
+  định; Patient/Assigned Doctor vẫn phải qua participant scope và entitlement.
+- `storageKey`, checksum, lease và provider metadata là nội bộ, không thuộc public
+  projection.
+- Signed URL không persist. Artifact retention lấy từ
+  `CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES`; URL lifetime lấy từ
+  `CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS`. Hai giá trị không phải secret, lần lượt
+  có đơn vị phút và giây; thiếu config thì export fail-closed. Khuyến nghị deploy hiện
+  tại là `1440` phút cho private artifact và `300` giây cho signed URL. Signed URL phải
+  ngắn hơn artifact lifetime; Cloudinary credential và Outbox worker vẫn phải được
+  cấu hình/chạy riêng, không ghi secret vào tài liệu hoặc source.
+- Outbox chỉ mang opaque `exportId`; database job record mới là source of truth cho
+  trạng thái, retry, recovery và expiry.
+
+Nguồn schema authoritative:
+
+- `apps/api/src/database/migrations/202611061000-care-report-exports.ts`
+- `apps/api/src/database/schema-manifest.ts`
+- `apps/api/src/modules/chronic-care/domain/entities/care-report-export.entity.ts`
+
+Database verification sau migration: schema version `202611061000`, collection
+được validator quản lý và ba index trên được schema verifier nhận diện.
+
+## 8. Post-baseline addendum — Patient PaymentOrder read (2026-11-06)
+
+Slice 7 không thêm collection hay field. Migration
+`202611062000-patient-payment-order-read-indexes` chỉ thêm hai managed indexes khớp
+hai query shape owner-scoped của `BILL-04`:
+
+1. `{ userId: 1, createdAt: -1, _id: -1 }` cho history không filter status.
+2. `{ userId: 1, status: 1, createdAt: -1, _id: -1 }` cho history có status.
+
+Index cũ `{ userId, status, createdAt }` không phục vụ sort theo `createdAt` khi thiếu
+status và không chứa `_id` tie-breaker. Read service chỉ select bounded public fields;
+`paymenttransactions` không được join/populate vào Patient history.
+
+Fresh local replica-set rehearsal ngày 2026-11-06: migration áp dụng tới schema
+`202611062000`, verifier pass với `37` managed collections/`117` managed indexes, và
+lần migrate thứ hai skip toàn bộ migration (no-op).

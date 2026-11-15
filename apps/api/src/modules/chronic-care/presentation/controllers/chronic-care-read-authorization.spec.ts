@@ -8,6 +8,7 @@ import {
   QueryCareEnrollmentsDto,
   QueryCareProgramsDto,
 } from '../dto/chronic-care-read.dto';
+import { QueryCareRuleDto } from '../dto/care-rule-read.dto';
 
 function roles(controller: object, method: string): UserRole[] {
   const handler = Object.getOwnPropertyDescriptor(
@@ -18,7 +19,11 @@ function roles(controller: object, method: string): UserRole[] {
 }
 
 describe('Chronic Care read route authorization', () => {
-  const programs = new CareProgramRuleController({} as never, {} as never);
+  const programs = new CareProgramRuleController(
+    {} as never,
+    {} as never,
+    {} as never,
+  );
   const enrollments = new CareEnrollmentController({} as never, {} as never);
 
   it('allows all authenticated product actors to read the Program catalog', () => {
@@ -45,6 +50,13 @@ describe('Chronic Care read route authorization', () => {
     ]);
   });
 
+  it('allows Doctor/Admin Rule reads but excludes Patient at route metadata', () => {
+    expect(roles(programs, 'getRule')).toEqual([
+      UserRole.DOCTOR,
+      UserRole.ADMIN,
+    ]);
+  });
+
   it('rejects raw fields, non-allowlisted sort keys and limits above the shared hard cap', async () => {
     const programErrors = await validate(
       plainToInstance(QueryCareProgramsDto, {
@@ -67,6 +79,26 @@ describe('Chronic Care read route authorization', () => {
     );
     expect(enrollmentErrors.map((error) => error.property)).toEqual(
       expect.arrayContaining(['status', 'patientId']),
+    );
+  });
+
+  it('accepts only active/draft Rule views and rejects pagination/raw query fields', async () => {
+    const valid = await validate(plainToInstance(QueryCareRuleDto, {}), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+    expect(valid).toEqual([]);
+
+    const invalid = await validate(
+      plainToInstance(QueryCareRuleDto, {
+        view: 'retired',
+        page: 1,
+        rawMongoFilter: '{}',
+      }),
+      { whitelist: true, forbidNonWhitelisted: true },
+    );
+    expect(invalid.map((error) => error.property)).toEqual(
+      expect.arrayContaining(['view', 'page', 'rawMongoFilter']),
     );
   });
 });

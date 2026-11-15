@@ -163,6 +163,26 @@ The backend calculates expected/completed/missed tasks, monitoring adherence, mi
 
 `SummaryInput v1` is a projection of these persisted facts, not AI output. Patient and Doctor receive the same numerical facts; Patient provenance contains source counts only, while the assigned Doctor may receive bounded opaque source IDs. No LLM/provider, token quota or narrative text is required for report generation or reading.
 
+#### CareReport export runtime — Slice 6 implemented
+
+PDF/CSV export is an asynchronous job over an immutable `CareReport`, never an
+in-request render or a fresh scan of raw clinical history. A Patient owner or Assigned
+Doctor with participant scope and entitlement creates the job with a required
+`Idempotency-Key`. The job snapshots report ID/version/input hash, actor owner/audience
+and format, then transitions through `pending`, `processing`, `ready`, `failed` or
+`expired`. Admin has no implicit clinical export authority.
+
+The worker reloads the persisted report and bounded audience projection, renders a
+versioned PDF/CSV representation and uploads it through a private-storage port. Outbox
+and queue payloads contain opaque identifiers and version metadata only, never report
+content or health data. The status endpoint is owner-only and mints a short-lived
+signed URL only for a ready artifact; neither signed URL nor provider/storage metadata
+is persisted or exposed. Expiry cleanup removes the artifact but never modifies or
+deletes the immutable report. Artifact retention and signed-link lifetime are explicit
+deployment configuration and the command fails closed when either is missing. Renderer
+contract `care-report-export.v1` uses a deterministic unbranded PDF layout and explicit
+CSV v1 columns; future branding/locale or column changes require a new renderer version.
+
 Only the assigned Doctor performs clinical workflow transitions. Admin may audit and administer Program/Rule lifecycle but may not acknowledge/resolve clinical alerts or alter a Patient enrollment as a substitute for the assigned Doctor. Patient may submit consent/baseline, withdraw consent and request a pause; a pause request is not itself a state transition.
 
 ### 4. Bounded-context ownership and public ports

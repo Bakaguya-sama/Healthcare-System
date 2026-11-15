@@ -18,12 +18,14 @@ import { CareMetricEvaluationService } from '../../modules/chronic-care/applicat
 import { ConsultationStaleRecoveryService } from '../../modules/consultations/application/services/consultations/consultation-stale-recovery.service';
 import { SubscriptionPaymentGrantService } from '../../modules/billing/application/services/subscription-payment-grant.service';
 import { CareTaskPolicyEventService } from '../../modules/chronic-care/application/services/care-task-policy-event.service';
+import { CareReportExportProcessorService } from '../../modules/chronic-care/application/services/care-report-export-processor.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
 const CARE_TASK_SCHEDULE_JOB = 'schedule-care-tasks';
 const CONSULTATION_STALE_RECOVERY_JOB = 'recover-stale-consultations';
 const PAYMENT_RECONCILIATION_JOB = 'reconcile-payment-grants';
+const CARE_REPORT_EXPORT_CLEANUP_JOB = 'cleanup-care-report-exports';
 const OUTBOX_OBSERVATION_INTERVAL_MS = 60_000;
 const OUTBOX_PENDING_LAG_WARNING_MS = 5 * 60_000;
 export const NOTIFICATION_REALTIME_CHANNEL = 'healthcare:notification-events';
@@ -51,6 +53,8 @@ export class OutboxWorkerService
     private readonly subscriptionGrants: SubscriptionPaymentGrantService,
     @Optional()
     private readonly careTaskPolicyEvents?: CareTaskPolicyEventService,
+    @Optional()
+    private readonly careReportExports?: CareReportExportProcessorService,
   ) {
     this.careAutomationEnabled =
       this.config.get<boolean>('CARE_MONITORING_AUTOMATION_ENABLED') === true;
@@ -81,11 +85,13 @@ export class OutboxWorkerService
                 ? this.paymentReconciliationEnabled
                   ? this.subscriptionGrants.reconcilePaidWithoutGrant()
                   : undefined
-              : this.deliverEvent(
-                  String(job.data.eventId),
-                  job.attemptsMade,
-                  job.opts.attempts ?? 1,
-                ),
+                : job.name === CARE_REPORT_EXPORT_CLEANUP_JOB
+                  ? this.careReportExports?.cleanupExpired()
+                  : this.deliverEvent(
+                      String(job.data.eventId),
+                      job.attemptsMade,
+                      job.opts.attempts ?? 1,
+                    ),
       { connection, prefix, concurrency: 4 },
     );
     await this.queue.upsertJobScheduler(
@@ -127,10 +133,25 @@ export class OutboxWorkerService
       await this.queue.upsertJobScheduler(
         'payment-grant-reconciliation',
         { every: 60_000 },
-        { name: PAYMENT_RECONCILIATION_JOB, data: {}, opts: { removeOnComplete: 100, removeOnFail: 100 } },
+        {
+          name: PAYMENT_RECONCILIATION_JOB,
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 100 },
+        },
       );
     } else {
       await this.queue.removeJobScheduler('payment-grant-reconciliation');
+    }
+    if (this.careReportExports) {
+      await this.queue.upsertJobScheduler(
+        'care-report-export-cleanup',
+        { every: 60_000 },
+        {
+          name: CARE_REPORT_EXPORT_CLEANUP_JOB,
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 100 },
+        },
+      );
     }
   }
 
@@ -214,7 +235,8 @@ export class OutboxWorkerService
     try {
       if (event.eventType === 'subscription.grant.requested') {
         const payload = event.payload as { orderId?: string };
-        if (!payload.orderId) throw new Error('Invalid subscription grant payload');
+        if (!payload.orderId)
+          throw new Error('Invalid subscription grant payload');
         await this.subscriptionGrants.grantForPaidOrder(payload.orderId);
         await this.outbox.markDelivered(event._id);
         return;
@@ -247,6 +269,22 @@ export class OutboxWorkerService
         await this.careTaskPolicyEvents.evaluateCheckIn(
           payload.careTaskId,
           payload.enrollmentId,
+        );
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'care.report.export.requested.v1') {
+        const payload = event.payload as {
+          eventVersion?: number;
+          exportId?: string;
+        };
+        if (payload.eventVersion !== 1 || !payload.exportId)
+          throw new Error('Invalid CareReport export event');
+        if (!this.careReportExports)
+          throw new Error('CareReport export handler is unavailable');
+        await this.careReportExports.process(
+          payload.exportId,
+          attemptsMade + 1 >= attempts,
         );
         await this.outbox.markDelivered(event._id);
         return;

@@ -210,9 +210,62 @@ order; feature flag tắt chỉ chặn order mới.
 query; QR/signed URL không persist; slice này không thu tiền từng Consultation
 và không bao gồm refund.
 
-**P0 còn thiếu:** Patient Plan catalog, Subscription/usage read API và order list.
+### Patient Billing read — ✅ Slice D4
 
-## 5. Báo cáo và export — ✅ report, ⏳ export
+1. Patient gọi `GET /plans` hoặc `GET /plans/:id`; backend chỉ query Plan
+   `published` đang nằm trong `effectiveFrom/effectiveUntil`, phân trang bounded và
+   trả public projection. Draft, retired, refund policy nội bộ, audit và cấu hình
+   VNPAY không đi ra consumer.
+2. Patient gọi `GET /subscriptions/me`; JWT subject là ownership authority. Billing
+   lifecycle service xác định `effective` Subscription (và provision/renew Free theo
+   behavior hiện hữu), còn lịch sử được query riêng theo chính `userId`, filter status
+   allowlist, pagination và stable `_id` tie-breaker.
+3. Entitlement luôn lấy từ immutable `Subscription.planSnapshot`; Plan catalog hiện
+   tại chỉ dùng cho màn hình chọn gói và không hồi tố quyền lợi đã grant. Queued renewal
+   chỉ trả safe snapshot + thời điểm hiệu lực, không trả `nextPlanOrderId`.
+4. `GET /subscriptions/me/usage` đọc đúng cycle và hai atomic counter mà Scheduled
+   Booking dùng. Công thức là
+   `available = consultationLimitPerCycle - consultationUsageCounted - consultationUsageReserved`.
+   Dữ liệu thiếu, counter âm hoặc tổng vượt limit làm projection fail-closed; endpoint
+   không tự sửa/reconcile lịch sử.
+5. `care_program_included` không gọi reserve/count/release của ordinary ledger, nên
+   không tăng `counted`/`reserved`, không giảm `available` và không tạo charge. Không
+   được suy ra policy này chỉ vì thiếu ledger.
+
+**Authorization/privacy:** ba route self-service chỉ cho Patient; Doctor/Admin không
+dùng route này. Response không chứa raw ledger row, PaymentOrder, transaction/gateway,
+IPN/Return, audit actor hay reconciliation metadata.
+
+**Ngoại lệ đọc:** nếu lifecycle không tìm/provision được Subscription hiệu lực thì
+`GET /subscriptions/me` trả `effective=null` nhưng vẫn có history bounded; usage trả
+`BILLING_SUBSCRIPTION_NOT_FOUND`. Snapshot/cycle/counter hỏng trả
+`BILLING_PROJECTION_UNAVAILABLE` thay vì đoán quota bằng 0 hoặc unlimited. Plan ID
+invalid, không tồn tại hoặc ngoài public catalog đều trả cùng safe not-found behavior.
+
+### Patient PaymentOrder history — ✅ Slice D7
+
+1. Patient gọi `GET /billing/payments/orders`; JWT subject là ownership authority và
+   API không nhận `patientId/userId` từ query.
+2. Backend query trực tiếp `PaymentOrders.userId`, tùy chọn filter đúng enum `status`,
+   phân trang bounded (`limit <= 100`) và sắp xếp ổn định theo
+   `createdAt DESC, _id DESC` mặc định. Kết quả rỗng là một page hợp lệ.
+3. Mỗi item chỉ lấy giá, currency và Plan `code/name/version` từ immutable
+   `orderSnapshot`; Plan catalog hiện tại không hồi tố lịch sử thanh toán.
+4. Projection không chứa `PaymentTransaction`, VNPAY/IPN/Return payload, chữ ký,
+   gateway reference, idempotency key, reconciliation/grant/outbox hay audit metadata.
+5. Patient mở một item bằng owner-scoped `BILL-05`; Doctor/Admin không dùng
+   self-service list route này. List là read-only, không tạo payment, gọi VNPAY hoặc
+   sửa trạng thái/grant Subscription.
+
+**Ngoại lệ đọc:** query ngoài allowlist bị validation từ chối; snapshot hoặc timestamp
+bắt buộc bị hỏng trả `BILLING_PROJECTION_UNAVAILABLE` thay vì lấy mutable Plan hoặc
+điền giá trị giả. Cross-patient bị chặn ngay trong database filter.
+
+**P0 API handoff sau Slice D7:** Patient PaymentOrder history và PDF/CSV report export
+đều đã có runtime route, authorization, bounded projection và OpenAPI. Công việc tiếp
+theo là release-readiness DA2; Admin billing dashboard/refund vẫn ngoài slice này.
+
+## 5. Báo cáo và export — ✅ report và PDF/CSV export
 
 **Actor:** Patient owner, Assigned Doctor.
 
@@ -222,10 +275,47 @@ canonical input để replay idempotent, tạo AI narrative có grounding/guard/
 **Ngoại lệ:** correction tạo report version mới và supersede version cũ; AI lỗi
 vẫn trả deterministic report; projection theo role không lộ dữ liệu ngoài quyền.
 
-**Ràng buộc:** summary không tạo severity/chẩn đoán; provenance bắt buộc; query
-bounded; export chỉ cấp short-lived download cho actor có entitlement.
+**Runtime Slice 6:**
 
-**P0 còn thiếu:** PDF/CSV export job, status/download API và authorization E2E.
+1. Patient owner hoặc Assigned Doctor có quyền trên Enrollment gọi
+   `POST /care-reports/:id/exports` với `format=pdf|csv` và `Idempotency-Key`.
+   Backend kiểm tra lại report, participant scope và entitlement; JWT là actor
+   authority. Admin không được mở clinical export chỉ từ vai trò quản trị.
+2. Command tạo/replay một export job bền vững rồi trả ngay; không render file trong
+   HTTP request. Job có lifecycle `pending -> processing -> ready|failed`, và
+   `ready -> expired` khi artifact hết hạn. Database là source of truth; queue/outbox
+   chỉ vận chuyển metadata tối thiểu, không chứa report projection hay health data.
+3. Worker reload immutable `CareReport`, đúng report version/input hash và audience
+   của actor, dựng bounded export projection rồi render PDF/CSV. Correction tạo report
+   version mới không làm thay nội dung export job đã gắn với version cũ.
+4. Artifact được upload vào private storage. Storage key, provider response và URL
+   gốc không đi ra API. `GET /care-report-exports/:id` chỉ cho đúng export owner và
+   chỉ mint short-lived signed download URL khi job `ready`; URL không persist trong
+   job, outbox, log hoặc cache dài hạn.
+5. Retry cùng idempotency key và payload trả job cũ; cùng key khác report/format trả
+   conflict. Worker retry không tạo artifact/job song song và phải xử lý recovery theo
+   outbox/job convention hiện hữu.
+6. PDF và CSV dùng cùng audience-safe source projection. Không export raw
+   HealthMetric, CareTask response, Rule input/snapshot, audit metadata, AI/provider
+   prompt hay dữ liệu ngoài persisted CareReport/CareSummary được phép cho actor.
+7. Job/file có expiry và cleanup. Expiry chỉ xóa/thu hồi artifact, không xóa hoặc sửa
+   immutable CareReport. Chính xác TTL, PDF layout/branding/locale và CSV column schema
+   dùng hai config bắt buộc `CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES` và
+   `CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS`; thiếu config thì command fail-closed.
+   Đơn vị lần lượt là phút và giây; khuyến nghị deploy hiện tại `1440`/`300`, signed
+   URL phải ngắn hơn artifact lifetime. Cloudinary credential và Outbox worker phải
+   được cấu hình/chạy riêng; không ghi credential vào source/docs.
+   PDF/CSV hiện dùng renderer deterministic `care-report-export.v1`; thay branding,
+   locale hoặc CSV columns phải tăng renderer version.
+
+**Ngoại lệ:** report/job ngoài scope dùng safe not-found; thiếu entitlement hoặc
+participant authority bị từ chối; job chưa ready không phát URL; artifact mất/hỏng
+không trả storage path mà chuyển/giữ trạng thái lỗi xác định được. Endpoint đọc không
+tự render lại hay reconcile dữ liệu lâm sàng.
+
+**Evidence runtime:** durable entity/index/migration, transaction job+outbox, leased
+worker/retry, private authenticated storage adapter, deterministic PDF/CSV renderer,
+owner-only status/signed URL, expiry cleanup và integration race/authorization tests.
 
 ## 6. Operations metrics — ⏳ hậu DA2
 
@@ -262,14 +352,32 @@ như kết quả lâm sàng.
 - Admin không được đọc Enrollment trong DA2 hiện tại, kể cả list, detail hay raw
   clinical projection. Route Enrollment tiếp tục chỉ dành cho Patient owner và
   Assigned Doctor. Audit log hiện hữu không tự cấp clinical-data access.
-- Rule read API (`GET /care-programs/:id/rules`) vẫn là slice riêng. Patient không
-  có Rule read. Doctor chỉ đọc Rule `active` của Program `published` qua summary
-  `version`, `status`, `testSummary`; không nhận raw declarative conditions.
-- Admin được đọc Rule `draft` và raw declarative conditions. Admin cũng nhận
-  `dataSources`, nhưng `testResults` và simulation evidence chỉ là bounded summary
-  (validation/outcome/count/reason code/version/time); không trả raw Patient,
-  HealthMetric input hoặc full evaluation trace.
-- Không có Rule version history hay pagination trong P0. Mỗi role chỉ đọc một Rule
-  hiện hành: Doctor là `active`; Admin mặc định `active` hoặc draft mới nhất khi
-  yêu cầu view draft. Quy tắc chọn draft mới nhất phải deterministic theo version,
-  rồi `_id` trước khi route được triển khai.
+- Rule read API (`GET /care-programs/:id/rules`) đã được triển khai theo projection
+  riêng cho từng actor. Patient bị từ chối. Doctor `active + approved` chỉ đọc Rule `active` của Program
+  `published` qua `version`, `status`, bounded `testSummary`; không nhận raw
+  declarative conditions, `dataSources`, scenario inputs hay evaluation trace. Doctor
+  gửi `view=draft` bị từ chối thay vì âm thầm đổi sang active.
+- Admin mặc định `view=active`; muốn đọc draft phải gửi rõ `view=draft`. Draft hiện
+  hành được chọn deterministic bằng `status=draft`, `version DESC`, `_id DESC`,
+  `limit=1`. Nhiều draft cùng version không được GET tự sửa; implementation phải ghi
+  technical warning/evidence phù hợp.
+- Admin được đọc raw declarative `rules` và `dataSources`. Test evidence chỉ trả
+  bounded DTO: summary có outcome/count/reason-code/interpreter-version/time và tối
+  đa 50 sanitized scenario results gồm scenario key, pass/fail, expected/actual
+  severity. Không trả raw Patient/Enrollment/HealthMetric/check-in input, stack trace
+  hay full interpreter trace. Vì entity hiện lưu `testResults` dạng Mixed, nếu không
+  map/validate an toàn thì chỉ trả summary hoặc bỏ evidence, không trả raw record.
+- Program `draft`: Admin chỉ đọc draft Rule. Program `published`: Admin đọc active
+  hoặc draft mới nhất theo view. Program `retired`: Admin chỉ được đọc active Rule
+  cuối cùng để audit/đối chiếu, không đọc draft; Doctor không đọc Rule của Program
+  retired. Doctor không cần có Enrollment trước để đọc active summary của public
+  published Program.
+- P0 không có Rule version history hay pagination. Program/Rule ngoài scope hoặc
+  không tồn tại dùng safe not-found; không có Rule theo view trả
+  `CARE_RULE_NOT_FOUND`; Doctor chưa active/approved hoặc yêu cầu draft trả forbidden;
+  projection/evidence hỏng trả `CARE_RULE_PROJECTION_UNAVAILABLE`, không leak raw data.
+- Read path chỉ query `CareProgram` và `CareRule`; không populate Enrollment hay dữ
+  liệu lâm sàng. Active dùng unique lifecycle constraint hiện hữu. Draft dùng
+  `careProgramId + status`, rồi sort `version DESC, _id DESC`; vì số version của một
+  Program bị giới hạn bởi catalog workflow và route chỉ lấy một record, Slice 5 không
+  thêm index/migration mới.
