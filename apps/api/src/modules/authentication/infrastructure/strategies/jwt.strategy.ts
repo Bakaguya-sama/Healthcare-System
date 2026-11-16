@@ -8,6 +8,7 @@ import { User, UserDocument } from '../../../users/domain/entities/users/user.sc
 import { AccountStatus } from '../../../../core/domain/user.enums';
 
 export interface JwtPayload {
+  id?: string;
   sub: string;
   email?: string;
   role: string;
@@ -42,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return {
+      id: payload.sub,
       sub: payload.sub,
       email: payload.email,
       role: payload.role,
