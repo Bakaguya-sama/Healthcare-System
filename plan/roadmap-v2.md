@@ -168,7 +168,8 @@ nguồn, không tự promote thành facility verified.
 
 ## 4. Giai đoạn 0 — Release operation ngoài source
 
-**Trạng thái:** 🚧
+**Trạng thái:** 🚧 — source/local/provider smoke đã có evidence; chưa đạt
+deploy-exit gate.
 **Kết quả mong đợi:** backend DA2 được enable an toàn ở môi trường deploy; không
 đánh đồng source green với production ready.
 
@@ -178,6 +179,21 @@ nguồn, không tự promote thành facility verified.
 - Smoke VNPAY, email, AI provider và private export storage.
 - Kiểm tra feature flag, lag/dead-letter, retry và rollback/kill switch.
 - Pin OpenAPI/realtime version cho frontend repository.
+
+### Evidence 17/11/2026
+
+| Hạng mục                                                     | Kết quả       | Giới hạn còn lại                                                                                    |
+| ------------------------------------------------------------ | ------------- | --------------------------------------------------------------------------------------------------- |
+| MongoDB/Redis, migration/verifier/no-op, API health, worker  | ✅ PASS local | Chưa thay thế rehearsal staging/production-equivalent                                               |
+| SMTP, Gemini generation/embedding, private export Cloudinary | ✅ PASS       | Chỉ dùng payload/artifact kỹ thuật không PHI; export kiểm tra cả signed URL hết hạn                 |
+| Outbox retry/dead-letter/requeue/crash recovery              | ✅ PASS local | Cần alert/dashboard thực tế cho `outbox.health` và pending lag                                      |
+| VNPAY/IPN/reconciliation                                     | 🚧 BLOCKED    | Callback public cấu hình không reachable; chưa có signed/duplicate IPN hoặc reconciliation evidence |
+| Rollback/kill switch và frontend contract pin/Web E2E        | 🚧 BLOCKED    | Cần rehearsal deployment và evidence từ frontend repository                                         |
+
+Chi tiết lệnh, actor, redaction boundary và owner action nằm tại
+[`docs/runbooks/phase0-release-evidence-2026-11-17.md`](../docs/runbooks/phase0-release-evidence-2026-11-17.md).
+Private export smoke đã phát hiện/sửa một lỗi URL download trong source; regression
+test, typecheck, build và generated-contract checks đều pass.
 
 ### Trình tự
 
@@ -191,6 +207,10 @@ nguồn, không tự promote thành facility verified.
 - Có evidence môi trường, người thực hiện, thời điểm và kết quả từng smoke.
 - Rollback/kill switch đã thử hoặc được xác minh bằng rehearsal.
 - Không có raw PHI/payment/provider secret trong log/evidence.
+
+**Điều kiện còn thiếu để chuyển ✅:** VNPAY portal/callback public hoạt động và
+signed-IPN/reconcile smoke pass; deployment có alert cho outbox lag/dead event và
+kill-switch rehearsal; frontend repository pin contract và chạy critical Web E2E.
 
 ## 5. Giai đoạn A — Identity security và policy governance
 
