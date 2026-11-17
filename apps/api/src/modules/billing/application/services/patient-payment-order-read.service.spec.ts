@@ -140,4 +140,37 @@ describe('PatientPaymentOrderReadService', () => {
       }),
     ).rejects.toMatchObject({ status: 503 });
   });
+
+  it('uses the same owner-scoped bounded projection for BILL-05 detail', async () => {
+    const row = {
+      _id: new Types.ObjectId(),
+      orderCode: 'PAY_DETAIL_1',
+      orderSnapshot: { code: 'PLUS', version: 3, name: 'Plus immutable' },
+      amount: 99_000,
+      currency: 'VND',
+      status: PaymentOrderStatus.PAID,
+      expiresAt: now,
+      createdAt: now,
+      updatedAt: now,
+      idempotencyKey: 'not-for-patient',
+    };
+    const exec = jest.fn().mockResolvedValue(row);
+    const lean = jest.fn(() => ({ exec }));
+    const select = jest.fn(() => ({ lean }));
+    const findOne = jest.fn(() => ({ select }));
+    const service = new PatientPaymentOrderReadService({ findOne } as never);
+
+    const result = await service.get(patientId, String(row._id));
+
+    expect(findOne).toHaveBeenCalledWith({
+      _id: expect.any(Types.ObjectId),
+      userId: new Types.ObjectId(patientId),
+    });
+    expect(result).toMatchObject({
+      id: String(row._id),
+      orderCode: 'PAY_DETAIL_1',
+      plan: { code: 'PLUS', version: 3, name: 'Plus immutable' },
+    });
+    expect(JSON.stringify(result)).not.toContain('idempotencyKey');
+  });
 });

@@ -21,11 +21,11 @@
 | Consultation link/usage — `CC-008`, `CC-013/A/B`            |      ✅       | Alert link, quota ledger, urgent benefit, stale recovery, scheduled check-in/queue                                        | On-demand queue policy còn mở                                     |
 | Plan, AI quota — `CC-012A/B`                                |      ✅       | Plan lifecycle, snapshot entitlement, AI reserve/commit/release và Patient billing/order read API                         | Usage aggregate mở rộng thuộc scope sau                           |
 | Subscription payment — `CC-PAY-001`                         |      ✅       | VNPAY Sandbox IPN, order, grant, renewal queue, reconciliation                                                            | Không bao gồm consultation charging hoặc refund                   |
-| Contract/API handoff                                        |      ✅       | Program/Enrollment/CareTask/Billing/CareRule read, CareTask policy v1, report export và BILL-04 có OpenAPI/test             | Frontend integration ở repository riêng                           |
+| Contract/API handoff                                        |      ✅       | Program/Enrollment/CareTask/Billing/CareRule read, CareTask policy v1, report export, BILL-04/BILL-05 có OpenAPI/test      | Frontend integration ở repository riêng                           |
 | Scheduled booking, queue/check-in                           |      ✅       | Availability, booking, scheduled check-in, own queue, Doctor queue/call-next, idempotency/race tests                      | ETA nullable; unified on-demand queue hậu DA2                     |
 | Report/data export                                          |      ✅       | Async private PDF/CSV job, owner status/signed URL, expiry cleanup và race/authorization tests                            | Branding/locale mới phải tăng renderer version                    |
 | Web Patient/Doctor/Admin                                    | ⏳ Repo riêng | Đã chốt frontend không thuộc backend monorepo; tích hợp sau bằng OpenAPI/realtime                                         | Full Web E2E thực hiện tại frontend repository sau khi ghép API   |
-| Release readiness DA2                                       |      ✅*      | Local full regression, contracts, migration/no-op, privacy matrix, Atlas-test backup/restore và handoff runbook có evidence | *Conditional release: production worker/provider/storage smoke trước enablement |
+| Release readiness DA2                                       |      ✅*      | Backend scope complete: regression, contracts, migration/no-op, privacy matrix, Atlas-test backup/restore và handoff evidence | *Conditional release: production worker/provider/storage smoke trước enablement |
 | Product/operations metrics — `CC-OPS-001`                   |  ⏳ Hậu DA2   | Chưa có KPI aggregate/operations dashboard                                                                                | Thực hiện sau DA2, không chặn release DA2                         |
 
 ## 2. Chi tiết từng giai đoạn
@@ -204,12 +204,17 @@ Cancellation hiện fail-closed vì API Consultation chưa có disposition canon
 
 ### Giai đoạn E — Release readiness DA2
 
-**Trạng thái:** ✅* Conditionally ready cho backend consumer handoff và deterministic
-DA2 demo ngày 17/11/2026. `*` Không thay thế smoke test worker/provider/storage của
+**Trạng thái:** ✅ Hoàn tất trong phạm vi backend repository; **conditionally ready**
+cho backend consumer handoff và deterministic DA2 demo ngày 17/11/2026. Production
+release vẫn có điều kiện: `*` không thay thế smoke test worker/provider/storage của
 môi trường deploy; các feature phụ thuộc hạ tầng vẫn disabled-by-default cho đến khi pass.
 
 - [x] Full local unit/integration/E2E và existing concurrency regression; database foundation timeout được nâng cục bộ lên 30 giây cho full migrate/verify/no-op.
 - [x] OpenAPI/realtime/boundary/type/lint/build gate local.
+- [x] Hoàn thiện curated frontend consumer handoff tại `docs/fe-integration/`;
+  inventory controller/OpenAPI/runtime ghi rõ P0 DTO bounded và legacy dynamic
+  contract gap. BILL-05 nay dùng cùng immutable redacted projection với BILL-04,
+  có Swagger success/error DTO và owner/redaction regression test.
 - [x] Migration `migrate → verify → expect-noop` và database-foundation rehearsal trên Compose local; full registry hiện tại là `202611171200`.
 - [x] Backup/restore rehearsal đã được owner phê duyệt trên Atlas **test** → `healthcare_release_readiness_20261117`: 1,541 documents, 0 restore failures, 44 applied migrations, validators/index DA2 pass.
 - [x] Feature-flag/worker matrix: AI, monitoring automation, VNPAY và export được ghi rõ enablement/fail-closed/rollback.
@@ -218,10 +223,12 @@ môi trường deploy; các feature phụ thuộc hạ tầng vẫn disabled-by-
 - [x] OpenAPI/realtime contract, error/config notes và integration handoff cho frontend repository; full Web E2E chạy sau khi frontend ghép API.
 - [x] Target Atlas **test** verifier và no-op pass sau forward-only validator/null/version reconciliation migrations (`202611171000`–`202611171200`).
 
-**Tiêu chí hoàn thành:** P0 critical journeys chạy không sửa DB tay; contract artifact
-khớp source; backup/restore rehearsal và target-test verifier pass; worker/provider/storage
-smoke của môi trường deploy còn lại không bị ghi thành “done”. Canonical evidence ở
-`docs/runbooks/da2-release-readiness.md`.
+**Tiêu chí hoàn thành backend:** P0 critical journeys chạy không sửa DB tay; contract
+artifact khớp source; backup/restore rehearsal và target-test verifier pass; handoff
+OpenAPI/realtime/error/config cho frontend đầy đủ. Các điều kiện vận hành còn lại
+(worker/provider/storage smoke trong môi trường deploy) không bị ghi thành “done” và
+là release prerequisite của Release Operator, không phải công việc source code còn thiếu.
+Canonical evidence ở `docs/runbooks/da2-release-readiness.md`.
 
 **Phụ thuộc:** Giai đoạn D và môi trường demo.
 

@@ -621,3 +621,117 @@ Swagger snapshot: `apps/api/openapi/openapi.json`. Route-level: **218/218 operat
 - Tổng API được kiểm kê: **218**.
 - Operation trong Swagger: **218**.
 - Kết quả: **217 API hoàn thiện + 1 API chưa hoàn thiện = 218 route decorator**.
+
+---
+
+## DA2 Consumer Handoff (curated, 2026-11-17)
+
+This is the handoff baseline for the separate frontend repository. It
+supplements—not replaces—the generated `apps/api/openapi/openapi.json` and
+`apps/api/contracts/realtime-events.json`. Its backend baseline is commit
+`9c8baaf` (`docs(release): complete DA2 readiness handoff`). Verify a release
+candidate before generating a frontend client:
+
+```powershell
+pnpm.cmd --filter api openapi:generate
+pnpm.cmd --filter api openapi:check
+pnpm.cmd --filter api realtime:check
+```
+
+### Transport, ownership and retries
+
+- Base path: `{API_ORIGIN}/api/v1`; deployment owns `API_ORIGIN`. Local default
+  is `http://localhost:3000/api/v1`.
+- Protected routes require `Authorization: Bearer <accessToken>`. JWT is the
+  ownership authority; never add `patientId`, `doctorId`, `userId`, or an owner
+  filter to broaden a self-service request.
+- Errors use `ApiErrorResponse` / `Da2ApiError`: `statusCode`, `correlationId`,
+  optional `code`, and `message`. Preserve the correlation ID for support; do
+  not render an error payload as clinical content.
+- Idempotent commands require `Idempotency-Key`. Same key plus same payload
+  replays the persisted result (`replayed=true` where exposed); same key plus a
+  different payload is `409 IDEMPOTENCY_CONFLICT`. Generate one key per user
+  intent and retain it until a terminal response.
+- Pages use bounded `page`/`limit`, allowlisted filters and stable server sort.
+  Dates are ISO strings. Do not send Mongo-like query objects.
+
+### Scheduled booking and queue
+
+| Capability | HTTP contract | Client rule |
+| --- | --- | --- |
+| Patient discovers a slot | `GET /availability-slots/doctors/:doctorId?from&to&page&limit&sortOrder` | Only available slots are returned; `from`/`to` are required ISO dates. |
+| Doctor manages own slots | `GET/POST /availability-slots`, `PATCH/DELETE /availability-slots/:id` | Doctor scope is server derived. |
+| Patient books | `POST /consultations/scheduled` + `Idempotency-Key` | `{ availabilitySlotId, patientNotes? }`; server atomically claims the slot and reserves ordinary quota. No consultation PaymentOrder/VNPAY call is created. |
+| Cancel / reschedule | `POST /consultations/:id/cancel`; `POST /consultations/:id/reschedule` + `Idempotency-Key` | Snapshot cutoff applies. Reschedule body is only `{ availabilitySlotId }` and keeps the existing reservation. |
+| Check-in / own queue | `POST /consultations/:id/check-in` + key; `GET /consultations/:id/queue` | Scheduled, accepted consultation only. Position is authoritative; `estimatedWaitMinutes` can be `null`, so never derive ETA from position. |
+| Doctor queue / call-next | `GET /doctors/me/queue?page&limit`; `POST /doctors/me/queue/call-next` + key | Scheduled-only queue. Call-next is atomic but does not start the consultation. |
+
+Pilot values are buffer `15`, minimum notice `60`, cancellation/reschedule
+cutoff `60`, and check-in early window `15` minutes. Existing consultations use
+their snapshot and must not be reinterpreted in the client. A
+`care_program_included` consultation does not consume ordinary
+`consultation_limit`; render quota only from `/subscriptions/me/usage`.
+
+### Chronic Care
+
+| Area | Contract | Restriction |
+| --- | --- | --- |
+| Catalog/enrollment | `GET /care-programs`, `/care-programs/:id`, `/care-enrollments`, `/care-enrollments/:id` | Patient owns enrollment; Doctor must be assigned; Admin has no Enrollment clinical read in DA2. |
+| Tasks | `GET /care-enrollments/:id/tasks`, `GET /care-tasks/:id` | Bounded list/detail only; do not render/cache raw responses, metrics, review notes, rule snapshots, or audit data. |
+| Task response | `POST /care-tasks/:id/responses` + key | Metric remains HLTH-02. Education acknowledges approved immutable content. Check-in accepts only `health-check-in.v1`; unsupported policy/content fails closed. |
+| Doctor review | `POST /care-tasks/:id/doctor-review` + key | Assigned Doctor only; reason code is allowlisted and the plaintext note is not returned by default task read. |
+| Rule | `GET /care-programs/:id/rules?view=active|draft` | Patient denied; active+approved Doctor gets active summary; Admin gets sanitized active/draft declarative projection, never raw traces/clinical inputs. |
+| Export | `POST /care-reports/:id/exports` + key; `GET /care-report-exports/:id` | Async owner-only job. Poll status; use `download.url` only when ready and before expiry. |
+
+### Billing and PaymentOrder
+
+- Published catalog: `GET /plans`, `GET /plans/:id`.
+- Owner subscription/usage: `GET /subscriptions/me`,
+  `GET /subscriptions/me/usage`. No effective subscription and nullable
+  unlimited quota fields are valid states; never substitute zero or a magic
+  unlimited number.
+- Owner history/detail: `GET /billing/payments/orders` and
+  `GET /billing/payments/orders/:id`. Both return the same bounded immutable
+  projection: code, status, amount/currency, immutable Plan summary and
+  lifecycle timestamps. Detail is not a provider/debug endpoint.
+- No consumer response exposes VNPAY request/signature, browser Return/IPN,
+  `PaymentTransaction`, gateway reference, reconciliation/grant state, order
+  idempotency key, audit/outbox data, or raw Plan execution rules. Browser
+  Return is display-only; signed server-to-server IPN settles an order.
+
+### Realtime
+
+Use `apps/api/contracts/realtime-events.json` version `2.0.0`. JWT goes in
+`handshake.auth.token` or an Authorization Bearer header. Realtime is a hint,
+not durable state or an ordering guarantee: after reconnect, rejoin only
+authorized rooms and refetch REST state.
+
+| Channel/event | Audience | Client action |
+| --- | --- | --- |
+| `/consultations` `queue.v1.changed` | queue owner and assigned Doctor | `{ consultationId, position, estimatedWaitMinutes: number|null, version }`; refetch REST queue/list. |
+| `/consultations` `queue.v1.called` | owning Patient and assigned Doctor | `{ consultationId, calledAt }`; refetch before changing UI state. |
+| `/consultations` `consultation_changed` | authorized participants | Lifecycle hint only; refetch REST state. |
+| `/notifications` `notifications` | notification owner | Alert/link invalidation hint; refetch bounded inbox/detail. |
+
+Chat `messageDocument` and `consultationMessages` events remain legacy
+`unknown` until their public DTO normalization. Do not build a new consumer
+dependency on their persistence shape.
+
+### Contract-completeness audit
+
+| API family | Runtime | OpenAPI | Frontend handoff action |
+| --- | --- | --- | --- |
+| DA2 slots, booking, check-in, own/Doctor queue | Complete with ownership/idempotency tests | Generated DTOs/route metadata present | Curated types and scheduled-only/nullable ETA semantics supplied. |
+| Chronic Care read, task commands, Rule read | Complete with bounded P0 projections | Generated DTOs for P0 projections | Curated role/privacy notes supplied; dynamic presentation stays `unknown` by design. |
+| Patient Plan/Subscription/usage and BILL-04 | Complete | Generated bounded DTOs present | Curated types supplied. |
+| BILL-05 detail | Complete | This slice adds bounded success DTO/Swagger metadata | Same immutable redacted projection as BILL-04; no raw PaymentOrder document. |
+| CareReport export job/status | Complete | Generated export DTOs present | Async, owner-only, expiry behavior supplied. |
+| Legacy dynamic routes | Runtime exists but not DA2 consumer scope | Inventory records 184 missing success schemas and 77 dynamic/unknown responses | P1 normalization gap: preserve `unknown`, do not infer fields or expose persistence data. |
+
+### DA2 exclusions
+
+DA2 excludes a unified on-demand queue, ETA algorithm, refund, Admin billing
+dashboard, PaymentOrder-history export, `CC-OPS-001`, and frontend UI/Web E2E
+in this repository. AI/RAG stays disabled unless knowledge-base, citation and
+safety smoke tests pass; deterministic Chronic Care remains available when it
+is disabled.

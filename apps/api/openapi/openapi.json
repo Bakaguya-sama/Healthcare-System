@@ -13214,10 +13214,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPaymentOrderDetailDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "HTTP 400 error",
+            "description": "Invalid payment order identifier",
             "content": {
               "application/json": {
                 "schema": {
@@ -13227,7 +13234,7 @@
             }
           },
           "401": {
-            "description": "HTTP 401 error",
+            "description": "Bearer token is required",
             "content": {
               "application/json": {
                 "schema": {
@@ -13237,7 +13244,7 @@
             }
           },
           "403": {
-            "description": "HTTP 403 error",
+            "description": "Patient role is required",
             "content": {
               "application/json": {
                 "schema": {
@@ -13247,7 +13254,7 @@
             }
           },
           "404": {
-            "description": "HTTP 404 error",
+            "description": "Payment order is missing or belongs to another Patient",
             "content": {
               "application/json": {
                 "schema": {
@@ -13285,6 +13292,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "An immutable payment-order snapshot is corrupt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -13292,6 +13309,7 @@
             "bearer": []
           }
         ],
+        "summary": "Read one owner-scoped Patient payment order safely",
         "tags": [
           "billing-payments"
         ]
@@ -26560,6 +26578,67 @@
           "limit",
           "total",
           "totalPages"
+        ]
+      },
+      "PatientPaymentOrderDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "pending",
+              "processing",
+              "paid",
+              "expired",
+              "cancelled",
+              "failed",
+              "refund_pending",
+              "refunded"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "example": "VND"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PatientPaymentOrderPlanDto"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string"
+          },
+          "cancelledAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "orderCode",
+          "status",
+          "amount",
+          "currency",
+          "plan",
+          "expiresAt",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "PatientPlanQuotaDto": {

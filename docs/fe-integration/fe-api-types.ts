@@ -5710,3 +5710,296 @@ export interface RealtimePresenceChanged {
   userId: string;
   status: "online" | "offline";
 }
+
+// ==================== DA2 CURATED CONSUMER CONTRACT ====================
+//
+// The inventory types above describe observed legacy runtime responses. They are
+// not a license for a new frontend to depend on persistence documents or fields
+// marked unknown. New DA2 consumers should import the bounded types below and
+// use OpenAPI as the generated HTTP source of truth. All timestamps are ISO 8601
+// strings; no type below contains provider, audit, outbox, or raw clinical data.
+
+export type Da2IsoDateTime = string;
+
+export interface Da2Page<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface Da2Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export interface Da2ApiError {
+  statusCode: number;
+  timestamp: Da2IsoDateTime;
+  path: string;
+  method: string;
+  correlationId: string;
+  error: string;
+  message: string | string[];
+  code?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface Da2IdempotentResult<T> {
+  data: T;
+  replayed: boolean;
+}
+
+export interface Da2AvailableSlot {
+  id: string;
+  doctorId: string;
+  startAt: Da2IsoDateTime;
+  endAt: Da2IsoDateTime;
+  timezone: string;
+  status: "available";
+}
+
+export interface Da2DoctorAvailabilitySlot {
+  id: string;
+  doctorId: string;
+  startAt: Da2IsoDateTime;
+  endAt: Da2IsoDateTime;
+  timezone: string;
+  status: "available" | "booked" | "blocked" | "expired";
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface Da2ScheduledConsultation {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  availabilitySlotId: string;
+  mode: "scheduled";
+  requestStatus: "pending" | "accepted" | "declined" | "cancelled" | "expired";
+  sessionStatus: "not_started" | "waiting" | "in_consultation" | "interrupted" | "completed" | "no_show";
+  quotaPolicy: "consultation_limit" | "care_program_included";
+  scheduledStartAt: Da2IsoDateTime;
+  scheduledEndAt: Da2IsoDateTime;
+  timezone: string;
+  expectedDurationMinutes: number;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface Da2QueueSnapshot {
+  consultationId: string;
+  status: "waiting" | "called";
+  position: number;
+  /** Null means that the server deliberately has no ETA policy/estimate. */
+  estimatedWaitMinutes: number | null;
+  etaReason: string | null;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface Da2DoctorQueueEntry extends Da2QueueSnapshot {
+  patient: { id: string; fullName?: string; avatarUrl?: string };
+  mode: "scheduled";
+  scheduledStartAt: Da2IsoDateTime;
+  queueJoinedAt: Da2IsoDateTime;
+  queuePosition: number;
+  isCurrent: boolean;
+  isLate: boolean;
+  calledAt?: Da2IsoDateTime;
+}
+
+export interface Da2DoctorQueuePage {
+  data: Da2DoctorQueueEntry[];
+  currentSession: {
+    consultationId: string;
+    patientId: string;
+    sessionStatus: "not_started" | "waiting" | "in_consultation" | "interrupted" | "completed" | "no_show";
+    sessionStartedAt?: Da2IsoDateTime;
+  } | null;
+  pagination: Da2Pagination;
+}
+
+export interface Da2CareProgramSummary {
+  id: string;
+  programCode: string;
+  version: number;
+  name: string;
+  diseaseKey: string;
+  description?: string;
+  status: "draft" | "published" | "retired";
+  publishedAt?: Da2IsoDateTime;
+  retiredAt?: Da2IsoDateTime;
+}
+
+export interface Da2CareIdentitySummary {
+  id: string;
+  fullName: string;
+  avatarUrl?: string;
+  specialty?: string;
+}
+
+export interface Da2CareEnrollmentSummary {
+  id: string;
+  program: Da2CareProgramSummary;
+  status: "pending" | "active" | "paused" | "completed" | "cancelled";
+  patient?: Da2CareIdentitySummary;
+  assignedDoctor?: Da2CareIdentitySummary;
+  timezone: string;
+  allowedActions: string[];
+  startedAt?: Da2IsoDateTime;
+  expectedEndAt?: Da2IsoDateTime;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface Da2CareTaskSummary {
+  id: string;
+  enrollmentId: string;
+  taskType: "metric" | "check_in" | "education" | "appointment" | "doctor_review";
+  templateKey: string;
+  status: "scheduled" | "due" | "completed" | "missed" | "cancelled";
+  required: boolean;
+  scheduledFor: Da2IsoDateTime;
+  windowStart: Da2IsoDateTime;
+  windowEnd: Da2IsoDateTime;
+  completedAt?: Da2IsoDateTime;
+  missedAt?: Da2IsoDateTime;
+  cancelledAt?: Da2IsoDateTime;
+  allowedActions: string[];
+}
+
+/** Dynamic presentation is server-curated; frontend must not infer a schema not in OpenAPI. */
+export interface Da2CareTaskDetail extends Da2CareTaskSummary {
+  presentation: unknown;
+  progress: unknown;
+  consultationReference?: unknown;
+}
+
+export interface Da2HealthCheckInRequest {
+  overallStatus: "improved" | "stable" | "worsened";
+  symptomCodes: string[];
+  severity: "none" | "mild" | "moderate" | "severe";
+}
+
+export interface Da2EducationAcknowledgementRequest {
+  action: "acknowledge";
+}
+
+export interface Da2DoctorReviewRequest {
+  reasonCode: "reviewed_no_action" | "follow_up_needed" | "consultation_recommended" | "care_plan_adjustment_needed";
+  note?: string;
+}
+
+export interface Da2CareRuleTestSummary {
+  status: "passed" | "failed" | "unavailable";
+  total?: number;
+  passed?: number;
+  failed?: number;
+  reasonCodes?: string[];
+  interpreterVersion?: string;
+  executedAt?: Da2IsoDateTime;
+}
+
+export interface Da2DoctorCareRule {
+  id: string;
+  careProgramId: string;
+  version: number;
+  status: "active";
+  testSummary?: Da2CareRuleTestSummary;
+}
+
+export interface Da2SanitizedDeclarativeRule {
+  operator: "all" | "any" | "not" | "gt" | "gte" | "lt" | "lte" | "between" | "exists" | "equal" | "not_equal";
+  key?: string;
+  value?: number | string | boolean;
+  min?: number;
+  max?: number;
+  rules?: Da2SanitizedDeclarativeRule[];
+  reasonCode?: string;
+  severity?: "attention" | "urgent";
+}
+
+export interface Da2AdminCareRule extends Omit<Da2DoctorCareRule, "status"> {
+  revision: number;
+  status: "active" | "draft";
+  rules: Da2SanitizedDeclarativeRule[];
+  dataSources: Array<{
+    kind: "care_task_check_in";
+    schemaVersion: "health-check-in.v1";
+    templateKey: string;
+    allowedFactPrefixes: string[];
+  }>;
+  testResults?: Array<{
+    scenarioKey: string;
+    passed: boolean;
+    expectedSeverity?: "normal" | "attention" | "urgent";
+    actualSeverity?: "normal" | "attention" | "urgent";
+    reasonCodes?: string[];
+  }>;
+}
+
+export interface Da2PatientPlan {
+  id: string;
+  code: string;
+  version: number;
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  durationDays: number;
+  quota: {
+    aiRequestLimit: number;
+    aiTokenLimit: number;
+    aiQuotaPeriod: "day" | "subscription_cycle";
+    consultationLimitPerCycle: number;
+    activeCareProgramLimit: number;
+  };
+  available: boolean;
+  purchasable: boolean;
+  effectiveFrom?: Da2IsoDateTime;
+  effectiveUntil?: Da2IsoDateTime;
+}
+
+export interface Da2PatientSubscriptionUsage {
+  subscriptionId: string;
+  cycle: { number: number; startedAt: Da2IsoDateTime; endsAt: Da2IsoDateTime };
+  consultations: {
+    limit: number | null;
+    counted: number;
+    reserved: number;
+    available: number | null;
+    unlimited: boolean;
+  };
+  asOf: Da2IsoDateTime;
+}
+
+export interface Da2PaymentOrder {
+  id: string;
+  orderCode: string;
+  status: "created" | "pending" | "processing" | "paid" | "expired" | "cancelled" | "failed" | "refund_pending" | "refunded";
+  amount: number;
+  currency: string;
+  plan: { code: string; name: string; version: number };
+  expiresAt: Da2IsoDateTime;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+  paidAt?: Da2IsoDateTime;
+  cancelledAt?: Da2IsoDateTime;
+}
+
+export interface Da2CareReportExport {
+  id: string;
+  careReportId: string;
+  reportVersion: number;
+  format: "pdf" | "csv";
+  status: "pending" | "processing" | "ready" | "failed" | "expired";
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+  expiresAt?: Da2IsoDateTime;
+  download?: { url: string; expiresAt: Da2IsoDateTime };
+  failureReasonCode?: string;
+  replayed?: boolean;
+}

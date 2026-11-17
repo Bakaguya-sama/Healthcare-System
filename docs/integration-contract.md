@@ -1281,7 +1281,7 @@ Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; 
 | BILL-02 | `GET /subscriptions/me`                     | Patient                  | status/page/limit/sort allowlist                     | paged owner history + nullable `effective` immutable entitlement   | Implemented Slice D4; lifecycle authority selects current                                   |
 | BILL-03 | `POST /billing/payments/orders`             | Patient                  | `{ planId }` + `Idempotency-Key`                     | `PaymentOrderDto` + transient `paymentUrl`/`paymentQrDataUrl`      | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
 | BILL-04 | `GET /billing/payments/orders`              | Patient                  | status/page/limit; `sortBy=createdAt`; `sortOrder=±1` | `PatientPaymentOrderPageDto`                                       | Implemented Slice D7; JWT owner scope, hard limit 100, stable `createdAt + _id` sort        |
-| BILL-05 | `GET /billing/payments/orders/:id`          | Patient owner            | none                                                 | owner-scoped order                                                 | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
+| BILL-05 | `GET /billing/payments/orders/:id`          | Patient owner            | none                                                 | `PatientPaymentOrderDetailDto` bounded immutable order projection | Implemented; owner-scoped, same redaction boundary as BILL-04                                |
 | BILL-06 | `POST /billing/payments/orders/:id/cancel`  | Patient owner            | none                                                 | cancelled unpaid order                                             | Implemented `CC-PAY-001`; reason/idempotency hardening chưa thuộc runtime contract hiện tại |
 | BILL-07 | `GET /billing/payments/vnpay/return`        | Public/provider redirect | VNPAY params                                         | display-only `payment_verification_pending`                        | Implemented `CC-PAY-001`; IPN vẫn là authority                                              |
 | BILL-08 | `GET /billing/payments/vnpay/ipn`           | VNPAY                    | signed params                                        | provider-required acknowledgement                                  | Implemented `CC-PAY-001`; public GET                                                        |
@@ -1305,6 +1305,12 @@ populate mutable Plan, không trả raw `orderSnapshot`, `PaymentTransaction`, V
 params/signature, IPN/Return payload, gateway reference, reconciliation/grant/outbox
 hay audit metadata; empty history trả page rỗng và snapshot corrupt fail-closed bằng
 `BILLING_PROJECTION_UNAVAILABLE`. `BILL-05` vẫn là route mở chi tiết owner-scoped.
+
+`BILL-05` now uses the same bounded immutable projection and owner query as
+`BILL-04`. It is not a detail escape hatch for `idempotencyKey`, raw
+`orderSnapshot`, `PaymentTransaction`, VNPAY/IPN, reconciliation/grant,
+outbox, or audit data. A corrupt immutable snapshot fails closed with
+`BILLING_PROJECTION_UNAVAILABLE`.
 
 ### 5.7 Notification, moderation và admin dashboard
 

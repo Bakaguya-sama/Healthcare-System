@@ -6,7 +6,8 @@
 
 ## Release status
 
-**Conditionally ready for backend consumer handoff and deterministic DA2 demo.**
+**Backend repository work complete; conditionally ready for backend consumer
+handoff and deterministic DA2 demo.**
 
 The source, local replica-set migration rehearsal, generated API contracts,
 full local regression gates, target-test schema verification, and approved
@@ -34,7 +35,7 @@ Accepted DA2 limits are deliberate, not blockers:
 | Journey | Route / worker / event authority | Actor and boundary | Evidence | Release state |
 | --- | --- | --- | --- | --- |
 | Plan → order → Sandbox IPN → Subscription | Billing command/IPN plus outbox grant/reconciliation | Patient initiates; signed IPN is authority; browser return never grants | unit, integration/E2E regression; `docs/runbooks/billing-payment-evidence.md` | Conditional: only enable Sandbox after callback/reconciliation smoke test |
-| Patient billing read | `/plans`, `/subscriptions/me`, `/subscriptions/me/usage`, `GET /billing/payments/orders`, BILL-05 | JWT owner scope; Doctor/Admin denied on Patient self-service routes | Billing read and PaymentOrder tests; generated OpenAPI | Ready for handoff |
+| Patient billing read | `/plans`, `/subscriptions/me`, `/subscriptions/me/usage`, `GET /billing/payments/orders`, BILL-05 | JWT owner scope; Doctor/Admin denied on Patient self-service routes; BILL-05 shares BILL-04 bounded immutable projection | Billing read and PaymentOrder tests; generated OpenAPI | Ready for handoff |
 | Scheduled booking → queue | Availability/booking, `/consultations/:id/check-in`, `/consultations/:id/queue`, `/doctors/me/queue`, `call-next` | Doctor owns slots/queue; Patient owns booking and own queue projection | scheduled booking/check-in/queue integration tests | Ready for scheduled-only handoff |
 | Chronic Care evaluation | CareTask/HealthMetric commands → outbox → active Rule evaluation → CareAlert | Patient owns task; assigned Doctor review; Admin has no Enrollment/CareTask clinical read | CareTask policy and worker integration tests | Ready when outbox worker is running |
 | Appointment task lifecycle | canonical Consultation transition synchronizes linked `careTaskId` | Consultation is canonical; no synthetic consultation | CareTask policy/consultation regression tests | Ready |
@@ -189,6 +190,16 @@ Provide the frontend repository with:
 
 Full Web E2E belongs to the frontend repository after it pins these two generated
 artifacts and generates its client.
+
+### 2026-11-17 handoff completion addendum
+
+The final consumer-contract audit added curated DA2 frontend types and integration
+notes in `docs/fe-integration/`. It also closed a real BILL-05 projection gap:
+`GET /billing/payments/orders/:id` now uses the same owner-scoped, immutable,
+redacted projection as BILL-04, with OpenAPI success/error DTOs and unit plus
+replica-set ownership/redaction evidence. This completes the backend-repository
+part of the release-readiness handoff; it does not constitute a smoke test of a
+deployment's secrets, public IPN callback, storage, or workers.
 
 ## Deployment blockers and owners
 
