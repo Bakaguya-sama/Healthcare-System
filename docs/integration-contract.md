@@ -2018,7 +2018,7 @@ Route `/patient/medical-facilities/:id` là deep-link mở `FacilityDetailDrawer
 - **Trang làm gì:** hợp nhất yêu cầu on-demand, lịch sắp tới, hàng đợi, phiên hiện tại và lịch sử để tránh Doctor phải chuyển qua nhiều trang vận hành chồng chéo.
 - **Component:** `ConsultationWorkspaceTabs`, `PendingRequestList`, `UpcomingConsultationList`, `QueueBoard`, `QueueEntry`, `CurrentSessionPanel`, `ConsultationHistory`, `ConsultationDetailDrawer`, `PatientContextPanel`, `LinkedCareContext`, `StatusTimeline`, `MessageTimeline`, `MessageComposer`, `CallPanel`, `DoctorNoteEditor`, `FollowUpEditor`, `CompleteConsultationDialog`, `NoShowDialog`.
 - **Hành động chính:** accept/decline request; call-next atomically; start/resume; chat/call; ghi note/follow-up; đánh dấu no-show; hoàn tất phiên.
-- **Trạng thái bắt buộc:** scheduled và on-demand dùng chung queue do server sắp; không drag reorder; chỉ một `in_consultation`; 409/expired phải refetch; thời lượng chỉ tạo cảnh báo overtime, không tự kết thúc; end call không đồng nghĩa complete; dữ liệu Patient chỉ hiện trong authorization scope.
+- **Trạng thái bắt buộc:** trong DA2, `QueueBoard` chỉ hiển thị scheduled consultation đã check-in; on-demand tiếp tục ở canonical accept/start flow và không được chen vào scheduled queue. Không drag reorder; chỉ một `in_consultation`; 409/expired phải refetch; ETA có thể `null`; thời lượng chỉ tạo cảnh báo overtime, không tự kết thúc; end call không đồng nghĩa complete; dữ liệu Patient chỉ hiện trong authorization scope. Unified on-demand queue là hậu DA2.
 
 `/doctor/requests`, `/doctor/queue` và `/doctor/consultations/:id` là deep-link vào tab/drawer của workspace này, không cần ba bộ UI rời nhau.
 

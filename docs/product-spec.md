@@ -275,11 +275,12 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 ## Check-in và hàng đợi
 
 1. Scheduled queue hiện chỉ chứa Consultation `scheduled + accepted + waiting`
-   có `queueJoinedAt` và `queuePriorityAt`; on-demand queue là câu hỏi mở, chưa
-   thuộc implementation hiện tại.
-2. Bệnh nhân có lịch được check-in sớm tối đa `checkInEarlyMinutes`. Giá trị 15
-   phút mới là khuyến nghị pilot, chưa được chốt: snapshot có giá trị thì dùng
-   snapshot; booking cũ dùng cấu hình có tên rõ; thiếu cả hai thì fail-closed.
+   có `queueJoinedAt` và `queuePriorityAt`; on-demand queue là follow-up hậu DA2,
+   không thuộc implementation hiện tại.
+2. Bệnh nhân có lịch được check-in sớm tối đa `checkInEarlyMinutes`. Baseline
+   pilot đã chốt là 15 phút: snapshot có giá trị thì dùng snapshot; booking cũ
+   dùng cấu hình có tên rõ; thiếu cả hai thì fail-closed. Giá trị này phải được
+   đánh giá lại bằng dữ liệu arrival/no-show và tải queue trước khi thay đổi.
 3. Scheduled queue sắp theo `queuePriorityAt = scheduledStartAt`, sau đó
    `queueJoinedAt`, rồi `_id`. Vị trí hiển thị chỉ là snapshot do server tính.
 4. Khi bác sĩ gọi người tiếp theo, backend atomically ghi `calledAt` cho queue
