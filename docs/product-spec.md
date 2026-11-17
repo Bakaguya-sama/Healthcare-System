@@ -1,6 +1,13 @@
 # HealthAI product specification
 
-> Canonical product, role and safety specification. For Chronic Care command behavior, use [chronic-care-spec.md](chronic-care-spec.md); for delivery order, use [roadmap.md](../plan/roadmap.md).
+> **Lưu ý trạng thái (17/11/2026):** Tài liệu này chứa cả business rule đích và
+> phạm vi sản phẩm, không tự nó chứng minh runtime đã có. Trạng thái implementation
+> và backlog sau DA2 được đối chiếu source tại
+> [implementation-gap-audit-2026-11-17.md](implementation-gap-audit-2026-11-17.md)
+> và được sắp thứ tự tại
+> [`plan/roadmap-v2.md`](../plan/roadmap-v2.md).
+
+> Canonical product, role and safety specification. For Chronic Care command behavior, use [chronic-care-spec.md](chronic-care-spec.md); for delivery order, use [roadmap sau DA2](../plan/roadmap-v2.md).
 
 ## Business rules
 
@@ -166,12 +173,12 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 14. Summary generation idempotent theo enrollment, report window, data cutoff và summary version. Dữ liệu nguồn thay đổi tạo summary version mới; không ghi đè lịch sử đã được Doctor review.
 15. Summary lưu `generated|fallback|failed`, model/prompt version, rule set version, input hash/source refs, validation result, token/latency metadata không chứa raw health data và Doctor review status nếu có.
 16. RAG chỉ bổ sung kiến thức giáo dục từ tài liệu active/approved; RAG không tính thống kê, chọn threshold, thay đổi rule result hoặc quyết định hành động khẩn.
-17. Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`, không duyệt thủ công từng chunk. `AiDocuments.reviewStatus` là nguồn chuẩn; khi document được duyệt/archived, worker dùng bulk update đồng bộ `AiDocumentChunks.reviewStatus/isActive`.
+17. Role `ai_manager` tạo draft, upload, chỉnh metadata và yêu cầu ingest/re-ingest ở cấp `AiDocuments`; Admin có toàn quyền approve/reject/archive/delete và chọn version active. Không duyệt thủ công từng chunk, và `ai_manager` không được tự approve document của mình. `AiDocuments.reviewStatus` là nguồn chuẩn; khi document được duyệt/archived, worker dùng bulk update đồng bộ `AiDocumentChunks.reviewStatus/isActive`.
     17a. Mỗi `AiDocumentChunks` phải kế thừa metadata quản trị từ document và metadata vị trí từ parser: nguồn/tổ chức, trạng thái duyệt, phiên bản, ngày hiệu lực, chuyên khoa, ngôn ngữ, đối tượng đọc, trang và đường dẫn section.
 18. Retrieval chỉ dùng chunk `isActive = true`, `reviewStatus = approved`, chưa hết hiệu lực và khớp phạm vi. `citation` phải trỏ đúng document, version, page/section và source URL; backend kiểm tra chunk/citation trước khi trả lời.
 19. `contentHash` chống chunk trùng trong cùng document; `ingestionVersion` xác định parser/chunker/embedding version để re-ingestion. `parentChunkId` chỉ dùng lấy section cha đủ ngữ cảnh, không bỏ qua metadata filter của child hoặc parent.
 20. Chunk lỗi hoặc không phù hợp được loại riêng bằng `isActive = false`, `excludedBy`, `excludedAt`, `exclusionReason`; thao tác này không thay đổi trạng thái duyệt của toàn document. Document version mới phải được duyệt trước khi thay thế version cũ đang active.
-21. `AiDocuments.validUntil` là cutoff tùy chọn; `approvedBy/approvedAt` ghi actor và thời điểm chịu trách nhiệm duyệt, kể cả khi người upload đồng thời là người duyệt. `AiDocumentChunks.validUntil` là bản sao để Atlas Vector Search lọc trước retrieval, không phải nguồn chuẩn độc lập.
+21. `AiDocuments.validUntil` là cutoff tùy chọn; `approvedBy/approvedAt` ghi Admin actor và thời điểm chịu trách nhiệm duyệt. Mọi transition review/active/archive/delete phải ghi actor, time và reason. `AiDocumentChunks.validUntil` là bản sao để Atlas Vector Search lọc trước retrieval, không phải nguồn chuẩn độc lập.
 22. `AiConversations` là thread hỏi đáp có thể tiếp tục như ChatGPT, không có trạng thái `completed` hoặc `endedAt`. `archivedAt` nullable là nguồn chuẩn duy nhất: không có giá trị nghĩa là conversation vẫn mở, có giá trị nghĩa là đã archive và có thể unarchive bằng cách xóa giá trị.
 
 ## Quy tắc tài khoản và bác sĩ
@@ -377,23 +384,23 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
     timestamp public có nguồn thật. Không trả raw order snapshot, benefit/refund rule,
     PaymentTransaction, VNPAY/IPN/Return, gateway, reconciliation, grant, outbox hoặc
     audit metadata. Empty history là kết quả hợp lệ; projection corrupt fail-closed.
-45. Patient Plan catalog chỉ trả Plan `published` trong cửa sổ hiệu lực, dùng public
+47. Patient Plan catalog chỉ trả Plan `published` trong cửa sổ hiệu lực, dùng public
     projection bounded và pagination hard limit. Draft/retired, refund policy nội bộ,
     audit/source và provider configuration không thuộc Patient response.
-46. `GET /subscriptions/me` trả history owner-scoped cùng `effective` Subscription do
+48. `GET /subscriptions/me` trả history owner-scoped cùng `effective` Subscription do
     billing lifecycle authority hiện hữu lựa chọn. Entitlement lấy từ immutable
     `planSnapshot`, không join ngược mutable Plan. Safe queued-renewal summary không
     chứa PaymentOrder/gateway identifier.
-47. Patient consultation usage dùng chính counter atomically maintained trên current
+49. Patient consultation usage dùng chính counter atomically maintained trên current
     Subscription: `available = limit - counted - reserved`. Released/cancelled/stale
     reservation đã được transition/reconcile ra khỏi active counter và không được read
     endpoint cộng lại. Snapshot/cycle/counter không nhất quán phải fail-closed, không
     giả thành `0` hoặc unlimited.
-48. Schema Plan hiện tại không có unlimited sentinel cho consultation. Patient usage
+50. Schema Plan hiện tại không có unlimited sentinel cho consultation. Patient usage
     trả `unlimited=false` và numeric `limit/available`; không dùng magic number. Nếu
     domain bổ sung unlimited sau này thì contract dùng `unlimited=true` với
     `limit/available=null` sau migration/versioned policy.
-49. `care_program_included` không đi qua ordinary consultation ledger/counter, không
+51. `care_program_included` không đi qua ordinary consultation ledger/counter, không
     giảm quota và không tạo charge. Billing read không trả clinical origin và không
     được suy ra included policy từ một ledger row bị thiếu.
 
@@ -664,7 +671,7 @@ lịch scheduled vẫn là câu hỏi mở, không phải behavior mặc định
 - `AiQuotaReservations` reserve/commit/release quota token theo kỳ; `AiUsageDaily` là aggregate bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam. Quyết toán dùng Gemini `usageMetadata`, không dùng độ dài text ước lượng.
 - Không dùng cron reset quota theo tên gói; period được xác định từ immutable Subscription snapshot. Reservation chưa kết thúc phải có reconciliation/audit policy riêng.
 - RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
-- Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`; trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
+- `ai_manager` quản lý upload/draft/metadata và yêu cầu ingest; Admin duyệt độc lập ở cấp `AiDocuments`. Trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
 - AI response phải có safety policy/disclaimer và không chẩn đoán.
 
 ### 5.7 Billing, cancel và refund
