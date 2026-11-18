@@ -75,22 +75,34 @@ export class AiDocumentsController {
       throw new BadRequestException('No file provided');
     }
 
-    return this.aiDocumentsService.create(user.id, file, createDto);
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.create(user.id, file, createDto),
+    );
   }
 
   @Get()
   async getAllDocuments(@Query() query: QueryAiDocumentDto) {
-    return this.aiDocumentsService.findAll(query);
+    const result = await this.aiDocumentsService.findAll(query);
+    return {
+      ...result,
+      data: result.data.map((document) =>
+        this.aiDocumentsService.toPublicDocument(document),
+      ),
+    };
   }
 
   @Get('search/:query')
   async searchDocuments(@Param('query') searchQuery: string) {
-    return this.aiDocumentsService.search(searchQuery);
+    return (await this.aiDocumentsService.search(searchQuery)).map((document) =>
+      this.aiDocumentsService.toPublicDocument(document),
+    );
   }
 
   @Get(':id')
   async getDocument(@Param('id') documentId: string) {
-    return this.aiDocumentsService.findById(documentId);
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.findById(documentId),
+    );
   }
 
   @Patch(':id')
@@ -100,7 +112,64 @@ export class AiDocumentsController {
     @Param('id') documentId: string,
     @Body() updateDto: UpdateAiDocumentDto,
   ) {
-    return this.aiDocumentsService.update(documentId, user.id, updateDto);
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.update(documentId, user.id, updateDto),
+    );
+  }
+
+  @Post(':id/approve')
+  @Roles(UserRole.ADMIN)
+  async approveDocument(
+    @CurrentUser() user: UserPayload,
+    @Param('id') documentId: string,
+  ) {
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.approve(documentId, user.id),
+    );
+  }
+
+  @Post(':id/replacements')
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  async replaceDocumentVersion(
+    @CurrentUser() user: UserPayload,
+    @Param('id') documentId: string,
+    @UploadedFile() file: UploadableFile,
+    @Body() dto: CreateAiDocumentDto,
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.replaceVersion(
+        documentId,
+        user.id,
+        file,
+        dto,
+      ),
+    );
+  }
+
+  @Post(':id/reject')
+  @Roles(UserRole.ADMIN)
+  async rejectDocument(
+    @CurrentUser() user: UserPayload,
+    @Param('id') documentId: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.reject(documentId, user.id, body.reason),
+    );
+  }
+
+  @Post(':id/activate')
+  @Roles(UserRole.ADMIN)
+  async activateDocument(
+    @CurrentUser() user: UserPayload,
+    @Param('id') documentId: string,
+  ) {
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.activate(documentId, user.id),
+    );
   }
 
   @Patch(':id/index')
@@ -123,7 +192,9 @@ export class AiDocumentsController {
     @CurrentUser() user: UserPayload,
     @Param('id') documentId: string,
   ) {
-    return this.aiDocumentsService.archiveDocument(documentId, user.id);
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.archiveDocument(documentId, user.id),
+    );
   }
 
   @Delete(':id')
@@ -132,7 +203,9 @@ export class AiDocumentsController {
     @CurrentUser() user: UserPayload,
     @Param('id') documentId: string,
   ) {
-    return this.aiDocumentsService.delete(documentId, user.id);
+    return this.aiDocumentsService.toPublicDocument(
+      await this.aiDocumentsService.delete(documentId, user.id),
+    );
   }
 
   @Post(':id/rag-ingesting')

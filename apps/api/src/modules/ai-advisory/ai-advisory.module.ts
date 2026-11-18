@@ -50,6 +50,11 @@ import { TextExtractionService } from './application/services/retrieval/text-ext
 import { CareSummaryNarrativeService } from './application/services/care-summary/care-summary-narrative.service';
 import { CARE_SUMMARY_NARRATIVE_PORT } from './application/ports/care-summary/care-summary-narrative.port';
 import { BillingModule } from '../billing/billing.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { User, UserSchema } from '../users/public-api';
+import { AuditLog, AuditLogSchema } from '../platform-audit/public-api';
+import { IngestApprovedKnowledgeDocumentService } from './application/services/knowledge-base/documents/ingest-approved-knowledge-document.service';
 
 @Module({
   imports: [
@@ -57,6 +62,8 @@ import { BillingModule } from '../billing/billing.module';
     HealthTrackingModule,
     ModerationModule,
     BillingModule,
+    OutboxModule,
+    PlatformAuditModule,
     MongooseModule.forFeature([
       { name: AiConversation.name, schema: AiConversationSchema },
       {
@@ -66,6 +73,8 @@ import { BillingModule } from '../billing/billing.module';
       { name: AiFeedback.name, schema: AiFeedbackSchema },
       { name: AiDocument.name, schema: AiDocumentSchema },
       { name: AiDocumentChunk.name, schema: AiDocumentChunkSchema },
+      { name: User.name, schema: UserSchema },
+      { name: AuditLog.name, schema: AuditLogSchema },
     ]),
   ],
   controllers: [
@@ -81,6 +90,7 @@ import { BillingModule } from '../billing/billing.module';
     AiMessageOrchestrationService,
     AiFeedbacksService,
     AiDocumentsService,
+    IngestApprovedKnowledgeDocumentService,
     AiDocumentChunksService,
     MedicalAnsweringService,
     PromptBuilderService,
@@ -92,6 +102,7 @@ import { BillingModule } from '../billing/billing.module';
     CareSummaryNarrativeService,
     RagIngestionService,
     RagRetrievalService,
+    IngestApprovedKnowledgeDocumentService,
     ContextBuilderService,
     EmbeddingService,
     AtlasVectorStoreService,

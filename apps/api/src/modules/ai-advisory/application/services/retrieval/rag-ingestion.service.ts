@@ -21,9 +21,15 @@ export class RagIngestionService implements IRagIngestionService {
   ) {}
 
   async handleRAG(input: IngestInputType): Promise<IngestOutputType> {
-    this.logger.log(
-      `RAG start: documentId=${input.documentId}, file=${input.file.originalname}`,
-    );
+    this.logger.log({
+      event: 'knowledge.ingestion.started',
+      documentId: input.documentId,
+    });
+    const contentHash = String(input.metadata?.contentHash ?? '');
+    if (!contentHash)
+      throw new BadRequestException(
+        'Knowledge document content hash is required',
+      );
 
     // chunking
     const chunks = await this.chunkingService.splitFile(input.file, {
@@ -34,9 +40,11 @@ export class RagIngestionService implements IRagIngestionService {
       },
     });
 
-    this.logger.log(
-      `RAG chunking done: documentId=${input.documentId}, chunks=${chunks.length}`,
-    );
+    this.logger.log({
+      event: 'knowledge.ingestion.chunked',
+      documentId: input.documentId,
+      chunkCount: chunks.length,
+    });
 
     // embedding, returning vector number[][]
     const textsForEmbedding = chunks
@@ -50,9 +58,11 @@ export class RagIngestionService implements IRagIngestionService {
     const vectors =
       await this.embeddingService.generateEmbeddings(textsForEmbedding);
 
-    this.logger.log(
-      `RAG embedding done: documentId=${input.documentId}, vectors=${vectors.length}`,
-    );
+    this.logger.log({
+      event: 'knowledge.ingestion.embedded',
+      documentId: input.documentId,
+      vectorCount: vectors.length,
+    });
 
     if (vectors.length !== textsForEmbedding.length) {
       throw new BadRequestException(
@@ -65,13 +75,20 @@ export class RagIngestionService implements IRagIngestionService {
       documentId: input.documentId,
       chunks,
       vectors,
+      documentVersion: Number(input.metadata?.documentVersion ?? 1),
+      contentHash,
+      language: String(input.metadata?.language ?? 'vi'),
+      scope: String(input.metadata?.scope ?? 'general'),
     });
 
     const embeddingDimension = upsertResult.embeddingDimension;
 
-    this.logger.log(
-      `RAG ingestion complete: chunks=${chunks.length}, vectors=${vectors.length}, dimension=${embeddingDimension ?? 0}`,
-    );
+    this.logger.log({
+      event: 'knowledge.ingestion.completed',
+      documentId: input.documentId,
+      chunkCount: chunks.length,
+      embeddingDimension: embeddingDimension ?? 0,
+    });
 
     return {
       documentId: input.documentId,

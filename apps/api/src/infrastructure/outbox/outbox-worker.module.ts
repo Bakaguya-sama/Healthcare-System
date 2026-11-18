@@ -59,6 +59,7 @@ import { CareTaskPolicyEventService } from '../../modules/chronic-care/applicati
 import { ChronicCareModule } from '../../modules/chronic-care/chronic-care.module';
 import { AuthenticationModule } from '../../modules/authentication/authentication.module';
 import { CacheModule } from 'src/common/cache/cache.module';
+import { AiAdvisoryModule } from '../../modules/ai-advisory/ai-advisory.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -74,6 +75,7 @@ import { CacheModule } from 'src/common/cache/cache.module';
     ChronicCareModule,
     AuthenticationModule,
     CacheModule,
+    AiAdvisoryModule,
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
       { name: HealthMetric.name, schema: HealthMetricSchema },

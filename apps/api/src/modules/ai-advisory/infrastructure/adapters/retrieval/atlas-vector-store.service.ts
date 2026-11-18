@@ -65,10 +65,16 @@ export class AtlasVectorStoreService implements IVectorStoreService {
 
     const payload = validChunks.map((chunk, index) => ({
       documentId: documentObjectId,
+      documentVersion: input.documentVersion,
+      contentHash: input.contentHash,
+      knowledgeLanguage: input.language,
+      scope: input.scope,
       chunkIndex: chunk.chunkIndex ?? index,
       content: chunk.content,
       embedding: input.vectors[index],
       isActive: true,
+      pageNumber: chunk.metadata.pageNumber ?? null,
+      sectionTitle: chunk.metadata.sectionTitle ?? null,
     }));
 
     const inserted = await this.aiDocumentChunkModel.insertMany(payload, {
@@ -90,6 +96,8 @@ export class AtlasVectorStoreService implements IVectorStoreService {
   async similaritySearchByText(
     query: string,
     limit = 3,
+    scope = 'general',
+    language = 'vi',
   ): Promise<VectorSearchResult[]> {
     const normalizedLimit = Math.max(1, Math.min(20, limit));
     const queryVector =
@@ -106,6 +114,8 @@ export class AtlasVectorStoreService implements IVectorStoreService {
           filter: {
             isActive: true,
             reviewStatus: 'approved',
+            scope,
+            knowledgeLanguage: language,
             $or: [
               { validUntil: { $exists: false } },
               { validUntil: null },
@@ -120,6 +130,44 @@ export class AtlasVectorStoreService implements IVectorStoreService {
           documentId: 1,
           content: 1,
           score: { $meta: 'vectorSearchScore' },
+          documentVersion: 1,
+          pageNumber: 1,
+          sectionTitle: 1,
+        },
+      },
+      {
+        $lookup: {
+          from: 'aidocuments',
+          localField: 'documentId',
+          foreignField: '_id',
+          as: 'document',
+        },
+      },
+      { $unwind: '$document' },
+      {
+        $match: {
+          'document.reviewStatus': 'approved',
+          'document.status': 'active',
+          'document.scope': scope,
+          'document.knowledgeLanguage': language,
+          $or: [
+            { 'document.validUntil': { $exists: false } },
+            { 'document.validUntil': null },
+            { 'document.validUntil': { $gt: new Date() } },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          documentId: 1,
+          content: 1,
+          score: 1,
+          documentVersion: 1,
+          pageNumber: 1,
+          sectionTitle: 1,
+          title: '$document.title',
+          source: '$document.source',
         },
       },
     ];
@@ -129,6 +177,11 @@ export class AtlasVectorStoreService implements IVectorStoreService {
       documentId: Types.ObjectId;
       content: string;
       score: number;
+      documentVersion: number;
+      pageNumber?: number | null;
+      sectionTitle?: string | null;
+      title?: string;
+      source?: string;
     }>(pipeline);
 
     return results.map((item) => ({
@@ -136,6 +189,11 @@ export class AtlasVectorStoreService implements IVectorStoreService {
       documentId: item.documentId.toString(),
       content: item.content,
       score: item.score,
+      documentVersion: item.documentVersion,
+      pageNumber: item.pageNumber,
+      sectionTitle: item.sectionTitle,
+      title: item.title,
+      source: item.source,
     }));
   }
 }

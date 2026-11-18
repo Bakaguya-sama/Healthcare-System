@@ -340,6 +340,12 @@ Table HealthMetrics {
 Table AiDocuments {
   id ObjectID [pk]
   title varchar [not null]
+  parentDocumentId ObjectID [note: "Stable document family for a replacement version; only an Admin-selected active version is retrievable"]
+  documentVersion int [not null, default: 1]
+  contentHash varchar [not null, note: "SHA-256 of uploaded content; internal provenance and retry dedupe only"]
+  ingestionVersion int [not null, default: 1]
+  scope varchar [not null, default: "general", note: "Approved clinical scope used by retrieval policy"]
+  source varchar [not null, default: "internal", note: "Safe provenance label; storage URL is never a public citation field"]
   fileUrl varchar [not null]
   fileType varchar [not null]
   publicId varchar
@@ -375,6 +381,8 @@ Table AiDocuments {
 Table AiDocumentChunks {
   id ObjectID [pk]
   documentId ObjectID [not null]
+  documentVersion int [not null, default: 1]
+  scope varchar [not null, default: "general"]
   chunkIndex int [not null]
   content text [not null]
   embedding json [note: "Atlas Vector Search index is provisioned separately"]

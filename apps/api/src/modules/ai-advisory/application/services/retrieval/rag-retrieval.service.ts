@@ -36,14 +36,21 @@ export class RagRetrievalService implements IRagRetrievalService {
     const rawHits = await this.vectorStoreService.similaritySearchByText(
       query,
       limit,
+      input.scope,
+      input.language,
     );
 
     const filteredHits = rawHits.filter((hit) => hit.score >= threshold);
     const dedupedHits = this.deduplicateByContent(filteredHits);
 
-    this.logger.log(
-      `RAG retrieve: query="${query}", threshold=${threshold.toFixed(2)}, kept=${dedupedHits.length}/${rawHits.length}`,
-    );
+    this.logger.log({
+      event: 'knowledge.retrieval.completed',
+      threshold,
+      returnedCount: dedupedHits.length,
+      candidateCount: rawHits.length,
+      scope: input.scope ?? 'general',
+      language: input.language ?? 'vi',
+    });
 
     return {
       query,

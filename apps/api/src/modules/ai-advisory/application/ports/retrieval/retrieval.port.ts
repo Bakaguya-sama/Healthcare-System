@@ -4,6 +4,8 @@ export type RetrievalQueryInput = {
   query: string;
   limit?: number;
   minScore?: number;
+  scope?: string;
+  language?: string;
 };
 
 export type RetrievalOutput = {

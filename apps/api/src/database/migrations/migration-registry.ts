@@ -10,6 +10,7 @@ import { applyAuthOtpCookieCleanup, AUTH_OTP_COOKIE_CLEANUP_CHECKSUM, AUTH_OTP_C
 import { applyAuthEventRedaction, AUTH_EVENT_REDACTION_CHECKSUM, AUTH_EVENT_REDACTION_NAME, AUTH_EVENT_REDACTION_VERSION } from './202611181200-auth-event-redaction';
 import { applyOauthIdentityOwnerUniqueness, OAUTH_IDENTITY_OWNER_UNIQUENESS_CHECKSUM, OAUTH_IDENTITY_OWNER_UNIQUENESS_NAME, OAUTH_IDENTITY_OWNER_UNIQUENESS_VERSION } from './202611181210-oauth-identity-owner-uniqueness';
 import { applyOauthProviderEmailUniqueness, OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM, OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME, OAUTH_PROVIDER_EMAIL_UNIQUENESS_VERSION } from './202611181220-oauth-provider-email-uniqueness';
+import { applyTrustedKnowledgeDocuments, TRUSTED_KNOWLEDGE_DOCUMENTS_CHECKSUM, TRUSTED_KNOWLEDGE_DOCUMENTS_NAME, TRUSTED_KNOWLEDGE_DOCUMENTS_VERSION } from './202611181230-trusted-knowledge-documents';
 import {
   applyRf5CanonicalIdentity,
   RF5_CANONICAL_IDENTITY_CHECKSUM,
@@ -563,6 +564,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME,
     checksum: OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM,
     up: applyOauthProviderEmailUniqueness,
+  },
+  {
+    version: TRUSTED_KNOWLEDGE_DOCUMENTS_VERSION,
+    name: TRUSTED_KNOWLEDGE_DOCUMENTS_NAME,
+    checksum: TRUSTED_KNOWLEDGE_DOCUMENTS_CHECKSUM,
+    up: applyTrustedKnowledgeDocuments,
   },
 ];
 

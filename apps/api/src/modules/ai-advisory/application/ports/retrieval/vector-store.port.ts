@@ -2,6 +2,10 @@ import { ChunkPayload } from './chunking.port';
 
 export type UpsertChunksInput = {
   documentId: string;
+  documentVersion: number;
+  contentHash: string;
+  language: string;
+  scope: string;
   chunks: ChunkPayload[];
   vectors: number[][];
 };
@@ -16,6 +20,11 @@ export type VectorSearchResult = {
   documentId: string;
   content: string;
   score: number;
+  documentVersion: number;
+  pageNumber?: number | null;
+  sectionTitle?: string | null;
+  source?: string;
+  title?: string;
 };
 
 export interface IVectorStoreService {
@@ -23,6 +32,8 @@ export interface IVectorStoreService {
   similaritySearchByText(
     query: string,
     limit?: number,
+    scope?: string,
+    language?: string,
   ): Promise<VectorSearchResult[]>;
 }
 

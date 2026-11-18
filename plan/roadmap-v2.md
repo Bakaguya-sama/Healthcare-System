@@ -58,6 +58,16 @@ Giai đoạn D và các wave E có thể chạy song song với B/C nếu đã q
 có owner riêng và không dùng chung capacity critical. Không chạy song song hai
 slice cùng sửa một aggregate, migration hoặc contract consumer.
 
+### Chính sách lint cho các giai đoạn sau A
+
+Warning baseline của toàn repository hiện vượt budget đã cấu hình và đang được ghi
+nhận riêng tại evidence Phase A. Từ **Giai đoạn B trở đi**, kết quả full-repository
+lint fail chỉ vì warning baseline **không chặn** bắt đầu hoặc đóng exit gate. Vẫn bắt
+buộc: không có ESLint error; các file mới/sửa trong phase phải lint sạch; không tăng
+budget, không tắt rule, không thêm suppression để che warning. Full lint vẫn được
+chạy/ghi evidence để theo dõi debt, nhưng không dùng warning count cũ làm lý do giữ
+phase ở trạng thái chưa hoàn tất.
+
 ## 3. Quyết định đã chốt
 
 Tất cả quyết định dưới đây đã được Product Owner chấp thuận ngày 17/11/2026.
@@ -250,7 +260,7 @@ nhận OAuth, refund, booking config và các feature P1.
 
 ## 6. Giai đoạn B — Trusted RAG foundation
 
-**Trạng thái:** ⏳
+**Trạng thái:** ✅ (evidence 2026-11-18)
 **Kết quả mong đợi:** mọi câu trả lời RAG biết nguồn nào được phép dùng, citation
 trỏ được về document/version/page/section và thiếu evidence thì fail-safe.
 
@@ -280,6 +290,8 @@ trỏ được về document/version/page/section và thiếu evidence thì fail
 - Citation được kiểm tra server-side và không lộ storage/internal metadata.
 - Emergency/prescription/no-evidence red-team tests xanh.
 - Có benchmark baseline và rollback path.
+
+**Evidence 2026-11-18:** migration `202611181230` và database verifier PASS (44 collections, 122 managed indexes). Unit 5 suites/10 tests, MongoDB integration 1 suite/1 test và governance E2E 1 suite/2 tests PASS; bao phủ role authority, retry/late archive, duplicate chunk/version, citation redaction và emergency/prescription/no-evidence policy. Xem `docs/evidence/phase-b-trusted-rag-2026-11-18.md`.
 
 ## 7. Giai đoạn C — Retrieval quality và external evidence
 

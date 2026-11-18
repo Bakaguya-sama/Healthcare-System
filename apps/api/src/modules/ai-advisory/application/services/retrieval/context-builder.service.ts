@@ -43,6 +43,10 @@ export class ContextBuilderService implements IContextBuilderService {
         documentId: hit.documentId,
         score: hit.score,
         excerpt,
+        documentVersion: hit.documentVersion,
+        pageNumber: hit.pageNumber,
+        sectionTitle: hit.sectionTitle,
+        title: hit.title,
       });
       estimatedTokens += blockTokens;
     }

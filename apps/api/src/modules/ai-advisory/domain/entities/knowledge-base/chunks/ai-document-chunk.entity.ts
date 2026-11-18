@@ -11,6 +11,24 @@ export class AiDocumentChunk extends Document {
   @ApiProperty({ description: 'Original document ID' })
   documentId: Types.ObjectId;
 
+  @Prop({ required: true, default: 1 })
+  documentVersion: number;
+
+  @Prop({ required: true, index: true })
+  contentHash: string;
+
+  @Prop({ required: true, default: 'vi' })
+  knowledgeLanguage: string;
+
+  @Prop({ required: true, default: 'general' })
+  scope: string;
+
+  @Prop({ type: Number, default: null })
+  pageNumber?: number | null;
+
+  @Prop({ type: String, default: null })
+  sectionTitle?: string | null;
+
   @Prop({ default: 0 })
   @ApiProperty({ description: 'Chunk index/sequence' })
   chunkIndex: number;
@@ -57,3 +75,14 @@ AiDocumentChunkSchema.index({ content: 'text' });
 AiDocumentChunkSchema.index({ documentId: 1, isActive: 1 });
 AiDocumentChunkSchema.index({ isActive: 1, validUntil: 1 });
 AiDocumentChunkSchema.index({ reviewStatus: 1, isActive: 1 });
+AiDocumentChunkSchema.index(
+  { documentId: 1, documentVersion: 1, chunkIndex: 1 },
+  { unique: true },
+);
+AiDocumentChunkSchema.index({
+  reviewStatus: 1,
+  isActive: 1,
+  scope: 1,
+  knowledgeLanguage: 1,
+  validUntil: 1,
+});
