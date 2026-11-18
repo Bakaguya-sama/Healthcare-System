@@ -1,5 +1,12 @@
 # Blueprint nâng cấp RAG cho HealthcareApp
 
+> **Trạng thái implementation (17/11/2026):** Đây là kiến trúc đích, không phải
+> bằng chứng runtime đã hoàn tất. Runtime hiện có upload/parse/chunk/embed và
+> Atlas Vector Search cơ bản. Metadata/citation lifecycle, async re-ingestion,
+> hybrid retrieval, Evidence Gate, PubMed, evaluation và observability vẫn là
+> backlog. Xem [source audit](../docs/implementation-gap-audit-2026-11-17.md)
+> và [roadmap sau DA2](roadmap-v2.md) để biết thứ tự/exit gate.
+
 ## 1. Mục tiêu
 
 Tài liệu này mô tả kiến trúc RAG mục tiêu cho HealthcareApp: giải thích từng thành phần, vai trò, công nghệ phù hợp và luồng xử lý tổng quát. Mục tiêu không phải thay thế toàn bộ hệ thống hiện có, mà là nâng dần từ **Vector RAG cơ bản** sang hệ thống có nguồn tin cậy, citation rõ ràng và cơ chế an toàn phù hợp cho tư vấn sức khỏe.
@@ -90,15 +97,15 @@ flowchart TD
 
 ## 3. Khái niệm nền tảng
 
-| Khái niệm | Định nghĩa | Vai trò |
-|---|---|---|
-| Document | File tài liệu gốc, ví dụ PDF guideline hoặc DOCX hướng dẫn. | Nguồn tri thức có thể quản trị, duyệt và versioning. |
-| Chunk | Một đoạn nhỏ được tách từ document. | Đơn vị được tìm kiếm và đưa vào context. |
-| Embedding | Mảng số biểu diễn ý nghĩa ngữ nghĩa của content. | Cho phép tìm đoạn gần nghĩa với câu hỏi. |
-| Vector Search | Tìm các embedding gần embedding của câu hỏi. | Tìm thông tin theo ý nghĩa, không chỉ theo từ khóa. |
-| Metadata | Dữ liệu mô tả có cấu trúc cạnh chunk. | Lọc nguồn, quản trị hiệu lực và tạo citation chính xác. |
-| Context | Các chunks được chọn đưa vào prompt cho LLM. | Là bằng chứng để LLM tạo câu trả lời grounded. |
-| Citation | Tham chiếu về document, trang và section của context. | Minh bạch nguồn và hỗ trợ kiểm tra câu trả lời. |
+| Khái niệm     | Định nghĩa                                                  | Vai trò                                                 |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------- |
+| Document      | File tài liệu gốc, ví dụ PDF guideline hoặc DOCX hướng dẫn. | Nguồn tri thức có thể quản trị, duyệt và versioning.    |
+| Chunk         | Một đoạn nhỏ được tách từ document.                         | Đơn vị được tìm kiếm và đưa vào context.                |
+| Embedding     | Mảng số biểu diễn ý nghĩa ngữ nghĩa của content.            | Cho phép tìm đoạn gần nghĩa với câu hỏi.                |
+| Vector Search | Tìm các embedding gần embedding của câu hỏi.                | Tìm thông tin theo ý nghĩa, không chỉ theo từ khóa.     |
+| Metadata      | Dữ liệu mô tả có cấu trúc cạnh chunk.                       | Lọc nguồn, quản trị hiệu lực và tạo citation chính xác. |
+| Context       | Các chunks được chọn đưa vào prompt cho LLM.                | Là bằng chứng để LLM tạo câu trả lời grounded.          |
+| Citation      | Tham chiếu về document, trang và section của context.       | Minh bạch nguồn và hỗ trợ kiểm tra câu trả lời.         |
 
 ### Embedding và metadata không thay thế nhau
 
@@ -133,12 +140,12 @@ flowchart TD
 
 **Nhóm metadata nên dùng:**
 
-| Nhóm | Field đề xuất | Nguồn tạo |
-|---|---|---|
-| Quản trị document | `documentTitle`, `sourceOrganization`, `reviewStatus`, `guidelineVersion`, `publishedAt`, `validUntil` | Admin hoặc quy trình duyệt tài liệu |
-| Phạm vi y khoa | `specialty`, `language`, `audience` | Admin hoặc taxonomy chuẩn |
-| Vị trí trong tài liệu | `pageNumber`, `sectionPath`, `chunkIndex` | Parser và chunker |
-| Kỹ thuật | `tokenCount`, `contentHash`, `parentChunkId`, `ingestionVersion` | Pipeline ingestion |
+| Nhóm                  | Field đề xuất                                                                                          | Nguồn tạo                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Quản trị document     | `documentTitle`, `sourceOrganization`, `reviewStatus`, `guidelineVersion`, `publishedAt`, `validUntil` | Admin hoặc quy trình duyệt tài liệu |
+| Phạm vi y khoa        | `specialty`, `language`, `audience`                                                                    | Admin hoặc taxonomy chuẩn           |
+| Vị trí trong tài liệu | `pageNumber`, `sectionPath`, `chunkIndex`                                                              | Parser và chunker                   |
+| Kỹ thuật              | `tokenCount`, `contentHash`, `parentChunkId`, `ingestionVersion`                                       | Pipeline ingestion                  |
 
 **Logic tổng quát:**
 
@@ -330,10 +337,10 @@ Intent router đánh dấu query mơ hồ
 
 **Vai trò của từng lớp:**
 
-| Layer | Nguồn | Vai trò |
-|---|---|---|
+| Layer   | Nguồn                              | Vai trò                                                                   |
+| ------- | ---------------------------------- | ------------------------------------------------------------------------- |
 | Layer 1 | MongoDB Atlas chứa tài liệu nội bộ | Nguồn chính, đã duyệt, có metadata, phù hợp chính sách của HealthcareApp. |
-| Layer 2 | PubMed/MEDLINE | Mở rộng bằng chứng, tìm citation và abstract từ y văn bên ngoài. |
+| Layer 2 | PubMed/MEDLINE                     | Mở rộng bằng chứng, tìm citation và abstract từ y văn bên ngoài.          |
 
 **Phân biệt MEDLINE và PubMed:** MEDLINE là tập dữ liệu y văn được tuyển chọn và lập chỉ mục bằng MeSH; MEDLINE là thành phần chính của PubMed. Khi triển khai, backend gọi PubMed thông qua NCBI E-utilities rồi ưu tiên/lọc bản ghi MEDLINE, thay vì tìm một “MEDLINE API” riêng.
 
@@ -432,12 +439,12 @@ PubMed/MEDLINE result
 
 **Ranh giới dữ liệu:**
 
-| Collection | Đơn vị dữ liệu | Mục đích | Có embedding? |
-|---|---|---|---|
-| `externalEvidenceCache` | Kết quả PubMed của một query/PMID | Cache ngắn hạn cho trả lời trực tuyến; có TTL | Không |
-| `knowledgeCandidates` | Một bài báo hoặc một PMID | Hàng đợi nguồn chờ kiểm duyệt | Không |
-| `aiDocuments` | Một nguồn tri thức đã duyệt | Quản lý lifecycle, nguồn, version và trạng thái | Không bắt buộc |
-| `aiDocumentChunks` | Các section/chunks của document | Retrieval trong Layer 1 | Có |
+| Collection              | Đơn vị dữ liệu                    | Mục đích                                        | Có embedding?  |
+| ----------------------- | --------------------------------- | ----------------------------------------------- | -------------- |
+| `externalEvidenceCache` | Kết quả PubMed của một query/PMID | Cache ngắn hạn cho trả lời trực tuyến; có TTL   | Không          |
+| `knowledgeCandidates`   | Một bài báo hoặc một PMID         | Hàng đợi nguồn chờ kiểm duyệt                   | Không          |
+| `aiDocuments`           | Một nguồn tri thức đã duyệt       | Quản lý lifecycle, nguồn, version và trạng thái | Không bắt buộc |
+| `aiDocumentChunks`      | Các section/chunks của document   | Retrieval trong Layer 1                         | Có             |
 
 **Ví dụ `KnowledgeCandidate`:**
 
@@ -595,16 +602,16 @@ Metadata đổi / guideline hết hạn
 
 **Chỉ số:**
 
-| Chỉ số | Ý nghĩa |
-|---|---|
-| Recall@K | Nguồn/chunk đúng có xuất hiện trong top K không. |
-| Citation accuracy | Citation có trỏ đúng nguồn và trang/section không. |
+| Chỉ số                      | Ý nghĩa                                                       |
+| --------------------------- | ------------------------------------------------------------- |
+| Recall@K                    | Nguồn/chunk đúng có xuất hiện trong top K không.              |
+| Citation accuracy           | Citation có trỏ đúng nguồn và trang/section không.            |
 | External evidence precision | Bài PubMed/MEDLINE được chọn có thực sự hỗ trợ câu hỏi không. |
-| Layer-2 activation rate | Tỷ lệ truy vấn phải gọi nguồn bên ngoài. |
-| Groundedness | Câu trả lời có được hỗ trợ bởi context không. |
-| Unsupported-answer rate | Tỷ lệ trả lời khi không có đủ bằng chứng. |
-| Emergency recall | Tỷ lệ nhận diện đúng tình huống cần cấp cứu. |
-| Latency/cost | Thời gian và chi phí mỗi truy vấn. |
+| Layer-2 activation rate     | Tỷ lệ truy vấn phải gọi nguồn bên ngoài.                      |
+| Groundedness                | Câu trả lời có được hỗ trợ bởi context không.                 |
+| Unsupported-answer rate     | Tỷ lệ trả lời khi không có đủ bằng chứng.                     |
+| Emergency recall            | Tỷ lệ nhận diện đúng tình huống cần cấp cứu.                  |
+| Latency/cost                | Thời gian và chi phí mỗi truy vấn.                            |
 
 **Công nghệ:** Jest dataset nội bộ; OpenTelemetry cho traces; Langfuse self-host hoặc nền tảng quan sát phù hợp với chính sách dữ liệu.
 
@@ -649,14 +656,14 @@ Router
 
 ## 5. Công nghệ theo giai đoạn
 
-| Giai đoạn | Thành phần | Công nghệ nên dùng |
-|---|---|---|
-| 1 — nền tảng tin cậy | Metadata, citation, document lifecycle, chunking có cấu trúc | NestJS, Mongoose, LlamaParse, MongoDB Atlas |
-| 2 — retrieval chất lượng | Full-text, hybrid search, RRF, rerank, MMR, parent-child | Atlas Search, Atlas Vector Search, TypeScript service, optional reranker |
-| 3 — kiểm soát và truy xuất hai lớp | Safety router, Evidence Gate, PubMed/MEDLINE, evidence fusion, knowledge candidate workflow | NestJS, NCBI E-utilities, MongoDB, Redis, reranker |
-| 4 — vận hành | Cache, jobs, evaluation, trace | Redis, BullMQ, Jest, OpenTelemetry, optional Langfuse |
-| 5 — suy luận phức tạp | Multi-query, agent workflow | Gemini, Zod, `@langchain/langgraph` |
-| 6 — quan hệ dữ liệu | GraphRAG | Neo4j, `neo4j-driver`, Cypher |
+| Giai đoạn                          | Thành phần                                                                                  | Công nghệ nên dùng                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1 — nền tảng tin cậy               | Metadata, citation, document lifecycle, chunking có cấu trúc                                | NestJS, Mongoose, LlamaParse, MongoDB Atlas                              |
+| 2 — retrieval chất lượng           | Full-text, hybrid search, RRF, rerank, MMR, parent-child                                    | Atlas Search, Atlas Vector Search, TypeScript service, optional reranker |
+| 3 — kiểm soát và truy xuất hai lớp | Safety router, Evidence Gate, PubMed/MEDLINE, evidence fusion, knowledge candidate workflow | NestJS, NCBI E-utilities, MongoDB, Redis, reranker                       |
+| 4 — vận hành                       | Cache, jobs, evaluation, trace                                                              | Redis, BullMQ, Jest, OpenTelemetry, optional Langfuse                    |
+| 5 — suy luận phức tạp              | Multi-query, agent workflow                                                                 | Gemini, Zod, `@langchain/langgraph`                                      |
+| 6 — quan hệ dữ liệu                | GraphRAG                                                                                    | Neo4j, `neo4j-driver`, Cypher                                            |
 
 ## 6. Lộ trình triển khai khuyến nghị
 
@@ -666,7 +673,7 @@ Router
 2. Persist `chunk.metadata` khi upsert vào MongoDB.
 3. Giữ `pageNumber` và `sectionPath` từ parser tới chunk.
 4. Đồng bộ trạng thái document/chunk: archive phải làm các chunks không thể truy xuất.
-4a. Duyệt ở cấp document; trạng thái chunk là denormalized retrieval field, không tạo màn hình approve hàng trăm chunk.
+   4a. Duyệt ở cấp document; trạng thái chunk là denormalized retrieval field, không tạo màn hình approve hàng trăm chunk.
 5. Xây citation trả về tên tài liệu, trang, section và version.
 6. Có re-ingestion cho tài liệu cũ sau khi thay schema.
 

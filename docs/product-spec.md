@@ -1,6 +1,13 @@
 # HealthAI product specification
 
-> Canonical product, role and safety specification. For Chronic Care command behavior, use [chronic-care-spec.md](chronic-care-spec.md); for delivery order, use [roadmap.md](../plan/roadmap.md).
+> **Lưu ý trạng thái (17/11/2026):** Tài liệu này chứa cả business rule đích và
+> phạm vi sản phẩm, không tự nó chứng minh runtime đã có. Trạng thái implementation
+> và backlog sau DA2 được đối chiếu source tại
+> [implementation-gap-audit-2026-11-17.md](implementation-gap-audit-2026-11-17.md)
+> và được sắp thứ tự tại
+> [`plan/roadmap-v2.md`](../plan/roadmap-v2.md).
+
+> Canonical product, role and safety specification. For Chronic Care command behavior, use [chronic-care-spec.md](chronic-care-spec.md); for delivery order, use [roadmap sau DA2](../plan/roadmap-v2.md).
 
 ## Business rules
 
@@ -166,22 +173,22 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 14. Summary generation idempotent theo enrollment, report window, data cutoff và summary version. Dữ liệu nguồn thay đổi tạo summary version mới; không ghi đè lịch sử đã được Doctor review.
 15. Summary lưu `generated|fallback|failed`, model/prompt version, rule set version, input hash/source refs, validation result, token/latency metadata không chứa raw health data và Doctor review status nếu có.
 16. RAG chỉ bổ sung kiến thức giáo dục từ tài liệu active/approved; RAG không tính thống kê, chọn threshold, thay đổi rule result hoặc quyết định hành động khẩn.
-17. Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`, không duyệt thủ công từng chunk. `AiDocuments.reviewStatus` là nguồn chuẩn; khi document được duyệt/archived, worker dùng bulk update đồng bộ `AiDocumentChunks.reviewStatus/isActive`.
+17. Role `ai_manager` tạo draft, upload, chỉnh metadata và yêu cầu ingest/re-ingest ở cấp `AiDocuments`; Admin có toàn quyền approve/reject/archive/delete và chọn version active. Không duyệt thủ công từng chunk, và `ai_manager` không được tự approve document của mình. `AiDocuments.reviewStatus` là nguồn chuẩn; khi document được duyệt/archived, worker dùng bulk update đồng bộ `AiDocumentChunks.reviewStatus/isActive`.
     17a. Mỗi `AiDocumentChunks` phải kế thừa metadata quản trị từ document và metadata vị trí từ parser: nguồn/tổ chức, trạng thái duyệt, phiên bản, ngày hiệu lực, chuyên khoa, ngôn ngữ, đối tượng đọc, trang và đường dẫn section.
 18. Retrieval chỉ dùng chunk `isActive = true`, `reviewStatus = approved`, chưa hết hiệu lực và khớp phạm vi. `citation` phải trỏ đúng document, version, page/section và source URL; backend kiểm tra chunk/citation trước khi trả lời.
 19. `contentHash` chống chunk trùng trong cùng document; `ingestionVersion` xác định parser/chunker/embedding version để re-ingestion. `parentChunkId` chỉ dùng lấy section cha đủ ngữ cảnh, không bỏ qua metadata filter của child hoặc parent.
 20. Chunk lỗi hoặc không phù hợp được loại riêng bằng `isActive = false`, `excludedBy`, `excludedAt`, `exclusionReason`; thao tác này không thay đổi trạng thái duyệt của toàn document. Document version mới phải được duyệt trước khi thay thế version cũ đang active.
-21. `AiDocuments.validUntil` là cutoff tùy chọn; `approvedBy/approvedAt` ghi actor và thời điểm chịu trách nhiệm duyệt, kể cả khi người upload đồng thời là người duyệt. `AiDocumentChunks.validUntil` là bản sao để Atlas Vector Search lọc trước retrieval, không phải nguồn chuẩn độc lập.
+21. `AiDocuments.validUntil` là cutoff tùy chọn; `approvedBy/approvedAt` ghi Admin actor và thời điểm chịu trách nhiệm duyệt. Mọi transition review/active/archive/delete phải ghi actor, time và reason. `AiDocumentChunks.validUntil` là bản sao để Atlas Vector Search lọc trước retrieval, không phải nguồn chuẩn độc lập.
 22. `AiConversations` là thread hỏi đáp có thể tiếp tục như ChatGPT, không có trạng thái `completed` hoặc `endedAt`. `archivedAt` nullable là nguồn chuẩn duy nhất: không có giá trị nghĩa là conversation vẫn mở, có giá trị nghĩa là đã archive và có thể unarchive bằng cách xóa giá trị.
 
 ## Quy tắc tài khoản và bác sĩ
 
-`Users.email` được phép null đối với OAuth-only account; đăng ký local vẫn bắt buộc email. Định danh OAuth chuẩn là `(provider, providerAccountId)`, không phải email; email chỉ unique khi tồn tại và `providerEmail` không được dùng để tự gộp tài khoản.
+`Users.email` được phép null đối với Patient OAuth-only account; đăng ký local vẫn bắt buộc email. Định danh OAuth chuẩn là `(provider, providerAccountId)`, không phải email; email chỉ unique khi tồn tại và `providerEmail` không được dùng để tự gộp tài khoản. Khi provider email có mặt, `(provider, providerEmail)` cũng unique có điều kiện để không tạo OAuth-only Patient thứ hai cho cùng Google email.
 
 1. Chỉ tài khoản active được tư vấn, đặt lịch hoặc thanh toán.
 2. Chỉ user có role doctor và hồ sơ được approved mới được mở slot, nhận yêu cầu hoặc tư vấn.
 3. Presence online dùng Redis và Socket.IO. `Users.lastOnlineAt` trong MongoDB chỉ là thời điểm online gần nhất đã ghi bền vững, được cập nhật có giới hạn tần suất khi disconnect/heartbeat; không dùng field này để kết luận user đang online tức thời.
-4. Một OAuth account chỉ liên kết với một user. Một user chỉ có một account cho mỗi OAuth provider.
+4. OAuth Google chỉ dành cho Patient OAuth-only và được định danh bởi một provider subject cho một user. Local password và OAuth là hai phương thức độc lập: không link/unlink và không tự gộp theo email. Nếu Google trả email đã thuộc local account, từ chối OAuth signup và hướng đăng nhập bằng password; không tạo OAuth-only Patient thứ hai.
 5. Refresh token chỉ lưu dạng hash trong `AuthSessions`, có expiry và rotation. Token gửi cho client chứa `sessionId` và secret ngẫu nhiên; backend tìm session theo ID rồi so sánh hash, không query bằng plaintext token. Mỗi lần rotation revoke bản ghi cũ, tạo bản ghi mới cùng `familyId` và nối `rotatedFromSessionId/replacedBySessionId`; dùng lại token cũ sẽ revoke cả family. MongoDB là nguồn bền vững cho logout-all và replay detection; Redis chỉ là cache/revocation fast-path. OTP chỉ tồn tại trong Redis với TTL, giới hạn số lần thử và rate limit gửi lại.
 
 ## Lịch trống và đặt lịch chủ động
@@ -275,11 +282,12 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
 ## Check-in và hàng đợi
 
 1. Scheduled queue hiện chỉ chứa Consultation `scheduled + accepted + waiting`
-   có `queueJoinedAt` và `queuePriorityAt`; on-demand queue là câu hỏi mở, chưa
-   thuộc implementation hiện tại.
-2. Bệnh nhân có lịch được check-in sớm tối đa `checkInEarlyMinutes`. Giá trị 15
-   phút mới là khuyến nghị pilot, chưa được chốt: snapshot có giá trị thì dùng
-   snapshot; booking cũ dùng cấu hình có tên rõ; thiếu cả hai thì fail-closed.
+   có `queueJoinedAt` và `queuePriorityAt`; on-demand queue là follow-up hậu DA2,
+   không thuộc implementation hiện tại.
+2. Bệnh nhân có lịch được check-in sớm tối đa `checkInEarlyMinutes`. Baseline
+   pilot đã chốt là 15 phút: snapshot có giá trị thì dùng snapshot; booking cũ
+   dùng cấu hình có tên rõ; thiếu cả hai thì fail-closed. Giá trị này phải được
+   đánh giá lại bằng dữ liệu arrival/no-show và tải queue trước khi thay đổi.
 3. Scheduled queue sắp theo `queuePriorityAt = scheduledStartAt`, sau đó
    `queueJoinedAt`, rồi `_id`. Vị trí hiển thị chỉ là snapshot do server tính.
 4. Khi bác sĩ gọi người tiếp theo, backend atomically ghi `calledAt` cho queue
@@ -376,23 +384,23 @@ Các lịch đã accepted trước CC-013 và thiếu ledger chỉ được mi�
     timestamp public có nguồn thật. Không trả raw order snapshot, benefit/refund rule,
     PaymentTransaction, VNPAY/IPN/Return, gateway, reconciliation, grant, outbox hoặc
     audit metadata. Empty history là kết quả hợp lệ; projection corrupt fail-closed.
-45. Patient Plan catalog chỉ trả Plan `published` trong cửa sổ hiệu lực, dùng public
+47. Patient Plan catalog chỉ trả Plan `published` trong cửa sổ hiệu lực, dùng public
     projection bounded và pagination hard limit. Draft/retired, refund policy nội bộ,
     audit/source và provider configuration không thuộc Patient response.
-46. `GET /subscriptions/me` trả history owner-scoped cùng `effective` Subscription do
+48. `GET /subscriptions/me` trả history owner-scoped cùng `effective` Subscription do
     billing lifecycle authority hiện hữu lựa chọn. Entitlement lấy từ immutable
     `planSnapshot`, không join ngược mutable Plan. Safe queued-renewal summary không
     chứa PaymentOrder/gateway identifier.
-47. Patient consultation usage dùng chính counter atomically maintained trên current
+49. Patient consultation usage dùng chính counter atomically maintained trên current
     Subscription: `available = limit - counted - reserved`. Released/cancelled/stale
     reservation đã được transition/reconcile ra khỏi active counter và không được read
     endpoint cộng lại. Snapshot/cycle/counter không nhất quán phải fail-closed, không
     giả thành `0` hoặc unlimited.
-48. Schema Plan hiện tại không có unlimited sentinel cho consultation. Patient usage
+50. Schema Plan hiện tại không có unlimited sentinel cho consultation. Patient usage
     trả `unlimited=false` và numeric `limit/available`; không dùng magic number. Nếu
     domain bổ sung unlimited sau này thì contract dùng `unlimited=true` với
     `limit/available=null` sau migration/versioned policy.
-49. `care_program_included` không đi qua ordinary consultation ledger/counter, không
+51. `care_program_included` không đi qua ordinary consultation ledger/counter, không
     giảm quota và không tạo charge. Billing read không trả clinical origin và không
     được suy ra included policy từ một ledger row bị thiếu.
 
@@ -563,11 +571,13 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 `Users.email` là email chuẩn tùy chọn của tài khoản OAuth-only. Local login vẫn bắt buộc email; OAuth không có email phải bổ sung email trước khi dùng chức năng cần kênh liên hệ.
 
 1. Một tài khoản nằm trong `Users`; doctor/admin profile chỉ là dữ liệu theo vai trò.
-2. Tài khoản OAuth được ánh xạ qua `OAuthAccounts`; tài khoản OAuth-only có thể không có `passwordHash`.
+2. Tài khoản OAuth Google được ánh xạ qua `OAuthAccounts`; chỉ Patient OAuth-only có thể không có `passwordHash`. Không có account linking/unlinking với local account.
 3. OTP hash, attempts và TTL nằm trong Redis, không nằm trong Users.
 4. Refresh token chỉ lưu hash trong `AuthSessions`, có rotation theo `familyId` và phát hiện replay.
 5. Password change, logout-all hoặc account ban phải revoke session liên quan.
-6. OAuth dùng state, callback allowlist và PKCE khi phù hợp.
+6. OAuth Google dùng state, callback allowlist và PKCE. Provider email chỉ là attribute: email trùng local bị từ chối signup an toàn, không phải merge key.
+7. Local registration creates `pending_verification`; it queues the first six-digit email OTP. `POST /auth/request-email-verification` is the explicit request/resend action, while `POST /auth/verify-email` accepts `{ email, otpCode }` to identify and prove the one-time challenge. Verification activates the account and records `emailVerifiedAt`; it never by itself approves a Doctor profile.
+8. A rejected Doctor may restore the previous application with email + password, then resubmit edited professional fields and new files. The server retains previously owned verification documents by default and never accepts client-provided document URLs. Reapplication returns the profile to Doctor-approval pending; it does not re-verify an already active email. OTP is sent only when that existing account is still `pending_verification`.
 
 ### 5.2 Scheduled consultation
 
@@ -663,7 +673,7 @@ lịch scheduled vẫn là câu hỏi mở, không phải behavior mặc định
 - `AiQuotaReservations` reserve/commit/release quota token theo kỳ; `AiUsageDaily` là aggregate bền vững, tách token chat khỏi token sinh summary. Request cap vẫn được giữ để chống spam. Quyết toán dùng Gemini `usageMetadata`, không dùng độ dài text ước lượng.
 - Không dùng cron reset quota theo tên gói; period được xác định từ immutable Subscription snapshot. Reservation chưa kết thúc phải có reconciliation/audit policy riêng.
 - RAG dùng `AiDocuments`, `AiDocumentChunks` và Atlas Vector Search.
-- Admin/Doctor được cấp quyền duyệt ở cấp `AiDocuments`; trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
+- `ai_manager` quản lý upload/draft/metadata và yêu cầu ingest; Admin duyệt độc lập ở cấp `AiDocuments`. Trạng thái trên chunk là bản sao phục vụ Atlas filter. Chunk lỗi có thể bị loại riêng nhưng không yêu cầu duyệt từng chunk.
 - AI response phải có safety policy/disclaimer và không chẩn đoán.
 
 ### 5.7 Billing, cancel và refund

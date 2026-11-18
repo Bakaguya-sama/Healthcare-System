@@ -50,7 +50,10 @@ export class OutboxService {
       .exec();
   }
 
-  async getLatestForAggregate(aggregateType: string, aggregateId: Types.ObjectId) {
+  async getLatestForAggregate(
+    aggregateType: string,
+    aggregateId: Types.ObjectId,
+  ) {
     return this.model
       .findOne({ aggregateType, aggregateId })
       .sort({ createdAt: -1, _id: -1 })

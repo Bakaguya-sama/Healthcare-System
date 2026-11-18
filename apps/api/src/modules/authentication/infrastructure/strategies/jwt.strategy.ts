@@ -4,8 +4,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { PassportStrategy } from '@nestjs/passport';
 import { Model } from 'mongoose';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { User, UserDocument } from '../../../users/domain/entities/users/user.schema';
+import {
+  User,
+  UserDocument,
+} from '../../../users/domain/entities/users/user.schema';
 import { AccountStatus } from '../../../../core/domain/user.enums';
+import { mayReceiveFullAccess } from '../../domain/policies/account-access.policy';
 
 export interface JwtPayload {
   id?: string;
@@ -33,10 +37,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         _id: payload.sub,
         accountStatus: AccountStatus.ACTIVE,
       })
-      .select('_id accountStatus')
+      .select('_id accountStatus role doctorProfile.verificationStatus')
       .lean();
 
-    if (!user) {
+    if (
+      !user ||
+      !mayReceiveFullAccess({
+        accountStatus: user.accountStatus,
+        role: user.role,
+        doctorVerificationStatus: user.doctorProfile?.verificationStatus,
+      })
+    ) {
       throw new UnauthorizedException(
         'Your account is banned or does not exist.',
       );

@@ -122,7 +122,7 @@ Các interface dưới đây là shape frontend cần; generated OpenAPI types l
 
 ```ts
 type UserRole = "patient" | "doctor" | "admin";
-type AccountStatus = "active" | "banned";
+type AccountStatus = "pending_verification" | "active" | "banned";
 type VerificationStatus = "pending" | "approved" | "rejected";
 
 interface AddressDto {
@@ -1113,23 +1113,39 @@ interface AdminDashboardDto {
 
 ### 5.1 Auth và profile
 
+> **Phase A canonical auth contract (takes precedence over legacy catalog rows below):**
+>
+> | Endpoint | Request | Result / rule |
+> | --- | --- | --- |
+> | `POST /auth/register/patient` | Patient fields only; no client role | Starts `pending_verification`, queues initial OTP. |
+> | `POST /auth/register/doctor` | Doctor fields + documents; no client role | Starts `pending_verification`; Admin approval remains independent. |
+> | `POST /auth/doctor-reapplication/restore` | `{ email, password }` for a rejected Doctor | Restores prior professional fields plus opaque document metadata for prefill; no raw document URL is returned. |
+> | `POST /auth/request-email-verification` | `{ email }` | Explicitly requests/replaces the verification OTP; generic response prevents account enumeration. `resend-verification` is a temporary deprecated alias. |
+> | `POST /auth/verify-email` | `{ email, otpCode }` | Email identifies the challenge, OTP proves possession; atomically consumes the OTP and activates a pending local account. |
+> | `POST /auth/password-recovery` | `{ email }` | Generic response and password-reset OTP delivery. |
+> | `POST /auth/reset-password` | `{ email, otpCode, newPassword }` | Atomically consumes the reset OTP, changes password, revokes all sessions. |
+> | `GET /auth/oauth/google` / callback | Browser-only Passport redirect | Feature-gated Google OAuth for Patient OAuth-only accounts, with state + PKCE; no arbitrary client redirect. Local password and OAuth never link/merge. A provider email collision with local account is refused and directs the user to password login. |
+
 | ID      | Method + path                            | Role                        | Request                                 | Response                                               | Status                                                    |
 | ------- | ---------------------------------------- | --------------------------- | --------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
-| AUTH-01 | `POST /auth/register`                    | Public                      | patient JSON hoặc doctor multipart      | `UserDto` + verification state                         | Current/normalize                                         |
-| AUTH-02 | `POST /auth/send-otp`                    | Public                      | `{ email, purpose }`                    | `{ expiresAt, resendAfter }`                           | Current/normalize                                         |
-| AUTH-03 | `POST /auth/confirm-otp`                 | Public                      | `{ email, purpose, code }`              | `{ verified, resetToken? }`                            | Current/normalize                                         |
-| AUTH-04 | `POST /auth/login`                       | Public                      | `{ email, password, device }`           | `{ user, accessToken, expiresIn }` + refresh cookie    | Current/refactor                                          |
-| AUTH-05 | `POST /auth/refresh`                     | Cookie/mobile token         | refresh credential                      | `{ accessToken, expiresIn }`                           | Current/refactor                                          |
-| AUTH-06 | `POST /auth/logout`                      | Authenticated               | current session                         | `204`                                                  | Current                                                   |
-| AUTH-07 | `POST /auth/logout-all`                  | Authenticated               | none                                    | `{ revokedCount }`                                     | Target P0                                                 |
-| AUTH-08 | `POST /auth/forgot-password`             | Public                      | `{ email }`                             | generic accepted response                              | Current/normalize                                         |
-| AUTH-09 | `POST /auth/reset-password`              | Public                      | `{ resetToken, newPassword }`           | `204`                                                  | Target P0                                                 |
-| AUTH-10 | `POST /auth/change-password`             | Authenticated local account | `{ currentPassword, newPassword }`      | `204`                                                  | Current/normalize                                         |
-| AUTH-11 | `GET /auth/me`                           | Authenticated               | none                                    | `UserDto`                                              | Current                                                   |
-| AUTH-12 | `GET /auth/oauth/:provider/start`        | Public                      | redirect params + PKCE                  | authorization redirect                                 | Target P1; không chặn deadline P0                         |
-| AUTH-13 | `GET /auth/oauth/:provider/callback`     | Public                      | provider code/state                     | short-lived frontend callback result                   | Target P1; không chặn deadline P0                         |
-| AUTH-14 | `GET /auth/sessions`                     | Authenticated               | page/device                             | danh sách phiên an toàn, không có hash/token/IP đầy đủ | Target P0                                                 |
-| AUTH-15 | `POST /auth/sessions/:id/revoke`         | Session owner               | none + idempotency                      | revoked session                                        | Target P0                                                 |
+| AUTH-01 | `POST /auth/register/patient`            | Public                      | Patient fields; no role                 | pending-verification result                            | Current canonical                                         |
+| AUTH-02 | `POST /auth/register/doctor`             | Public                      | Doctor fields + documents; no role       | pending-verification or reapplication result            | Current; rejected Doctor reapply preserves verified email |
+| AUTH-02A| `POST /auth/doctor-reapplication/restore`| Rejected Doctor credential  | `{ email, password }`                    | prior form fields + opaque document metadata             | Current canonical; no raw document URL                    |
+| AUTH-03 | `POST /auth/request-email-verification`  | Public                      | `{ email }`                             | generic queued result                                  | Current canonical; `resend-verification` deprecated alias |
+| AUTH-03A| `POST /auth/verify-email`                | Public                      | `{ email, otpCode }`                    | activation result                                      | Current canonical                                         |
+| AUTH-04 | `POST /auth/login`                       | Public                      | `{ email, password }`                   | session/token response                                 | Current canonical                                         |
+| AUTH-05 | `POST /auth/refresh`                     | Refresh-token holder        | `{ refreshToken }`                      | rotated session/token response                         | Current canonical; identity only from signed token         |
+| AUTH-06 | `POST /auth/logout`                      | Authenticated               | current session                         | revocation result                                      | Current canonical                                         |
+| AUTH-07 | `POST /auth/logout-all`                  | Authenticated               | none                                    | revocation result                                      | Current canonical                                         |
+| AUTH-08 | `POST /auth/password-recovery`           | Public                      | `{ email }`                             | generic queued result                                  | Current canonical                                         |
+| AUTH-09 | `POST /auth/reset-password`              | Public                      | `{ email, otpCode, newPassword }`       | reset result                                           | Current canonical; revokes all sessions                    |
+| AUTH-10 | —                                        | —                           | —                                       | —                                                      | Deferred: local change-password use case                   |
+| AUTH-11 | `GET /auth/me`                           | Authenticated               | none                                    | current profile                                        | Current canonical                                         |
+| AUTH-12 | `GET /auth/oauth/google`                 | Public browser              | Passport redirect                        | Google authorization redirect                           | Feature-flagged; state + PKCE                              |
+| AUTH-13 | `GET /auth/oauth/google/callback`        | Public browser              | provider callback                        | Patient OAuth-only session result                       | Feature-flagged; no arbitrary return URL; local email collision refused |
+| AUTH-13A| —                                        | —                           | —                                        | —                                                       | Removed: no OAuth link/unlink/re-authentication API         |
+| AUTH-14 | `GET /auth/sessions`                     | Authenticated               | none                                    | own safe session metadata                               | Current canonical                                         |
+| AUTH-15 | `POST /auth/sessions/revoke`             | Session owner               | `{ sessionId }`                          | revocation result                                      | Current canonical                                         |
 | USER-01 | `GET /users/me`                          | Authenticated               | none                                    | `UserDto`                                              | Current                                                   |
 | USER-02 | `PATCH /users/me`                        | Authenticated               | profile JSON/multipart                  | `UserDto`                                              | Current/normalize                                         |
 | USER-03 | `POST /files`                            | Authenticated               | multipart + purpose                     | `FileDto`                                              | Target P0                                                 |
@@ -1281,7 +1297,7 @@ Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; 
 | BILL-02 | `GET /subscriptions/me`                     | Patient                  | status/page/limit/sort allowlist                     | paged owner history + nullable `effective` immutable entitlement   | Implemented Slice D4; lifecycle authority selects current                                   |
 | BILL-03 | `POST /billing/payments/orders`             | Patient                  | `{ planId }` + `Idempotency-Key`                     | `PaymentOrderDto` + transient `paymentUrl`/`paymentQrDataUrl`      | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
 | BILL-04 | `GET /billing/payments/orders`              | Patient                  | status/page/limit; `sortBy=createdAt`; `sortOrder=±1` | `PatientPaymentOrderPageDto`                                       | Implemented Slice D7; JWT owner scope, hard limit 100, stable `createdAt + _id` sort        |
-| BILL-05 | `GET /billing/payments/orders/:id`          | Patient owner            | none                                                 | owner-scoped order                                                 | Implemented `CC-PAY-001`; OpenAPI đã regenerate 03/11/2026                                  |
+| BILL-05 | `GET /billing/payments/orders/:id`          | Patient owner            | none                                                 | `PatientPaymentOrderDetailDto` bounded immutable order projection | Implemented; owner-scoped, same redaction boundary as BILL-04                                |
 | BILL-06 | `POST /billing/payments/orders/:id/cancel`  | Patient owner            | none                                                 | cancelled unpaid order                                             | Implemented `CC-PAY-001`; reason/idempotency hardening chưa thuộc runtime contract hiện tại |
 | BILL-07 | `GET /billing/payments/vnpay/return`        | Public/provider redirect | VNPAY params                                         | display-only `payment_verification_pending`                        | Implemented `CC-PAY-001`; IPN vẫn là authority                                              |
 | BILL-08 | `GET /billing/payments/vnpay/ipn`           | VNPAY                    | signed params                                        | provider-required acknowledgement                                  | Implemented `CC-PAY-001`; public GET                                                        |
@@ -1305,6 +1321,12 @@ populate mutable Plan, không trả raw `orderSnapshot`, `PaymentTransaction`, V
 params/signature, IPN/Return payload, gateway reference, reconciliation/grant/outbox
 hay audit metadata; empty history trả page rỗng và snapshot corrupt fail-closed bằng
 `BILLING_PROJECTION_UNAVAILABLE`. `BILL-05` vẫn là route mở chi tiết owner-scoped.
+
+`BILL-05` now uses the same bounded immutable projection and owner query as
+`BILL-04`. It is not a detail escape hatch for `idempotencyKey`, raw
+`orderSnapshot`, `PaymentTransaction`, VNPAY/IPN, reconciliation/grant,
+outbox, or audit data. A corrupt immutable snapshot fails closed with
+`BILLING_PROJECTION_UNAVAILABLE`.
 
 ### 5.7 Notification, moderation và admin dashboard
 
@@ -2018,7 +2040,7 @@ Route `/patient/medical-facilities/:id` là deep-link mở `FacilityDetailDrawer
 - **Trang làm gì:** hợp nhất yêu cầu on-demand, lịch sắp tới, hàng đợi, phiên hiện tại và lịch sử để tránh Doctor phải chuyển qua nhiều trang vận hành chồng chéo.
 - **Component:** `ConsultationWorkspaceTabs`, `PendingRequestList`, `UpcomingConsultationList`, `QueueBoard`, `QueueEntry`, `CurrentSessionPanel`, `ConsultationHistory`, `ConsultationDetailDrawer`, `PatientContextPanel`, `LinkedCareContext`, `StatusTimeline`, `MessageTimeline`, `MessageComposer`, `CallPanel`, `DoctorNoteEditor`, `FollowUpEditor`, `CompleteConsultationDialog`, `NoShowDialog`.
 - **Hành động chính:** accept/decline request; call-next atomically; start/resume; chat/call; ghi note/follow-up; đánh dấu no-show; hoàn tất phiên.
-- **Trạng thái bắt buộc:** scheduled và on-demand dùng chung queue do server sắp; không drag reorder; chỉ một `in_consultation`; 409/expired phải refetch; thời lượng chỉ tạo cảnh báo overtime, không tự kết thúc; end call không đồng nghĩa complete; dữ liệu Patient chỉ hiện trong authorization scope.
+- **Trạng thái bắt buộc:** trong DA2, `QueueBoard` chỉ hiển thị scheduled consultation đã check-in; on-demand tiếp tục ở canonical accept/start flow và không được chen vào scheduled queue. Không drag reorder; chỉ một `in_consultation`; 409/expired phải refetch; ETA có thể `null`; thời lượng chỉ tạo cảnh báo overtime, không tự kết thúc; end call không đồng nghĩa complete; dữ liệu Patient chỉ hiện trong authorization scope. Unified on-demand queue là hậu DA2.
 
 `/doctor/requests`, `/doctor/queue` và `/doctor/consultations/:id` là deep-link vào tab/drawer của workspace này, không cần ba bộ UI rời nhau.
 

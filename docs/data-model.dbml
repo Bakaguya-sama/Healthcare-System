@@ -12,8 +12,8 @@
 Table Users {
   id ObjectID [pk]
   fullName varchar [not null]
-  email varchar [note: "Nullable for OAuth-only accounts; normalize to lowercase before persistence; partial unique index where email is a string"]
-  passwordHash varchar [note: "Nullable for OAuth-only accounts; select:false; never return publicly"]
+  email varchar [note: "Nullable only for Patient OAuth-only accounts; normalize to lowercase before persistence; partial unique index where email is a string"]
+  passwordHash varchar [note: "Nullable only for Patient OAuth-only accounts; select:false; never return publicly"]
   emailVerifiedAt datetime
   gender varchar
   dateOfBirth date
@@ -21,7 +21,7 @@ Table Users {
   avatarUrl varchar
   avatarPublicId varchar
   role varchar [not null, note: "patient, doctor, admin"]
-  accountStatus varchar [not null, note: "active, banned"]
+  accountStatus varchar [not null, note: "pending_verification, active, banned; local public accounts start pending_verification"]
   banReason varchar
   lastOnlineAt datetime [note: "Durable last-known online time; realtime presence remains in Redis/Socket.IO"]
   address json [note: "{ street, ward, district, city, country }"]
@@ -42,9 +42,9 @@ Table Users {
 Table OAuthAccounts {
   id ObjectID [pk]
   userId ObjectID [not null]
-  provider varchar [not null, note: "google, facebook, apple"]
+  provider varchar [not null, note: "google only in Phase A; provider email is an attribute, never an automatic account-merge key"]
   providerAccountId varchar [not null, note: "Stable provider subject ID"]
-  providerEmail varchar
+  providerEmail varchar [note: "Provider attribute only; never auto-merge/link with a local email"]
   linkedAt datetime [not null]
   createdAt datetime
   updatedAt datetime
@@ -52,8 +52,10 @@ Table OAuthAccounts {
   Indexes {
     (provider, providerAccountId) [unique]
     (userId, provider) [unique]
+    (provider, providerEmail) [unique, note: "partial: only when providerEmail is present; prevents duplicate OAuth-only account for the same Google email"]
   }
 }
+
 
 Table AuthSessions {
   id ObjectID [pk]
@@ -62,10 +64,11 @@ Table AuthSessions {
   refreshTokenHash varchar [not null, unique, note: "Token carries this session id; backend loads by id then compares the secret hash. Never store plaintext"]
   rotatedFromSessionId ObjectID
   replacedBySessionId ObjectID
-  deviceId varchar
+  deviceLabel varchar [note: "Sanitized display metadata only"]
   userAgent varchar
-  ipAddress varchar
-  lastUsedAt datetime
+  networkFingerprint varchar [note: "One-way/truncated fingerprint; never raw IP"]
+  issuedAt datetime [not null]
+  lastActiveAt datetime [not null]
   expiresAt datetime [not null]
   revokedAt datetime
   revokedReason varchar [note: "logout, rotation, password_changed, account_banned, replay_detected"]
@@ -79,6 +82,7 @@ Table AuthSessions {
     expiresAt [note: "TTL index created by MongoDB migration"]
   }
 }
+
 
 Table UserDevices {
   id ObjectID [pk]
@@ -98,7 +102,7 @@ Table UserDevices {
 }
 
 // OTP is held in Redis with TTL and rate limiting:
-// otp:{purpose}:{email} -> { codeHash, attempts, expiresAt }
+// otp:{purpose}:{email} -> { codeHash, encrypted delivery copy, attempts, expiresAt }; delivery copy is worker-only.
 
 Table AvailabilitySlots {
   id ObjectID [pk]

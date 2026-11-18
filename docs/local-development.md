@@ -100,7 +100,17 @@ pnpm.cmd --filter api test:e2e
 
 Integration test xác minh MongoDB replica set, Redis, migration/no-op, database verifier, idempotent seed, transaction rollback, readiness và graceful Redis shutdown.
 
-## 7. Troubleshooting
+## 7. DA2 release rehearsal
+
+Use [`docs/runbooks/da2-release-readiness.md`](runbooks/da2-release-readiness.md)
+for canonical release gates, the worker/feature-flag matrix, consumer handoff and
+the backup/restore procedure. Do not let a local `.env` that points to an Atlas
+environment determine a local migration rehearsal: explicitly override
+`MONGODB_URI` with a unique Compose-local database URI for `migrate → verify →
+expect-noop`. Never commit `.env`, provider credentials, IPN payloads or private
+storage URLs.
+
+## 8. Troubleshooting
 
 - `server=` trống trong `docker version`: Docker Engine chưa chạy; mở Docker Desktop và chờ engine ready.
 - Lỗi truy cập `docker_engine` named pipe: chạy Docker Desktop trong đúng Windows user/session.

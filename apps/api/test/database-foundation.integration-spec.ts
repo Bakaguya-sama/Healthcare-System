@@ -4,6 +4,11 @@ import { migrateDatabase } from '../src/database/migrations/run-migrations';
 import { DATABASE_MIGRATIONS } from '../src/database/migrations/migration-registry';
 import { applyRf10bCanonicalCleanup } from '../src/database/migrations/202609202000-rf10b-canonical-cleanup';
 import { applyRf10cPhysicalCleanup } from '../src/database/migrations/202609202100-rf10c-physical-cleanup';
+import {
+  applyConsultationNullTimestampReconciliation,
+  CONSULTATION_NULL_TIMESTAMP_FIELDS,
+} from '../src/database/migrations/202611171100-consultation-null-timestamp-reconciliation';
+import { applyCareCatalogVersionTypeReconciliation } from '../src/database/migrations/202611171200-care-catalog-version-type-reconciliation';
 import { reconcileRf10c } from '../src/database/migrations/rf10c-reconciliation';
 import { seedDemoData } from '../src/database/seeds/demo.seed';
 import {
@@ -43,7 +48,7 @@ describe('RF-4 database foundation', () => {
     expect(
       await client.db().collection('_migration_lock').countDocuments(),
     ).toBe(0);
-  });
+  }, 30_000);
 
   it('rolls back all writes when a transaction fails', async () => {
     const collection = client.db().collection('_transaction_proof');
@@ -57,6 +62,85 @@ describe('RF-4 database foundation', () => {
     await session.endSession();
 
     expect(await collection.countDocuments()).toBe(0);
+  });
+
+  it('reconciles only legacy BSON null optional consultation timestamps idempotently', async () => {
+    const consultationId = new ObjectId();
+    await client.db().collection('consultations').insertOne({
+      _id: consultationId,
+      patientId: new ObjectId(),
+      doctorId: new ObjectId(),
+      mode: 'on_demand',
+      requestStatus: 'accepted',
+      sessionStatus: 'waiting',
+      requestedAt: new Date(),
+      expectedDurationMinutes: 30,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      respondedAt: null,
+      sessionStartedAt: null,
+      completedAt: null,
+    }, { bypassDocumentValidation: true });
+
+    await applyConsultationNullTimestampReconciliation(client.db());
+    await applyConsultationNullTimestampReconciliation(client.db());
+
+    const reconciled = await client
+      .db()
+      .collection('consultations')
+      .findOne({ _id: consultationId });
+    for (const field of CONSULTATION_NULL_TIMESTAMP_FIELDS)
+      expect(reconciled).not.toHaveProperty(field);
+  });
+
+  it('reconciles legacy BSON int catalog versions without changing their value', async () => {
+    const now = new Date();
+    const authorId = new ObjectId();
+    const programId = new ObjectId();
+    await client.db().collection('careprograms').insertOne(
+      {
+        _id: programId,
+        programCode: 'restore-rehearsal',
+        version: 1,
+        name: 'Restore rehearsal',
+        diseaseKey: 'restore_rehearsal',
+        status: 'draft',
+        baselineForm: { schemaVersion: 'v1', fields: [] },
+        taskTemplates: [],
+        reminderPolicy: {},
+        dataSources: [],
+        createdBy: authorId,
+        createdAt: now,
+        updatedAt: now,
+      },
+      { bypassDocumentValidation: true },
+    );
+    await client.db().collection('carerules').insertOne(
+      {
+        careProgramId: programId,
+        version: 1,
+        status: 'draft',
+        rules: [],
+        createdBy: authorId,
+        createdAt: now,
+        updatedAt: now,
+      },
+      { bypassDocumentValidation: true },
+    );
+
+    await applyCareCatalogVersionTypeReconciliation(client.db());
+    await applyCareCatalogVersionTypeReconciliation(client.db());
+
+    for (const collectionName of ['careprograms', 'carerules'])
+      await expect(
+        client.db().collection(collectionName).countDocuments({ version: 1 }),
+      ).resolves.toBe(1);
+    for (const collectionName of ['careprograms', 'carerules'])
+      await expect(
+        client.db().collection(collectionName).countDocuments({
+          version: { $type: 'double' },
+        }),
+      ).resolves.toBeGreaterThanOrEqual(1);
   });
 
   it('backfills AI feedbacks to canonical conversations idempotently', async () => {

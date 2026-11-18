@@ -19,6 +19,7 @@ import { ConsultationStaleRecoveryService } from '../../modules/consultations/ap
 import { SubscriptionPaymentGrantService } from '../../modules/billing/application/services/subscription-payment-grant.service';
 import { CareTaskPolicyEventService } from '../../modules/chronic-care/application/services/care-task-policy-event.service';
 import { CareReportExportProcessorService } from '../../modules/chronic-care/application/services/care-report-export-processor.service';
+import { AuthEmailDeliveryService } from '../../modules/authentication/infrastructure/email/auth-email-delivery.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
@@ -55,6 +56,8 @@ export class OutboxWorkerService
     private readonly careTaskPolicyEvents?: CareTaskPolicyEventService,
     @Optional()
     private readonly careReportExports?: CareReportExportProcessorService,
+    @Optional()
+    private readonly authEmailDelivery?: AuthEmailDeliveryService,
   ) {
     this.careAutomationEnabled =
       this.config.get<boolean>('CARE_MONITORING_AUTOMATION_ENABLED') === true;
@@ -233,6 +236,20 @@ export class OutboxWorkerService
       return;
     }
     try {
+      if (event.eventType === 'auth.otp-delivery.requested.v1') {
+        const payload = event.payload as {
+          userId?: string;
+          purpose?: 'email_verification' | 'password_reset';
+        };
+        if (!payload.userId || !payload.purpose || !this.authEmailDelivery)
+          throw new Error('Invalid auth email delivery event');
+        await this.authEmailDelivery.deliverOtp(
+          payload.userId,
+          payload.purpose,
+        );
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
       if (event.eventType === 'subscription.grant.requested') {
         const payload = event.payload as { orderId?: string };
         if (!payload.orderId)

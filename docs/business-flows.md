@@ -188,8 +188,9 @@ terminal/non-scheduled trả conflict xác định; queue rỗng, đã có item 
 đang có phiên active trả 409. MongoDB là source of truth; realtime chỉ phát sau
 persistence.
 
-**P0 còn mở:** đưa on-demand accepted vào cùng queue và policy ETA có căn cứ đo
-lường. Hai phần này không được bật ngầm trong scheduled slice.
+**Boundary DA2 đã chốt:** queue chỉ dành cho scheduled consultation. On-demand
+giữ canonical accept/start flow hiện có; unified queue là follow-up hậu DA2 và
+không được bật ngầm. ETA chưa có policy đo lường nên tiếp tục nullable.
 
 ## 4. Mua/gia hạn Subscription qua VNPAY — ✅ `CC-PAY-001`
 
@@ -339,10 +340,10 @@ như kết quả lâm sàng.
   `doctorProfile.bookingSettings` có hard limits như product spec.
 - Cutoff hủy/đổi lịch hiện dùng mốc 60 phút đã được chấp nhận ở CC-013. Nếu owner
   thay đổi, phải version/snapshot policy và bổ sung migration/test trước rollout.
-- `checkInEarlyMinutes` chưa được owner chốt. Runtime hiện fail-closed nếu booking
-  snapshot và `CONSULTATION_CHECK_IN_EARLY_MINUTES` đều thiếu. Khuyến nghị pilot
-  15 phút chỉ là đề xuất trong product spec; cần đo tỷ lệ đến sớm/muộn, no-show
-  và tải queue trước khi chốt, sau đó snapshot theo version.
+- Owner chốt baseline pilot `checkInEarlyMinutes = 15` phút. Runtime vẫn
+  fail-closed nếu booking snapshot và `CONSULTATION_CHECK_IN_EARLY_MINUTES` đều
+  thiếu; booking cũ chỉ dùng cấu hình tường minh. Cần đo tỷ lệ đến sớm/muộn,
+  no-show và tải queue trước khi thay đổi policy, sau đó snapshot theo version.
 - ETA chưa có mô hình đáng tin cậy từ duration/overtime thực tế nên API trả
   `estimatedWaitMinutes = null`, `etaReason = ETA_POLICY_NOT_CONFIGURED`. Không
   suy ra ETA bằng cách nhân position với duration mặc định.

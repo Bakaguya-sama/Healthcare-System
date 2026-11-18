@@ -479,16 +479,184 @@
         ]
       }
     },
-    "/api/v1/auth/register": {
+    "/api/v1/auth/oauth/google": {
+      "get": {
+        "operationId": "Auth_startGooglePatientAuthentication",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oauth/google/callback": {
+      "get": {
+        "operationId": "Auth_completeGooglePatientAuthentication",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/register/patient": {
       "post": {
-        "operationId": "Auth_register",
+        "operationId": "Auth_registerPatient",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterDto"
+                "$ref": "#/components/schemas/RegisterPatientDto"
               }
             }
           }
@@ -568,7 +736,668 @@
             }
           }
         },
-        "summary": "Đăng ký tài khoản mới",
+        "summary": "Register a patient account pending email verification",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/register/doctor": {
+      "post": {
+        "operationId": "Auth_registerDoctor",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDoctorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register a doctor account pending email verification and approval",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/doctor-reapplication/restore": {
+      "post": {
+        "operationId": "Auth_restoreDoctorReapplication",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreDoctorReapplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Restore a rejected Doctor application after local credential verification",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "operationId": "Auth_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/request-email-verification": {
+      "post": {
+        "operationId": "Auth_requestEmailVerification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestEmailVerificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Queue an email-verification OTP for a pending account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/resend-verification": {
+      "post": {
+        "operationId": "Auth_resend",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestEmailVerificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/password-recovery": {
+      "post": {
+        "operationId": "Auth_passwordRecovery",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "operationId": "Auth_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "tags": [
           "auth"
         ]
@@ -663,7 +1492,6 @@
             }
           }
         },
-        "summary": "Đăng nhập",
         "tags": [
           "auth"
         ]
@@ -683,6 +1511,90 @@
             }
           }
         },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "operationId": "Auth_sessions",
+        "parameters": [],
         "responses": {
           "200": {
             "description": ""
@@ -758,7 +1670,11 @@
             }
           }
         },
-        "summary": "Làm mới access token",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "tags": [
           "auth"
         ]
@@ -848,15 +1764,14 @@
             "bearer": []
           }
         ],
-        "summary": "Đăng xuất",
         "tags": [
           "auth"
         ]
       }
     },
-    "/api/v1/auth/me": {
-      "get": {
-        "operationId": "Auth_getProfile",
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "operationId": "Auth_logoutAll",
         "parameters": [],
         "responses": {
           "200": {
@@ -938,26 +1853,114 @@
             "bearer": []
           }
         ],
-        "summary": "Lấy thông tin profile",
         "tags": [
           "auth"
         ]
       }
     },
-    "/api/v1/auth/change-password": {
+    "/api/v1/auth/sessions/revoke": {
       "post": {
-        "operationId": "Auth_changePassword",
+        "operationId": "Auth_revoke",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChangePasswordDto"
+                "$ref": "#/components/schemas/RevokeSessionDto"
               }
             }
           }
         },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "Auth_me",
+        "parameters": [],
         "responses": {
           "200": {
             "description": ""
@@ -1033,292 +2036,11 @@
             }
           }
         },
-        "summary": "Đặt lại mật khẩu bằng email + OTP",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/forgot-password": {
-      "post": {
-        "operationId": "Auth_forgotPassword",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ForgotPasswordDto"
-              }
-            }
+        "security": [
+          {
+            "bearer": []
           }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          },
-          "400": {
-            "description": "HTTP 400 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "HTTP 401 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "HTTP 403 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "HTTP 404 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "HTTP 409 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "HTTP 429 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "HTTP 500 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Kiểm tra email trước khi gửi OTP",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/send-otp": {
-      "post": {
-        "operationId": "Auth_sendOtp",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SendOtpDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          },
-          "400": {
-            "description": "HTTP 400 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "HTTP 401 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "HTTP 403 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "HTTP 404 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "HTTP 409 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "HTTP 429 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "HTTP 500 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Gửi OTP qua email",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/confirm-otp": {
-      "post": {
-        "operationId": "Auth_confirmOtp",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConfirmOtpDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          },
-          "400": {
-            "description": "HTTP 400 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "HTTP 401 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "HTTP 403 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "HTTP 404 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "HTTP 409 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "HTTP 429 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "HTTP 500 error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Xác nhận OTP",
+        ],
         "tags": [
           "auth"
         ]
@@ -13214,10 +13936,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPaymentOrderDetailDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "HTTP 400 error",
+            "description": "Invalid payment order identifier",
             "content": {
               "application/json": {
                 "schema": {
@@ -13227,7 +13956,7 @@
             }
           },
           "401": {
-            "description": "HTTP 401 error",
+            "description": "Bearer token is required",
             "content": {
               "application/json": {
                 "schema": {
@@ -13237,7 +13966,7 @@
             }
           },
           "403": {
-            "description": "HTTP 403 error",
+            "description": "Patient role is required",
             "content": {
               "application/json": {
                 "schema": {
@@ -13247,7 +13976,7 @@
             }
           },
           "404": {
-            "description": "HTTP 404 error",
+            "description": "Payment order is missing or belongs to another Patient",
             "content": {
               "application/json": {
                 "schema": {
@@ -13285,6 +14014,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "An immutable payment-order snapshot is corrupt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -13292,6 +14031,7 @@
             "bearer": []
           }
         ],
+        "summary": "Read one owner-scoped Patient payment order safely",
         "tags": [
           "billing-payments"
         ]
@@ -25064,68 +25804,134 @@
       }
     },
     "schemas": {
-      "RegisterDto": {
+      "RegisterPatientDto": {
         "type": "object",
         "properties": {
           "email": {
-            "type": "string",
-            "example": "user@example.com"
+            "type": "string"
           },
           "password": {
-            "type": "string",
-            "example": "StrongPass123!"
+            "type": "string"
           },
           "fullName": {
-            "type": "string",
-            "example": "Nguyen Van A"
+            "type": "string"
           },
           "phoneNumber": {
-            "type": "string",
-            "example": "+84912345678"
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "fullName"
+        ]
+      },
+      "RegisterDoctorDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
           },
-          "role": {
-            "type": "string",
-            "enum": [
-              "patient",
-              "doctor",
-              "admin"
-            ],
-            "default": "patient"
+          "password": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
           },
           "specialty": {
+            "type": "string"
+          },
+          "workplace": {
             "type": "string"
           },
           "experienceYears": {
             "type": "number"
           },
-          "workplace": {
+          "phoneNumber": {
             "type": "string"
-          },
-          "verificationDocuments": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "existingVerificationDocuments": {
-            "default": [],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           }
         },
         "required": [
           "email",
           "password",
           "fullName",
-          "phoneNumber",
           "specialty",
-          "experienceYears",
           "workplace",
-          "verificationDocuments",
-          "existingVerificationDocuments"
+          "experienceYears"
+        ]
+      },
+      "RestoreDoctorReapplicationDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "doctor@example.com"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "otpCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "otpCode"
+        ]
+      },
+      "RequestEmailVerificationDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "otpCode": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "otpCode",
+          "newPassword"
         ]
       },
       "LoginDto": {
@@ -25148,81 +25954,24 @@
       "RefreshTokenDto": {
         "type": "object",
         "properties": {
-          "userId": {
-            "type": "string",
-            "example": "user_id_here"
-          },
           "refreshToken": {
             "type": "string",
             "example": "refresh_token_here"
           }
         },
         "required": [
-          "userId",
           "refreshToken"
         ]
       },
-      "ChangePasswordDto": {
+      "RevokeSessionDto": {
         "type": "object",
         "properties": {
-          "email": {
-            "type": "string",
-            "example": "user@example.com"
-          },
-          "otpCode": {
-            "type": "string",
-            "example": "123456"
-          },
-          "newPassword": {
-            "type": "string",
-            "example": "NewPass456!"
+          "sessionId": {
+            "type": "string"
           }
         },
         "required": [
-          "email",
-          "otpCode",
-          "newPassword"
-        ]
-      },
-      "ForgotPasswordDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "user@example.com"
-          }
-        },
-        "required": [
-          "email"
-        ]
-      },
-      "SendOtpDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "user@example.com"
-          }
-        },
-        "required": [
-          "email"
-        ]
-      },
-      "ConfirmOtpDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "user@example.com"
-          },
-          "otpCode": {
-            "type": "string",
-            "example": "123456"
-          }
-        },
-        "required": [
-          "email",
-          "otpCode"
+          "sessionId"
         ]
       },
       "UploadFileDto": {
@@ -25423,6 +26172,7 @@
           "accountStatus": {
             "type": "string",
             "enum": [
+              "pending_verification",
               "active",
               "banned"
             ],
@@ -26560,6 +27310,67 @@
           "limit",
           "total",
           "totalPages"
+        ]
+      },
+      "PatientPaymentOrderDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "pending",
+              "processing",
+              "paid",
+              "expired",
+              "cancelled",
+              "failed",
+              "refund_pending",
+              "refunded"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "example": "VND"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PatientPaymentOrderPlanDto"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string"
+          },
+          "cancelledAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "orderCode",
+          "status",
+          "amount",
+          "currency",
+          "plan",
+          "expiresAt",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "PatientPlanQuotaDto": {
