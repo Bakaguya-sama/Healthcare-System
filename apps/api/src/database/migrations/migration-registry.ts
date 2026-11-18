@@ -5,6 +5,11 @@ import {
   RF2D_QUERY_INDEX_MIGRATION_VERSION,
 } from './202609162200-rf2d-query-indexes';
 import type { DatabaseMigration } from './migration.types';
+import { applyAuthIdentityHardening, AUTH_IDENTITY_HARDENING_CHECKSUM, AUTH_IDENTITY_HARDENING_NAME, AUTH_IDENTITY_HARDENING_VERSION } from './202611181000-auth-identity-hardening';
+import { applyAuthOtpCookieCleanup, AUTH_OTP_COOKIE_CLEANUP_CHECKSUM, AUTH_OTP_COOKIE_CLEANUP_NAME, AUTH_OTP_COOKIE_CLEANUP_VERSION } from './202611181100-auth-otp-cookie-state-cleanup';
+import { applyAuthEventRedaction, AUTH_EVENT_REDACTION_CHECKSUM, AUTH_EVENT_REDACTION_NAME, AUTH_EVENT_REDACTION_VERSION } from './202611181200-auth-event-redaction';
+import { applyOauthIdentityOwnerUniqueness, OAUTH_IDENTITY_OWNER_UNIQUENESS_CHECKSUM, OAUTH_IDENTITY_OWNER_UNIQUENESS_NAME, OAUTH_IDENTITY_OWNER_UNIQUENESS_VERSION } from './202611181210-oauth-identity-owner-uniqueness';
+import { applyOauthProviderEmailUniqueness, OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM, OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME, OAUTH_PROVIDER_EMAIL_UNIQUENESS_VERSION } from './202611181220-oauth-provider-email-uniqueness';
 import {
   applyRf5CanonicalIdentity,
   RF5_CANONICAL_IDENTITY_CHECKSUM,
@@ -245,6 +250,24 @@ import {
   PATIENT_PAYMENT_ORDER_READ_INDEXES_NAME,
   PATIENT_PAYMENT_ORDER_READ_INDEXES_VERSION,
 } from './202611062000-patient-payment-order-read-indexes';
+import {
+  applyCareCatalogValidatorReconciliation,
+  CARE_CATALOG_VALIDATOR_RECONCILIATION_CHECKSUM,
+  CARE_CATALOG_VALIDATOR_RECONCILIATION_NAME,
+  CARE_CATALOG_VALIDATOR_RECONCILIATION_VERSION,
+} from './202611171000-care-catalog-validator-reconciliation';
+import {
+  applyConsultationNullTimestampReconciliation,
+  CONSULTATION_NULL_TIMESTAMP_RECONCILIATION_CHECKSUM,
+  CONSULTATION_NULL_TIMESTAMP_RECONCILIATION_NAME,
+  CONSULTATION_NULL_TIMESTAMP_RECONCILIATION_VERSION,
+} from './202611171100-consultation-null-timestamp-reconciliation';
+import {
+  applyCareCatalogVersionTypeReconciliation,
+  CARE_CATALOG_VERSION_TYPE_RECONCILIATION_CHECKSUM,
+  CARE_CATALOG_VERSION_TYPE_RECONCILIATION_NAME,
+  CARE_CATALOG_VERSION_TYPE_RECONCILIATION_VERSION,
+} from './202611171200-care-catalog-version-type-reconciliation';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -492,6 +515,54 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: PATIENT_PAYMENT_ORDER_READ_INDEXES_NAME,
     checksum: PATIENT_PAYMENT_ORDER_READ_INDEXES_CHECKSUM,
     up: applyPatientPaymentOrderReadIndexes,
+  },
+  {
+    version: CARE_CATALOG_VALIDATOR_RECONCILIATION_VERSION,
+    name: CARE_CATALOG_VALIDATOR_RECONCILIATION_NAME,
+    checksum: CARE_CATALOG_VALIDATOR_RECONCILIATION_CHECKSUM,
+    up: applyCareCatalogValidatorReconciliation,
+  },
+  {
+    version: CONSULTATION_NULL_TIMESTAMP_RECONCILIATION_VERSION,
+    name: CONSULTATION_NULL_TIMESTAMP_RECONCILIATION_NAME,
+    checksum: CONSULTATION_NULL_TIMESTAMP_RECONCILIATION_CHECKSUM,
+    up: applyConsultationNullTimestampReconciliation,
+  },
+  {
+    version: CARE_CATALOG_VERSION_TYPE_RECONCILIATION_VERSION,
+    name: CARE_CATALOG_VERSION_TYPE_RECONCILIATION_NAME,
+    checksum: CARE_CATALOG_VERSION_TYPE_RECONCILIATION_CHECKSUM,
+    up: applyCareCatalogVersionTypeReconciliation,
+  },
+  {
+    version: AUTH_IDENTITY_HARDENING_VERSION,
+    name: AUTH_IDENTITY_HARDENING_NAME,
+    checksum: AUTH_IDENTITY_HARDENING_CHECKSUM,
+    up: applyAuthIdentityHardening,
+  },
+  {
+    version: AUTH_OTP_COOKIE_CLEANUP_VERSION,
+    name: AUTH_OTP_COOKIE_CLEANUP_NAME,
+    checksum: AUTH_OTP_COOKIE_CLEANUP_CHECKSUM,
+    up: applyAuthOtpCookieCleanup,
+  },
+  {
+    version: AUTH_EVENT_REDACTION_VERSION,
+    name: AUTH_EVENT_REDACTION_NAME,
+    checksum: AUTH_EVENT_REDACTION_CHECKSUM,
+    up: applyAuthEventRedaction,
+  },
+  {
+    version: OAUTH_IDENTITY_OWNER_UNIQUENESS_VERSION,
+    name: OAUTH_IDENTITY_OWNER_UNIQUENESS_NAME,
+    checksum: OAUTH_IDENTITY_OWNER_UNIQUENESS_CHECKSUM,
+    up: applyOauthIdentityOwnerUniqueness,
+  },
+  {
+    version: OAUTH_PROVIDER_EMAIL_UNIQUENESS_VERSION,
+    name: OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME,
+    checksum: OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM,
+    up: applyOauthProviderEmailUniqueness,
   },
 ];
 

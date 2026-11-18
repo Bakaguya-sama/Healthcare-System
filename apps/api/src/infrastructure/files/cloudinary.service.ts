@@ -112,13 +112,14 @@ export class CloudinaryService {
     filename: string;
     expiresAt: Date;
   }): string {
-    return cloudinary.url(input.key, {
+    const format = input.key.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+    if (!format) throw new Error('Invalid private export storage key');
+
+    return cloudinary.utils.private_download_url(input.key, format, {
       resource_type: 'raw',
       type: 'authenticated',
-      sign_url: true,
-      secure: true,
       expires_at: Math.floor(input.expiresAt.getTime() / 1000),
-      flags: `attachment:${input.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+      attachment: true,
     });
   }
 

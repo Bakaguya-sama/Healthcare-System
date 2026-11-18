@@ -1,145 +1,191 @@
 import {
-  Controller,
-  Post,
-  Get,
   Body,
-  UseGuards,
-  UseInterceptors,
+  Controller,
+  Get,
   HttpCode,
   HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+  UseInterceptors,
   UploadedFiles,
+  NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import type { Request } from 'express';
 import { AuthService } from '../../application/services/auth.service';
-import { RegisterDto } from '../dto/register.dto';
+import { RegisterPatientDto } from '../dto/register-patient.dto';
+import { RegisterDoctorDto } from '../dto/register-doctor.dto';
 import { LoginDto } from '../dto/login.dto';
-import { ChangePasswordDto } from '../dto/change-password.dto';
-import { ForgotPasswordDto } from '../dto/forgot-password.dto';
-import { ConfirmOtpDto } from '../dto/confirm-otp.dto';
-import { SendOtpDto } from '../dto/send-otp.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
+import { VerifyEmailDto } from '../dto/verify-email.dto';
+import { RevokeSessionDto } from '../dto/revoke-session.dto';
 import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
+import { GooglePrincipal } from '../../infrastructure/strategies/google.strategy';
+import { ForgotPasswordDto } from '../dto/forgot-password.dto';
+import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { RequestEmailVerificationDto } from '../dto/request-email-verification.dto';
+import { RestoreDoctorReapplicationDto } from '../dto/restore-doctor-reapplication.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
-  /**
-   * 📝 POST /auth/register
-   * Đăng ký tài khoản mới
-   */
-  @Post('register')
+  @Get('oauth/google')
+  @UseGuards(AuthGuard('google'))
+  startGooglePatientAuthentication() {
+    return;
+  }
+
+  @Get('oauth/google/callback')
+  @UseGuards(AuthGuard('google'))
+  completeGooglePatientAuthentication(
+    @Req() req: Request & { user?: GooglePrincipal },
+  ) {
+    if (this.config.get<boolean>('GOOGLE_OAUTH_ENABLED') !== true || !req.user)
+      throw new NotFoundException('OAuth provider is unavailable');
+    return this.auth.completeGooglePatientAuthentication(
+      req.user,
+      this.meta(req),
+    );
+  }
+
+  @Post('register/patient')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
+  @ApiOperation({
+    summary: 'Register a patient account pending email verification',
+  })
+  registerPatient(@Body() dto: RegisterPatientDto) {
+    return this.auth.registerPatient(dto);
+  }
+
+  @Post('register/doctor')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Register a doctor account pending email verification and approval',
+  })
   @UseInterceptors(
-    FileFieldsInterceptor([{ name: 'newFilesToUpload', maxCount: 10 }]), // Match new key from frontend
+    FileFieldsInterceptor([{ name: 'newFilesToUpload', maxCount: 10 }]),
   )
-  async register(
-    @Body() dto: RegisterDto,
-    @UploadedFiles() files: { newFilesToUpload?: Express.Multer.File[] }, // Match new key from frontend
+  registerDoctor(
+    @Body() dto: RegisterDoctorDto,
+    @UploadedFiles() files: { newFilesToUpload?: Express.Multer.File[] },
   ) {
-    return this.authService.register(dto, files?.newFilesToUpload); // Pass the new files
+    return this.auth.registerDoctor(dto, files?.newFilesToUpload);
   }
 
-  /**
-   * 🔐 POST /auth/login
-   * Đăng nhập với email & password
-   */
-  @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng nhập' })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  @Post('doctor-reapplication/restore')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Restore a rejected Doctor application after local credential verification',
+  })
+  restoreDoctorReapplication(@Body() dto: RestoreDoctorReapplicationDto) {
+    return this.auth.restoreDoctorReapplication(dto.email, dto.password);
   }
 
-  /**
-   * 🔄 POST /auth/refresh
-   * Làm mới access token bằng refresh token
-   */
-  @Post('refresh')
+  @Post('verify-email')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Làm mới access token' })
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshToken(dto.userId, dto.refreshToken);
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.auth.verifyEmail(dto.email, dto.otpCode);
   }
 
-  /**
-   * 🚪 POST /auth/logout
-   * Đăng xuất (yêu cầu JWT)
-   */
+  @Post('request-email-verification')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Queue an email-verification OTP for a pending account',
+  })
+  requestEmailVerification(@Body() dto: RequestEmailVerificationDto) {
+    return this.auth.requestEmailVerification(dto.email);
+  }
+
+  /** @deprecated Use request-email-verification. Kept temporarily for unpinned clients. */
+  @Post('resend-verification')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  resend(@Body() dto: RequestEmailVerificationDto) {
+    return this.auth.requestEmailVerification(dto.email);
+  }
+
+  @Post('password-recovery')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  passwordRecovery(@Body() dto: ForgotPasswordDto) {
+    return this.auth.requestPasswordReset(dto.email);
+  }
+
+  @Post('reset-password')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto.email, dto.otpCode, dto.newPassword);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  login(@Body() dto: LoginDto) {
+    return this.auth.login(dto);
+  }
+
+  @Post('refresh') @Throttle({ default: { limit: 10, ttl: 60_000 } }) refresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: Request,
+  ) {
+    return this.auth.refreshToken(dto.refreshToken, this.meta(req));
+  }
+
+  @Get('sessions') @UseGuards(JwtAuthGuard) @ApiBearerAuth() sessions(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('sid') sid?: string,
+  ) {
+    return this.auth.listSessions(userId, sid);
+  }
+
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng xuất' })
-  async logout(@CurrentUser('sub') userId: string) {
-    return this.authService.logout(userId);
+  logout(@CurrentUser('sub') userId: string, @CurrentUser('sid') sid?: string) {
+    return sid
+      ? this.auth.revokeCurrentSession(userId, sid)
+      : this.auth.revokeAllSessions(
+          userId,
+          'legacy_access_token_without_session',
+        );
   }
 
-  /**
-   * 👤 GET /auth/me
-   * Lấy thông tin profile hiện tại
-   */
-  @Get('me')
+  @Post('logout-all')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy thông tin profile' })
-  async getProfile(@CurrentUser('sub') userId: string) {
-    return this.authService.getProfile(userId);
+  @HttpCode(HttpStatus.OK)
+  logoutAll(@CurrentUser('sub') userId: string) {
+    return this.auth.revokeAllSessions(userId);
   }
 
-  /**
-   * 🔐 POST /auth/change-password
-   * Đặt lại mật khẩu bằng email + OTP
-   */
-  @Post('change-password')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đặt lại mật khẩu bằng email + OTP' })
-  async changePassword(@Body() dto: ChangePasswordDto) {
-    return this.authService.changePassword(dto);
+  @Post('sessions/revoke') @UseGuards(JwtAuthGuard) @ApiBearerAuth() revoke(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: RevokeSessionDto,
+  ) {
+    return this.auth.revokeSession(userId, dto.sessionId);
   }
 
-  /**
-   * 🆘 POST /auth/forgot-password
-   * Quên mật khẩu - kiểm tra email tồn tại
-   */
-  @Post('forgot-password')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Kiểm tra email trước khi gửi OTP' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto);
+  @Get('me') @UseGuards(JwtAuthGuard) @ApiBearerAuth() me(
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.auth.getProfile(userId);
   }
 
-  /**
-   * 📨 POST /auth/send-otp
-   * Gửi OTP qua email
-   */
-  @Post('send-otp')
-  @Throttle({ default: { limit: 3, ttl: 60_000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Gửi OTP qua email' })
-  async sendOtp(@Body() dto: SendOtpDto) {
-    return this.authService.sendOtp(dto);
-  }
-
-  /**
-   * ✅ POST /auth/confirm-otp
-   * Xác nhận OTP
-   */
-  @Post('confirm-otp')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xác nhận OTP' })
-  async confirmOtp(@Body() dto: ConfirmOtpDto) {
-    return this.authService.confirmOtp(dto);
+  private meta(req: Request) {
+    return { userAgent: req.get('user-agent') };
   }
 }

@@ -36,6 +36,13 @@ export class PatientPaymentOrderListItemDto {
   @ApiPropertyOptional() cancelledAt?: string;
 }
 
+/**
+ * BILL-05 intentionally uses the same bounded, immutable snapshot projection
+ * as history.  The detail route is not an escape hatch to PaymentTransaction,
+ * VNPAY/IPN, reconciliation, audit, or idempotency data.
+ */
+export class PatientPaymentOrderDetailDto extends PatientPaymentOrderListItemDto {}
+
 export class PatientPaymentOrderPageDto {
   @ApiProperty({ type: [PatientPaymentOrderListItemDto] })
   items: PatientPaymentOrderListItemDto[];

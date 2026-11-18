@@ -164,6 +164,30 @@ describe('BILL-04 Patient PaymentOrder read', () => {
     });
   });
 
+  it('returns BILL-05 through the bounded owner projection', async () => {
+    const ownerOrder = await createOrder(
+      patientId,
+      PaymentOrderStatus.PAID,
+      'detail-owner',
+      { createdAt: new Date(), updatedAt: new Date() },
+    );
+    const otherOrder = await createOrder(
+      otherPatientId,
+      PaymentOrderStatus.PAID,
+      'detail-other',
+      { createdAt: new Date(), updatedAt: new Date() },
+    );
+
+    const detail = await reads.get(patientId.toHexString(), String(ownerOrder._id));
+    expect(detail.id).toBe(String(ownerOrder._id));
+    expect(JSON.stringify(detail)).not.toContain('idempotencyKey');
+    expect(JSON.stringify(detail)).not.toContain('refundPolicy');
+
+    await expect(
+      reads.get(patientId.toHexString(), String(otherOrder._id)),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it('installs indexes for both status-filtered and unfiltered stable list shapes', async () => {
     const indexes = await connection.db!.collection('paymentorders').indexes();
     expect(indexes.map((index) => index.name)).toEqual(

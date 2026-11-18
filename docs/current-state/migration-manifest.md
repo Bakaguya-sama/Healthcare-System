@@ -55,6 +55,9 @@ registry quản lý tiếp theo như sau:
 | 202611052000 | `care-task-policy-v1` | Check-in, education catalog, doctor review và Consultation link contract |
 | 202611061000 | `care-report-exports` | Durable PDF/CSV export job, idempotency, worker lease và expiry cleanup indexes |
 | 202611062000 | `patient-payment-order-read-indexes` | BILL-04 owner/status stable pagination indexes |
+| 202611171000 | `care-catalog-validator-reconciliation` | Reapply canonical CareProgram/CareRule validators |
+| 202611171100 | `consultation-null-timestamp-reconciliation` | Remove legacy BSON null optional Consultation timestamps |
+| 202611171200 | `care-catalog-version-type-reconciliation` | Convert legacy BSON int catalog versions to canonical double |
 
 ### `202611061000-care-report-exports`
 
@@ -86,3 +89,21 @@ hai index được khai báo trong schema manifest. Evidence local replica set n
 2026-11-06: `applied 202611062000-patient-payment-order-read-indexes`; verifier pass
 `version=202611062000, collections=37, managedIndexes=117`; lần migrate thứ hai trả
 `skip 202611062000-patient-payment-order-read-indexes`.
+
+### Release-readiness reconciliations (2026-11-17)
+
+The release rehearsal found historical BSON representation drift that the
+current strict validators intentionally reject on restore. Three additive,
+idempotent migrations reconcile representation only:
+
+1. `202611171000-care-catalog-validator-reconciliation` reapplies the registry's
+   canonical CareProgram and CareRule validators after historical validator drift.
+2. `202611171100-consultation-null-timestamp-reconciliation` removes `null` only
+   from optional Consultation timestamp fields; it never writes or infers a timestamp.
+3. `202611171200-care-catalog-version-type-reconciliation` converts BSON `int`
+   `version` fields in CareProgram/CareRule documents to BSON `double` without
+   changing their numeric value.
+
+On the approved Atlas test rehearsal, `database:verify` passed at `202611171200`;
+the second migration run was a no-op. A full backup restored to an isolated local
+rehearsal database with 1,541 documents and zero failures.

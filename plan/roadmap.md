@@ -1,6 +1,6 @@
 # HealthAI DA2 — Roadmap hiện hành
 
-> Cập nhật: **06/11/2026**
+> Cập nhật: **17/11/2026**
 > Nguồn xác minh: code, migration, test, OpenAPI và realtime contract trong repository.
 > Ký hiệu: ✅ Xong · 🚧 Đang làm · ⏳ Chưa bắt đầu · ⛔ Bị chặn
 
@@ -8,7 +8,7 @@
 
 | Ưu tiên | Việc cần làm                                 | Lý do                                                                                                     | File/module liên quan                       | Cỡ  |
 | ------: | -------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- | :-: |
-|       1 | Chạy release-readiness DA2                   | P0 API handoff đã đủ; cần full regression, privacy/security, migration rehearsal và demo evidence         | `test`, `docs/runbooks`, contract artifacts |  L  |
+|       1 | Smoke test cấu hình release DA2              | Backend evidence/rehearsal đã pass; cần worker/provider/storage ở môi trường deploy trước khi bật feature  | `docs/runbooks`, deployment evidence         |  M  |
 |       2 | Đo và chốt policy vận hành scheduled booking | Pilot đang dùng buffer 15 phút/min-notice 60 phút; cần dữ liệu để chốt policy dài hạn                     | config, `consultations`, runbook            |  S  |
 
 ## 1. Tổng quan tiến độ
@@ -21,11 +21,11 @@
 | Consultation link/usage — `CC-008`, `CC-013/A/B`            |      ✅       | Alert link, quota ledger, urgent benefit, stale recovery, scheduled check-in/queue                                        | On-demand queue policy còn mở                                     |
 | Plan, AI quota — `CC-012A/B`                                |      ✅       | Plan lifecycle, snapshot entitlement, AI reserve/commit/release và Patient billing/order read API                         | Usage aggregate mở rộng thuộc scope sau                           |
 | Subscription payment — `CC-PAY-001`                         |      ✅       | VNPAY Sandbox IPN, order, grant, renewal queue, reconciliation                                                            | Không bao gồm consultation charging hoặc refund                   |
-| Contract/API handoff                                        |      ✅       | Program/Enrollment/CareTask/Billing/CareRule read, CareTask policy v1, report export và BILL-04 có OpenAPI/test             | Frontend integration ở repository riêng                           |
-| Scheduled booking, queue/check-in                           |      ✅       | Availability, booking, scheduled check-in, own queue, Doctor queue/call-next, idempotency/race tests                      | ETA và on-demand queue chưa có policy được chốt                   |
+| Contract/API handoff                                        |      ✅       | Program/Enrollment/CareTask/Billing/CareRule read, CareTask policy v1, report export, BILL-04/BILL-05 có OpenAPI/test      | Frontend integration ở repository riêng                           |
+| Scheduled booking, queue/check-in                           |      ✅       | Availability, booking, scheduled check-in, own queue, Doctor queue/call-next, idempotency/race tests                      | ETA nullable; unified on-demand queue hậu DA2                     |
 | Report/data export                                          |      ✅       | Async private PDF/CSV job, owner status/signed URL, expiry cleanup và race/authorization tests                            | Branding/locale mới phải tăng renderer version                    |
 | Web Patient/Doctor/Admin                                    | ⏳ Repo riêng | Đã chốt frontend không thuộc backend monorepo; tích hợp sau bằng OpenAPI/realtime                                         | Full Web E2E thực hiện tại frontend repository sau khi ghép API   |
-| Release readiness DA2                                       |      ⏳       | Unit, E2E, targeted integration đang xanh                                                                                 | Full regression, migration/restore, security/privacy, demo matrix |
+| Release readiness DA2                                       |      ✅*      | Backend scope complete: regression, contracts, migration/no-op, privacy matrix, Atlas-test backup/restore và handoff evidence | *Conditional release: production worker/provider/storage smoke trước enablement |
 | Product/operations metrics — `CC-OPS-001`                   |  ⏳ Hậu DA2   | Chưa có KPI aggregate/operations dashboard                                                                                | Thực hiện sau DA2, không chặn release DA2                         |
 
 ## 2. Chi tiết từng giai đoạn
@@ -49,7 +49,7 @@
 
 ### Giai đoạn B — Consultation link, entitlement và usage
 
-**Trạng thái:** ✅ Xong cho scheduled backend scope đã ghi; 🚧 on-demand queue policy còn mở
+**Trạng thái:** ✅ Xong cho scheduled backend scope đã ghi; unified on-demand queue là hậu DA2
 
 - [x] Tạo Consultation từ Care Alert với authorization và unique link.
 - [x] Reservation/count/release ledger theo Subscription snapshot.
@@ -59,9 +59,12 @@
 - [x] Scheduled booking/reschedule/cancel chỉ từ slot hợp lệ, atomic với quota ledger và idempotency.
 - [x] Patient scheduled check-in và own-queue projection, fail-closed khi thiếu policy.
 - [x] Doctor paginated queue/call-next, realtime contract, idempotency và database race protection.
-- [ ] Chốt ETA và việc hợp nhất on-demand vào scheduled queue trước khi triển khai.
+- [x] Chốt DA2 chỉ queue scheduled; unified on-demand queue là follow-up hậu DA2.
+- [x] Chốt ETA nullable; không suy ra từ duration mặc định khi chưa có dữ liệu vận hành.
 
-**Tiêu chí hoàn thành P0 còn lại:** scheduled/on-demand journey, check-in/queue, start/complete/no-show/cancel và quota race đều chạy E2E không sửa DB tay.
+**Tiêu chí hoàn thành backend DA2:** scheduled journey, check-in/queue,
+start/complete/no-show/cancel và quota race chạy E2E không sửa DB tay.
+On-demand unified queue không thuộc release gate DA2.
 
 **Phụ thuộc:** Consultation core, Billing usage port, realtime contract.
 
@@ -201,17 +204,31 @@ Cancellation hiện fail-closed vì API Consultation chưa có disposition canon
 
 ### Giai đoạn E — Release readiness DA2
 
-**Trạng thái:** ⏳ Chưa bắt đầu
+**Trạng thái:** ✅ Hoàn tất trong phạm vi backend repository; **conditionally ready**
+cho backend consumer handoff và deterministic DA2 demo ngày 17/11/2026. Production
+release vẫn có điều kiện: `*` không thay thế smoke test worker/provider/storage của
+môi trường deploy; các feature phụ thuộc hạ tầng vẫn disabled-by-default cho đến khi pass.
 
-- [ ] Full unit/integration/E2E và concurrency regression.
-- [ ] OpenAPI/realtime/boundary/type/lint/build gate.
-- [ ] Migration `migrate → verify → expect-noop` trên database rỗng và rehearsal backup/restore.
-- [ ] Feature-flag matrix: AI, monitoring automation và VNPAY.
-- [ ] Privacy/security review: role scope, redaction, upload, logs và raw health/AI payload.
-- [ ] Demo scenarios: bình thường, attention và urgent/escalation.
-- [ ] Đóng gói OpenAPI/realtime contract và integration notes cho frontend repository riêng; full Web E2E chạy sau khi frontend ghép API.
+- [x] Full local unit/integration/E2E và existing concurrency regression; database foundation timeout được nâng cục bộ lên 30 giây cho full migrate/verify/no-op.
+- [x] OpenAPI/realtime/boundary/type/lint/build gate local.
+- [x] Hoàn thiện curated frontend consumer handoff tại `docs/fe-integration/`;
+  inventory controller/OpenAPI/runtime ghi rõ P0 DTO bounded và legacy dynamic
+  contract gap. BILL-05 nay dùng cùng immutable redacted projection với BILL-04,
+  có Swagger success/error DTO và owner/redaction regression test.
+- [x] Migration `migrate → verify → expect-noop` và database-foundation rehearsal trên Compose local; full registry hiện tại là `202611171200`.
+- [x] Backup/restore rehearsal đã được owner phê duyệt trên Atlas **test** → `healthcare_release_readiness_20261117`: 1,541 documents, 0 restore failures, 44 applied migrations, validators/index DA2 pass.
+- [x] Feature-flag/worker matrix: AI, monitoring automation, VNPAY và export được ghi rõ enablement/fail-closed/rollback.
+- [x] Privacy/security review và actor/redaction matrix; raw clinical/payment/provider data không thuộc consumer projection.
+- [x] Demo matrix: normal, attention, urgent, billing, export và fail-closed, không yêu cầu sửa DB tay.
+- [x] OpenAPI/realtime contract, error/config notes và integration handoff cho frontend repository; full Web E2E chạy sau khi frontend ghép API.
+- [x] Target Atlas **test** verifier và no-op pass sau forward-only validator/null/version reconciliation migrations (`202611171000`–`202611171200`).
 
-**Tiêu chí hoàn thành:** P0 critical journeys chạy không sửa DB tay; contract artifact khớp source; blocker còn lại không bị ghi thành “done”.
+**Tiêu chí hoàn thành backend:** P0 critical journeys chạy không sửa DB tay; contract
+artifact khớp source; backup/restore rehearsal và target-test verifier pass; handoff
+OpenAPI/realtime/error/config cho frontend đầy đủ. Các điều kiện vận hành còn lại
+(worker/provider/storage smoke trong môi trường deploy) không bị ghi thành “done” và
+là release prerequisite của Release Operator, không phải công việc source code còn thiếu.
+Canonical evidence ở `docs/runbooks/da2-release-readiness.md`.
 
 **Phụ thuộc:** Giai đoạn D và môi trường demo.
 
@@ -234,7 +251,7 @@ Cancellation hiện fail-closed vì API Consultation chưa có disposition canon
 | Mức        | Rủi ro/câu hỏi                                         | Xử lý đề xuất                                                                                 |
 | ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
 | Trung bình | Policy pilot 15/60 chưa có dữ liệu vận hành đủ để chốt | Đo duration/overtime, lead time và hủy sát giờ; version/snapshot trước khi đổi policy         |
-| Trung bình | `checkInEarlyMinutes` và ETA chưa có dữ liệu để chốt   | Fail-closed check-in; ETA nullable; đo arrival/no-show/duration trước khi snapshot policy     |
+| Trung bình | Pilot `checkInEarlyMinutes = 15` và ETA chưa có dữ liệu vận hành dài hạn | Fail-closed check-in; ETA nullable; đo arrival/no-show/duration trước khi đổi snapshot policy |
 | Trung bình | Frontend tích hợp sau ở repository riêng               | Pin OpenAPI/realtime version, generate client và chạy contract/full Web E2E tại frontend repo |
 | Trung bình | Roadmap cũ và tracker cũ có thể tiếp tục bị dùng       | Chỉ giữ trong `plan/archive`; mọi file archive phải có banner lịch sử                         |
 | Trung bình | Target DBML còn collection P1/chưa deploy              | Mỗi slice tiếp tục đối chiếu DBML ↔ entity ↔ migration ↔ DTO/port                             |

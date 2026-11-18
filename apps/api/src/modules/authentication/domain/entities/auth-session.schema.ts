@@ -29,8 +29,18 @@ export class AuthSession {
   @Prop({ type: String, default: null })
   userAgent?: string | null;
 
+  /** A one-way, truncated network fingerprint; raw IPs never enter sessions. */
   @Prop({ type: String, default: null })
-  ipAddress?: string | null;
+  networkFingerprint?: string | null;
+
+  @Prop({ type: String, default: null })
+  deviceLabel?: string | null;
+
+  @Prop({ type: Date, default: Date.now })
+  issuedAt!: Date;
+
+  @Prop({ type: Date, default: Date.now })
+  lastActiveAt!: Date;
 }
 
 export const AuthSessionSchema = SchemaFactory.createForClass(AuthSession);

@@ -223,6 +223,35 @@ export const MANAGED_DATABASE_INDEXES = [
   },
   {
     collection: 'auth_sessions',
+    name: 'familyId_1_revokedAt_1',
+    key: { familyId: 1, revokedAt: 1 },
+  },
+  {
+    collection: 'oauth_identities',
+    name: 'provider_1_providerAccountId_1',
+    key: { provider: 1, providerAccountId: 1 },
+    unique: true,
+  },
+  {
+    collection: 'oauth_identities',
+    name: 'userId_1',
+    key: { userId: 1 },
+  },
+  {
+    collection: 'oauth_identities',
+    name: 'userId_1_provider_1',
+    key: { userId: 1, provider: 1 },
+    unique: true,
+  },
+  {
+    collection: 'oauth_identities',
+    name: 'provider_1_providerEmail_1',
+    key: { provider: 1, providerEmail: 1 },
+    unique: true,
+    partialFilterExpression: { providerEmail: { $type: 'string' } },
+  },
+  {
+    collection: 'auth_sessions',
     name: 'userId_1_revokedAt_1_expiresAt_1',
     key: { userId: 1, revokedAt: 1, expiresAt: 1 },
   },

@@ -14,6 +14,7 @@ export enum AuthEventType {
   OTP_SENT = 'otp_sent',
   OTP_VERIFIED = 'otp_verified',
   OTP_FAILED = 'otp_failed',
+  DOCTOR_REAPPLICATION_SUBMITTED = 'doctor_reapplication_submitted',
   ACCOUNT_BANNED = 'account_banned',
   ACCOUNT_UNBANNED = 'account_unbanned',
 }
@@ -25,15 +26,6 @@ export class AuthEvent {
 
   @Prop({ type: String, enum: AuthEventType, required: true, index: true })
   eventType!: AuthEventType;
-
-  @Prop({ type: String, default: null })
-  email?: string | null;
-
-  @Prop({ type: String, default: null })
-  ipAddress?: string | null;
-
-  @Prop({ type: String, default: null })
-  userAgent?: string | null;
 
   @Prop({ type: Object, default: null })
   metadata?: Record<string, unknown> | null;

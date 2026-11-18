@@ -280,7 +280,8 @@ export class UsersService {
       phone_number: user.phoneNumber ?? '',
       date_of_birth: user.dateOfBirth?.toISOString() || '',
       gender: user.gender ?? '',
-      account_status: user.accountStatus,
+      account_status:
+        user.accountStatus as UserProfileResponse['account_status'],
       created_at: createdAtValue?.toISOString() ?? new Date().toISOString(),
       address_display: this.formatAddress(user.address),
       role: user.role,

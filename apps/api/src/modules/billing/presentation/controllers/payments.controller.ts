@@ -17,6 +17,7 @@ import {
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -33,6 +34,7 @@ import { PatientPaymentOrderReadService } from '../../application/services/patie
 import { CreatePaymentOrderDto } from '../dto/payment.dto';
 import {
   PatientPaymentOrderPageDto,
+  PatientPaymentOrderDetailDto,
   QueryPatientPaymentOrdersDto,
 } from '../dto/patient-payment-order-read.dto';
 @ApiTags('billing-payments')
@@ -82,10 +84,37 @@ export class PaymentsController {
   }
   @Get('orders/:id')
   @ApiBearerAuth()
+  @ApiOperation({ summary: 'Read one owner-scoped Patient payment order safely' })
+  @ApiOkResponse({ type: PatientPaymentOrderDetailDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid payment order identifier',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Bearer token is required',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Patient role is required',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Payment order is missing or belongs to another Patient',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'An immutable payment-order snapshot is corrupt',
+    schema: { $ref: '#/components/schemas/ErrorResponse' },
+  })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.PATIENT)
   get(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.payments.getForUser(userId, id);
+    return this.patientReads.get(userId, id);
   }
   @Get('orders/:id/evidence')
   @ApiBearerAuth()

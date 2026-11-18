@@ -56,6 +56,34 @@ export class PatientPaymentOrderReadService {
     };
   }
 
+  /**
+   * BILL-05 is deliberately served by the same projection boundary as BILL-04.
+   * PaymentOrder is a persistence aggregate and carries idempotency, provider,
+   * grant and reconciliation-adjacent data that a Patient must never receive.
+   */
+  async get(patientId: string, orderId: string) {
+    const userId = this.objectId(patientId);
+    if (!Types.ObjectId.isValid(orderId))
+      throw new HttpException(
+        { code: 'BILLING_NOT_FOUND', message: 'Payment order not found' },
+        HttpStatus.NOT_FOUND,
+      );
+
+    const row = await this.orders
+      .findOne({ _id: new Types.ObjectId(orderId), userId })
+      .select(
+        '_id orderCode orderSnapshot amount currency status expiresAt paidAt cancelledAt createdAt updatedAt',
+      )
+      .lean()
+      .exec();
+    if (!row)
+      throw new HttpException(
+        { code: 'BILLING_NOT_FOUND', message: 'Payment order not found' },
+        HttpStatus.NOT_FOUND,
+      );
+    return this.project(row as unknown as PlainPaymentOrder);
+  }
+
   private project(order: PlainPaymentOrder) {
     const snapshot = this.record(order.orderSnapshot);
     const status = order.status;
