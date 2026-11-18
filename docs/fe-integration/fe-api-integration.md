@@ -735,3 +735,34 @@ dashboard, PaymentOrder-history export, `CC-OPS-001`, and frontend UI/Web E2E
 in this repository. AI/RAG stays disabled unless knowledge-base, citation and
 safety smoke tests pass; deterministic Chronic Care remains available when it
 is disabled.
+
+## Authentication — Phase A canonical contract (2026-11-18)
+
+> This section supersedes every legacy authentication row earlier in this
+> inventory. Do not call `POST /auth/register`, `change-password`,
+> `forgot-password`, `send-otp`, `confirm-otp`, OAuth re-authentication, link,
+> or unlink endpoints.
+
+| User intent | Endpoint and input | Expected result / frontend behavior |
+| --- | --- | --- |
+| Register Patient | `POST /api/v1/auth/register/patient` JSON: `{ email, password, fullName, phoneNumber? }` | `201`, `{ status: "pending_verification", message }`. Never send `role`. Show the email-OTP verification screen; this is not a signed-in session. |
+| Register Doctor | `POST /api/v1/auth/register/doctor` multipart: local fields plus `specialty`, `workplace`, `experienceYears`, optional `newFilesToUpload[]` | Pending verification. After email verification, Doctor still awaits independent Admin approval. Never send role or document URLs. |
+| Restore rejected Doctor form | `POST /api/v1/auth/doctor-reapplication/restore`: `{ email, password }` | Returns prior professional fields and opaque document metadata for prefill, never a document URL. Resubmit via Doctor endpoint with any new file uploads; server retains prior files. |
+| Request/resend verification OTP | `POST /api/v1/auth/request-email-verification`: `{ email }` | Always show generic queued result. Registration already queues first OTP; use only when user requests resend. `resend-verification` is temporary deprecated alias. |
+| Verify email OTP | `POST /api/v1/auth/verify-email`: `{ email, otpCode }` | `200`, email identifies the challenge and OTP proves possession. Redirect to local-password login. This does not approve a Doctor profile. |
+| Local sign-in | `POST /api/v1/auth/login`: `{ email, password }` | Returns access/refresh tokens only after full-access policy passes. Pending account goes to verification/resend UI. |
+| Password recovery | `POST /api/v1/auth/password-recovery`: `{ email }`, then `POST /api/v1/auth/reset-password`: `{ email, otpCode, newPassword }` | Generic request result. Reset consumes OTP once, revokes all sessions, then route to local sign-in. OAuth-only users have no local password reset path. |
+| Google Patient sign-in / signup | Browser navigation only: `GET /api/v1/auth/oauth/google`, then provider callback | Never XHR this flow and never send provider subject, authorization code, state, or custom return URL. Server owns PKCE/state in HttpOnly cookie. First eligible Google identity creates a Patient OAuth-only account. A Google email that belongs to local account is rejected and user is directed to password sign-in. |
+| Sessions | `GET /auth/sessions`; `POST /auth/logout`; `POST /auth/logout-all`; `POST /auth/sessions/revoke` `{ sessionId }` | All require Bearer token. `logout` revokes current session only; `logout-all` revokes every owned session. Refresh accepts `{ refreshToken }` only, never `userId`. |
+
+### Google OAuth UX boundary
+
+There are exactly two independent authentication methods: **local email/password**
+and **Google Patient OAuth-only**. They cannot be linked, unlinked, or merged by
+email. Google sign-in is feature-gated and disabled by default. The callback has no
+client-selected return URL; before enablement, frontend and backend owners must agree
+a fixed allowlisted completion route because the current callback returns the session
+JSON to the browser. Never place authorization code, state, provider token, OTP,
+refresh token, or document URL in browser storage, analytics, or application logs.
+Google enablement also requires migration `202611181220-oauth-provider-email-uniqueness`;
+it enforces one OAuth-only Patient per supplied Google email.

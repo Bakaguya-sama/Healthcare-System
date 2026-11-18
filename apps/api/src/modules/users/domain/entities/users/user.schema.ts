@@ -26,6 +26,10 @@ export class User {
   @Prop({ select: false })
   passwordHash?: string;
 
+  /** Present only after a local email-verification OTP is consumed. */
+  @Prop({ type: Date, default: null })
+  emailVerifiedAt?: Date | null;
+
   @Prop() gender: string;
 
   @Prop() dateOfBirth: Date;

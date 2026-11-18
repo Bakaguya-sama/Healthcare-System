@@ -183,12 +183,12 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 
 ## Quy tắc tài khoản và bác sĩ
 
-`Users.email` được phép null đối với OAuth-only account; đăng ký local vẫn bắt buộc email. Định danh OAuth chuẩn là `(provider, providerAccountId)`, không phải email; email chỉ unique khi tồn tại và `providerEmail` không được dùng để tự gộp tài khoản.
+`Users.email` được phép null đối với Patient OAuth-only account; đăng ký local vẫn bắt buộc email. Định danh OAuth chuẩn là `(provider, providerAccountId)`, không phải email; email chỉ unique khi tồn tại và `providerEmail` không được dùng để tự gộp tài khoản. Khi provider email có mặt, `(provider, providerEmail)` cũng unique có điều kiện để không tạo OAuth-only Patient thứ hai cho cùng Google email.
 
 1. Chỉ tài khoản active được tư vấn, đặt lịch hoặc thanh toán.
 2. Chỉ user có role doctor và hồ sơ được approved mới được mở slot, nhận yêu cầu hoặc tư vấn.
 3. Presence online dùng Redis và Socket.IO. `Users.lastOnlineAt` trong MongoDB chỉ là thời điểm online gần nhất đã ghi bền vững, được cập nhật có giới hạn tần suất khi disconnect/heartbeat; không dùng field này để kết luận user đang online tức thời.
-4. Một OAuth account chỉ liên kết với một user. Một user chỉ có một account cho mỗi OAuth provider.
+4. OAuth Google chỉ dành cho Patient OAuth-only và được định danh bởi một provider subject cho một user. Local password và OAuth là hai phương thức độc lập: không link/unlink và không tự gộp theo email. Nếu Google trả email đã thuộc local account, từ chối OAuth signup và hướng đăng nhập bằng password; không tạo OAuth-only Patient thứ hai.
 5. Refresh token chỉ lưu dạng hash trong `AuthSessions`, có expiry và rotation. Token gửi cho client chứa `sessionId` và secret ngẫu nhiên; backend tìm session theo ID rồi so sánh hash, không query bằng plaintext token. Mỗi lần rotation revoke bản ghi cũ, tạo bản ghi mới cùng `familyId` và nối `rotatedFromSessionId/replacedBySessionId`; dùng lại token cũ sẽ revoke cả family. MongoDB là nguồn bền vững cho logout-all và replay detection; Redis chỉ là cache/revocation fast-path. OTP chỉ tồn tại trong Redis với TTL, giới hạn số lần thử và rate limit gửi lại.
 
 ## Lịch trống và đặt lịch chủ động
@@ -571,11 +571,13 @@ Backend trở thành repository NestJS độc lập. REST types phía frontend �
 `Users.email` là email chuẩn tùy chọn của tài khoản OAuth-only. Local login vẫn bắt buộc email; OAuth không có email phải bổ sung email trước khi dùng chức năng cần kênh liên hệ.
 
 1. Một tài khoản nằm trong `Users`; doctor/admin profile chỉ là dữ liệu theo vai trò.
-2. Tài khoản OAuth được ánh xạ qua `OAuthAccounts`; tài khoản OAuth-only có thể không có `passwordHash`.
+2. Tài khoản OAuth Google được ánh xạ qua `OAuthAccounts`; chỉ Patient OAuth-only có thể không có `passwordHash`. Không có account linking/unlinking với local account.
 3. OTP hash, attempts và TTL nằm trong Redis, không nằm trong Users.
 4. Refresh token chỉ lưu hash trong `AuthSessions`, có rotation theo `familyId` và phát hiện replay.
 5. Password change, logout-all hoặc account ban phải revoke session liên quan.
-6. OAuth dùng state, callback allowlist và PKCE khi phù hợp.
+6. OAuth Google dùng state, callback allowlist và PKCE. Provider email chỉ là attribute: email trùng local bị từ chối signup an toàn, không phải merge key.
+7. Local registration creates `pending_verification`; it queues the first six-digit email OTP. `POST /auth/request-email-verification` is the explicit request/resend action, while `POST /auth/verify-email` accepts `{ email, otpCode }` to identify and prove the one-time challenge. Verification activates the account and records `emailVerifiedAt`; it never by itself approves a Doctor profile.
+8. A rejected Doctor may restore the previous application with email + password, then resubmit edited professional fields and new files. The server retains previously owned verification documents by default and never accepts client-provided document URLs. Reapplication returns the profile to Doctor-approval pending; it does not re-verify an already active email. OTP is sent only when that existing account is still `pending_verification`.
 
 ### 5.2 Scheduled consultation
 

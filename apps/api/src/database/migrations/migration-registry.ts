@@ -5,6 +5,11 @@ import {
   RF2D_QUERY_INDEX_MIGRATION_VERSION,
 } from './202609162200-rf2d-query-indexes';
 import type { DatabaseMigration } from './migration.types';
+import { applyAuthIdentityHardening, AUTH_IDENTITY_HARDENING_CHECKSUM, AUTH_IDENTITY_HARDENING_NAME, AUTH_IDENTITY_HARDENING_VERSION } from './202611181000-auth-identity-hardening';
+import { applyAuthOtpCookieCleanup, AUTH_OTP_COOKIE_CLEANUP_CHECKSUM, AUTH_OTP_COOKIE_CLEANUP_NAME, AUTH_OTP_COOKIE_CLEANUP_VERSION } from './202611181100-auth-otp-cookie-state-cleanup';
+import { applyAuthEventRedaction, AUTH_EVENT_REDACTION_CHECKSUM, AUTH_EVENT_REDACTION_NAME, AUTH_EVENT_REDACTION_VERSION } from './202611181200-auth-event-redaction';
+import { applyOauthIdentityOwnerUniqueness, OAUTH_IDENTITY_OWNER_UNIQUENESS_CHECKSUM, OAUTH_IDENTITY_OWNER_UNIQUENESS_NAME, OAUTH_IDENTITY_OWNER_UNIQUENESS_VERSION } from './202611181210-oauth-identity-owner-uniqueness';
+import { applyOauthProviderEmailUniqueness, OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM, OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME, OAUTH_PROVIDER_EMAIL_UNIQUENESS_VERSION } from './202611181220-oauth-provider-email-uniqueness';
 import {
   applyRf5CanonicalIdentity,
   RF5_CANONICAL_IDENTITY_CHECKSUM,
@@ -528,6 +533,36 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CARE_CATALOG_VERSION_TYPE_RECONCILIATION_NAME,
     checksum: CARE_CATALOG_VERSION_TYPE_RECONCILIATION_CHECKSUM,
     up: applyCareCatalogVersionTypeReconciliation,
+  },
+  {
+    version: AUTH_IDENTITY_HARDENING_VERSION,
+    name: AUTH_IDENTITY_HARDENING_NAME,
+    checksum: AUTH_IDENTITY_HARDENING_CHECKSUM,
+    up: applyAuthIdentityHardening,
+  },
+  {
+    version: AUTH_OTP_COOKIE_CLEANUP_VERSION,
+    name: AUTH_OTP_COOKIE_CLEANUP_NAME,
+    checksum: AUTH_OTP_COOKIE_CLEANUP_CHECKSUM,
+    up: applyAuthOtpCookieCleanup,
+  },
+  {
+    version: AUTH_EVENT_REDACTION_VERSION,
+    name: AUTH_EVENT_REDACTION_NAME,
+    checksum: AUTH_EVENT_REDACTION_CHECKSUM,
+    up: applyAuthEventRedaction,
+  },
+  {
+    version: OAUTH_IDENTITY_OWNER_UNIQUENESS_VERSION,
+    name: OAUTH_IDENTITY_OWNER_UNIQUENESS_NAME,
+    checksum: OAUTH_IDENTITY_OWNER_UNIQUENESS_CHECKSUM,
+    up: applyOauthIdentityOwnerUniqueness,
+  },
+  {
+    version: OAUTH_PROVIDER_EMAIL_UNIQUENESS_VERSION,
+    name: OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME,
+    checksum: OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM,
+    up: applyOauthProviderEmailUniqueness,
   },
 ];
 

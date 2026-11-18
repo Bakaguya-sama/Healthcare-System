@@ -95,6 +95,72 @@ export interface HealthReadyResponse {
 
 // ==================== AUTH ====================
 
+/**
+ * Phase A canonical authentication types (2026-11-18). These take precedence
+ * over legacy generated Auth* types below. New frontend code must not use
+ * `/auth/register`, role-bearing registration, or OAuth link/unlink types.
+ */
+export type AuthenticationRole = 'patient' | 'doctor' | 'admin' | 'ai_manager';
+
+export interface RegisterPatientRequest {
+  email: string;
+  password: string;
+  fullName: string;
+  phoneNumber?: string;
+}
+
+export interface RegisterDoctorRequest extends RegisterPatientRequest {
+  specialty: string;
+  workplace: string;
+  experienceYears: number;
+  /** Sent only as multipart files under `newFilesToUpload`; never send URL strings. */
+  newFilesToUpload?: UploadBinary[];
+}
+
+export interface PendingVerificationResponse {
+  status: 'pending_verification';
+  message: string;
+}
+
+export interface RequestEmailVerificationRequest {
+  email: string;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  otpCode: string;
+}
+
+export interface PasswordRecoveryRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest extends VerifyEmailRequest {
+  newPassword: string;
+}
+
+export interface RestoreDoctorReapplicationRequest {
+  email: string;
+  password: string;
+}
+
+export interface RestoreDoctorReapplicationResponse {
+  fullName: string;
+  phoneNumber: string | null;
+  specialty: string;
+  workplace: string;
+  experienceYears: number;
+  verificationDocuments: Array<{ id: string; label: string }>;
+  verificationDocumentCount: number;
+}
+
+export interface RefreshSessionRequest {
+  refreshToken: string;
+}
+
+/** Google OAuth is browser navigation, not a JSON request. No link/unlink API exists. */
+export type BeginGooglePatientAuthentication = never;
+
 /** POST /api/v1/auth/register — input (Params/Query/Headers/Body theo tên field). */
 export interface AuthRegisterRequest {
   email: string;

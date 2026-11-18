@@ -1,21 +1,25 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-enum-comparison, @typescript-eslint/restrict-template-expressions */
 import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
   BadRequestException,
-  NotFoundException,
+  ConflictException,
   ForbiddenException,
-  Logger,
-  Optional,
-  ServiceUnavailableException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
-import { randomUUID, createHash } from 'node:crypto';
-import { User, UserDocument } from '../../../users/domain/entities/users/user.schema';
+import { Model, Types } from 'mongoose';
+import {
+  User,
+  UserDocument,
+} from '../../../users/domain/entities/users/user.schema';
+import {
+  AccountStatus,
+  DoctorVerificationStatus,
+  UserRole,
+} from '../../../../core/domain/user.enums';
 import {
   AuthSession,
   AuthSessionDocument,
@@ -25,164 +29,200 @@ import {
   AuthEventDocument,
   AuthEventType,
 } from '../../domain/entities/auth-event.schema';
-import { OtpService } from './otp.service';
-import { DoctorVerificationStatus } from '../../../../core/domain/user.enums';
-import { RegisterDto } from '../../presentation/dto/register.dto';
+import { OutboxService } from '../../../../infrastructure/outbox/outbox.service';
+import { RegisterPatientDto } from '../../presentation/dto/register-patient.dto';
+import { RegisterDoctorDto } from '../../presentation/dto/register-doctor.dto';
 import { LoginDto } from '../../presentation/dto/login.dto';
-import { ChangePasswordDto } from '../../presentation/dto/change-password.dto';
-import { ForgotPasswordDto } from '../../presentation/dto/forgot-password.dto';
-import { ConfirmOtpDto } from '../../presentation/dto/confirm-otp.dto';
-import { SendOtpDto } from '../../presentation/dto/send-otp.dto';
-import { NodemailerService } from '../../../../infrastructure/email/nodemailer.service';
+import { mayReceiveFullAccess } from '../../domain/policies/account-access.policy';
 import { CloudinaryService } from '../../../../infrastructure/files/cloudinary.service';
-import { UserRole } from '../../../../core/domain/user.enums';
+import {
+  OAuthIdentity,
+  OAuthIdentityDocument,
+} from '../../domain/entities/oauth-identity.schema';
+import { ConfigService } from '@nestjs/config';
+import { GooglePrincipal } from '../../infrastructure/strategies/google.strategy';
+import { OtpService } from './otp.service';
 
+type Meta = { userAgent?: string; networkFingerprint?: string };
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private jwtService: JwtService,
-    private nodemailerService: NodemailerService,
-    private cloudinaryService: CloudinaryService,
-    @Optional()
+    @InjectModel(User.name) private readonly users: Model<UserDocument>,
     @InjectModel(AuthSession.name)
-    private authSessionModel?: Model<AuthSessionDocument>,
-    @Optional()
+    private readonly sessions: Model<AuthSessionDocument>,
     @InjectModel(AuthEvent.name)
-    private authEventModel?: Model<AuthEventDocument>,
-    @Optional() private otpService?: OtpService,
+    private readonly events: Model<AuthEventDocument>,
+    @InjectModel(OAuthIdentity.name)
+    private readonly identities: Model<OAuthIdentityDocument>,
+    private readonly jwt: JwtService,
+    private readonly outbox: OutboxService,
+    private readonly files: CloudinaryService,
+    private readonly config: ConfigService,
+    private readonly otp: OtpService,
   ) {}
 
-  /**
-   * 📝 ĐĂNG KÝ TÀI KHOẢN MỚI
-   */
-  async register(
-    // Update parameter name for clarity
-    dto: RegisterDto,
-    newFilesToUpload?: Express.Multer.File[], // Renamed parameter
+  registerPatient(dto: RegisterPatientDto) {
+    return this.registerLocal(dto, UserRole.PATIENT);
+  }
+
+  async registerDoctor(
+    dto: RegisterDoctorDto,
+    uploads: Express.Multer.File[] = [],
   ) {
-    const existingUser = await this.userModel.findOne({ email: dto.email });
-
-    // Case 1: User exists (handle doctor re-application)
-    if (existingUser) {
-      if (existingUser.role !== UserRole.DOCTOR) {
-        throw new ConflictException(
-          'Email already in use by a non-doctor account.',
+    const email = dto.email.toLowerCase();
+    const existing = await this.users
+      .findOne({ email })
+      .select('+passwordHash');
+    if (existing) return this.reapplyRejectedDoctor(existing, dto, uploads);
+    const response = await this.registerLocal(dto, UserRole.DOCTOR, dto);
+    if (uploads.length) {
+      const created = await this.users.findOne({ email });
+      if (created)
+        await this.users.updateOne(
+          { _id: created._id },
+          {
+            $set: {
+              'doctorProfile.verificationDocuments':
+                await this.uploadDoctorDocuments(
+                  created._id.toString(),
+                  uploads,
+                ),
+            },
+          },
         );
-      }
-
-      const doctorProfile = existingUser.doctorProfile;
-      if (!doctorProfile) {
-        throw new ConflictException(
-          'Doctor profile not found for existing user.',
-        );
-      }
-
-      if (
-        doctorProfile.verificationStatus !== DoctorVerificationStatus.REJECTED
-      ) {
-        throw new ConflictException(
-          `Cannot re-register. Doctor status is: ${doctorProfile.verificationStatus}`,
-        );
-      }
-
-      // --- Logic for re-applying rejected doctor ---
-
-      // Delete old verification files from Cloudinary before uploading new ones
-
-      this.logger.log(dto);
-
-      const allOldUrls = doctorProfile.verificationDocuments || [];
-      const keptUrls = new Set(dto.existingVerificationDocuments || []);
-      const urlsToDelete = allOldUrls.filter((url) => !keptUrls.has(url));
-
-      if (urlsToDelete.length > 0) {
-        try {
-          const publicIdsToDelete = urlsToDelete.map((url) => {
-            // Decode the URL first to handle %20 for spaces
-            const decodedUrl = decodeURIComponent(url);
-            const urlParts = decodedUrl.split('/');
-            const pathWithExtension = urlParts
-              .slice(urlParts.indexOf('upload') + 2)
-              .join('/');
-            return pathWithExtension;
-          });
-          for (const path of publicIdsToDelete) {
-            await this.cloudinaryService.deleteFile(path, 'document');
-          }
-        } catch (error) {
-          this.logger.warn(
-            `Failed to delete old verification documents for user ${existingUser._id}. Proceeding with registration.`,
-            error.stack,
-          );
-        }
-      }
-
-      const hashedPassword = await bcrypt.hash(dto.password, 12);
-      existingUser.passwordHash = hashedPassword;
-      existingUser.fullName = dto.fullName;
-      if (dto.phoneNumber !== undefined)
-        existingUser.phoneNumber = dto.phoneNumber;
-      existingUser.doctorProfile = {
-        ...(existingUser.doctorProfile ?? {}),
-        specialty: dto.specialty ?? '',
-        workplace: dto.workplace ?? '',
-        experienceYears: Number(dto.experienceYears),
-        verificationDocuments: dto.existingVerificationDocuments ?? [],
-        verificationStatus: DoctorVerificationStatus.PENDING,
-        rejectReason: '',
-        averageRating: existingUser.doctorProfile?.averageRating ?? 0,
-        ratingSum: existingUser.doctorProfile?.ratingSum ?? 0,
-        reviewCount: existingUser.doctorProfile?.reviewCount ?? 0,
-        verifiedAt: existingUser.doctorProfile?.verifiedAt ?? new Date(0),
-      };
-      await existingUser.save();
-
-      let finalDocumentUrls: string[] = dto.existingVerificationDocuments || [];
-      if (newFilesToUpload && newFilesToUpload.length > 0) {
-        // Use new parameter
-        const folder = `healthcare/doctors/verification/${existingUser._id}`;
-        const uploadResults = await this.cloudinaryService.uploadMultiple(
-          newFilesToUpload, // Use new parameter
-          folder,
-          'document',
-        );
-        const newlyUploadedUrls = uploadResults.map(
-          (result) => result.secureUrl,
-        );
-        finalDocumentUrls = [...finalDocumentUrls, ...newlyUploadedUrls];
-      }
-
-      existingUser.doctorProfile.verificationDocuments = finalDocumentUrls;
-      await existingUser.save();
-
-      return this.generateTokensResponse(existingUser);
     }
+    return response;
+  }
 
-    // Case 2: New user registration
-    if (dto.phoneNumber) {
-      const existingPhoneNumber = await this.userModel.findOne({
-        phoneNumber: dto.phoneNumber,
+  async restoreDoctorReapplication(email: string, password: string) {
+    const existing = await this.users
+      .findOne({ email: email.toLowerCase() })
+      .select('+passwordHash');
+    if (
+      !existing ||
+      existing.role !== UserRole.DOCTOR ||
+      existing.accountStatus === AccountStatus.BANNED ||
+      existing.doctorProfile?.verificationStatus !==
+        DoctorVerificationStatus.REJECTED ||
+      !existing.passwordHash ||
+      !(await bcrypt.compare(password, existing.passwordHash))
+    ) {
+      throw new UnauthorizedException('Invalid re-application credentials');
+    }
+    const documents = existing.doctorProfile.verificationDocuments ?? [];
+    return {
+      fullName: existing.fullName,
+      phoneNumber: existing.phoneNumber ?? null,
+      specialty: existing.doctorProfile.specialty,
+      workplace: existing.doctorProfile.workplace,
+      experienceYears: existing.doctorProfile.experienceYears,
+      verificationDocuments: documents.map((_, index) => ({
+        id: `existing-document-${index + 1}`,
+        label: `Verification document ${index + 1}`,
+      })),
+      verificationDocumentCount: documents.length,
+    };
+  }
+
+  private async reapplyRejectedDoctor(
+    existing: UserDocument,
+    dto: RegisterDoctorDto,
+    uploads: Express.Multer.File[],
+  ) {
+    if (
+      existing.role !== UserRole.DOCTOR ||
+      existing.accountStatus === AccountStatus.BANNED ||
+      existing.doctorProfile?.verificationStatus !==
+        DoctorVerificationStatus.REJECTED
+    )
+      throw new ConflictException('Email already in use');
+    if (
+      !existing.passwordHash ||
+      !(await bcrypt.compare(dto.password, existing.passwordHash))
+    )
+      throw new UnauthorizedException('Invalid re-application credentials');
+    const previous = existing.doctorProfile.verificationDocuments ?? [];
+    const uploaded = await this.uploadDoctorDocuments(
+      existing._id.toString(),
+      uploads,
+    );
+    existing.fullName = dto.fullName;
+    if (dto.phoneNumber !== undefined) existing.phoneNumber = dto.phoneNumber;
+    const needsEmailVerification =
+      existing.accountStatus === AccountStatus.PENDING_VERIFICATION;
+    existing.doctorProfile = {
+      ...existing.doctorProfile,
+      specialty: dto.specialty,
+      workplace: dto.workplace,
+      experienceYears: dto.experienceYears,
+      // Existing documents remain server-owned; client cannot inject or select URLs.
+      verificationDocuments: [...previous, ...uploaded],
+      verificationStatus: DoctorVerificationStatus.PENDING,
+      rejectReason: '',
+    };
+    await existing.save();
+    await this.record(
+      AuthEventType.DOCTOR_REAPPLICATION_SUBMITTED,
+      existing._id,
+      {
+        transition: 'doctor_reapplication',
+      },
+    );
+    if (needsEmailVerification) {
+      await this.issueOtp(existing, 'email_verification');
+      await this.record(AuthEventType.OTP_SENT, existing._id, {
+        purpose: 'email_verification',
+        transition: 'doctor_reapplication',
       });
-      if (existingPhoneNumber)
-        throw new ConflictException('Phone number already in use');
     }
+    return {
+      status: existing.accountStatus,
+      message: needsEmailVerification
+        ? 'Doctor re-application submitted; verification email queued'
+        : 'Doctor re-application submitted for Admin approval',
+    };
+  }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 12);
-    const newUser = await this.userModel.create({
-      email: dto.email,
-      passwordHash: hashedPassword,
+  private async uploadDoctorDocuments(
+    userId: string,
+    uploads: Express.Multer.File[],
+  ) {
+    if (!uploads.length) return [];
+    const results = await this.files.uploadMultiple(
+      uploads,
+      `healthcare/doctors/verification/${userId}`,
+      'document',
+    );
+    return results.map((result) => result.secureUrl);
+  }
+
+  private async registerLocal(
+    dto: RegisterPatientDto | RegisterDoctorDto,
+    role: UserRole.PATIENT | UserRole.DOCTOR,
+    doctor?: RegisterDoctorDto,
+  ) {
+    const email = dto.email.toLowerCase();
+    if (await this.users.exists({ email }))
+      throw new ConflictException('Email already in use');
+    if (
+      dto.phoneNumber &&
+      (await this.users.exists({ phoneNumber: dto.phoneNumber }))
+    )
+      throw new ConflictException('Phone number already in use');
+
+    const user = await this.users.create({
+      email,
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
-      role: dto.role,
-      ...(dto.role === UserRole.DOCTOR
+      passwordHash: await bcrypt.hash(dto.password, 12),
+      role,
+      accountStatus: AccountStatus.PENDING_VERIFICATION,
+      ...(role === UserRole.DOCTOR
         ? {
             doctorProfile: {
-              specialty: dto.specialty,
-              workplace: dto.workplace,
-              experienceYears: Number(dto.experienceYears),
+              specialty: doctor!.specialty,
+              workplace: doctor!.workplace,
+              experienceYears: doctor!.experienceYears,
               verificationDocuments: [],
               verificationStatus: DoctorVerificationStatus.PENDING,
               averageRating: 0,
@@ -192,263 +232,361 @@ export class AuthService {
           }
         : {}),
     });
-
-    if (dto.role === UserRole.DOCTOR) {
-      let documentUrls: string[] = [];
-      if (newFilesToUpload && newFilesToUpload.length > 0) {
-        // Use new parameter
-        const folder = `healthcare/doctors/verification/${newUser._id}`;
-        const uploadResults = await this.cloudinaryService.uploadMultiple(
-          newFilesToUpload, // Use new parameter
-          folder,
-          'document',
-        );
-        documentUrls = uploadResults.map((result) => result.secureUrl);
-      }
-
-      if (newUser.doctorProfile) {
-        newUser.doctorProfile.verificationDocuments = documentUrls;
-        await newUser.save();
-      }
-    }
-
-    return this.generateTokensResponse(newUser);
-  }
-
-  /**
-   * 🔐 ĐĂNG NHẬP
-   */
-  async login(dto: LoginDto) {
-    const userQuery = this.userModel.findOne({ email: dto.email });
-    const user = await (typeof (userQuery as any).select === 'function'
-      ? (userQuery as any).select('+passwordHash')
-      : userQuery);
-    if (!user) throw new UnauthorizedException('Email does not exist.');
-
-    const passwordHash = user.passwordHash ?? user.password;
-    if (!passwordHash) {
-      throw new UnauthorizedException(
-        'This account uses an external identity provider',
-      );
-    }
-    const isMatch = await bcrypt.compare(dto.password, passwordHash);
-    if (!isMatch) {
-      await this.recordEvent(AuthEventType.LOGIN_FAILED, user._id, user.email);
-      throw new UnauthorizedException('Password is not correct');
-    }
-
-    if (user.accountStatus === 'banned') {
-      throw new ForbiddenException('Account is banned');
-    }
-
-    if (user.role === UserRole.DOCTOR) {
-      const verificationStatus = user.doctorProfile?.verificationStatus;
-
-      if (verificationStatus !== 'approved')
-        throw new ForbiddenException('Account is not approved');
-    }
-
-    const result = await this.generateTokensResponse(user);
-    await this.recordEvent(AuthEventType.LOGIN_SUCCESS, user._id, user.email);
-    return result;
-  }
-
-  /**
-   * 🔄 LÀM MỚI ACCESS TOKEN
-   */
-  async refreshToken(userId: string, refreshToken: string) {
-    const userQuery = this.userModel.findById(userId);
-    const user = await (typeof (userQuery as any).select === 'function'
-      ? (userQuery as any).select('+passwordHash')
-      : userQuery);
-    if (!user) throw new UnauthorizedException('Access denied');
-    if (!this.authSessionModel) return this.generateTokensResponse(user);
-    let payload: { sub?: string; jti?: string };
-    try {
-      payload = this.jwtService.verify(refreshToken);
-    } catch {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-    if (payload.sub !== userId || !payload.jti) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-    const session = await this.authSessionModel
-      .findOne({
-        _id: payload.jti,
-        userId,
-        refreshTokenHash: this.hashToken(refreshToken),
-      })
-      .select('+refreshTokenHash');
-    if (!session || session.revokedAt || session.expiresAt <= new Date()) {
-      if (session?.familyId) {
-        await this.authSessionModel.updateMany(
-          { familyId: session.familyId, revokedAt: null },
-          { $set: { revokedAt: new Date(), revokeReason: 'refresh_replay' } },
-        );
-        await this.recordEvent(
-          AuthEventType.REFRESH_REUSED,
-          user._id,
-          user.email,
-        );
-      }
-      throw new UnauthorizedException('Refresh token is revoked or expired');
-    }
-    session.revokedAt = new Date();
-    session.revokeReason = 'rotated';
-    await session.save();
-    const result = await this.generateTokensResponse(user, session.familyId);
-    await this.recordEvent(AuthEventType.REFRESH_ROTATED, user._id, user.email);
-    return result;
-  }
-
-  /**
-   * 🚪 ĐĂNG XUẤT
-   */
-  async logout(userId: string) {
-    if (this.authSessionModel)
-      await this.authSessionModel.updateMany(
-        { userId, revokedAt: null },
-        { $set: { revokedAt: new Date(), revokeReason: 'logout' } },
-      );
-    await this.recordEvent(AuthEventType.LOGOUT, userId);
-    return { message: 'Logged out successfully' };
-  }
-
-  /**
-   * 🔐 ĐỔI MẬT KHẨU
-   */
-  async changePassword(dto: ChangePasswordDto) {
-    const user: UserDocument | null = await this.userModel
-      .findOne({ email: dto.email })
-      .select('+passwordHash')
-      .exec();
-    if (!user) throw new NotFoundException('Email not found');
-
-    try {
-      await this.otpService?.consume(dto.email, 'password_reset', dto.otpCode);
-    } catch (error) {
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Invalid OTP',
-      );
-    }
-
-    // Hash mật khẩu mới
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
-    await this.userModel.findByIdAndUpdate(user._id, {
-      passwordHash: hashedPassword,
+    await this.issueOtp(user, 'email_verification');
+    await this.record(AuthEventType.OTP_SENT, user._id, {
+      purpose: 'email_verification',
     });
-    await this.logout(user._id.toString());
-    await this.recordEvent(
-      AuthEventType.PASSWORD_CHANGED,
-      user._id,
-      user.email,
+    return {
+      status: AccountStatus.PENDING_VERIFICATION,
+      message: 'Verification email queued',
+    };
+  }
+
+  async requestEmailVerification(email: string) {
+    const user = await this.users.findOne({ email: email.toLowerCase() });
+    if (user?.accountStatus === AccountStatus.PENDING_VERIFICATION) {
+      await this.issueOtp(user, 'email_verification');
+      await this.record(AuthEventType.OTP_SENT, user._id, {
+        purpose: 'email_verification',
+        transition: 'verification_requested',
+      });
+    }
+    return { message: 'If eligible, a verification email has been queued' };
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await this.users
+      .findOne({ email: email.toLowerCase() })
+      .select('+passwordHash');
+    if (user?.passwordHash) {
+      await this.issueOtp(user, 'password_reset');
+      await this.record(AuthEventType.OTP_SENT, user._id, {
+        purpose: 'password_reset',
+      });
+    }
+    return {
+      message: 'If the account is eligible, a recovery email has been queued',
+    };
+  }
+
+  async resetPassword(email: string, otpCode: string, newPassword: string) {
+    const user = await this.users.findOne({ email: email.toLowerCase() });
+    if (!user)
+      throw new BadRequestException('Invalid or expired recovery code');
+    try {
+      await this.otp.consume(user.email!, 'password_reset', otpCode);
+    } catch {
+      throw new BadRequestException('Invalid or expired recovery code');
+    }
+    await this.users.updateOne(
+      { _id: user._id },
+      { $set: { passwordHash: await bcrypt.hash(newPassword, 12) } },
     );
+    await this.revokeAllSessions(user._id.toString(), 'password_reset');
+    await this.record(AuthEventType.PASSWORD_CHANGED, user._id, {
+      transition: 'password_reset',
+    });
     return { message: 'Password reset successfully' };
   }
 
-  /**
-   * 🆘 QUÊN MẬT KHẨU - GỬI OTP
-   */
-  async forgotPassword(dto: ForgotPasswordDto) {
-    const user = await this.userModel.findOne({ email: dto.email });
-    if (!user) throw new NotFoundException('Email not found');
-
-    return {
-      message: 'Email is valid. You can request OTP now.',
-    };
+  private async issueOtp(
+    user: UserDocument,
+    purpose: 'email_verification' | 'password_reset',
+  ) {
+    if (!user.email) return;
+    await this.otp.issue(user.email, purpose);
+    await this.outbox.enqueue({
+      eventType: 'auth.otp-delivery.requested.v1',
+      aggregateType: 'User',
+      aggregateId: user._id,
+      payload: { userId: user._id.toString(), purpose },
+      idempotencyKey: `auth.otp-delivery.${purpose}.${user._id.toString()}.${randomUUID()}`,
+    });
   }
 
-  /**
-   * 📨 GỬI OTP
-   */
-  async sendOtp(dto: SendOtpDto) {
-    const user = await this.userModel.findOne({ email: dto.email });
-    if (!user) throw new NotFoundException('Email not found');
-
-    if (!this.otpService)
-      throw new ServiceUnavailableException('OTP service is unavailable');
-    const { code: otpCode } = await this.otpService.issue(
-      dto.email,
-      'password_reset',
-    );
-
-    await this.nodemailerService.sendOtpEmail(dto.email, otpCode);
-
-    await this.recordEvent(AuthEventType.OTP_SENT, user._id, user.email);
-    return {
-      message: 'OTP sent to email',
-    };
-  }
-
-  /**
-   * ✅ XÁC NHẬN OTP VÀ ĐỔI MẬT KHẨU
-   */
-  async confirmOtp(dto: ConfirmOtpDto) {
-    const user = await this.userModel.findOne({ email: dto.email });
-    if (!user) throw new NotFoundException('Email not found');
-
+  async verifyEmail(email: string, otpCode: string) {
+    const user = await this.users.findOne({ email: email.toLowerCase() });
+    if (!user)
+      throw new BadRequestException('Invalid or expired verification code');
     try {
-      await this.otpService?.verify(dto.email, 'password_reset', dto.otpCode);
-    } catch (error) {
-      await this.recordEvent(AuthEventType.OTP_FAILED, user._id, user.email);
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Invalid OTP',
-      );
+      await this.otp.consume(user.email!, 'email_verification', otpCode);
+    } catch {
+      throw new BadRequestException('Invalid or expired verification code');
     }
-    await this.recordEvent(AuthEventType.OTP_VERIFIED, user._id, user.email);
+    await this.users.updateOne(
+      { _id: user._id, accountStatus: AccountStatus.PENDING_VERIFICATION },
+      {
+        $set: {
+          accountStatus: AccountStatus.ACTIVE,
+          emailVerifiedAt: new Date(),
+        },
+      },
+    );
+    await this.record(AuthEventType.OTP_VERIFIED, user._id, {
+      purpose: 'email_verification',
+    });
+    return { message: 'Email verified' };
+  }
 
-    return { message: 'OTP verified successfully' };
+  async login(dto: LoginDto, meta: Meta = {}) {
+    const user = await this.users
+      .findOne({ email: dto.email.toLowerCase() })
+      .select('+passwordHash');
+    if (
+      !user ||
+      !user.passwordHash ||
+      !(await bcrypt.compare(dto.password, user.passwordHash))
+    ) {
+      if (user) await this.record(AuthEventType.LOGIN_FAILED, user._id);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    if (
+      !mayReceiveFullAccess({
+        accountStatus: user.accountStatus,
+        role: user.role,
+        doctorVerificationStatus: user.doctorProfile?.verificationStatus,
+      })
+    )
+      throw new ForbiddenException(
+        user.accountStatus === AccountStatus.PENDING_VERIFICATION
+          ? 'Email verification is required'
+          : 'Account is not eligible for access',
+      );
+    const result = await this.issueSession(user, meta);
+    await this.record(AuthEventType.LOGIN_SUCCESS, user._id);
+    return result;
   }
 
   /**
-   * 🔑 LẤY THÔNG TIN USER TỪ TOKEN
+   * Completes the only supported Google flow: a Patient OAuth-only account.
+   * A Google email is never an account-merge key. A local account and an OAuth
+   * account deliberately remain separate login methods.
    */
+  async completeGooglePatientAuthentication(
+    principal: GooglePrincipal,
+    meta: Meta = {},
+  ) {
+    if (this.config.get<boolean>('GOOGLE_OAUTH_ENABLED') !== true)
+      throw new NotFoundException('OAuth provider is unavailable');
+    let identity = await this.identities.findOne({
+      provider: principal.provider,
+      providerAccountId: principal.providerAccountId,
+    });
+    let user: UserDocument | null = null;
+    if (identity)
+      user = await this.users.findById(identity.userId).select('+passwordHash');
+    if (!identity) {
+      if (this.config.get<boolean>('GOOGLE_OAUTH_ALLOW_SIGNUP') !== true)
+        throw new ForbiddenException(
+          'Google sign-in is not available for a new account',
+        );
+      // This happens only after Google authenticated the browser. It prevents a
+      // second Patient OAuth-only account for a known local email without
+      // turning a public email endpoint into an account-existence oracle.
+      if (
+        principal.email &&
+        (await this.users.exists({ email: principal.email.toLowerCase() }))
+      )
+        throw new ConflictException(
+          'This email already has a password account; sign in with password',
+        );
+      if (
+        principal.email &&
+        (await this.identities.exists({
+          provider: principal.provider,
+          providerEmail: principal.email.toLowerCase(),
+        }))
+      )
+        throw new ConflictException(
+          'This email is already registered with a different Google account; use the original Google account or contact support',
+        );
+      user = await this.users.create({
+        fullName: principal.displayName || 'Google user',
+        role: UserRole.PATIENT,
+        accountStatus: AccountStatus.ACTIVE,
+      });
+      try {
+        identity = await this.identities.create({
+          provider: principal.provider,
+          providerAccountId: principal.providerAccountId,
+          providerEmail: principal.email ?? null,
+          userId: user._id,
+          linkedAt: new Date(),
+        });
+      } catch (error) {
+        // The database uniqueness constraint closes a concurrent-callback race.
+        // This new user has no domain data, so it is safe to remove on conflict.
+        await this.users.deleteOne({ _id: user._id });
+        if (this.isDuplicateKeyError(error))
+          throw new ConflictException(
+            'This email is already registered with a different Google account; use the original Google account or contact support',
+          );
+        throw error;
+      }
+    }
+    // A legacy link record must not silently preserve Google login for a local,
+    // Doctor, or administrative account after the policy was simplified.
+    if (identity && (user?.role !== UserRole.PATIENT || user.passwordHash))
+      throw new ForbiddenException(
+        'Google sign-in is unavailable for this account; sign in with password',
+      );
+    if (
+      !user ||
+      !mayReceiveFullAccess({
+        accountStatus: user.accountStatus,
+        role: user.role,
+        doctorVerificationStatus: user.doctorProfile?.verificationStatus,
+      })
+    )
+      throw new ForbiddenException('Account is not eligible for access');
+    const result = await this.issueSession(user, meta);
+    await this.record(AuthEventType.LOGIN_SUCCESS, user._id, {
+      provider: 'google',
+    });
+    return result;
+  }
+
+  private isDuplicateKeyError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 11000
+    );
+  }
+
+  async refreshToken(refreshToken: string, meta: Meta = {}) {
+    let p: { sub?: string; jti?: string };
+    try {
+      p = this.jwt.verify(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    if (!p.sub || !p.jti || !Types.ObjectId.isValid(p.jti))
+      throw new UnauthorizedException('Invalid refresh token');
+    const session = await this.sessions
+      .findOne({ _id: p.jti, userId: p.sub })
+      .select('+refreshTokenHash');
+    if (
+      !session ||
+      session.refreshTokenHash !== this.hash(refreshToken) ||
+      session.revokedAt ||
+      session.expiresAt <= new Date()
+    ) {
+      if (session)
+        await this.sessions.updateMany(
+          { familyId: session.familyId, revokedAt: null },
+          { $set: { revokedAt: new Date(), revokeReason: 'refresh_replay' } },
+        );
+      await this.record(AuthEventType.REFRESH_REUSED, p.sub);
+      throw new UnauthorizedException('Refresh token is invalid');
+    }
+    const user = await this.users.findById(p.sub);
+    if (
+      !user ||
+      !mayReceiveFullAccess({
+        accountStatus: user.accountStatus,
+        role: user.role,
+        doctorVerificationStatus: user.doctorProfile?.verificationStatus,
+      })
+    )
+      throw new UnauthorizedException('Access denied');
+    await this.sessions.updateOne(
+      { _id: session._id, revokedAt: null },
+      {
+        $set: {
+          revokedAt: new Date(),
+          revokeReason: 'rotated',
+          lastActiveAt: new Date(),
+        },
+      },
+    );
+    const result = await this.issueSession(user, meta, session.familyId);
+    await this.record(AuthEventType.REFRESH_ROTATED, user._id);
+    return result;
+  }
+
+  async listSessions(userId: string, currentSessionId?: string) {
+    const rows = await this.sessions
+      .find({ userId, expiresAt: { $gt: new Date() } })
+      .sort({ lastActiveAt: -1 })
+      .lean();
+    return rows.map((s) => ({
+      id: s._id.toString(),
+      deviceLabel: s.deviceLabel ?? 'Unknown device',
+      issuedAt: s.issuedAt,
+      lastActiveAt: s.lastActiveAt,
+      revokedAt: s.revokedAt ?? null,
+      current: s._id.toString() === currentSessionId,
+    }));
+  }
+
+  async revokeCurrentSession(userId: string, sessionId: string) {
+    return this.revokeSession(userId, sessionId, 'logout');
+  }
+
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+    reason = 'owner_revoke',
+  ) {
+    const r = await this.sessions.updateOne(
+      { _id: sessionId, userId, revokedAt: null },
+      { $set: { revokedAt: new Date(), revokeReason: reason } },
+    );
+    if (!r.matchedCount) throw new NotFoundException('Session not found');
+    await this.record(AuthEventType.LOGOUT, userId, { reason });
+    return { message: 'Session revoked' };
+  }
+
+  async revokeAllSessions(userId: string, reason = 'logout_all') {
+    await this.sessions.updateMany(
+      { userId, revokedAt: null },
+      { $set: { revokedAt: new Date(), revokeReason: reason } },
+    );
+    await this.record(AuthEventType.LOGOUT_ALL, userId, { reason });
+    return { message: 'All sessions revoked' };
+  }
+
   async getProfile(userId: string) {
-    const user = await this.userModel.findById(userId).select('-passwordHash');
-
+    const user = await this.users
+      .findById(userId)
+      .select('-passwordHash')
+      .lean();
     if (!user) throw new UnauthorizedException('User not found');
-
     return user;
   }
 
-  /**
-   * 🎫 GENERATE TOKENS & REFRESH TOKEN
-   */
-  private async generateTokensResponse(
+  private async issueSession(
     user: UserDocument,
+    meta: Meta,
     familyId: string = randomUUID(),
   ) {
-    const payload = {
-      sub: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    };
-
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '30m' });
-    const sessionId = new Types.ObjectId().toString();
-    const refreshToken = this.jwtService.sign(
-      { ...payload, jti: sessionId },
+    const sid = new Types.ObjectId().toString(),
+      payload = { sub: user._id.toString(), role: user.role, sid };
+    const accessToken = this.jwt.sign(payload, { expiresIn: '30m' });
+    const refreshToken = this.jwt.sign(
+      { ...payload, jti: sid },
       { expiresIn: '7d' },
     );
-    if (this.authSessionModel)
-      await this.authSessionModel.create({
-        _id: sessionId,
-        userId: user._id,
-        refreshTokenHash: this.hashToken(refreshToken),
-        familyId,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      });
-    else if ((this.userModel as any).findByIdAndUpdate) {
-      await (this.userModel as any).findByIdAndUpdate(user._id, {
-        refreshToken: refreshToken,
-      });
-    }
-
+    const now = new Date();
+    await this.sessions.create({
+      _id: sid,
+      userId: user._id,
+      familyId,
+      refreshTokenHash: this.hash(refreshToken),
+      expiresAt: new Date(now.getTime() + 604800000),
+      issuedAt: now,
+      lastActiveAt: now,
+      userAgent: this.safeUA(meta.userAgent),
+      deviceLabel: this.safeUA(meta.userAgent),
+      networkFingerprint: meta.networkFingerprint,
+    });
     return {
       accessToken,
       refreshToken,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         email: user.email,
         fullName: user.fullName,
         role: user.role,
@@ -457,20 +595,23 @@ export class AuthService {
     };
   }
 
-  private hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
+  private safeUA(value?: string) {
+    return value?.slice(0, 160) || null;
   }
 
-  private async recordEvent(
+  private hash(v: string) {
+    return createHash('sha256').update(v).digest('hex');
+  }
+
+  private async record(
     eventType: AuthEventType,
-    userId?: string | UserDocument['_id'],
-    email?: string,
-  ): Promise<void> {
-    if (!this.authEventModel) return;
-    await this.authEventModel.create({
+    userId?: string | Types.ObjectId,
+    metadata?: Record<string, unknown>,
+  ) {
+    await this.events.create({
       eventType,
-      userId: userId ? userId : null,
-      email: email ?? null,
+      userId: userId ?? null,
+      metadata: metadata ?? null,
     });
   }
 }

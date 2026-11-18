@@ -67,7 +67,7 @@ khi có xác nhận Finance/Legal và evidence provider/sandbox.
 | ID     | Trạng thái                 | Quyết định áp dụng                                                                     | Slice      | Owner xác nhận                   | Kết quả phải ghi                                                              |
 | ------ | -------------------------- | -------------------------------------------------------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------- |
 | DEC-A1 | ✅ Chốt                    | Local account mới vào `pending_verification`                                           | AUTH-02    | Product + Security               | State machine, resend, recovery, login gate                                   |
-| DEC-A2 | ✅ Chốt                    | Một OIDC provider (Google), PKCE/state, không auto-merge email                         | AUTH-01    | Product + Security               | Provider, collision, link/unlink/recovery rules                               |
+| DEC-A2 | ✅ Chốt | Một OIDC provider (Google) chỉ cho Patient OAuth-only, PKCE/state, không auto-merge email | AUTH-01 | Product + Security | Hai phương thức độc lập; collision local từ chối an toàn, không link/unlink |
 | DEC-A3 | ✅ Chốt                    | Logout mặc định current session; có `logout-all` riêng                                 | AUTH-03    | Product + Security               | API/UX contract và audit event                                                |
 | DEC-B1 | ✅ Chốt                    | `ai_manager` upload/manage; Admin approve/reject/archive/delete và chọn active version | RAG-01/02  | `ai_manager` + Admin             | Sub-role guard, transition/audit, replacement/expiry policy                   |
 | DEC-B2 | ✅ Chốt                    | Citation bắt buộc; chốt ngưỡng sau baseline tiếng Việt đầu tiên                        | RAG-04/06  | Medical content owner + AI owner | Provenance fields và quality/SLO threshold                                    |
@@ -91,11 +91,13 @@ ràng. Không phát full access token trước verify; dùng verification token 
 hoặc session hạn chế. Nếu chưa chốt, giữ flow hiện tại và không nhận AUTH-02.
 
 **DEC-A2 — OAuth:** Đã chốt bắt đầu bằng **một provider OIDC chuẩn (Google)**,
-không nhận nhiều provider đồng thời. Linking chỉ diễn ra khi user đã đăng nhập và
-reauthenticate; callback dùng PKCE + `state`; không tự gộp account theo provider
-email. Lý do: giảm bề mặt tấn công account-takeover và giới hạn lượng policy phải
-kiểm thử. Chỉ mở provider thứ hai sau khi unlink/recovery/audit của provider đầu
-tiên ổn định.
+chỉ tạo/đăng nhập Patient OAuth-only. Local password và Google OAuth là hai phương
+thức tài khoản độc lập: không linking, unlinking hay re-authentication endpoint.
+Callback dùng PKCE + `state`; không tự gộp account theo provider email. Nếu Google
+trả về email đã thuộc local account, từ chối signup an toàn và hướng người dùng đăng
+nhập bằng password; không tạo Patient OAuth-only thứ hai. Lý do: giảm bề mặt
+account-takeover và recovery ambiguity. Chỉ xem xét provider thứ hai sau khi policy
+này, audit và collision handling ổn định.
 
 **DEC-A3 — Session logout:** Đã chốt `logout` mặc định chỉ revoke **current
 session**, có command riêng `logout-all`; reset password, refresh replay hoặc
@@ -214,7 +216,7 @@ kill-switch rehearsal; frontend repository pin contract và chạy critical Web 
 
 ## 5. Giai đoạn A — Identity security và policy governance
 
-**Trạng thái:** ⏳
+**Trạng thái:** 🚧 — AUTH-01..04 đã có implementation, migration/verifier, unit/integration/E2E, OpenAPI/realtime/boundary evidence tại `docs/phase-a-exit-evidence-2026-11-18.md`. Chưa chuyển ✅: full-repository lint đang fail do 635 warning vượt budget 402 (không có lint error); không hạ budget/che giấu technical debt để đóng gate.
 **Kết quả mong đợi:** identity/session an toàn, policy authority rõ và đủ nền để
 nhận OAuth, refund, booking config và các feature P1.
 
@@ -225,7 +227,7 @@ nhận OAuth, refund, booking config và các feature P1.
 | AUTH-03  | Refresh lấy subject từ token; current/all-session logout; list/revoke session/device; replay protection |
 | AUTH-04  | Xóa log DTO nhạy cảm; chuẩn hóa email delivery qua outbox hoặc exception có retry/observability         |
 | AUTH-02  | Email activation/resend/login gate theo DEC-A1                                                          |
-| AUTH-01  | OAuth provider, linking/unlinking/recovery; không auto-merge bằng email                                 |
+| AUTH-01  | Google OAuth Patient-only, PKCE/state, collision/recovery UX; không auto-merge hoặc link/unlink bằng email |
 | ADMIN-01 | Version/audit/role ownership cho business policy, feature flag và technical hard limit                  |
 
 ### Trình tự
@@ -241,8 +243,10 @@ nhận OAuth, refund, booking config và các feature P1.
 
 - Authorization/replay/cross-user/current/all-session regression xanh.
 - Secret/OTP/password/verification document không xuất hiện trong logs/events.
-- OAuth có PKCE/state, collision/link/unlink/recovery tests nếu được bật.
+- OAuth có PKCE/state, collision local/password và OAuth-only recovery tests nếu được bật.
 - OpenAPI, migration/verifier và frontend auth contract khớp source.
+
+**Evidence 2026-11-18:** database migration `202611181200`, `202611181210` và `202611181220` đã apply; verifier PASS tại schema version `202611181220` (44 collections, 122 managed indexes). Full unit: 51 suites/183 tests PASS; integration: 23 suites/115 tests PASS; E2E: 4 suites/16 tests PASS. Xem evidence file cho command/giới hạn. Lint riêng các file Phase A PASS không warning, nhưng full-repository lint FAIL vì warning baseline tồn đọng; owner cần xử lý hoặc chấp nhận chính thức một remediation plan trước khi Phase A được đánh dấu ✅.
 
 ## 6. Giai đoạn B — Trusted RAG foundation
 

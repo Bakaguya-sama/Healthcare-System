@@ -41,23 +41,34 @@ export class NodemailerService implements OnModuleInit {
       await this.transporter.verify();
       this.logger.log('SMTP transporter is ready');
     } catch (error) {
-      this.logger.warn(`SMTP verify failed: ${String(error)}`);
+      this.logger.warn({
+        event: 'smtp.verify_failed',
+        errorType: error instanceof Error ? error.name : 'unknown',
+      });
     }
   }
 
-  async sendOtpEmail(toEmail: string, otp: string): Promise<void> {
+  async sendOtpEmail(
+    toEmail: string,
+    otp: string,
+    passwordReset = false,
+  ): Promise<void> {
     try {
       await this.transporter.sendMail({
         from: this.fromEmail,
         to: toEmail,
-        subject: 'Healthcare OTP Verification',
+        subject: passwordReset
+          ? 'Healthcare password recovery code'
+          : 'Healthcare email verification code',
         text: `Your OTP code is: ${otp}. It will expire in 5 minutes.`,
         html: `<p>Your OTP code is: <b>${otp}</b></p><p>It will expire in 5 minutes.</p>`,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to send OTP email to ${toEmail}: ${String(error)}`,
-      );
+      this.logger.error({
+        event: 'auth.otp_delivery_failed',
+        provider: 'smtp',
+        errorType: error instanceof Error ? error.name : 'unknown',
+      });
       throw new InternalServerErrorException('Failed to send OTP email');
     }
   }
@@ -80,9 +91,12 @@ export class NodemailerService implements OnModuleInit {
         `,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to send reject email to ${toEmail}: ${String(error)}`,
-      );
+      this.logger.error({
+        event: 'email.delivery_failed',
+        template: 'doctor_rejected',
+        provider: 'smtp',
+        errorType: error instanceof Error ? error.name : 'unknown',
+      });
       throw new InternalServerErrorException('Failed to send reject email');
     }
   }
@@ -104,9 +118,12 @@ export class NodemailerService implements OnModuleInit {
         `,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to send approve email to ${toEmail}: ${String(error)}`,
-      );
+      this.logger.error({
+        event: 'email.delivery_failed',
+        template: 'doctor_approved',
+        provider: 'smtp',
+        errorType: error instanceof Error ? error.name : 'unknown',
+      });
       throw new InternalServerErrorException('Failed to send approve email');
     }
   }
@@ -136,9 +153,12 @@ export class NodemailerService implements OnModuleInit {
         `,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to send ban email to ${toEmail}: ${String(error)}`,
-      );
+      this.logger.error({
+        event: 'email.delivery_failed',
+        template: 'account_banned',
+        provider: 'smtp',
+        errorType: error instanceof Error ? error.name : 'unknown',
+      });
       throw new InternalServerErrorException('Failed to send ban email');
     }
   }
@@ -160,9 +180,12 @@ export class NodemailerService implements OnModuleInit {
         `,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to send unban email to ${toEmail}: ${String(error)}`,
-      );
+      this.logger.error({
+        event: 'email.delivery_failed',
+        template: 'account_unbanned',
+        provider: 'smtp',
+        errorType: error instanceof Error ? error.name : 'unknown',
+      });
       throw new InternalServerErrorException('Failed to send unban email');
     }
   }

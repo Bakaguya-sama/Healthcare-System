@@ -151,6 +151,38 @@ export function validateEnvironment(
   if (!/^\d+(?:kb|mb)$/.test(bodyLimit)) {
     throw new Error('BODY_LIMIT must use the form 256kb or 1mb');
   }
+  const googleOauthEnabled = boolean(config, 'GOOGLE_OAUTH_ENABLED', false);
+  const googleOauthClientId = stringValue(
+    config,
+    'GOOGLE_OAUTH_CLIENT_ID',
+    '',
+  ).trim();
+  const googleOauthClientSecret = stringValue(
+    config,
+    'GOOGLE_OAUTH_CLIENT_SECRET',
+    '',
+  ).trim();
+  const googleOauthCallbackUrl = stringValue(
+    config,
+    'GOOGLE_OAUTH_CALLBACK_URL',
+    '',
+  ).trim();
+  const oauthStateEncryptionSecret = stringValue(
+    config,
+    'OAUTH_STATE_ENCRYPTION_SECRET',
+    '',
+  ).trim();
+  if (
+    googleOauthEnabled &&
+    (!googleOauthClientId ||
+      !googleOauthClientSecret ||
+      !googleOauthCallbackUrl ||
+      oauthStateEncryptionSecret.length < 32)
+  ) {
+    throw new Error(
+      'Google OAuth requires client credentials, callback URL and a 32+ character OAUTH_STATE_ENCRYPTION_SECRET',
+    );
+  }
 
   return {
     ...config,
@@ -204,6 +236,16 @@ export function validateEnvironment(
       'PAYMENT_RECONCILIATION_ENABLED',
       false,
     ),
+    GOOGLE_OAUTH_ENABLED: googleOauthEnabled,
+    GOOGLE_OAUTH_ALLOW_SIGNUP: boolean(
+      config,
+      'GOOGLE_OAUTH_ALLOW_SIGNUP',
+      false,
+    ),
+    GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
+    GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret,
+    GOOGLE_OAUTH_CALLBACK_URL: googleOauthCallbackUrl,
+    OAUTH_STATE_ENCRYPTION_SECRET: oauthStateEncryptionSecret,
     NODE_ENV: nodeEnv,
     PORT: integer(config, 'PORT', 3000, 1, 65_535),
     API_PREFIX: normalizePath(config, 'API_PREFIX', 'api'),
