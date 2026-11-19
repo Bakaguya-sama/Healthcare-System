@@ -84,7 +84,9 @@ export class UserAdministrationService {
 
     return {
       data: users.map((user) => ({
+        _id: user._id,
         ...user.doctorProfile,
+        createdAt: (user as { createdAt?: Date }).createdAt,
         userId: user,
       })),
       pagination: {
@@ -138,9 +140,12 @@ export class UserAdministrationService {
           toObject?: () => Record<string, unknown>;
         }
       ).toObject?.() ?? doctor.doctorProfile;
+    const userObj = doctor.toObject({ versionKey: false });
     return {
+      _id: doctor._id,
       ...profile,
-      userId: doctor.toObject({ versionKey: false }),
+      createdAt: (userObj as unknown as { createdAt?: Date }).createdAt,
+      userId: userObj,
     };
   }
 

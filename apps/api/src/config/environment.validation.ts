@@ -172,6 +172,16 @@ export function validateEnvironment(
     'OAUTH_STATE_ENCRYPTION_SECRET',
     '',
   ).trim();
+  const googleOauthMobileRedirectUrl = stringValue(
+    config,
+    'GOOGLE_OAUTH_MOBILE_REDIRECT_URL',
+    '',
+  ).trim();
+  const vnpayMobileReturnDeepLink = stringValue(
+    config,
+    'VNPAY_MOBILE_RETURN_DEEP_LINK',
+    'healthcare://premium?vnpay=return',
+  ).trim();
   if (
     googleOauthEnabled &&
     (!googleOauthClientId ||
@@ -181,6 +191,26 @@ export function validateEnvironment(
   ) {
     throw new Error(
       'Google OAuth requires client credentials, callback URL and a 32+ character OAUTH_STATE_ENCRYPTION_SECRET',
+    );
+  }
+  if (
+    googleOauthMobileRedirectUrl &&
+    !/^(?:healthcare:\/\/|https:\/\/|http:\/\/localhost(?::\d+)?(?:\/|$))/i.test(
+      googleOauthMobileRedirectUrl,
+    )
+  ) {
+    throw new Error(
+      'GOOGLE_OAUTH_MOBILE_REDIRECT_URL must use healthcare://, https://, or http://localhost',
+    );
+  }
+  if (
+    vnpayMobileReturnDeepLink &&
+    !/^(?:healthcare:\/\/|https:\/\/|http:\/\/localhost(?::\d+)?(?:\/|$))/i.test(
+      vnpayMobileReturnDeepLink,
+    )
+  ) {
+    throw new Error(
+      'VNPAY_MOBILE_RETURN_DEEP_LINK must use healthcare://, https://, or http://localhost',
     );
   }
 
@@ -231,6 +261,7 @@ export function validateEnvironment(
     VNPAY_TMN_CODE: stringValue(config, 'VNPAY_TMN_CODE', '').trim(),
     VNPAY_HASH_SECRET: stringValue(config, 'VNPAY_HASH_SECRET', '').trim(),
     VNPAY_RETURN_URL: stringValue(config, 'VNPAY_RETURN_URL', '').trim(),
+    VNPAY_MOBILE_RETURN_DEEP_LINK: vnpayMobileReturnDeepLink,
     PAYMENT_RECONCILIATION_ENABLED: boolean(
       config,
       'PAYMENT_RECONCILIATION_ENABLED',
@@ -245,6 +276,7 @@ export function validateEnvironment(
     GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
     GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret,
     GOOGLE_OAUTH_CALLBACK_URL: googleOauthCallbackUrl,
+    GOOGLE_OAUTH_MOBILE_REDIRECT_URL: googleOauthMobileRedirectUrl,
     OAUTH_STATE_ENCRYPTION_SECRET: oauthStateEncryptionSecret,
     NODE_ENV: nodeEnv,
     PORT: integer(config, 'PORT', 3000, 1, 65_535),
