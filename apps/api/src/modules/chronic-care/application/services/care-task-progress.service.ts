@@ -292,7 +292,7 @@ export class CareTaskProgressService {
             HttpStatus.CONFLICT,
             'Care Task no longer accepts responses',
           );
-        if (now < new Date(task.windowStart) || now > new Date(task.windowEnd))
+        if (now > new Date(task.windowEnd))
           this.fail(
             'CARE_TASK_OUTSIDE_RESPONSE_WINDOW',
             HttpStatus.CONFLICT,
@@ -307,7 +307,6 @@ export class CareTaskProgressService {
               status: {
                 $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE],
               },
-              windowStart: { $lte: now },
               windowEnd: { $gte: now },
             },
             {
@@ -813,7 +812,7 @@ export class CareTaskProgressService {
         HttpStatus.CONFLICT,
         'Care Task no longer accepts responses',
       );
-    if (now < new Date(task.windowStart) || now > new Date(task.windowEnd))
+    if (now > new Date(task.windowEnd))
       this.fail(
         'CARE_TASK_OUTSIDE_RESPONSE_WINDOW',
         HttpStatus.CONFLICT,
@@ -959,7 +958,6 @@ export class CareTaskProgressService {
   private async allowedActions(actor: CareActor, task: PlainTask, now: Date) {
     if (
       ![CareTaskStatus.SCHEDULED, CareTaskStatus.DUE].includes(task.status) ||
-      now < new Date(task.windowStart) ||
       now > new Date(task.windowEnd)
     )
       return [];
