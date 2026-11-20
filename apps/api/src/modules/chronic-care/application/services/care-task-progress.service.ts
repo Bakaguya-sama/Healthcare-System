@@ -52,6 +52,7 @@ import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 import { PATIENT_REPOSITORY_PORT } from '../ports/patient.repository.port';
 import type { PatientRepositoryPort } from '../ports/patient.repository.port';
 import type { CareActor } from './care-program-rule.service';
+import { CareTaskSchedulerService } from './care-task-scheduler.service';
 
 type PlainTask = Record<string, unknown> & {
   _id: Types.ObjectId;
@@ -97,7 +98,29 @@ export class CareTaskProgressService {
     @Optional()
     @Inject(CARE_TASK_CONSULTATION_PORT)
     private readonly consultationLinks?: CareTaskConsultationPort,
+    @Optional()
+    private readonly taskScheduler?: CareTaskSchedulerService,
   ) {}
+
+  private async ensureEnrollmentTasksScheduled(
+    enrollment: { status?: unknown },
+    now = new Date(),
+  ) {
+    if (
+      enrollment.status !== PatientCareProgramStatus.ACTIVE ||
+      !this.taskScheduler
+    )
+      return;
+    try {
+      await this.taskScheduler.scheduleEnrollment(
+        enrollment as PatientCareProgramDocument,
+        now,
+      );
+      await this.taskScheduler.advanceTaskStatuses(now);
+    } catch {
+      // Best-effort auto-scheduling; isolated tests without full scheduler state still work.
+    }
+  }
 
   async list(
     actor: CareActor,
@@ -105,6 +128,8 @@ export class CareTaskProgressService {
     query: QueryEnrollmentCareTasksDto,
   ): Promise<PageResult<Record<string, unknown>>> {
     const enrollment = await this.authorizedEnrollment(actor, enrollmentId);
+    const now = new Date();
+    await this.ensureEnrollmentTasksScheduled(enrollment, now);
     const filter: Record<string, unknown> = {
       patientCareProgramId: enrollment._id,
     };
@@ -136,7 +161,6 @@ export class CareTaskProgressService {
         .exec(),
       this.tasks.countDocuments(filter).exec(),
     ]);
-    const now = new Date();
     return {
       items: await Promise.all(
         rows.map((row) =>
@@ -157,6 +181,7 @@ export class CareTaskProgressService {
 
   async getCompletionRate(actor: CareActor, enrollmentId: string) {
     const enrollment = await this.authorizedEnrollment(actor, enrollmentId);
+    await this.ensureEnrollmentTasksScheduled(enrollment, new Date());
     const counts = await this.tasks.aggregate<{
       _id: CareTaskStatus;
       count: number;
