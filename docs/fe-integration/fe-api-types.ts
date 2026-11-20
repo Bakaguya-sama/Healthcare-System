@@ -4842,6 +4842,7 @@ export interface CareEnrollmentDetailRequest {
 /** GET /api/v1/care-enrollments/{id} — response thành công theo return type thực tế. */
 export interface CareEnrollmentDetailResponse {
   id: string;
+  revision: number;
   program: { id: string;
   programCode: string;
   version: number;
@@ -5909,6 +5910,7 @@ export interface Da2CareIdentitySummary {
 
 export interface Da2CareEnrollmentSummary {
   id: string;
+  revision: number;
   program: Da2CareProgramSummary;
   status: "pending" | "active" | "paused" | "completed" | "cancelled";
   patient?: Da2CareIdentitySummary;

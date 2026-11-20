@@ -298,6 +298,7 @@ export class ChronicCareReadService {
     return rows.map((row) => {
       const result: Record<string, unknown> = {
         id: String(row._id),
+        revision: typeof row.revision === 'number' ? row.revision : 1,
         program: programMap.get(this.stringId(row.careProgramId) || '') || null,
         status: row.status,
         timezone: row.timezone,

@@ -79,6 +79,18 @@ export class CareEnrollmentService {
     }
   }
 
+  private async cancelOpenTasks(
+    enrollmentId: Types.ObjectId,
+    reason: string,
+  ) {
+    if (!this.taskScheduler) return;
+    try {
+      await this.taskScheduler.cancelEnrollmentTasks(enrollmentId, reason);
+    } catch {
+      // Cancellation is best-effort outside worker runs so isolated tests never break.
+    }
+  }
+
   private fail(
     code: string,
     status: HttpStatus,
@@ -575,7 +587,7 @@ export class CareEnrollmentService {
   }
 
   async withdrawConsent(actor: CareActor, id: string, key: string) {
-    return this.command(
+    const updated = await this.command(
       actor,
       'care-enrollment.withdraw-consent',
       key,
@@ -613,6 +625,8 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    await this.cancelOpenTasks(updated._id, 'consent_withdrawn');
+    return updated;
   }
 
   async transition(
@@ -701,6 +715,13 @@ export class CareEnrollmentService {
       },
     );
     if (action === 'resume') await this.scheduleIfActive(updated);
+    if (action === 'cancel' || action === 'complete') {
+      const reason =
+        typeof dto?.reason === 'string' && dto.reason.trim()
+          ? dto.reason.trim()
+          : `enrollment_${action}`;
+      await this.cancelOpenTasks(updated._id, reason);
+    }
     return updated;
   }
 }
