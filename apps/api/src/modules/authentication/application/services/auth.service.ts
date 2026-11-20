@@ -400,8 +400,10 @@ export class AuthService {
         throw new ConflictException(
           'This email is already registered with a different Google account; use the original Google account or contact support',
         );
+      const normalizedEmail = principal.email?.trim().toLowerCase() || undefined;
       user = await this.users.create({
         fullName: principal.displayName || 'Google user',
+        ...(normalizedEmail ? { email: normalizedEmail } : {}),
         role: UserRole.PATIENT,
         accountStatus: AccountStatus.ACTIVE,
       });
@@ -409,7 +411,7 @@ export class AuthService {
         identity = await this.identities.create({
           provider: principal.provider,
           providerAccountId: principal.providerAccountId,
-          providerEmail: principal.email ?? null,
+          providerEmail: normalizedEmail ?? null,
           userId: user._id,
           linkedAt: new Date(),
         });
@@ -439,6 +441,22 @@ export class AuthService {
       })
     )
       throw new ForbiddenException('Account is not eligible for access');
+    const fallbackEmail =
+      (principal.email ?? identity?.providerEmail)?.trim().toLowerCase() ||
+      undefined;
+    if (!user.email && fallbackEmail) {
+      const emailInUse = await this.users.exists({
+        email: fallbackEmail,
+        _id: { $ne: user._id },
+      });
+      if (!emailInUse) {
+        await this.users.updateOne(
+          { _id: user._id },
+          { $set: { email: fallbackEmail } },
+        );
+        user.email = fallbackEmail;
+      }
+    }
     const result = await this.issueSession(user, meta);
     await this.record(AuthEventType.LOGIN_SUCCESS, user._id, {
       provider: 'google',
