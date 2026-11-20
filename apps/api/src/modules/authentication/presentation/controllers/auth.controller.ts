@@ -82,11 +82,17 @@ export class AuthController {
       );
     }
 
+    const attemptId = (req as Request & { oauthAttemptId?: string })
+      .oauthAttemptId;
+
     try {
       const session = await this.auth.completeGooglePatientAuthentication(
         req.user,
         this.meta(req),
       );
+      if (attemptId) {
+        await this.oauthHandoff!.storeAttemptSession(attemptId, session);
+      }
       const ticket = await this.oauthHandoff!.issue(session);
       const separator = mobileRedirect!.includes('?') ? '&' : '?';
       const targetUrl = `${mobileRedirect}${separator}ticket=${encodeURIComponent(ticket)}`;
@@ -100,6 +106,7 @@ export class AuthController {
         subtitle:
           'Đang quay lại ứng dụng Healthcare... / Returning to Healthcare app...',
         buttonLabel: 'Mở ứng dụng Healthcare / Open Healthcare App',
+        hint: 'Nếu trình duyệt không tự chuyển, hãy chuyển lại về ứng dụng Healthcare — phiên đăng nhập sẽ tự hoàn tất. / If the browser does not switch automatically, switch back to the Healthcare app to complete sign-in.',
       });
     } catch (error) {
       const errorCode =
@@ -108,18 +115,38 @@ export class AuthController {
           : error instanceof ForbiddenException
             ? 'account_ineligible'
             : 'oauth_failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Google sign-in unavailable';
+      if (attemptId) {
+        await this.oauthHandoff!.storeAttemptError(
+          attemptId,
+          errorCode,
+          errorMessage,
+        ).catch(() => {});
+      }
       const separator = mobileRedirect!.includes('?') ? '&' : '?';
       const targetUrl = `${mobileRedirect}${separator}error=${encodeURIComponent(errorCode)}`;
+      const retryGoogleUrl = attemptId
+        ? `/api/v1/auth/oauth/google?attemptId=${encodeURIComponent(attemptId)}`
+        : '/api/v1/auth/oauth/google';
+      const isConflict = errorCode === 'local_account_exists';
       res!.setHeader('Cache-Control', 'no-store');
       res!.setHeader('Pragma', 'no-cache');
       res!.setHeader('Referrer-Policy', 'no-referrer');
       res!.setHeader('Content-Type', 'text/html; charset=utf-8');
       return renderMobileDeepLinkBridgeHtml({
         targetUrl,
-        title: 'Không thể đăng nhập bằng Google / Google Sign-In Unavailable',
-        subtitle:
-          'Đang chuyển về ứng dụng Healthcare... / Returning to Healthcare app...',
+        title: isConflict
+          ? 'Email đã có tài khoản mật khẩu / Password Account Already Exists'
+          : 'Không thể đăng nhập bằng Google / Google Sign-In Unavailable',
+        subtitle: isConflict
+          ? 'Email Google vừa chọn đã đăng ký bằng mật khẩu. Hãy chọn tài khoản Google khác hoặc quay lại ứng dụng để đăng nhập bằng mật khẩu. / This Google email is registered with a password. Choose another Google account or return to the app to sign in with password.'
+          : 'Đang chuyển về ứng dụng Healthcare... / Returning to Healthcare app...',
         buttonLabel: 'Quay lại ứng dụng / Return to App',
+        secondaryUrl: retryGoogleUrl,
+        secondaryLabel:
+          'Chọn tài khoản Google khác / Choose Another Google Account',
+        hint: 'Nếu nút Quay lại không tự chuyển app trên bản dev, hãy nhấn nút chuyển ứng dụng về Healthcare. / If Return to App does not switch on dev build, use the app switcher to return to Healthcare.',
       });
     }
   }

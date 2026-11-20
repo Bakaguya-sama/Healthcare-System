@@ -36,6 +36,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       ) as never,
     } as never);
   }
+
+  override authorizationParams(): Record<string, string> {
+    return { prompt: 'select_account' };
+  }
+
   validate(
     _accessToken: string,
     _refreshToken: string,

@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   createCipheriv,
@@ -21,12 +26,17 @@ export type OAuthSessionPayload = {
   };
 };
 
+type StoredAttemptRecord =
+  | { kind: 'session'; payload: OAuthSessionPayload }
+  | { kind: 'error'; errorCode: string; message: string };
+
 const HANDOFF_TTL_SECONDS = 60;
+const ATTEMPT_TTL_SECONDS = 120;
 
 /**
  * Stores one-time AES-256-GCM encrypted OAuth session payloads in Redis so
  * browser callbacks can hand off to mobile via an opaque short-lived ticket
- * rather than placing bearer or refresh tokens in redirect URLs.
+ * or foreground attemptId rather than placing tokens in redirect URLs.
  */
 @Injectable()
 export class OAuthHandoffService {
@@ -44,6 +54,35 @@ export class OAuthHandoffService {
       this.redis.client.set(key, ciphertext, { EX: HANDOFF_TTL_SECONDS }),
     );
     return ticket;
+  }
+
+  async storeAttemptSession(
+    attemptId: string,
+    payload: OAuthSessionPayload,
+  ): Promise<void> {
+    if (!this.isValidAttemptId(attemptId)) return;
+    const key = this.buildKey(`attempt:${attemptId}`);
+    const record: StoredAttemptRecord = { kind: 'session', payload };
+    await this.redis.run(
+      this.redis.client.set(key, this.encrypt(JSON.stringify(record)), {
+        EX: ATTEMPT_TTL_SECONDS,
+      }),
+    );
+  }
+
+  async storeAttemptError(
+    attemptId: string,
+    errorCode: string,
+    message: string,
+  ): Promise<void> {
+    if (!this.isValidAttemptId(attemptId)) return;
+    const key = this.buildKey(`attempt:${attemptId}`);
+    const record: StoredAttemptRecord = { kind: 'error', errorCode, message };
+    await this.redis.run(
+      this.redis.client.set(key, this.encrypt(JSON.stringify(record)), {
+        EX: ATTEMPT_TTL_SECONDS,
+      }),
+    );
   }
 
   async consume(ticket: string): Promise<OAuthSessionPayload> {
@@ -68,11 +107,37 @@ export class OAuthHandoffService {
       throw new UnauthorizedException('Invalid or expired OAuth handoff ticket');
     }
 
+    let parsed: StoredAttemptRecord | OAuthSessionPayload;
     try {
-      return JSON.parse(this.decrypt(ciphertext)) as OAuthSessionPayload;
+      parsed = JSON.parse(this.decrypt(ciphertext)) as
+        | StoredAttemptRecord
+        | OAuthSessionPayload;
     } catch {
       throw new UnauthorizedException('Invalid or expired OAuth handoff ticket');
     }
+
+    if (parsed && typeof parsed === 'object' && 'kind' in parsed) {
+      if (parsed.kind === 'error') {
+        if (parsed.errorCode === 'local_account_exists') {
+          throw new ConflictException(
+            parsed.message ||
+              'This email already has a password account; sign in with password',
+          );
+        }
+        throw new ForbiddenException(
+          parsed.message || 'Google sign-in is unavailable for this account',
+        );
+      }
+      if (parsed.kind === 'session') {
+        return parsed.payload;
+      }
+    }
+
+    return parsed as OAuthSessionPayload;
+  }
+
+  private isValidAttemptId(attemptId: string): boolean {
+    return /^[a-zA-Z0-9_-]{8,80}$/.test(attemptId);
   }
 
   private buildKey(ticket: string): string {
@@ -116,4 +181,3 @@ export class OAuthHandoffService {
     ]).toString('utf8');
   }
 }
-

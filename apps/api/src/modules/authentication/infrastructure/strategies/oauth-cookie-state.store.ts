@@ -8,6 +8,8 @@ import {
 
 type RequestWithResponse = {
   headers?: { cookie?: string };
+  query?: Record<string, unknown>;
+  oauthAttemptId?: string;
   res?: {
     cookie: (
       name: string,
@@ -17,9 +19,17 @@ type RequestWithResponse = {
     clearCookie: (name: string, options: Record<string, unknown>) => void;
   };
 };
-/** Stateless Passport state store: browser gets an encrypted HttpOnly short-lived cookie, no OAuth state collection. */
+
+type PendingStateEntry = {
+  verifier: string;
+  expiresAt: number;
+  attemptId?: string;
+};
+
+/** Stateless Passport state store: browser gets an encrypted HttpOnly short-lived cookie, with a bounded one-time fallback for cross-host mobile emulator redirects. */
 export class CookiePkceStateStore {
   private readonly name = 'healthcare_oauth_pkce';
+  private readonly pendingStates = new Map<string, PendingStateEntry>();
   constructor(
     private readonly secret: string,
     private readonly secure: boolean,
@@ -33,12 +43,19 @@ export class CookiePkceStateStore {
     callback: (error: Error | null, state?: string) => void,
   ) {
     const handle = randomBytes(32).toString('base64url');
+    const expiresAt = Date.now() + 300_000;
+    const rawAttempt = req.query?.attemptId;
+    const attemptId =
+      typeof rawAttempt === 'string' &&
+      /^[a-zA-Z0-9_-]{8,80}$/.test(rawAttempt)
+        ? rawAttempt
+        : undefined;
     try {
+      this.pruneExpiredStates();
+      this.pendingStates.set(handle, { verifier, expiresAt, attemptId });
       req.res?.cookie(
         this.name,
-        this.encrypt(
-          JSON.stringify({ handle, verifier, expiresAt: Date.now() + 300_000 }),
-        ),
+        this.encrypt(JSON.stringify({ handle, verifier, expiresAt, attemptId })),
         {
           httpOnly: true,
           secure: this.secure,
@@ -49,6 +66,7 @@ export class CookiePkceStateStore {
       );
       callback(null, handle);
     } catch (error) {
+      this.pendingStates.delete(handle);
       callback(
         error instanceof Error
           ? error
@@ -65,6 +83,10 @@ export class CookiePkceStateStore {
       state?: unknown,
     ) => void,
   ) {
+    const pending = provided ? this.pendingStates.get(provided) : undefined;
+    if (provided) {
+      this.pendingStates.delete(provided);
+    }
     try {
       const raw = this.cookie(req.headers?.cookie);
       req.res?.clearCookie(this.name, {
@@ -73,25 +95,52 @@ export class CookiePkceStateStore {
         sameSite: 'lax',
         path: this.path,
       });
-      if (!raw) return callback(null, false);
+      if (!raw) {
+        if (pending && pending.expiresAt > Date.now()) {
+          if (pending.attemptId) {
+            req.oauthAttemptId = pending.attemptId;
+          }
+          return callback(null, pending.verifier);
+        }
+        return callback(null, false);
+      }
       const state = JSON.parse(this.decrypt(raw)) as {
         handle: string;
         verifier: string;
         expiresAt: number;
+        attemptId?: string;
       };
       const equal =
         state.handle.length === provided.length &&
         timingSafeEqual(Buffer.from(state.handle), Buffer.from(provided));
-      callback(
-        null,
-        equal && state.expiresAt > Date.now() ? state.verifier : false,
-      );
+      const valid = equal && state.expiresAt > Date.now();
+      if (valid) {
+        const resolvedAttemptId = state.attemptId ?? pending?.attemptId;
+        if (resolvedAttemptId) {
+          req.oauthAttemptId = resolvedAttemptId;
+        }
+      }
+      callback(null, valid ? state.verifier : false);
     } catch (error) {
       callback(
         error instanceof Error
           ? error
           : new Error('OAuth state verification failed'),
       );
+    }
+  }
+
+  private pruneExpiredStates() {
+    const now = Date.now();
+    for (const [key, entry] of this.pendingStates.entries()) {
+      if (entry.expiresAt <= now) {
+        this.pendingStates.delete(key);
+      }
+    }
+    while (this.pendingStates.size >= 1000) {
+      const oldestKey = this.pendingStates.keys().next().value;
+      if (!oldestKey) break;
+      this.pendingStates.delete(oldestKey);
     }
   }
 
