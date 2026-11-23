@@ -15,6 +15,7 @@ import {
 import { QueryMessageDto } from '../../../presentation/dto/messaging/query-message.dto';
 import { CloudinaryService } from 'src/infrastructure/files/cloudinary.service';
 import {
+  ConsultationMode,
   ConsultationRequestStatus,
   ConsultationSessionStatus,
 } from '../../../domain/entities/consultations/consultation.entity';
@@ -195,6 +196,27 @@ export class ChatService {
       throw new BadRequestException(
         'Cannot send message in no-show consultation',
       );
+    }
+    if (consultation.mode === ConsultationMode.SCHEDULED) {
+      if (
+        consultation.sessionStatus === ConsultationSessionStatus.NOT_STARTED
+      ) {
+        throw new ForbiddenException({
+          code: 'CONSULTATION_NOT_READY_FOR_CHAT',
+          message:
+            'Scheduled consultation requires patient check-in and doctor call before sending messages',
+        });
+      }
+      if (
+        consultation.sessionStatus === ConsultationSessionStatus.WAITING &&
+        !consultation.calledAt
+      ) {
+        throw new ForbiddenException({
+          code: 'CONSULTATION_NOT_CALLED_FOR_CHAT',
+          message:
+            'Doctor must call the queued consultation before sending messages',
+        });
+      }
     }
 
     if (isPatient && dto.senderType !== 'patient') {

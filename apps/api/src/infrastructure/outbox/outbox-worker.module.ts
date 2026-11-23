@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnvironment } from '../../config/environment.validation';
 import { DatabaseModule } from '../database/database.module';
 import { RedisModule } from '../redis/redis.module';
-import { CacheModule } from '../../common/cache/cache.module';
 import { OutboxModule } from './outbox.module';
 import { OutboxWorkerService } from './outbox-worker.service';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -106,4 +105,4 @@ import { AiAdvisoryModule } from '../../modules/ai-advisory/ai-advisory.module';
     ConsultationStaleRecoveryService,
   ],
 })
-export class OutboxWorkerModule {}
+export class OutboxWorkerModule { }

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { ChatService } from './chat.service';
 import {
+  ConsultationMode,
   ConsultationRequestStatus,
   ConsultationSessionStatus,
 } from '../../../domain/entities/consultations/consultation.entity';
@@ -175,4 +176,131 @@ describe('ChatService sendMessage guards', () => {
       expect(consultations.recordLastMessage).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('rejects scheduled consultation in NOT_STARTED before uploading attachments', async () => {
+    const {
+      service,
+      doctorId,
+      consultationId,
+      cloudinaryService,
+      messageModel,
+    } = createService({
+      mode: ConsultationMode.SCHEDULED,
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.NOT_STARTED,
+    });
+
+    await expect(
+      service.sendMessage(
+        doctorId.toString(),
+        {
+          consultationId: consultationId.toString(),
+          senderType: SenderType.DOCTOR,
+          content: 'Hello',
+        },
+        [
+          {
+            originalname: 'report.png',
+            mimetype: 'image/png',
+            size: 1024,
+            buffer: Buffer.from('x'),
+          } as never,
+        ],
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      response: {
+        code: 'CONSULTATION_NOT_READY_FOR_CHAT',
+      },
+    });
+
+    expect(cloudinaryService.uploadFile).not.toHaveBeenCalled();
+    expect(messageModel.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects scheduled consultation in WAITING when not called before uploading attachments', async () => {
+    const {
+      service,
+      patientId,
+      consultationId,
+      cloudinaryService,
+      messageModel,
+    } = createService({
+      mode: ConsultationMode.SCHEDULED,
+      requestStatus: ConsultationRequestStatus.ACCEPTED,
+      sessionStatus: ConsultationSessionStatus.WAITING,
+      queueJoinedAt: new Date(),
+      calledAt: undefined,
+    });
+
+    await expect(
+      service.sendMessage(
+        patientId.toString(),
+        {
+          consultationId: consultationId.toString(),
+          senderType: SenderType.PATIENT,
+          content: 'Hello doctor',
+        },
+        [
+          {
+            originalname: 'report.png',
+            mimetype: 'image/png',
+            size: 1024,
+            buffer: Buffer.from('x'),
+          } as never,
+        ],
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      response: {
+        code: 'CONSULTATION_NOT_CALLED_FOR_CHAT',
+      },
+    });
+
+    expect(cloudinaryService.uploadFile).not.toHaveBeenCalled();
+    expect(messageModel.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      label: 'scheduled WAITING after calledAt',
+      overrides: {
+        mode: ConsultationMode.SCHEDULED,
+        sessionStatus: ConsultationSessionStatus.WAITING,
+        queueJoinedAt: new Date(),
+        calledAt: new Date(),
+      },
+    },
+    {
+      label: 'scheduled IN_CONSULTATION',
+      overrides: {
+        mode: ConsultationMode.SCHEDULED,
+        sessionStatus: ConsultationSessionStatus.IN_CONSULTATION,
+      },
+    },
+    {
+      label: 'on_demand WAITING without calledAt',
+      overrides: {
+        mode: ConsultationMode.ON_DEMAND,
+        sessionStatus: ConsultationSessionStatus.WAITING,
+        calledAt: undefined,
+      },
+    },
+  ])('allows sending message for $label', async ({ overrides }) => {
+    const { service, doctorId, consultationId, messageModel, consultations } =
+      createService({
+        requestStatus: ConsultationRequestStatus.ACCEPTED,
+        ...overrides,
+      });
+
+    const res = await service.sendMessage(doctorId.toString(), {
+      consultationId: consultationId.toString(),
+      senderType: SenderType.DOCTOR,
+      content: 'Ready',
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(messageModel.create).toHaveBeenCalledTimes(1);
+    expect(consultations.recordLastMessage).toHaveBeenCalledTimes(1);
+  });
 });
