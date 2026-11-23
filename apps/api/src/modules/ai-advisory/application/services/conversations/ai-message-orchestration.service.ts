@@ -38,6 +38,7 @@ import { isProviderUsageMetadataMissing } from '../../errors/provider-usage-meta
 import { CloudinaryService } from '../../../../../infrastructure/files/cloudinary.service';
 import { AiResponseOrchestrator } from './ai-response-orchestrator.service';
 import { AiSafetyService } from './ai-safety.service';
+import { ExternalEvidenceService } from '../retrieval/external-evidence.service';
 import {
   HEALTH_PROFILE,
   type HealthProfilePort,
@@ -89,6 +90,8 @@ export class AiMessageOrchestrationService {
     @Optional()
     @Inject(HEALTH_PROFILE)
     private readonly healthProfileReader?: HealthProfilePort,
+    @Optional()
+    private readonly externalEvidenceService?: ExternalEvidenceService,
   ) {}
 
   private get responseGateway(): AiResponseOrchestrator | LlmGatewayService {
@@ -129,6 +132,12 @@ export class AiMessageOrchestrationService {
       const hasRelevantSource = Boolean(builtContext.context);
 
       if (!hasRelevantSource) {
+        await this.externalEvidenceService?.discoverCandidatesWhenInternalEvidenceIsInsufficient(
+          query,
+          /(nghiên cứu mới|nghien cuu moi|pubmed|medline|y văn mới|y van moi)/i.test(
+            query,
+          ),
+        );
         return {
           context: null,
           hasRelevantSource: false,

@@ -419,6 +419,26 @@ Table AiDocumentChunks {
   }
 }
 
+Table KnowledgeCandidates {
+  id ObjectID [pk]
+  pmid varchar [not null, unique, note: "PubMed identifier; external evidence is not retrievable before review"]
+  contentHash varchar [not null, unique, note: "Deduplicates equivalent external literature"]
+  title varchar [not null]
+  sourceUrl varchar [not null, note: "Public citation URL only"]
+  status varchar [not null, default: "pending_review", note: "pending_review, promoted, rejected"]
+  reviewedBy ObjectID
+  reviewedAt datetime
+  reviewReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    pmid [unique]
+    contentHash [unique]
+    (status, createdAt)
+  }
+}
+
 Table BlacklistKeywords {
   id ObjectID [pk]
   keyword varchar [not null, unique]

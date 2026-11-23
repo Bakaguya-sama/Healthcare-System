@@ -272,6 +272,16 @@
 | 145 | Trợ lý AI | Tìm kiếm cuộc trò chuyện | `GET /api/v1/ai-assistant/search` | Bearer JWT | **Query:**<br>`page`: number, tùy chọn, mặc định 1, min 1<br>`limit`: number, tùy chọn, mặc định 20, min 1, max 100<br>`sortOrder`: -1 \\| 1, tùy chọn, mặc định -1, enum -1 \\| 1<br>`cursor`: string, tùy chọn<br>`type`: string, tùy chọn<br>`isFavorite`: boolean, tùy chọn<br>`isArchived`: boolean, tùy chọn<br>`sortBy`: string, tùy chọn<br>`startDate`: string (ISO 8601), tùy chọn<br>`endDate`: string (ISO 8601), tùy chọn<br>`searchQuery`: string, tùy chọn<br>`tags`: string[], tùy chọn<br>`q`: string, bắt buộc<br>Type: `AiAssistantSearchConversationsRequest` | `200`<br>`{ statusCode: number; message: string; data: Array<{ userId: string; type: "health_inquiry" \| "symptom_analysis" \| "health_education" \| "test_result_explanation" \| "medication_info" \| "general_consultation"; topic: string; summary?: string; followUpAction?: { type: "schedule_appointment" \| "consult_doctor" \| "visit_clinic" \| "none"; description: string; priority: "low" \| "medium" \| "high"; }; totalTokensUsed: number; messageCount: number; lastMessageAt: string; archivedAt?: string; isFavorite: boolean; rating?: number; ratingComment?: string; tags: Array<string>; internalNotes?: string; createdAt?: string; updatedAt?: string; }>; pagination: { page: number; limit: number; total: number; p…`<br>Type: `AiAssistantSearchConversationsResponse` | 400 – VALIDATION_ERROR – input không đạt ValidationPipe/pipe của endpoint<br>401 – Unauthorized – thiếu, sai hoặc hết hạn Bearer token<br>429 – Too Many Requests – vượt giới hạn ProxyThrottlerGuard<br>400 – Invalid user ID<br>500 – Internal server error – exception không phải HttpException được global filter xử lý | Tìm kiếm cuộc trò chuyện |
 | 146 | Trợ lý AI | Lấy tóm tắt hồ sơ bệnh án của bệnh nhân. | `POST /api/v1/ai-assistant/conversations/summary` | Bearer JWT | **Body (application/json):**<br>`patientProfile`: unknown, tùy chọn<br>Type: `AiAssistantGetHealthProfileSummaryRequest` | `200`<br>`string`<br>Type: `AiAssistantGetHealthProfileSummaryResponse` | 400 – VALIDATION_ERROR – input không đạt ValidationPipe/pipe của endpoint<br>401 – Unauthorized – thiếu, sai hoặc hết hạn Bearer token<br>429 – Too Many Requests – vượt giới hạn ProxyThrottlerGuard<br>400 – Invalid user ID<br>400 – Health profile reader is unavailable<br>400 – Mô hình trả về tóm tắt rỗng<br>503 – AI provider (notification) retry attempts exceeded<br>500 – Internal server error – exception không phải HttpException được global filter xử lý | Lấy tóm tắt hồ sơ bệnh án của bệnh nhân. |
 
+### Evidence và citation của AI
+
+`citations` trong response AI chỉ là evidence đã được backend kiểm tra. Frontend chỉ
+hiển thị `source`, `title`, `excerpt`, `documentVersion`, `pageNumber` và `sectionTitle`
+khi có; không yêu cầu URL storage, chunk ID, embedding, hash hoặc provider payload. Khi
+`groundedByRag = false`, UI phải hiển thị thông điệp no-evidence do backend trả về, không
+coi đó là kết luận y khoa. Khi internal evidence thiếu, backend có thể tạo PubMed candidate
+pending review nhưng không dùng metadata PubMed chưa duyệt trong response/citation hiện tại.
+Frontend không chọn provider hoặc gửi dữ liệu bệnh nhân vào query ngoài hệ thống.
+
 ## Phản hồi AI
 
 | STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
@@ -299,6 +309,22 @@ Mọi API dưới đây cần Bearer JWT. `ai_manager` và `super_admin` có th�
 | Gửi tài liệu để duyệt | `POST /api/v1/ai-documents` | `ai_manager`, `super_admin` | `multipart/form-data`: `file` bắt buộc; `title`, `validUntil` tùy chọn | `KnowledgeDocument` |
 | Sửa metadata | `PATCH /api/v1/ai-documents/{id}` | `ai_manager`, `super_admin` | JSON: `title?`, `validUntil?` | `KnowledgeDocument` |
 | Gửi phiên bản thay thế | `POST /api/v1/ai-documents/{id}/replacements` | `ai_manager`, `super_admin` | `multipart/form-data`: `file` bắt buộc; `title`, `validUntil` tùy chọn | `KnowledgeDocument` phiên bản mới |
+
+### PubMed knowledge candidates
+
+All routes below require an authenticated `admin` account. The server additionally
+enforces the sub-role; the client must not infer authority from the base role alone.
+No route accepts or returns a PubMed abstract.
+
+| Operation | Endpoint | Authority | Request | Result |
+|---|---|---|---|---|
+| List quarantined candidates | `GET /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | None | `KnowledgeCandidate[]`; bao gồm candidate server phát hiện từ câu hỏi thiếu evidence |
+| Propose public PubMed metadata | `POST /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | `{ pmid, title, sourceUrl }` | pending `KnowledgeCandidate` |
+| Promote to governed document | `POST /api/v1/ai-knowledge-candidates/{id}/promote` | `super_admin` | None | `{ candidate, document }`; document is still `pending_review` |
+| Reject candidate | `POST /api/v1/ai-knowledge-candidates/{id}/reject` | `super_admin` | `{ reason? }` | rejected `KnowledgeCandidate` |
+
+After promotion, use the existing document endpoints in order: approve, wait for
+ingestion, then activate. Promotion never makes the article retrievable immediately.
 | Duyệt | `POST /api/v1/ai-documents/{id}/approve` | `super_admin` | Không có body | `KnowledgeDocument`; worker bắt đầu ingest bất đồng bộ |
 | Từ chối | `POST /api/v1/ai-documents/{id}/reject` | `super_admin` | JSON: `reason?` | `KnowledgeDocument` ở `rejected` / `inactive` |
 | Kích hoạt | `POST /api/v1/ai-documents/{id}/activate` | `super_admin` | Không có body | `KnowledgeDocument` ở `active`; phiên bản khác cùng chuỗi thành `inactive` |

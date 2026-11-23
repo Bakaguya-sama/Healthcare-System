@@ -123,6 +123,21 @@ export class AiDocumentsService {
     }
   }
 
+  /**
+   * Creates a metadata-only PubMed reference. It deliberately contains no
+   * abstract and follows the ordinary document review/ingestion/activation path.
+   */
+  async createExternalReference(
+    userId: string,
+    file: UploadableFile,
+    title: string,
+  ): Promise<AiDocument> {
+    const document = await this.create(userId, file, { title });
+    document.source = 'pubmed';
+    await document.save();
+    return document;
+  }
+
   async ragIngesting(documentId: string): Promise<never> {
     await this.findById(documentId);
 

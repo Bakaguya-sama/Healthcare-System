@@ -261,6 +261,20 @@ export class OutboxWorkerService
         await this.outbox.markDelivered(event._id);
         return;
       }
+      if (
+        [
+          'knowledge.candidate.proposed.v1',
+          'knowledge.candidate.discovered.v1',
+          'knowledge.candidate.promoted.v1',
+          'knowledge.candidate.rejected.v1',
+          'knowledge.benchmark.seeded.v1',
+        ].includes(event.eventType)
+      ) {
+        // Candidate transitions are already durable and audit logged. Delivery
+        // records completion without placing external literature in retrieval.
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
       if (event.eventType === 'subscription.grant.requested') {
         const payload = event.payload as { orderId?: string };
         if (!payload.orderId)

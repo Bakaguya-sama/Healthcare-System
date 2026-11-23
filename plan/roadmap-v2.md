@@ -74,19 +74,19 @@ Tất cả quyết định dưới đây đã được Product Owner chấp thu�
 Chúng không còn chặn quyết định scope; riêng PAY-01 vẫn không được enable cho đến
 khi có xác nhận Finance/Legal và evidence provider/sandbox.
 
-| ID     | Trạng thái                 | Quyết định áp dụng                                                                     | Slice      | Owner xác nhận                   | Kết quả phải ghi                                                              |
-| ------ | -------------------------- | -------------------------------------------------------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------- |
-| DEC-A1 | ✅ Chốt                    | Local account mới vào `pending_verification`                                           | AUTH-02    | Product + Security               | State machine, resend, recovery, login gate                                   |
-| DEC-A2 | ✅ Chốt | Một OIDC provider (Google) chỉ cho Patient OAuth-only, PKCE/state, không auto-merge email | AUTH-01 | Product + Security | Hai phương thức độc lập; collision local từ chối an toàn, không link/unlink |
-| DEC-A3 | ✅ Chốt                    | Logout mặc định current session; có `logout-all` riêng                                 | AUTH-03    | Product + Security               | API/UX contract và audit event                                                |
-| DEC-B1 | ✅ Chốt                    | `ai_manager` upload/manage; Admin approve/reject/archive/delete và chọn active version | RAG-01/02  | `ai_manager` + Admin             | Sub-role guard, transition/audit, replacement/expiry policy                   |
-| DEC-B2 | ✅ Chốt                    | Citation bắt buộc; chốt ngưỡng sau baseline tiếng Việt đầu tiên                        | RAG-04/06  | Medical content owner + AI owner | Provenance fields và quality/SLO threshold                                    |
-| DEC-C1 | ✅ Chốt                    | PubMed chỉ Layer 2 sau Evidence Gate hoặc user yêu cầu y văn mới                       | RAG-05     | Product + Privacy + AI owner     | Evidence threshold, PII scrub, provider rate policy                           |
-| DEC-D1 | ✅ Chốt có gate enablement | Full-only, 7 ngày, Admin approval, timeout/unknown → manual review                     | PAY-01     | Product + Finance/Legal          | Policy snapshot, usage eligibility, approval, manual review                   |
-| DEC-D2 | ✅ Hoãn                    | Không triển khai consultation charging trong roadmap hiện tại                          | PAY-02     | Product + Finance                | Giữ invariant `care_program_included`; scope nhận lại cần pricing/tax/invoice |
-| DEC-E1 | ✅ Chốt                    | Instant pilot; policy canonical/snapshot; không tự xử lý lịch quá 24 giờ               | CARE-01/03 | Product + Operations             | Booking settings, disposition, quota transition                               |
-| DEC-E2 | ✅ Chốt                    | Chỉ `missed_task_reminder` và `weekly_progress`, default off                           | FAM-01     | Product + Privacy                | Invite/revoke, reminder content, PHI boundary                                 |
-| DEC-E3 | ✅ Chốt                    | Internal curated là nguồn chính; map provider chỉ fallback                             | DIR-01     | Product + Admin owner            | Verification, taxonomy, location/privacy contract                             |
+| ID     | Trạng thái                 | Quyết định áp dụng                                                                        | Slice      | Owner xác nhận                   | Kết quả phải ghi                                                              |
+| ------ | -------------------------- | ----------------------------------------------------------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------- |
+| DEC-A1 | ✅ Chốt                    | Local account mới vào `pending_verification`                                              | AUTH-02    | Product + Security               | State machine, resend, recovery, login gate                                   |
+| DEC-A2 | ✅ Chốt                    | Một OIDC provider (Google) chỉ cho Patient OAuth-only, PKCE/state, không auto-merge email | AUTH-01    | Product + Security               | Hai phương thức độc lập; collision local từ chối an toàn, không link/unlink   |
+| DEC-A3 | ✅ Chốt                    | Logout mặc định current session; có `logout-all` riêng                                    | AUTH-03    | Product + Security               | API/UX contract và audit event                                                |
+| DEC-B1 | ✅ Chốt                    | `ai_manager` upload/manage; Admin approve/reject/archive/delete và chọn active version    | RAG-01/02  | `ai_manager` + Admin             | Sub-role guard, transition/audit, replacement/expiry policy                   |
+| DEC-B2 | ✅ Chốt                    | Citation bắt buộc; chốt ngưỡng sau baseline tiếng Việt đầu tiên                           | RAG-04/06  | Medical content owner + AI owner | Provenance fields và quality/SLO threshold                                    |
+| DEC-C1 | ✅ Chốt                    | PubMed chỉ Layer 2 sau Evidence Gate hoặc user yêu cầu y văn mới                          | RAG-05     | Product + Privacy + AI owner     | Evidence threshold, PII scrub, provider rate policy                           |
+| DEC-D1 | ✅ Chốt có gate enablement | Full-only, 7 ngày, Admin approval, timeout/unknown → manual review                        | PAY-01     | Product + Finance/Legal          | Policy snapshot, usage eligibility, approval, manual review                   |
+| DEC-D2 | ✅ Hoãn                    | Không triển khai consultation charging trong roadmap hiện tại                             | PAY-02     | Product + Finance                | Giữ invariant `care_program_included`; scope nhận lại cần pricing/tax/invoice |
+| DEC-E1 | ✅ Chốt                    | Instant pilot; policy canonical/snapshot; không tự xử lý lịch quá 24 giờ                  | CARE-01/03 | Product + Operations             | Booking settings, disposition, quota transition                               |
+| DEC-E2 | ✅ Chốt                    | Chỉ `missed_task_reminder` và `weekly_progress`, default off                              | FAM-01     | Product + Privacy                | Invite/revoke, reminder content, PHI boundary                                 |
+| DEC-E3 | ✅ Chốt                    | Internal curated là nguồn chính; map provider chỉ fallback                                | DIR-01     | Product + Admin owner            | Verification, taxonomy, location/privacy contract                             |
 
 ### Cách áp dụng các quyết định
 
@@ -232,13 +232,13 @@ nhận OAuth, refund, booking config và các feature P1.
 
 ### Yêu cầu
 
-| Slice    | Nội dung                                                                                                |
-| -------- | ------------------------------------------------------------------------------------------------------- |
-| AUTH-03  | Refresh lấy subject từ token; current/all-session logout; list/revoke session/device; replay protection |
-| AUTH-04  | Xóa log DTO nhạy cảm; chuẩn hóa email delivery qua outbox hoặc exception có retry/observability         |
-| AUTH-02  | Email activation/resend/login gate theo DEC-A1                                                          |
+| Slice    | Nội dung                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------- |
+| AUTH-03  | Refresh lấy subject từ token; current/all-session logout; list/revoke session/device; replay protection    |
+| AUTH-04  | Xóa log DTO nhạy cảm; chuẩn hóa email delivery qua outbox hoặc exception có retry/observability            |
+| AUTH-02  | Email activation/resend/login gate theo DEC-A1                                                             |
 | AUTH-01  | Google OAuth Patient-only, PKCE/state, collision/recovery UX; không auto-merge hoặc link/unlink bằng email |
-| ADMIN-01 | Version/audit/role ownership cho business policy, feature flag và technical hard limit                  |
+| ADMIN-01 | Version/audit/role ownership cho business policy, feature flag và technical hard limit                     |
 
 ### Trình tự
 
@@ -295,7 +295,7 @@ trỏ được về document/version/page/section và thiếu evidence thì fail
 
 ## 7. Giai đoạn C — Retrieval quality và external evidence
 
-**Trạng thái:** ⏳ sau Giai đoạn B
+**Trạng thái:** ✅ (evidence 2026-11-23). DEC-B2/DEC-C1 đã được Product Owner chấp thuận 18/11/2026.
 **Kết quả mong đợi:** tăng chất lượng retrieval có đo lường; chỉ dùng nguồn ngoài
 khi evidence nội bộ không đủ và không gửi PII/PHI.
 
@@ -304,7 +304,7 @@ khi evidence nội bộ không đủ và không gửi PII/PHI.
 1. **RAG-03:** Atlas full-text + vector hybrid, RRF.
 2. Thử reranker, MMR và parent context từng thành phần; chỉ giữ nếu benchmark tốt hơn.
 3. Hiệu chỉnh threshold theo evaluation set, không dùng một ngưỡng cố định toàn hệ thống.
-4. **RAG-05:** PII/PHI scrubber → PubMed/MEDLINE retriever → TTL cache → evidence fusion.
+4. **RAG-05:** PII/PHI scrubber → PubMed/MEDLINE retriever → TTL cache → quarantined candidate discovery; không fusion external metadata vào patient response.
 5. Thêm `KnowledgeCandidate` review/promotion và PMID/content-hash dedupe.
 6. **RAG-07:** multi-query, agentic RAG hoặc GraphRAG chỉ khi có use case/benchmark riêng.
 
@@ -313,6 +313,24 @@ khi evidence nội bộ không đủ và không gửi PII/PHI.
 - Quality/citation/latency/cost tốt hơn baseline theo ngưỡng DEC-B2.
 - Test chứng minh không gửi ảnh, identity hoặc health history ra PubMed/provider ngoài.
 - Provider failure/rate limit không làm hệ thống suy đoán hoặc auto-promote nguồn.
+
+**Evidence 2026-11-23:** migration `202611181240` và database verifier PASS tại version
+`202611181240` (45 collections, 122 managed indexes). Atlas `vector_index` và
+`ai_document_chunks_fulltext` self-probe PASS; vector index đã được đồng bộ theo contract
+3072 dimensions của Gemini và definition trong repository. Với chấp thuận rõ ràng của
+Product Owner, 11 document/chunk synthetic, không PHI, được tạo cô lập trong `scope=benchmark`
+qua script có confirmation, audit và outbox; chúng không nằm trong serving scope.
+
+Benchmark Atlas thật chạy 3 lượt × 20 case: citation rate `100%`, expected-evidence match
+`100%`, hybrid P95 `541ms`; vector-only P95 `635ms`, nên hybrid thấp hơn trần DEC-B2 `762ms`
+(120% vector-only). Enforced runner PASS. Candidate API, promotion metadata-only sang
+`AiDocument(source=pubmed)`, audit/outbox, unit, PubMed integration fail-closed và HTTP E2E
+đều PASS. Patient-triggered PubMed discovery chỉ tạo candidate pending review; external metadata
+không được đưa vào LLM context/citation trước khi `super_admin` promote rồi ingest/activate.
+Evidence chi tiết: `docs/evidence/phase-c-retrieval-quality-2026-11-23.md`.
+Không được dùng fixture synthetic như medical-content approval; knowledge y khoa thật vẫn phải
+qua workflow review/ingest/activate.
+
 - Mọi thành phần nâng cao có feature flag và rollback độc lập.
 
 ## 8. Giai đoạn D — Billing, refund và projection vận hành
@@ -511,3 +529,5 @@ Một slice chỉ được chuyển ✅ khi đủ các mục áp dụng:
 - Quyết định mới cập nhật bảng DEC trước khi thay đổi thứ tự/scope.
 - Nếu một slice không đạt decision gate hoặc thiếu owner/capacity, giữ ⏳; không
   ghép ngầm vào slice khác.
+
+- tổ chức lại ai-advisory

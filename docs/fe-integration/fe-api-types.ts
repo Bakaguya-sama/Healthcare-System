@@ -5765,3 +5765,46 @@ export interface KnowledgeDocumentSubmissionRequest {
 
 export type KnowledgeDocumentReplacementRequest =
   KnowledgeDocumentSubmissionRequest;
+
+/** Public citation from an AI response; no storage, vector or provider internals. */
+export interface AiEvidenceCitation {
+  source: string;
+  title?: string;
+  excerpt: string;
+  documentVersion?: number;
+  pageNumber?: number | null;
+  sectionTitle?: string | null;
+}
+
+export type KnowledgeCandidateStatus =
+  | 'pending_review'
+  | 'promoted'
+  | 'rejected';
+
+/** Public PubMed metadata only; the API never exposes or accepts an abstract. */
+export interface KnowledgeCandidate {
+  _id: string;
+  pmid: string;
+  title: string;
+  sourceUrl: string;
+  status: KnowledgeCandidateStatus;
+  reviewedAt?: Da2IsoDateTime | null;
+  reviewReason?: string | null;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface ProposeKnowledgeCandidateRequest {
+  pmid: string;
+  title: string;
+  sourceUrl: string;
+}
+
+export interface RejectKnowledgeCandidateRequest {
+  reason?: string;
+}
+
+export interface PromoteKnowledgeCandidateResponse {
+  candidate: KnowledgeCandidate;
+  document: KnowledgeDocument;
+}

@@ -35,6 +35,12 @@ export interface IVectorStoreService {
     scope?: string,
     language?: string,
   ): Promise<VectorSearchResult[]>;
+  fullTextSearchByText(
+    query: string,
+    limit?: number,
+    scope?: string,
+    language?: string,
+  ): Promise<VectorSearchResult[]>;
 }
 
 /** Application-owned port; the Atlas implementation is an infrastructure adapter. */
