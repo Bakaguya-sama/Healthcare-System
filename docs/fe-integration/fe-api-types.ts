@@ -5696,7 +5696,13 @@ export interface Da2CareReportExport {
   replayed?: boolean;
 }
 
-/** AI knowledge-document contract exposed to the frontend. */
+// ============================================================================
+// GIAI ĐOẠN C — RAG VÀ QUẢN TRỊ NGUỒN BẰNG CHỨNG BÊN NGOÀI
+// Đây là các type trong hợp đồng công khai cho frontend. Cố ý không bao gồm
+// thông tin nội bộ về storage, vector, chunk và provider.
+// ============================================================================
+
+/** Trạng thái xử lý tài liệu do các endpoint tài liệu tri thức trả về. */
 export type KnowledgeDocumentStatus =
   | 'pending_ingestion'
   | 'processing'
@@ -5722,6 +5728,7 @@ export interface KnowledgeDocument {
   scope: string;
   knowledgeLanguage: string;
   source: string;
+  ingestionVersion?: number;
   validUntil?: Da2IsoDateTime | null;
   uploadedBy: string;
   reviewedBy?: string | null;
@@ -5735,6 +5742,9 @@ export interface KnowledgeDocument {
 
 export interface KnowledgeDocumentUpdateRequest {
   title?: string;
+  fileUrl?: string;
+  fileType?: string;
+  status?: KnowledgeDocumentStatus;
   validUntil?: Da2IsoDateTime | null;
 }
 
@@ -5756,7 +5766,10 @@ export interface KnowledgeDocumentsListResponse {
   total: number;
 }
 
-/** `multipart/form-data`; `file` is the selected PDF, DOC, DOCX, or TXT file. */
+/** Response của `GET /api/v1/ai-documents/search/{query}`. */
+export type KnowledgeDocumentSearchResponse = KnowledgeDocument[];
+
+/** `multipart/form-data`; `file` is a PDF, DOC, DOCX or TXT file. */
 export interface KnowledgeDocumentSubmissionRequest {
   file: File;
   title?: string;
@@ -5766,7 +5779,10 @@ export interface KnowledgeDocumentSubmissionRequest {
 export type KnowledgeDocumentReplacementRequest =
   KnowledgeDocumentSubmissionRequest;
 
-/** Public citation from an AI response; no storage, vector or provider internals. */
+/** Request của `POST /api/v1/ai-documents/{id}/reject`. */
+export type RejectKnowledgeDocumentRequest = KnowledgeDocumentRejectRequest;
+
+/** Citation công khai trong câu trả lời AI; không chứa nội bộ storage, vector hoặc provider. */
 export interface AiEvidenceCitation {
   source: string;
   title?: string;
@@ -5776,12 +5792,19 @@ export interface AiEvidenceCitation {
   sectionTitle?: string | null;
 }
 
+/** Các trường bằng chứng trong câu trả lời AI dành cho bệnh nhân. */
+export interface AiRagEvidence {
+  groundedByRag: boolean;
+  citations: AiEvidenceCitation[];
+  confidence: number;
+}
+
 export type KnowledgeCandidateStatus =
   | 'pending_review'
   | 'promoted'
   | 'rejected';
 
-/** Public PubMed metadata only; the API never exposes or accepts an abstract. */
+/** Chỉ chứa metadata PubMed công khai; API không nhận hoặc trả về abstract. */
 export interface KnowledgeCandidate {
   _id: string;
   pmid: string;
@@ -5793,6 +5816,9 @@ export interface KnowledgeCandidate {
   createdAt: Da2IsoDateTime;
   updatedAt: Da2IsoDateTime;
 }
+
+/** Response của `GET /api/v1/ai-knowledge-candidates`. */
+export type KnowledgeCandidateListResponse = KnowledgeCandidate[];
 
 export interface ProposeKnowledgeCandidateRequest {
   pmid: string;

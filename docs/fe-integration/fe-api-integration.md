@@ -297,41 +297,82 @@ Frontend không chọn provider hoặc gửi dữ liệu bệnh nhân vào query
 | 155 | Phản hồi AI | Đánh dấu phản hồi AI là hữu ích | `PATCH /api/v1/ai-feedbacks/{id}/helpful` | Bearer JWT | **Params:**<br>`id`: string, bắt buộc<br>Type: `AiFeedbacksMarkHelpfulRequest` | `200`<br>`{ patientId: string; aiConversationId: string; content: string; }`<br>Type: `AiFeedbacksMarkHelpfulResponse` | 400 – VALIDATION_ERROR – input không đạt ValidationPipe/pipe của endpoint<br>401 – Unauthorized – thiếu, sai hoặc hết hạn Bearer token<br>429 – Too Many Requests – vượt giới hạn ProxyThrottlerGuard<br>404 – AI Feedback with ID ${feedbackId} not found<br>500 – Internal server error – exception không phải HttpException được global filter xử lý | Đánh dấu phản hồi AI là hữu ích |
 | 156 | Phản hồi AI | Xác minh phản hồi AI | `PATCH /api/v1/ai-feedbacks/{id}/verify` | Bearer JWT (role: admin) | **Params:**<br>`id`: string, bắt buộc<br>Type: `AiFeedbacksVerifyFeedbackRequest` | `200`<br>`{ patientId: string; aiConversationId: string; content: string; }`<br>Type: `AiFeedbacksVerifyFeedbackResponse` | 400 – VALIDATION_ERROR – input không đạt ValidationPipe/pipe của endpoint<br>401 – Unauthorized – thiếu, sai hoặc hết hạn Bearer token<br>403 – Forbidden – role không được phép<br>429 – Too Many Requests – vượt giới hạn ProxyThrottlerGuard<br>404 – AI Feedback with ID ${feedbackId} not found<br>500 – Internal server error – exception không phải HttpException được global filter xử lý | Xác minh phản hồi AI |
 
-## Tài liệu tri thức AI
+## Giai đoạn C — Truy xuất RAG và quản trị nguồn bằng chứng bên ngoài
 
-Mọi API dưới đây cần Bearer JWT. `ai_manager` và `super_admin` có thể gửi tài liệu, cập nhật metadata hoặc gửi phiên bản thay thế; chỉ `super_admin` được duyệt, từ chối, kích hoạt, lưu trữ hoặc xóa. API chỉ trả metadata an toàn; frontend không nhận URL storage, hash, nội dung chunk hay embedding.
+Sử dụng phần này làm hợp đồng frontend chuẩn cho Giai đoạn C. RAG là một quy trình
+quản trị bằng chứng, không phải chức năng tìm kiếm PubMed trực tiếp. Câu trả lời cho
+bệnh nhân chỉ sử dụng tài liệu tri thức đã được duyệt, kích hoạt và chưa hết hạn.
 
-| Thao tác | Endpoint | Quyền | Request | Kết quả |
+### 1. Câu trả lời AI và trạng thái bằng chứng
+
+| Trạng thái API | Cách frontend xử lý |
+|---|---|
+| `groundedByRag: true` | Hiển thị câu trả lời kèm các trích dẫn. |
+| `groundedByRag: false` | Hiển thị trạng thái an toàn khi không có bằng chứng; không trình bày câu trả lời như kết luận y khoa. |
+| `citations` | Chỉ hiển thị các trường công khai: `source`, `title`, `excerpt`, `documentVersion`, `pageNumber`, `sectionTitle`. |
+| `confidence` | Chỉ dùng làm thông tin hỗ trợ; đây không phải chẩn đoán hay khuyến nghị điều trị. |
+
+Khi thiếu bằng chứng đã được duyệt, backend có thể tạo một candidate PubMed ở trạng
+thái cách ly. Candidate này không được dùng cho câu trả lời hiện tại và không bao giờ
+được trả về như một citation. Frontend không được gửi PHI hoặc yêu cầu chỉ định
+provider đến PubMed.
+
+### 2. Quy trình tài liệu tri thức nội bộ
+
+Tất cả endpoint yêu cầu Bearer JWT. `ai_manager` có thể gửi tài liệu và chỉnh sửa
+metadata; chỉ `super_admin` được duyệt, từ chối, kích hoạt, lưu trữ hoặc xóa. Response
+chỉ chứa metadata an toàn, không bao giờ chứa storage URL, hash, chunk, embedding hoặc
+payload của provider.
+
+| Thao tác | Endpoint | Quyền | Request | Response |
 |---|---|---|---|---|
-| Danh sách | `GET /api/v1/ai-documents` | Người dùng đã xác thực | Query: `page`, `limit`, `status`, `search`, `sortBy` (`createdAt` \| `updatedAt` \| `title`), `sortOrder` | `{ data: KnowledgeDocument[]; total: number }` |
-| Tìm kiếm tài liệu đã hoạt động | `GET /api/v1/ai-documents/search/{query}` | Người dùng đã xác thực | Path: `query` | `KnowledgeDocument[]` |
-| Chi tiết | `GET /api/v1/ai-documents/{id}` | Người dùng đã xác thực | Path: `id` | `KnowledgeDocument` |
-| Gửi tài liệu để duyệt | `POST /api/v1/ai-documents` | `ai_manager`, `super_admin` | `multipart/form-data`: `file` bắt buộc; `title`, `validUntil` tùy chọn | `KnowledgeDocument` |
-| Sửa metadata | `PATCH /api/v1/ai-documents/{id}` | `ai_manager`, `super_admin` | JSON: `title?`, `validUntil?` | `KnowledgeDocument` |
-| Gửi phiên bản thay thế | `POST /api/v1/ai-documents/{id}/replacements` | `ai_manager`, `super_admin` | `multipart/form-data`: `file` bắt buộc; `title`, `validUntil` tùy chọn | `KnowledgeDocument` phiên bản mới |
+| Liệt kê tài liệu | `GET /api/v1/ai-documents` | Người dùng đã xác thực | Query: `page`, `limit`, `status`, `search`, `sortBy`, `sortOrder` | `{ data: KnowledgeDocument[]; total: number }` |
+| Tìm kiếm tài liệu | `GET /api/v1/ai-documents/search/{query}` | Người dùng đã xác thực | Path: `query` | `KnowledgeDocument[]` |
+| Xem chi tiết | `GET /api/v1/ai-documents/{id}` | Người dùng đã xác thực | Path: `id` | `KnowledgeDocument` |
+| Gửi tài liệu | `POST /api/v1/ai-documents` | `ai_manager`, `super_admin` | `multipart/form-data`: bắt buộc `file`; tùy chọn `title`, `validUntil` | `KnowledgeDocument` |
+| Cập nhật metadata | `PATCH /api/v1/ai-documents/{id}` | `ai_manager`, `super_admin` | JSON: tùy chọn `title`, `fileUrl` (URL upload tin cậy), `fileType`, `status`, `validUntil` | `KnowledgeDocument` |
+| Gửi phiên bản thay thế | `POST /api/v1/ai-documents/{id}/replacements` | `ai_manager`, `super_admin` | `multipart/form-data`: bắt buộc `file`; tùy chọn `title`, `validUntil` | Phiên bản `KnowledgeDocument` mới |
+| Duyệt | `POST /api/v1/ai-documents/{id}/approve` | `super_admin` | Không có body | `KnowledgeDocument` |
+| Từ chối | `POST /api/v1/ai-documents/{id}/reject` | `super_admin` | JSON: tùy chọn `reason` | `KnowledgeDocument` bị từ chối |
+| Kích hoạt | `POST /api/v1/ai-documents/{id}/activate` | `super_admin` | Không có body | `KnowledgeDocument` đang hoạt động |
+| Lưu trữ | `PATCH /api/v1/ai-documents/{id}/archive` | `super_admin` | Không có body | `KnowledgeDocument` đã lưu trữ/không hoạt động |
+| Xóa | `DELETE /api/v1/ai-documents/{id}` | `super_admin` | Không có body | Metadata tài liệu đã xóa |
 
-### PubMed knowledge candidates
+Vòng đời: `pending_review` → `approved` + `pending_ingestion` → `processing` →
+`ready_for_activation` → `active`. Nếu ingestion thất bại, `status = error`. Chỉ cho
+phép thao tác Kích hoạt khi `reviewStatus = approved` và `status = ready_for_activation`.
+Khi kích hoạt phiên bản thay thế, phiên bản trước đó sẽ chuyển thành inactive.
 
-All routes below require an authenticated `admin` account. The server additionally
-enforces the sub-role; the client must not infer authority from the base role alone.
-No route accepts or returns a PubMed abstract.
+Các route controller sau là thao tác nội bộ của backend/worker, không phải thao tác trên
+trình duyệt: `PATCH /api/v1/ai-documents/{id}/index`,
+`POST /api/v1/ai-documents/{id}/rag-ingesting` và
+`PATCH /api/v1/ai-documents/{id}/usage`. Frontend không được gọi trực tiếp; worker và
+luồng orchestration của API chịu trách nhiệm indexing, ingestion và ghi nhận lượt sử dụng.
 
-| Operation | Endpoint | Authority | Request | Result |
+### 3. Quy trình candidate PubMed
+
+Tất cả route candidate yêu cầu tài khoản đã xác thực với role nền `admin`. Backend sẽ
+kiểm tra sub-role; frontend không được suy luận quyền chỉ từ role nền. Không endpoint nào
+nhận hoặc trả về abstract PubMed.
+
+| Thao tác | Endpoint | Quyền | Request | Response |
 |---|---|---|---|---|
-| List quarantined candidates | `GET /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | None | `KnowledgeCandidate[]`; bao gồm candidate server phát hiện từ câu hỏi thiếu evidence |
-| Propose public PubMed metadata | `POST /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | `{ pmid, title, sourceUrl }` | pending `KnowledgeCandidate` |
-| Promote to governed document | `POST /api/v1/ai-knowledge-candidates/{id}/promote` | `super_admin` | None | `{ candidate, document }`; document is still `pending_review` |
-| Reject candidate | `POST /api/v1/ai-knowledge-candidates/{id}/reject` | `super_admin` | `{ reason? }` | rejected `KnowledgeCandidate` |
+| Liệt kê candidate | `GET /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | Không có | `KnowledgeCandidate[]` |
+| Đề xuất metadata | `POST /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | `{ pmid, title, sourceUrl }` | `KnowledgeCandidate` đang chờ duyệt |
+| Promote candidate | `POST /api/v1/ai-knowledge-candidates/{id}/promote` | `super_admin` | Không có | `{ candidate, document }` |
+| Từ chối candidate | `POST /api/v1/ai-knowledge-candidates/{id}/reject` | `super_admin` | `{ reason? }` | `KnowledgeCandidate` bị từ chối |
 
-After promotion, use the existing document endpoints in order: approve, wait for
-ingestion, then activate. Promotion never makes the article retrievable immediately.
-| Duyệt | `POST /api/v1/ai-documents/{id}/approve` | `super_admin` | Không có body | `KnowledgeDocument`; worker bắt đầu ingest bất đồng bộ |
-| Từ chối | `POST /api/v1/ai-documents/{id}/reject` | `super_admin` | JSON: `reason?` | `KnowledgeDocument` ở `rejected` / `inactive` |
-| Kích hoạt | `POST /api/v1/ai-documents/{id}/activate` | `super_admin` | Không có body | `KnowledgeDocument` ở `active`; phiên bản khác cùng chuỗi thành `inactive` |
-| Lưu trữ | `PATCH /api/v1/ai-documents/{id}/archive` | `super_admin` | Không có body | `KnowledgeDocument` ở `archived` / `inactive` |
-| Xóa | `DELETE /api/v1/ai-documents/{id}` | `super_admin` | Không có body | `KnowledgeDocument` đã xóa |
+Thao tác promote tạo tài liệu với `reviewStatus = pending_review`; tài liệu chưa thể được
+truy xuất ngay. Cần tiếp tục qua bước duyệt tài liệu, ingestion bất đồng bộ và kích hoạt
+trước khi tài liệu có thể hỗ trợ câu trả lời bệnh nhân trong tương lai.
 
-Vòng đời: `pending_review` → `approved` + `pending_ingestion` → `processing` → `ready_for_activation` → `active`. Khi worker lỗi, `status` là `error`; quản trị viên kiểm tra trạng thái bằng API chi tiết/danh sách. Frontend chỉ cho phép kích hoạt khi `reviewStatus = approved` và `status = ready_for_activation`.
+### 4. Bảng quyền giao diện
+
+| Role | Giao diện candidate | Giao diện tài liệu |
+|---|---|---|
+| Patient | Không có màn hình quản trị candidate/tài liệu | Chỉ xem câu trả lời và citation công khai |
+| `ai_manager` | Liệt kê và đề xuất; không promote/reject | Gửi tài liệu và chỉnh sửa metadata |
+| `super_admin` | Review, promote hoặc reject | Duyệt, từ chối, kích hoạt, lưu trữ và xóa |
 ## Chương trình chăm sóc
 
 | STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
