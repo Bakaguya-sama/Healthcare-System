@@ -204,11 +204,9 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 - `defaultDurationMinutes`: thời lượng dự kiến khi tạo slot/on-demand; không tự kết thúc phiên.
 - `bufferMinutes`: khoảng đệm tối thiểu giữa các lịch booked để giảm chồng chéo.
 
-Các giá trị phải có giới hạn hệ thống do Admin cấu hình; Doctor không được đặt số âm hoặc vượt giới hạn vận hành.
+Các giá trị có hard limit hệ thống; Doctor không được đặt số âm hoặc vượt giới hạn vận hành. Admin có thể override giá trị của một Doctor với lý do được audit, nhưng không thay đổi các hard limit bằng API E1.
 
-**CC-013 MVP:** Cho đến khi cấu hình `bookingSettings` của Doctor được triển khai, khi xác nhận lịch scheduled backend snapshot `cancellationDeadlineMinutes = 60` và `noShowAfterMinutes = 10`. Patient không được hủy sau hạn; Doctor vẫn có thể hủy trước khi bắt đầu. Chưa hỗ trợ đánh dấu no-show cho on-demand. Reservation của lịch đã xác nhận không tự hết hạn khi qua giờ khám hoặc qua chu kỳ subscription: chỉ count khi bắt đầu/no-show hợp lệ, hoặc release khi hủy hợp lệ. Reservation và lượt đã count thuộc về chu kỳ tạo reservation; không làm thay đổi counter của chu kỳ mới.
-
-**Availability/Scheduled slice 04/11/2026:** Owner chọn baseline pilot `bufferMinutes = 15` và `minNoticeMinutes = 60` phút. Hai command policy vẫn lấy tường minh từ `SCHEDULED_BOOKING_BUFFER_MINUTES` và `SCHEDULED_BOOKING_MIN_NOTICE_MINUTES`, validation lần lượt trong khoảng 0–240 và 0–10.080 phút, và fail-closed khi môi trường triển khai bỏ thiếu. Booking snapshot hai giá trị này cùng `bookingPolicy = instant`, duration của slot, cutoff hủy 60 phút và no-show 10 phút. Đây là bridge có tên rõ ràng trước khi `doctorProfile.bookingSettings` được triển khai; giá trị pilot phải được đánh giá lại bằng dữ liệu vận hành và không được coi là chính sách vĩnh viễn.
+**E1 pilot:** `doctorProfile.bookingSettings` là nguồn chính sách canonical cho từng Doctor; không dùng biến môi trường để quyết định booking runtime. Pilot chỉ chấp nhận `bookingPolicy = instant`. Settings gồm buffer, minimum notice, cancellation deadline, check-in early window và no-show waiting period; Doctor chỉ cập nhật trong hard limit hệ thống, Admin có thể override với lý do/audit. Consultation chụp snapshot đầy đủ khi đặt lịch; đổi settings hoặc reschedule sau đó không hồi tố policy của lịch cũ. Doctor chưa có settings hợp lệ sẽ không thể tạo slot hoặc nhận scheduled booking (fail-closed).
 
 **Chính sách CC-013B — đã triển khai ở backend (cần bật `CONSULTATION_STALE_RECOVERY_ENABLED=true` khi rollout):**
 

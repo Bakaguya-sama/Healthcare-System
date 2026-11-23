@@ -165,9 +165,8 @@ khoản phí consultation riêng; thiếu ledger không tự tạo miễn phí.
    từ `scheduledStartAt - checkInEarlyMinutes` đến
    `scheduledStartAt + noShowAfterMinutes`, rồi atomically ghi `waiting`,
    `queueJoinedAt` và `queuePriorityAt = scheduledStartAt`.
-2. `checkInEarlyMinutes` ưu tiên snapshot của booking; booking cũ thiếu snapshot
-   chỉ được dùng cấu hình `CONSULTATION_CHECK_IN_EARLY_MINUTES`. Nếu cả hai đều
-   thiếu, command fail-closed với `CHECK_IN_POLICY_NOT_CONFIGURED`; không có
+2. `checkInEarlyMinutes` lấy từ snapshot booking. Nếu snapshot thiếu giá trị này,
+   command fail-closed với `BOOKING_POLICY_UNAVAILABLE`; không đọc ENV và không có
    default ngầm.
 3. Patient chỉ đọc snapshot queue của chính Consultation mình qua
    `GET /consultations/:id/queue`. Position được tính phía server; ETA trả
@@ -328,11 +327,10 @@ như kết quả lâm sàng.
 
 ## 7. Booking policy pilot và câu hỏi mở
 
-- Owner đã chọn giá trị pilot `bufferMinutes = 15` và `minNoticeMinutes = 60` phút,
-  được ghi trong `.env.example`. Runtime vẫn bắt buộc cấu hình rõ
-  `SCHEDULED_BOOKING_BUFFER_MINUTES` và
-  `SCHEDULED_BOOKING_MIN_NOTICE_MINUTES`; command slot/booking fail-closed với
-  `BOOKING_POLICY_NOT_CONFIGURED` nếu môi trường triển khai bỏ thiếu.
+- Runtime lấy `bufferMinutes`, `minNoticeMinutes`, cancellation/check-in/no-show
+  từ `doctorProfile.bookingSettings`; không dùng biến môi trường. Doctor chưa có
+  settings hợp lệ làm command slot/booking fail-closed với
+  `BOOKING_POLICY_NOT_CONFIGURED`.
 - Hai giá trị trên là baseline pilot, chưa phải policy vĩnh viễn vì chưa có dữ
   liệu vận hành thật và `CC-OPS-001` không thuộc slice này. Khuyến nghị đánh giá
   lại bằng phân bố thời lượng phiên/overtime,
@@ -340,10 +338,9 @@ như kết quả lâm sàng.
   `doctorProfile.bookingSettings` có hard limits như product spec.
 - Cutoff hủy/đổi lịch hiện dùng mốc 60 phút đã được chấp nhận ở CC-013. Nếu owner
   thay đổi, phải version/snapshot policy và bổ sung migration/test trước rollout.
-- Owner chốt baseline pilot `checkInEarlyMinutes = 15` phút. Runtime vẫn
-  fail-closed nếu booking snapshot và `CONSULTATION_CHECK_IN_EARLY_MINUTES` đều
-  thiếu; booking cũ chỉ dùng cấu hình tường minh. Cần đo tỷ lệ đến sớm/muộn,
-  no-show và tải queue trước khi thay đổi policy, sau đó snapshot theo version.
+- `checkInEarlyMinutes` được snapshot khi booking; runtime fail-closed nếu lịch
+  cũ không có snapshot hợp lệ. Cần đo tỷ lệ đến sớm/muộn, no-show và tải queue
+  trước khi thay đổi policy, sau đó snapshot theo version.
 - ETA chưa có mô hình đáng tin cậy từ duration/overtime thực tế nên API trả
   `estimatedWaitMinutes = null`, `etaReason = ETA_POLICY_NOT_CONFIGURED`. Không
   suy ra ETA bằng cách nhân position với duration mặc định.

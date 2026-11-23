@@ -6,6 +6,15 @@ CC-013B handles only consultations in `accepted` + `waiting` state. It never
 marks an on-demand consultation as no-show. Scheduled consultations older than
 24 hours are queued for Doctor review; they are not cancelled or released.
 
+## Xử lý review scheduled quá 24 giờ
+
+`consultation.scheduled-stale-review` chỉ là tín hiệu vận hành. Operations/Admin
+phải mở consultation, xác minh với Doctor/Patient theo quy trình hỗ trợ hiện hành
+và thực hiện command thủ công được ủy quyền nếu cần. Không được coi event này là
+authority để auto no-show, cancel, release quota, refund hoặc sửa ledger. Ghi lý
+do/actor ở audit trail của command thực hiện; không đưa ghi chú lâm sàng, token
+hay payload thanh toán vào outbox/log.
+
 ## Enablement
 
 1. Deploy the API/worker version containing migration `202610201100`.

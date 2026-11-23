@@ -1,5 +1,5 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { DoctorBookingSettingsService } from '../../../../users/public-api';
 
 export type ScheduledBookingPolicy = {
   bookingPolicy: 'instant';
@@ -15,51 +15,29 @@ export type ScheduledBookingPolicy = {
  */
 @Injectable()
 export class BookingPolicyService {
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly doctorSettings: DoctorBookingSettingsService) {}
 
-  getScheduledPolicy(): ScheduledBookingPolicy {
-    const bufferMinutes = this.config.get<number>(
-      'SCHEDULED_BOOKING_BUFFER_MINUTES',
-    );
-    const minNoticeMinutes = this.config.get<number>(
-      'SCHEDULED_BOOKING_MIN_NOTICE_MINUTES',
-    );
-    if (bufferMinutes === undefined || minNoticeMinutes === undefined) {
+  async getScheduledPolicy(
+    doctorId: string,
+  ): Promise<ScheduledBookingPolicy & { checkInEarlyMinutes: number }> {
+    try {
+      const settings =
+        await this.doctorSettings.getActiveScheduledPolicy(doctorId);
+      return {
+        bookingPolicy: settings.bookingPolicy,
+        bufferMinutes: settings.bufferMinutes,
+        minNoticeMinutes: settings.minNoticeMinutes,
+        cancellationDeadlineMinutes: settings.cancellationDeadlineMinutes,
+        noShowAfterMinutes: settings.noShowAfterMinutes,
+        checkInEarlyMinutes: settings.checkInEarlyMinutes,
+      };
+    } catch {
       throw new ServiceUnavailableException({
         code: 'BOOKING_POLICY_NOT_CONFIGURED',
         message:
-          'Scheduled booking policy requires buffer and minimum notice configuration',
-        details: {
-          required: [
-            'SCHEDULED_BOOKING_BUFFER_MINUTES',
-            'SCHEDULED_BOOKING_MIN_NOTICE_MINUTES',
-          ],
-        },
+          'Doctor booking settings are required before scheduled booking is available',
       });
     }
-    return {
-      bookingPolicy: 'instant',
-      bufferMinutes,
-      minNoticeMinutes,
-      cancellationDeadlineMinutes: 60,
-      noShowAfterMinutes: 10,
-    };
-  }
-
-  getCheckInEarlyMinutesIfConfigured(): number | undefined {
-    return this.config.get<number>('CONSULTATION_CHECK_IN_EARLY_MINUTES');
-  }
-
-  getCheckInEarlyMinutes(): number {
-    const minutes = this.getCheckInEarlyMinutesIfConfigured();
-    if (minutes === undefined) {
-      throw new ServiceUnavailableException({
-        code: 'CHECK_IN_POLICY_NOT_CONFIGURED',
-        message: 'Patient check-in requires an explicit early-window policy',
-        details: { required: ['CONSULTATION_CHECK_IN_EARLY_MINUTES'] },
-      });
-    }
-    return minutes;
   }
 }
 

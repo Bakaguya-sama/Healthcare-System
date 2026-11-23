@@ -1188,6 +1188,10 @@ interface AdminDashboardDto {
 | CON-03A | `PATCH /availability-slots/:id`          | Doctor owner             | startAt?, endAt?, timezone?                                                                               | slot                                           | Current canonical; chỉ slot available                                  |
 | CON-04  | `DELETE /availability-slots/:id`         | Doctor owner             | none                                                                                                      | `204`                                          | Current canonical; chỉ available/blocked                               |
 | CON-05  | `POST /consultations/scheduled`          | Patient                  | `{ availabilitySlotId, patientNotes? }` + `Idempotency-Key`                                               | `ConsultationDto`                              | Current canonical                                                      |
+| DOC-07A | `GET /doctor-booking-settings/me`        | Doctor                   | none                                                                                                      | canonical booking settings                     | Current canonical; not configured returns fail-closed error            |
+| DOC-07B | `PATCH /doctor-booking-settings/me`      | Doctor                   | instant settings within hard limits                                                                        | canonical booking settings                     | Current canonical; affects future bookings only                        |
+| ADM-07A | `GET /doctor-booking-settings/:doctorId` | Admin                    | doctorId                                                                                                  | canonical booking settings                     | Current canonical                                                      |
+| ADM-07B | `PATCH /doctor-booking-settings/:doctorId/override` | Admin            | instant settings + mandatory `overrideReason`                                                             | canonical booking settings                     | Current canonical; audit/outbox; affects future bookings only          |
 | CON-05A | `POST /consultations/:id/reschedule`     | Patient owner            | `{ availabilitySlotId }` + `Idempotency-Key`                                                              | `ConsultationDto`                              | Current canonical; trước cutoff                                        |
 | CON-06  | `POST /consultations/on-demand`          | Patient                  | `{ doctorId, patientNotes }` + idempotency                                                                | `ConsultationDto`                              | Target P0                                                              |
 | CON-07  | `GET /consultations`                     | Patient/Doctor           | mode, requestStatus, sessionStatus, from/to, patientId/doctorId theo role, page, limit, sortBy, sortOrder | `PageResult<ConsultationDto>`                  | Current canonical; actor scope lấy từ access token                     |
@@ -1458,13 +1462,12 @@ Mục này giải thích **mục đích nghiệp vụ và hành vi chính** củ
 | CON-23  | Doctor đánh dấu no-show khi consultation đang waiting và đã quá ngưỡng; transition là terminal và xử lý quota theo policy.                            |
 | CON-24  | Doctor tạo/cập nhật kế hoạch follow-up cho consultation, có thể liên kết task; dữ liệu được audit và hiển thị cho Patient theo quyền.                 |
 
-Availability policy hiện đọc `SCHEDULED_BOOKING_BUFFER_MINUTES` và
-`SCHEDULED_BOOKING_MIN_NOTICE_MINUTES`. Baseline pilot do owner chọn là 15 phút
-buffer và 60 phút min-notice, được ghi trong `.env.example`; code không có
-fallback ngầm và API mutation/list available trả 503
-`BOOKING_POLICY_NOT_CONFIGURED` nếu môi trường triển khai bỏ thiếu. Timestamp là
-UTC instant và timezone phải là IANA identifier. Admin không có route override
-slot.
+Availability policy lấy từ `doctorProfile.bookingSettings`, không còn đọc ENV ở
+runtime. E1 chỉ cho phép `bookingPolicy = instant`; Doctor chỉnh settings của
+mình trong hard limit hệ thống, Admin override bằng lý do có audit/outbox. Nếu
+Doctor chưa có settings hợp lệ, route slot/booking trả 503
+`BOOKING_POLICY_NOT_CONFIGURED`. Timestamp là UTC instant và timezone phải là
+IANA identifier.
 
 Error bổ sung cho slice: `SLOT_OVERLAP`, `SLOT_ALREADY_BOOKED`,
 `SLOT_NOT_MUTABLE`, `MIN_NOTICE_NOT_MET`, `SUBSCRIPTION_INACTIVE`,
@@ -1472,12 +1475,12 @@ Error bổ sung cho slice: `SLOT_OVERLAP`, `SLOT_ALREADY_BOOKED`,
 `RESCHEDULE_CUTOFF_PASSED`.
 
 Queue/check-in bổ sung `CHECK_IN_TOO_EARLY`, `CHECK_IN_WINDOW_CLOSED`,
-`CHECK_IN_POLICY_NOT_CONFIGURED`, `CHECK_IN_INVALID_STATE`,
+`CHECK_IN_INVALID_STATE`,
 `CONSULTATION_NOT_IN_QUEUE`, `QUEUE_EMPTY`, `QUEUE_STATE_CONFLICT`,
 `DOCTOR_QUEUE_ITEM_ALREADY_CALLED` và `DOCTOR_ACTIVE_SESSION_CONFLICT`.
-`checkInEarlyMinutes` lấy từ booking snapshot hoặc cấu hình
-`CONSULTATION_CHECK_IN_EARLY_MINUTES`; thiếu cả hai thì fail-closed. ETA hiện
-nullable với `ETA_POLICY_NOT_CONFIGURED`. Reconnect phải refetch; replay command
+`checkInEarlyMinutes` luôn lấy từ booking snapshot; thiếu snapshot thì
+fail-closed với `BOOKING_POLICY_UNAVAILABLE`. ETA hiện nullable với
+`ETA_POLICY_NOT_CONFIGURED`. Reconnect phải refetch; replay command
 trả `replayed = true` và server không emit lại realtime event.
 
 #### Health Metrics và AI

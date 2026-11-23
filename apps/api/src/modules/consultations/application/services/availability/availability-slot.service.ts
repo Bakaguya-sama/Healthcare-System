@@ -45,7 +45,7 @@ export class AvailabilitySlotService {
 
   async create(doctorId: string, dto: CreateAvailabilitySlotDto) {
     await this.assertApprovedDoctor(doctorId);
-    const policy = this.policy.getScheduledPolicy();
+    const policy = await this.policy.getScheduledPolicy(doctorId);
     const range = this.validateRange(dto.startAt, dto.endAt, dto.timezone);
     this.assertNotice(range.startAt, policy.minNoticeMinutes);
 
@@ -85,7 +85,7 @@ export class AvailabilitySlotService {
   }
 
   async listAvailable(doctorId: string, query: QueryAvailableSlotDto) {
-    const policy = this.policy.getScheduledPolicy();
+    const policy = await this.policy.getScheduledPolicy(doctorId);
     const { from, to } = this.validateQueryRange(query.from, query.to);
     await this.assertApprovedDoctor(doctorId);
     await this.expirePastSlots(doctorId);
@@ -105,7 +105,7 @@ export class AvailabilitySlotService {
 
   async update(doctorId: string, id: string, dto: UpdateAvailabilitySlotDto) {
     this.assertId(id, 'slot');
-    const policy = this.policy.getScheduledPolicy();
+    const policy = await this.policy.getScheduledPolicy(doctorId);
     const item = await this.inTransaction(async (session) => {
       const current = await this.slots.findById(id).session(session);
       if (!current) throw new NotFoundException('Availability slot not found');

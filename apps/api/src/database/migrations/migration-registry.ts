@@ -6,6 +6,18 @@ import {
 } from './202609162200-rf2d-query-indexes';
 import type { DatabaseMigration } from './migration.types';
 import {
+  applyE1DoctorBookingSettings,
+  E1_DOCTOR_BOOKING_SETTINGS_CHECKSUM,
+  E1_DOCTOR_BOOKING_SETTINGS_NAME,
+  E1_DOCTOR_BOOKING_SETTINGS_VERSION,
+} from './202611231000-e1-doctor-booking-settings';
+import {
+  applyE1AvailabilitySlotIndexReconciliation,
+  E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_CHECKSUM,
+  E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_NAME,
+  E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_VERSION,
+} from './202611231300-e1-availability-slot-index-reconciliation';
+import {
   applyAuthIdentityHardening,
   AUTH_IDENTITY_HARDENING_CHECKSUM,
   AUTH_IDENTITY_HARDENING_NAME,
@@ -612,6 +624,18 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: EXTERNAL_KNOWLEDGE_CANDIDATES_NAME,
     checksum: EXTERNAL_KNOWLEDGE_CANDIDATES_CHECKSUM,
     up: applyExternalKnowledgeCandidates,
+  },
+  {
+    version: E1_DOCTOR_BOOKING_SETTINGS_VERSION,
+    name: E1_DOCTOR_BOOKING_SETTINGS_NAME,
+    checksum: E1_DOCTOR_BOOKING_SETTINGS_CHECKSUM,
+    up: applyE1DoctorBookingSettings,
+  },
+  {
+    version: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_VERSION,
+    name: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_NAME,
+    checksum: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_CHECKSUM,
+    up: applyE1AvailabilitySlotIndexReconciliation,
   },
 ];
 

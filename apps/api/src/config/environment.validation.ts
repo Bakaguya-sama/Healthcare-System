@@ -196,24 +196,6 @@ export function validateEnvironment(
       'CONSULTATION_STALE_RECOVERY_ENABLED',
       false,
     ),
-    SCHEDULED_BOOKING_BUFFER_MINUTES: optionalInteger(
-      config,
-      'SCHEDULED_BOOKING_BUFFER_MINUTES',
-      0,
-      240,
-    ),
-    SCHEDULED_BOOKING_MIN_NOTICE_MINUTES: optionalInteger(
-      config,
-      'SCHEDULED_BOOKING_MIN_NOTICE_MINUTES',
-      0,
-      10_080,
-    ),
-    CONSULTATION_CHECK_IN_EARLY_MINUTES: optionalInteger(
-      config,
-      'CONSULTATION_CHECK_IN_EARLY_MINUTES',
-      0,
-      1_440,
-    ),
     CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES: optionalInteger(
       config,
       'CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES',

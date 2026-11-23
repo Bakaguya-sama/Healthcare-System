@@ -5834,3 +5834,36 @@ export interface PromoteKnowledgeCandidateResponse {
   candidate: KnowledgeCandidate;
   document: KnowledgeDocument;
 }
+
+/** Cấu hình canonical áp dụng cho các lịch scheduled được tạo sau thời điểm lưu. */
+export interface DoctorBookingSettings {
+  bookingPolicy: 'instant';
+  bufferMinutes: number;
+  minNoticeMinutes: number;
+  cancellationDeadlineMinutes: number;
+  checkInEarlyMinutes: number;
+  noShowAfterMinutes: number;
+  effectiveFrom: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+  updatedBy?: string;
+}
+
+export type UpdateDoctorBookingSettingsRequest = Pick<
+  DoctorBookingSettings,
+  | 'bookingPolicy'
+  | 'bufferMinutes'
+  | 'minNoticeMinutes'
+  | 'cancellationDeadlineMinutes'
+  | 'checkInEarlyMinutes'
+  | 'noShowAfterMinutes'
+>;
+
+export interface OverrideDoctorBookingSettingsRequest
+  extends UpdateDoctorBookingSettingsRequest {
+  overrideReason: string;
+}
+
+export interface DoctorBookingSettingsResponse {
+  statusCode: number;
+  data: DoctorBookingSettings;
+}

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, Types } from 'mongoose';
+import { Connection, Model } from 'mongoose';
 import { RedisService } from '../../../../../infrastructure/redis/redis.service';
 import { RedisKeyService } from '../../../../../infrastructure/redis/redis-key.service';
 import { OutboxService } from '../../../../../infrastructure/outbox/outbox.service';
@@ -77,7 +77,7 @@ export class ConsultationStaleRecoveryService {
         this.logger.warn({
           event: 'consultation.stale-recovery.deferred',
           consultationId: String(consultation._id),
-          error: String(error),
+          errorType: error instanceof Error ? error.name : 'unknown',
         });
       }
     }
@@ -106,7 +106,7 @@ export class ConsultationStaleRecoveryService {
             aggregateType: 'Consultation',
             aggregateId: current._id,
             payload: this.payload(current),
-            idempotencyKey: `consultation.timeout-warning:${current._id}`,
+            idempotencyKey: `consultation.timeout-warning:${String(current._id)}`,
           },
           session,
         );
@@ -147,7 +147,7 @@ export class ConsultationStaleRecoveryService {
             aggregateType: 'Consultation',
             aggregateId: current._id,
             payload: this.payload(current),
-            idempotencyKey: `consultation.timeout-extension:${current._id}`,
+            idempotencyKey: `consultation.timeout-extension:${String(current._id)}`,
           },
           session,
         );
@@ -187,7 +187,7 @@ export class ConsultationStaleRecoveryService {
           aggregateType: 'Consultation',
           aggregateId: current._id,
           payload: this.payload(current),
-          idempotencyKey: `consultation.timeout-cancelled:${current._id}`,
+          idempotencyKey: `consultation.timeout-cancelled:${String(current._id)}`,
         },
         session,
       );
@@ -224,7 +224,7 @@ export class ConsultationStaleRecoveryService {
           aggregateType: 'Consultation',
           aggregateId: current._id,
           payload: this.payload(current),
-          idempotencyKey: `consultation.scheduled-stale-review:${current._id}`,
+          idempotencyKey: `consultation.scheduled-stale-review:${String(current._id)}`,
         },
         session,
       );

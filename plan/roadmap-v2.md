@@ -386,7 +386,11 @@ ghi hoàn tất chỉ vì backend route tồn tại.
 
 **Slice:** CARE-01..03.
 
-1. Thay ENV bridge bằng `doctorProfile.bookingSettings` có Admin hard limits và snapshot.
+**Trạng thái E1:** ✅ Hoàn tất exit gate implementation/release-rehearsal ngày
+23/11/2026. Việc promote staging/production vẫn thuộc checklist vận hành của
+owner có quyền deploy; không được hiểu là đã smoke production.
+
+1. Thay ENV bridge bằng `doctorProfile.bookingSettings` có hard limit hệ thống, Admin override có lý do và snapshot.
 2. Chốt/implement `approval_required` nếu được nhận.
 3. Chốt disposition/quota cho scheduled quá 24 giờ.
 4. Sau khi có dữ liệu pilot, thiết kế unified on-demand queue và ETA.
@@ -394,7 +398,8 @@ ghi hoàn tất chỉ vì backend route tồn tại.
 **Công việc thực hiện:**
 
 1. Đưa `bookingSettings` về canonical Doctor profile: validation min/max, quyền
-   Doctor/Admin, audit và migration/backfill rõ ràng.
+   Doctor/Admin, audit và migration/backfill rõ ràng. Pilot E1 chỉ cho phép
+   `instant`; `approval_required` không được expose trước khi có UX/SLA riêng.
 2. Snapshot `bookingPolicy`, notice, buffer, cancellation/check-in/no-show policy
    vào Consultation khi booking; không đọc lại mutable setting khi xử lý lịch cũ.
 3. Tách command create/update slot, booking/reschedule/cancel/check-in/call-next/
@@ -406,6 +411,16 @@ ghi hoàn tất chỉ vì backend route tồn tại.
 **Exit gate:** booking/cancel/no-show/stale/quota transitions có idempotency/race
 tests; policy được snapshot và thay đổi không hồi tố lịch đã đặt; OpenAPI/realtime
 contract, audit log và runbook recovery khớp runtime.
+
+**Evidence E1 (23/11/2026, ✅ đã đóng exit gate):** migration canonical settings
+và reconciliation index apply/no-op, database verifier pass; unit/integration
+booking-queue và worker/outbox pass; worker process release rehearsal pass;
+OpenAPI/realtime check, typecheck, build và boundary check pass; pilot aggregate
+đã được ghi nhận (4 scheduled, lead time trung bình 948.39 phút, queue wait
+trung bình 0.81 phút, 0 stale review). Chi tiết và lệnh tái hiện tại
+`docs/evidence/e1-consultation-policy-exit-2026-11-23.md`. Không có claim deploy
+staging/production trong evidence này; owner phải chạy checklist deploy thật
+trước khi promote.
 
 ### E2 — Family Companion
 

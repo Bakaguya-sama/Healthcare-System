@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { ConfigService } from '@nestjs/config';
 import { MongoClient, ObjectId } from 'mongodb';
 import { Connection, createConnection, Model } from 'mongoose';
 import { migrateDatabase } from '../src/database/migrations/run-migrations';
-import { BookingPolicyService } from '../src/modules/consultations/application/services/consultations/booking-policy';
 import { ConsultationQueueService } from '../src/modules/consultations/application/services/consultations/consultation-queue.service';
 import { ConsultationsService } from '../src/modules/consultations/application/services/consultations/consultations.service';
 import {
@@ -62,13 +60,9 @@ describe('P0 patient check-in and doctor queue', () => {
         return user;
       }),
     };
-    const policy = new BookingPolicyService(
-      new ConfigService({ CONSULTATION_CHECK_IN_EARLY_MINUTES: 15 }),
-    );
     queue = new ConsultationQueueService(
       consultationModel as never,
       users as never,
-      policy,
       connection,
     );
     consultations = new ConsultationsService(
@@ -164,13 +158,12 @@ describe('P0 patient check-in and doctor queue', () => {
     });
   });
 
-  it('fails closed when neither the booking snapshot nor configuration defines check-in early minutes', async () => {
+  it('fails closed when the booking snapshot has no check-in early minutes', async () => {
     const failClosed = new ConsultationQueueService(
       consultationModel as never,
       {
         findById: async (id: string) => userModel.findById(id).lean(),
       } as never,
-      new BookingPolicyService(new ConfigService({})),
       connection,
     );
     const consultation = await createScheduled({
@@ -186,7 +179,7 @@ describe('P0 patient check-in and doctor queue', () => {
       ),
     ).rejects.toMatchObject({
       response: expect.objectContaining({
-        code: 'CHECK_IN_POLICY_NOT_CONFIGURED',
+        code: 'BOOKING_POLICY_UNAVAILABLE',
       }),
     });
   });

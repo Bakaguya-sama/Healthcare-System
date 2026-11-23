@@ -25,7 +25,7 @@ Table Users {
   banReason varchar
   lastOnlineAt datetime [note: "Durable last-known online time; realtime presence remains in Redis/Socket.IO"]
   address json [note: "{ street, ward, district, city, country }"]
-  doctorProfile json [note: "{ specialty, workplace, verificationDocuments[], experienceYears, averageRating, ratingSum, reviewCount, verificationStatus: pending|approved|rejected, verifiedAt, rejectReason, bookingSettings: { bookingPolicy: instant|approval_required, defaultDurationMinutes, bufferMinutes, minNoticeMinutes, maxAdvanceDays, cancellationDeadlineMinutes, checkInEarlyMinutes, noShowAfterMinutes } }; business values are Admin-configurable within system hard limits and snapshotted into a Consultation"]
+  doctorProfile json [note: "{ specialty, workplace, verificationDocuments[], experienceYears, averageRating, ratingSum, reviewCount, verificationStatus: pending|approved|rejected, verifiedAt, rejectReason, bookingSettings: { bookingPolicy: instant, bufferMinutes, minNoticeMinutes, cancellationDeadlineMinutes, checkInEarlyMinutes, noShowAfterMinutes, effectiveFrom, updatedAt, updatedBy, overrideReason? } }; E1 pilot permits instant only; values are bounded and Admin-overridable, then snapshotted into a Consultation without retroactive change"]
   adminProfile json [note: "{ adminRole: super_admin|user_manager|ai_manager }"]
   createdAt datetime
   updatedAt datetime

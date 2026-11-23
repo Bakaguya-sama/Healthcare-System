@@ -57,7 +57,7 @@ export class ScheduledBookingService {
   ) {
     this.assertIdempotencyKey(idempotencyKey);
     await this.assertActivePatient(patientId);
-    const key = this.keyHash(patientId, idempotencyKey!);
+    const key = this.keyHash(patientId, idempotencyKey);
     const requestHash = this.requestHash(dto);
     const replay = await this.consultations.findOne({
       scheduledBookingKey: key,
@@ -78,7 +78,9 @@ export class ScheduledBookingService {
           dto.availabilitySlotId,
           session,
         );
-        const policy = this.policy.getScheduledPolicy();
+        const policy = await this.policy.getScheduledPolicy(
+          String(slot.doctorId),
+        );
         this.assertNotice(slot.startAt, policy.minNoticeMinutes);
         const claimed = await this.slots.findOneAndUpdate(
           { _id: slot._id, status: AvailabilitySlotStatus.AVAILABLE },
@@ -92,8 +94,6 @@ export class ScheduledBookingService {
           1,
           Math.round((slot.endAt.getTime() - slot.startAt.getTime()) / 60_000),
         );
-        const checkInEarlyMinutes =
-          this.policy.getCheckInEarlyMinutesIfConfigured();
         const created = new this.consultations({
           _id: consultationId,
           patientId: new Types.ObjectId(patientId),
@@ -112,9 +112,6 @@ export class ScheduledBookingService {
           bookingSettingsSnapshot: {
             ...policy,
             defaultDurationMinutes: duration,
-            ...(checkInEarlyMinutes === undefined
-              ? {}
-              : { checkInEarlyMinutes }),
           },
           scheduledBookingKey: key,
           scheduledBookingRequestHash: requestHash,
@@ -156,7 +153,7 @@ export class ScheduledBookingService {
   ) {
     this.assertIdempotencyKey(idempotencyKey);
     this.assertObjectId(consultationId, 'consultation');
-    const key = this.keyHash(patientId, idempotencyKey!);
+    const key = this.keyHash(patientId, idempotencyKey);
     const requestHash = this.requestHash({ availabilitySlotId });
     const consultation = await this.inTransaction(async (session) => {
       const current = await this.consultations
@@ -184,8 +181,16 @@ export class ScheduledBookingService {
           'Reschedule slot must belong to the same doctor',
         );
       }
-      const policy = this.policy.getScheduledPolicy();
-      this.assertNotice(next.startAt, policy.minNoticeMinutes);
+      const snapshot = current.bookingSettingsSnapshot;
+      const minNoticeMinutes = snapshot?.minNoticeMinutes;
+      if (typeof minNoticeMinutes !== 'number') {
+        throw new BookingException(
+          HttpStatus.CONFLICT,
+          'BOOKING_POLICY_UNAVAILABLE',
+          'Reschedule policy snapshot is unavailable',
+        );
+      }
+      this.assertNotice(next.startAt, minNoticeMinutes);
       const claimed = await this.slots.findOneAndUpdate(
         { _id: next._id, status: AvailabilitySlotStatus.AVAILABLE },
         { $set: { status: AvailabilitySlotStatus.BOOKED } },
@@ -208,18 +213,13 @@ export class ScheduledBookingService {
         1,
         Math.round((next.endAt.getTime() - next.startAt.getTime()) / 60_000),
       );
-      const checkInEarlyMinutes =
-        this.policy.getCheckInEarlyMinutesIfConfigured();
       current.availabilitySlotId = next._id;
       current.scheduledStartAt = next.startAt;
       current.scheduledEndAt = next.endAt;
       current.timezone = next.timezone;
       current.expectedDurationMinutes = duration;
-      current.bookingSettingsSnapshot = {
-        ...policy,
-        defaultDurationMinutes: duration,
-        ...(checkInEarlyMinutes === undefined ? {} : { checkInEarlyMinutes }),
-      };
+      // Policy is captured at the original booking and never rewritten by a
+      // later doctor-profile change or by rescheduling to another slot.
       current.lastRescheduleKey = key;
       current.lastRescheduleRequestHash = requestHash;
       await current.save({ session });
@@ -229,7 +229,7 @@ export class ScheduledBookingService {
             eventType: 'consultation.care-task.lifecycle.v1',
             aggregateType: 'consultation',
             aggregateId: current._id,
-            idempotencyKey: `consultation.care-task.${current._id}.rescheduled.${key}`,
+            idempotencyKey: `consultation.care-task.${String(current._id)}.rescheduled.${key}`,
             payload: {
               eventVersion: 1,
               careTaskId: String(current.careTaskId),

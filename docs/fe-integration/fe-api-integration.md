@@ -700,6 +700,37 @@ pnpm.cmd --filter api realtime:check
 | Doctor manages own slots | `GET/POST /availability-slots`, `PATCH/DELETE /availability-slots/:id` | Doctor scope is server derived. |
 | Patient books | `POST /consultations/scheduled` + `Idempotency-Key` | `{ availabilitySlotId, patientNotes? }`; server atomically claims the slot and reserves ordinary quota. No consultation PaymentOrder/VNPAY call is created. |
 | Cancel / reschedule | `POST /consultations/:id/cancel`; `POST /consultations/:id/reschedule` + `Idempotency-Key` | Snapshot cutoff applies. Reschedule body is only `{ availabilitySlotId }` and keeps the existing reservation. |
+
+### E1 — Cấu hình đặt lịch của Bác sĩ
+
+| Người dùng | API | Mục đích | Lưu ý giao diện |
+| --- | --- | --- | --- |
+| Doctor | `GET /api/v1/doctor-booking-settings/me` | Đọc cấu hình lịch làm việc đang áp dụng cho booking mới. | Nếu nhận `404`, hiển thị trạng thái chưa cấu hình; Doctor không thể tạo slot hoặc nhận lịch scheduled cho đến khi lưu cấu hình hợp lệ. |
+| Doctor | `PATCH /api/v1/doctor-booking-settings/me` | Lưu cấu hình `instant` của chính mình. | Chỉ gửi số nguyên trong giới hạn: buffer 0–60, notice/cancel 0–10.080, check-in/no-show 0–1.440 phút. Không hiển thị lựa chọn `approval_required`. |
+| Admin | `GET /api/v1/doctor-booking-settings/:doctorId` | Xem cấu hình của Doctor. | Chỉ dành cho màn quản trị. |
+| Admin | `PATCH /api/v1/doctor-booking-settings/:doctorId/override` | Override cấu hình Doctor khi có lý do vận hành. | `overrideReason` bắt buộc; không dùng API này để sửa policy của consultation đã đặt. |
+
+Body settings dùng chung:
+
+```json
+{
+  "bookingPolicy": "instant",
+  "bufferMinutes": 15,
+  "minNoticeMinutes": 60,
+  "cancellationDeadlineMinutes": 60,
+  "checkInEarlyMinutes": 15,
+  "noShowAfterMinutes": 10
+}
+```
+
+`Consultation.bookingSettingsSnapshot` là dữ liệu lịch sử do server ghi khi đặt
+lịch. Frontend không được tự thay snapshot hoặc áp dụng settings hiện tại để suy
+luận cutoff/check-in/no-show của lịch cũ. Reschedule đổi slot nhưng giữ policy
+snapshot ban đầu. Khi `estimatedWaitMinutes` là `null`, dùng `etaReason` để hiển
+thị “chưa có ước tính” thay vì tự tính ETA.
+
+Lịch scheduled quá 24 giờ chưa được xử lý chỉ được đưa vào review nội bộ; Patient
+và Doctor không được hiểu đây là lịch bị tự hủy, no-show hay hoàn quota.
 | Check-in / own queue | `POST /consultations/:id/check-in` + key; `GET /consultations/:id/queue` | Scheduled, accepted consultation only. Position is authoritative; `estimatedWaitMinutes` can be `null`, so never derive ETA from position. |
 | Doctor queue / call-next | `GET /doctors/me/queue?page&limit`; `POST /doctors/me/queue/call-next` + key | Scheduled-only queue. Call-next is atomic but does not start the consultation. |
 

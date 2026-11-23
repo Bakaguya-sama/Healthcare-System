@@ -15,16 +15,27 @@ import { PatientProfileService } from './application/services/patients/patient-p
 import { AdminsController } from './presentation/controllers/admins/admins.controller';
 import { AdminsService } from './application/services/admins/admins.service';
 import { UserAdministrationService } from './application/services/user-administration.service';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
+import { DoctorBookingSettingsService } from './application/services/doctors/doctor-booking-settings.service';
+import { DoctorBookingSettingsController } from './presentation/controllers/doctor-booking-settings.controller';
 
 @Module({
   imports: [
     FilesModule,
+    PlatformAuditModule,
+    OutboxModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: PatientProfile.name, schema: PatientProfileSchema },
     ]),
   ],
-  controllers: [UsersController, PatientProfileController, AdminsController],
+  controllers: [
+    UsersController,
+    PatientProfileController,
+    AdminsController,
+    DoctorBookingSettingsController,
+  ],
   providers: [
     UsersService,
     DoctorDirectoryService,
@@ -32,6 +43,7 @@ import { UserAdministrationService } from './application/services/user-administr
     PatientProfileService,
     AdminsService,
     UserAdministrationService,
+    DoctorBookingSettingsService,
   ],
   exports: [
     MongooseModule,
@@ -40,6 +52,7 @@ import { UserAdministrationService } from './application/services/user-administr
     UsersCacheService,
     AdminsService,
     UserAdministrationService,
+    DoctorBookingSettingsService,
   ],
 })
 export class UsersModule {}

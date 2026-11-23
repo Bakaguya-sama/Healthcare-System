@@ -4741,6 +4741,426 @@
         ]
       }
     },
+    "/api/v1/doctor-booking-settings/me": {
+      "get": {
+        "operationId": "DoctorBookingSettings_getMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "doctor-booking-settings"
+        ]
+      },
+      "patch": {
+        "operationId": "DoctorBookingSettings_updateMine",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoctorBookingSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "doctor-booking-settings"
+        ]
+      }
+    },
+    "/api/v1/doctor-booking-settings/{doctorId}": {
+      "get": {
+        "operationId": "DoctorBookingSettings_getForAdmin",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "doctor-booking-settings"
+        ]
+      }
+    },
+    "/api/v1/doctor-booking-settings/{doctorId}/override": {
+      "patch": {
+        "operationId": "DoctorBookingSettings_override",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideDoctorBookingSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "doctor-booking-settings"
+        ]
+      }
+    },
     "/api/v1/notifications": {
       "post": {
         "operationId": "Notifications_create",
@@ -26997,6 +27417,158 @@
             ]
           }
         }
+      },
+      "BookingSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "bookingPolicy": {
+            "type": "string",
+            "enum": [
+              "instant"
+            ],
+            "example": "instant"
+          },
+          "bufferMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60
+          },
+          "minNoticeMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10080
+          },
+          "cancellationDeadlineMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10080
+          },
+          "checkInEarlyMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "noShowAfterMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "effectiveFrom": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "bookingPolicy",
+          "bufferMinutes",
+          "minNoticeMinutes",
+          "cancellationDeadlineMinutes",
+          "checkInEarlyMinutes",
+          "noShowAfterMinutes",
+          "effectiveFrom",
+          "updatedAt"
+        ]
+      },
+      "DoctorBookingSettingsDto": {
+        "type": "object",
+        "properties": {
+          "bookingPolicy": {
+            "type": "string",
+            "enum": [
+              "instant"
+            ],
+            "example": "instant"
+          },
+          "bufferMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60
+          },
+          "minNoticeMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10080
+          },
+          "cancellationDeadlineMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10080
+          },
+          "checkInEarlyMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "noShowAfterMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440
+          }
+        },
+        "required": [
+          "bookingPolicy",
+          "bufferMinutes",
+          "minNoticeMinutes",
+          "cancellationDeadlineMinutes",
+          "checkInEarlyMinutes",
+          "noShowAfterMinutes"
+        ]
+      },
+      "OverrideDoctorBookingSettingsDto": {
+        "type": "object",
+        "properties": {
+          "bookingPolicy": {
+            "type": "string",
+            "enum": [
+              "instant"
+            ],
+            "example": "instant"
+          },
+          "bufferMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60
+          },
+          "minNoticeMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10080
+          },
+          "cancellationDeadlineMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10080
+          },
+          "checkInEarlyMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "noShowAfterMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "overrideReason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "bookingPolicy",
+          "bufferMinutes",
+          "minNoticeMinutes",
+          "cancellationDeadlineMinutes",
+          "checkInEarlyMinutes",
+          "noShowAfterMinutes",
+          "overrideReason"
+        ]
       },
       "CreateNotificationDto": {
         "type": "object",
