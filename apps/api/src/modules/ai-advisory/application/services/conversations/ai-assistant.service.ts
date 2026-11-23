@@ -31,6 +31,7 @@ import {
 } from '../../../presentation/dto/conversations/conversation.dto';
 import { RagRetrievalService } from '../retrieval/rag-retrieval.service';
 import { ContextBuilderService } from '../retrieval/context-builder.service';
+import { ExternalEvidenceService } from '../retrieval/external-evidence.service';
 import { MedicalAnsweringService } from './medical-answering.service';
 import { PromptBuilderService } from './prompt-builder.service';
 import { LlmGatewayService } from '../../../infrastructure/adapters/retrieval/llm-gateway.service';
@@ -85,6 +86,8 @@ export class AiAssistantService {
     @Optional() conversationManagement?: AiConversationManagementService,
     @Optional() messageOrchestration?: AiMessageOrchestrationService,
     @Optional() @Inject(AI_QUOTA_PORT) private readonly aiQuota?: AiQuotaPort,
+    @Optional()
+    private readonly externalEvidenceService?: ExternalEvidenceService,
   ) {
     this.conversationQueries =
       conversationQueries ??
@@ -110,6 +113,7 @@ export class AiAssistantService {
         responseOrchestrator,
         aiSafetyService,
         healthProfileReader,
+        externalEvidenceService,
       );
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     this.logger.log(

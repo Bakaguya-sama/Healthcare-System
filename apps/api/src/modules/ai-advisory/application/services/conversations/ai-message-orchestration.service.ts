@@ -38,6 +38,7 @@ import { isProviderUsageMetadataMissing } from '../../errors/provider-usage-meta
 import { CloudinaryService } from '../../../../../infrastructure/files/cloudinary.service';
 import { AiResponseOrchestrator } from './ai-response-orchestrator.service';
 import { AiSafetyService } from './ai-safety.service';
+import { ExternalEvidenceService } from '../retrieval/external-evidence.service';
 import {
   HEALTH_PROFILE,
   type HealthProfilePort,
@@ -89,6 +90,8 @@ export class AiMessageOrchestrationService {
     @Optional()
     @Inject(HEALTH_PROFILE)
     private readonly healthProfileReader?: HealthProfilePort,
+    @Optional()
+    private readonly externalEvidenceService?: ExternalEvidenceService,
   ) {}
 
   private get responseGateway(): AiResponseOrchestrator | LlmGatewayService {
@@ -129,6 +132,12 @@ export class AiMessageOrchestrationService {
       const hasRelevantSource = Boolean(builtContext.context);
 
       if (!hasRelevantSource) {
+        await this.externalEvidenceService?.discoverCandidatesWhenInternalEvidenceIsInsufficient(
+          query,
+          /(nghiên cứu mới|nghien cuu moi|pubmed|medline|y văn mới|y van moi)/i.test(
+            query,
+          ),
+        );
         return {
           context: null,
           hasRelevantSource: false,
@@ -137,16 +146,11 @@ export class AiMessageOrchestrationService {
         };
       }
 
-      const scoreSummary = retrieval.hits
-        .map(
-          (hit, index) =>
-            `  [${index + 1}] Score ${hit.score.toFixed(4)}: ${hit.content.substring(0, 50)}...`,
-        )
-        .join('\n');
-
-      this.logger.log(
-        `[AI Assistant] RAG Query="${query}"\n${scoreSummary}\nPassed threshold (${retrieval.threshold.toFixed(2)}): ${retrieval.hits.length}`,
-      );
+      this.logger.log({
+        event: 'knowledge.retrieval.evidence_found',
+        hitCount: retrieval.hits.length,
+        threshold: retrieval.threshold,
+      });
 
       return {
         context: builtContext.context,
@@ -155,10 +159,10 @@ export class AiMessageOrchestrationService {
         confidence,
       };
     } catch (error) {
-      this.logger.warn(
-        '[AI Assistant] Truy van RAG that bai, tiep tuc tra loi khong co context.',
-      );
-      this.logger.error('[AI Assistant] RAG retrieval error:', error);
+      this.logger.warn({
+        event: 'knowledge.retrieval.unavailable',
+        error: error instanceof Error ? error.name : 'unknown',
+      });
       return {
         context: null,
         hasRelevantSource: false,
@@ -428,6 +432,49 @@ export class AiMessageOrchestrationService {
       throw new BadRequestException('Message text or image is required');
     }
 
+    const safetyDecision = normalizedMessage
+      ? this.aiSafetyService?.decideAnswerSafety(normalizedMessage)
+      : undefined;
+    if (safetyDecision && !safetyDecision.allowRag && safetyDecision.response) {
+      const timestamp = new Date();
+      await this.aiConversationMessageModel.insertMany([
+        {
+          conversationId: conversation._id,
+          role: MessageRole.USER,
+          content: normalizedMessage,
+          timestamp,
+        },
+        {
+          conversationId: conversation._id,
+          role: MessageRole.ASSISTANT,
+          content: safetyDecision.response,
+          timestamp,
+        },
+      ]);
+      await this.aiConversationModel
+        .updateOne(
+          { _id: conversation._id },
+          { $set: { lastMessageAt: timestamp }, $inc: { messageCount: 2 } },
+        )
+        .exec();
+      return {
+        statusCode: 200,
+        message: 'Message handled by medical safety policy',
+        quotaUsage: { inputTokens: 0, outputTokens: 0 },
+        data: {
+          conversationId: conversation._id,
+          topic: conversation.topic,
+          userMessage: normalizedMessage,
+          attachments: [],
+          finalAiResponse: safetyDecision.response,
+          messageCount: conversation.messageCount + 2,
+          groundedByRag: false,
+          citations: [],
+          confidence: 0,
+        },
+      };
+    }
+
     const uploadedImages =
       normalizedImages.length > 0
         ? await this.uploadConversationImages(conversationId, normalizedImages)
@@ -449,14 +496,16 @@ export class AiMessageOrchestrationService {
         this.promptBuilderService.getImageDescriptionPrompt();
 
       try {
-        const imageResult = await this.responseGateway.generateImageDescription({
-          modelName: 'gemini-2.5-flash-lite',
-          systemInstruction: descriptionPrompt,
-          userImages: uploadedImages.map((img) => ({
-            mimeType: img.mimeType,
-            base64Data: img.base64Data,
-          })),
-        });
+        const imageResult = await this.responseGateway.generateImageDescription(
+          {
+            modelName: 'gemini-2.5-flash-lite',
+            systemInstruction: descriptionPrompt,
+            userImages: uploadedImages.map((img) => ({
+              mimeType: img.mimeType,
+              base64Data: img.base64Data,
+            })),
+          },
+        );
         imageDescription = imageResult.text;
         this.addProviderUsage(requestUsage, imageResult.usage);
 
@@ -526,6 +575,45 @@ export class AiMessageOrchestrationService {
     ]);
 
     try {
+      if (!ragContext.hasRelevantSource) {
+        const noEvidenceResponse =
+          'Tôi chưa có tài liệu nội bộ đã được phê duyệt để trả lời an toàn cho câu hỏi này. Vui lòng liên hệ bác sĩ hoặc cơ sở y tế; nếu có dấu hiệu khẩn cấp, hãy gọi cấp cứu ngay.';
+        const responseTimestamp = new Date();
+        await this.aiConversationMessageModel.insertMany([
+          { ...userMessage, conversationId: conversation._id },
+          {
+            conversationId: conversation._id,
+            role: MessageRole.ASSISTANT,
+            content: noEvidenceResponse,
+            timestamp: responseTimestamp,
+          },
+        ]);
+        await this.aiConversationModel
+          .updateOne(
+            { _id: conversation._id },
+            {
+              $set: { lastMessageAt: responseTimestamp },
+              $inc: { messageCount: 2 },
+            },
+          )
+          .exec();
+        return {
+          statusCode: 200,
+          message: 'Message processed safely without knowledge evidence',
+          quotaUsage: requestUsage,
+          data: {
+            conversationId: conversation._id,
+            topic: conversation.topic,
+            userMessage: messageContent,
+            attachments: [],
+            finalAiResponse: noEvidenceResponse,
+            messageCount: conversation.messageCount + 2,
+            groundedByRag: false,
+            citations: [],
+            confidence: 0,
+          },
+        };
+      }
       let userPromptForModel = '';
       // 💡 FIX: Tạo câu hỏi toàn diện cho LLM, bao gồm cả mô tả ảnh.
       const finalQuestionForModel = imageDescription.trim()

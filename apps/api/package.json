@@ -45,6 +45,8 @@
     "database:bootstrap": "pnpm run database:migrate && pnpm run database:verify && pnpm run database:seed:reference",
     "migration:up": "pnpm run database:migrate",
     "perf:rf2e": "ts-node -r tsconfig-paths/register src/scripts/rf2e-cache-baseline.ts",
+    "rag:benchmark": "ts-node -r tsconfig-paths/register src/scripts/rag-phase-c-benchmark.ts",
+    "rag:benchmark:seed": "ts-node -r tsconfig-paths/register src/scripts/seed-rag-phase-c-benchmark.ts",
     "seed": "pnpm run database:seed:demo",
     "seed:build": "npm run build && node dist/database/seeds/demo.seed.js"
   },

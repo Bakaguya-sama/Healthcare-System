@@ -4037,380 +4037,6 @@ export interface AiFeedbacksVerifyFeedbackResponse {
 
 // ==================== AI DOCUMENTS ====================
 
-/** GET /api/v1/ai-documents — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsGetAllDocumentsRequest {
-  query: { page?: number;
-  limit?: number;
-  sortOrder?: -1 | 1;
-  status?: "processing" | "active" | "error" | "inactive";
-  search?: string;
-  sortBy?: string;
-  };
-}
-
-/** GET /api/v1/ai-documents — response thành công theo return type thực tế. */
-export interface AiDocumentsGetAllDocumentsResponse {
-  data: Array<{ _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-  }>;
-  total: number;
-}
-
-/** POST /api/v1/ai-documents — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsCreateRequest {
-  file: UploadBinary;
-  title?: string;
-}
-
-/** POST /api/v1/ai-documents — response thành công theo return type thực tế. */
-export interface AiDocumentsCreateResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** GET /api/v1/ai-documents/search/{query} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsSearchDocumentsRequest {
-  params: { query: string;
-  };
-}
-
-/** GET /api/v1/ai-documents/search/{query} — response thành công theo return type thực tế. */
-export type AiDocumentsSearchDocumentsResponse = Array<{ _id: string; title: string; fileUrl: string; fileType: string; publicId: string; status: "processing" | "active" | "error" | "inactive"; uploadedBy: string; validUntil?: string; reviewStatus: "pending_review" | "approved" | "rejected" | "archived"; approvedBy?: string; approvedAt?: string; }>;
-
-/** GET /api/v1/ai-documents/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsGetDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** GET /api/v1/ai-documents/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentsGetDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsUpdateDocumentRequest {
-  params: { id: string;
-  };
-  body: { title?: string;
-  fileUrl?: string;
-  fileType?: string;
-  status?: "processing" | "active" | "error" | "inactive";
-  validUntil?: null | string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentsUpdateDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** DELETE /api/v1/ai-documents/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsDeleteDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** DELETE /api/v1/ai-documents/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentsDeleteDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id}/index — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsIndexDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id}/index — response thành công theo return type thực tế. */
-export interface AiDocumentsIndexDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id}/usage — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsIncrementUsageRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id}/usage — response thành công theo return type thực tế. */
-export interface AiDocumentsIncrementUsageResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id}/archive — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsArchiveDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id}/archive — response thành công theo return type thực tế. */
-export interface AiDocumentsArchiveDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-// ==================== AI DOCUMENT CHUNKS ====================
-
-/** GET /api/v1/ai-document-chunks — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksGetAllChunksRequest {
-  query: { page?: number;
-  limit?: number;
-  sortOrder?: -1 | 1;
-  documentId?: string;
-  search?: string;
-  sortBy?: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks — response thành công theo return type thực tế. */
-export interface AiDocumentChunksGetAllChunksResponse {
-  data: Array<{ _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-  }>;
-  total: number;
-}
-
-/** POST /api/v1/ai-document-chunks — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksCreateRequest {
-  documentId: string;
-  content: string;
-  chunkIndex: number;
-  embedding?: Array<number>;
-  tokenCount?: number;
-  metadata?: Record<string, unknown>;
-  relatedChunks?: Array<string>;
-}
-
-/** POST /api/v1/ai-document-chunks — response thành công theo return type thực tế. */
-export interface AiDocumentChunksCreateResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** POST /api/v1/ai-document-chunks/batch — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksCreateManyRequest {
-  body: Array<string>;
-}
-
-/** POST /api/v1/ai-document-chunks/batch — response thành công theo return type thực tế. */
-export type AiDocumentChunksCreateManyResponse = Array<{ _id: string; documentId: string; chunkIndex: number; content: string; embedding: Array<number>; isActive: boolean; reviewStatus: "approved" | "rejected" | "pending_review" | "archived"; validUntil?: string; }>;
-
-/** GET /api/v1/ai-document-chunks/document/{documentId} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksGetDocumentChunksRequest {
-  params: { documentId: string;
-  };
-  query: { page?: number;
-  limit?: number;
-  sortOrder?: -1 | 1;
-  documentId?: string;
-  search?: string;
-  sortBy?: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks/document/{documentId} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksGetDocumentChunksResponse {
-  data: Array<{ _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-  }>;
-  total: number;
-}
-
-/** DELETE /api/v1/ai-document-chunks/document/{documentId} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksDeleteDocumentChunksRequest {
-  params: { documentId: string;
-  };
-}
-
-/** DELETE /api/v1/ai-document-chunks/document/{documentId} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksDeleteDocumentChunksResponse {
-  deletedCount: number;
-}
-
-/** GET /api/v1/ai-document-chunks/search/{query} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksSearchChunksRequest {
-  params: { query: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks/search/{query} — response thành công theo return type thực tế. */
-export type AiDocumentChunksSearchChunksResponse = Array<{ _id: string; documentId: string; chunkIndex: number; content: string; embedding: Array<number>; isActive: boolean; reviewStatus: "approved" | "rejected" | "pending_review" | "archived"; validUntil?: string; }>;
-
-/** GET /api/v1/ai-document-chunks/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksGetChunkRequest {
-  params: { id: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksGetChunkResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksUpdateChunkRequest {
-  params: { id: string;
-  };
-  body: { content?: string;
-  embedding?: Array<number>;
-  metadata?: Record<string, unknown>;
-  relatedChunks?: Array<string>;
-  };
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksUpdateChunkResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** DELETE /api/v1/ai-document-chunks/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksDeleteChunkRequest {
-  params: { id: string;
-  };
-}
-
-/** DELETE /api/v1/ai-document-chunks/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksDeleteChunkResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id}/usage — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksIncrementUsageRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id}/usage — response thành công theo return type thực tế. */
-export interface AiDocumentChunksIncrementUsageResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-// ==================== CARE-PROGRAMS ====================
-
 /** GET /api/v1/care-programs — input (Params/Query/Headers/Body theo tên field). */
 export interface CareProgramRuleListProgramsRequest {
   query: { page?: number;
@@ -6070,4 +5696,117 @@ export interface Da2CareReportExport {
   download?: { url: string; expiresAt: Da2IsoDateTime };
   failureReasonCode?: string;
   replayed?: boolean;
+}
+
+/** AI knowledge-document contract exposed to the frontend. */
+export type KnowledgeDocumentStatus =
+  | 'pending_ingestion'
+  | 'processing'
+  | 'ready_for_activation'
+  | 'active'
+  | 'error'
+  | 'inactive';
+
+export type KnowledgeDocumentReviewStatus =
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+  | 'archived';
+
+export interface KnowledgeDocument {
+  _id: string;
+  title: string;
+  fileType: string;
+  status: KnowledgeDocumentStatus;
+  reviewStatus: KnowledgeDocumentReviewStatus;
+  documentVersion: number;
+  parentDocumentId?: string | null;
+  scope: string;
+  knowledgeLanguage: string;
+  source: string;
+  validUntil?: Da2IsoDateTime | null;
+  uploadedBy: string;
+  reviewedBy?: string | null;
+  reviewedAt?: Da2IsoDateTime | null;
+  reviewReason?: string | null;
+  approvedBy?: string;
+  approvedAt?: Da2IsoDateTime;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface KnowledgeDocumentUpdateRequest {
+  title?: string;
+  validUntil?: Da2IsoDateTime | null;
+}
+
+export interface KnowledgeDocumentRejectRequest {
+  reason?: string;
+}
+
+export interface KnowledgeDocumentsListRequest {
+  page?: number;
+  limit?: number;
+  status?: KnowledgeDocumentStatus;
+  search?: string;
+  sortBy?: 'createdAt' | 'updatedAt' | 'title';
+  sortOrder?: 1 | -1;
+}
+
+export interface KnowledgeDocumentsListResponse {
+  data: KnowledgeDocument[];
+  total: number;
+}
+
+/** `multipart/form-data`; `file` is the selected PDF, DOC, DOCX, or TXT file. */
+export interface KnowledgeDocumentSubmissionRequest {
+  file: File;
+  title?: string;
+  validUntil?: Da2IsoDateTime | null;
+}
+
+export type KnowledgeDocumentReplacementRequest =
+  KnowledgeDocumentSubmissionRequest;
+
+/** Public citation from an AI response; no storage, vector or provider internals. */
+export interface AiEvidenceCitation {
+  source: string;
+  title?: string;
+  excerpt: string;
+  documentVersion?: number;
+  pageNumber?: number | null;
+  sectionTitle?: string | null;
+}
+
+export type KnowledgeCandidateStatus =
+  | 'pending_review'
+  | 'promoted'
+  | 'rejected';
+
+/** Public PubMed metadata only; the API never exposes or accepts an abstract. */
+export interface KnowledgeCandidate {
+  _id: string;
+  pmid: string;
+  title: string;
+  sourceUrl: string;
+  status: KnowledgeCandidateStatus;
+  reviewedAt?: Da2IsoDateTime | null;
+  reviewReason?: string | null;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface ProposeKnowledgeCandidateRequest {
+  pmid: string;
+  title: string;
+  sourceUrl: string;
+}
+
+export interface RejectKnowledgeCandidateRequest {
+  reason?: string;
+}
+
+export interface PromoteKnowledgeCandidateResponse {
+  candidate: KnowledgeCandidate;
+  document: KnowledgeDocument;
 }

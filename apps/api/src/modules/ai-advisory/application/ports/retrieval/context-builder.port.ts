@@ -11,6 +11,10 @@ export type Citation = {
   documentId: string;
   score: number;
   excerpt: string;
+  documentVersion: number;
+  pageNumber?: number | null;
+  sectionTitle?: string | null;
+  title?: string;
 };
 
 export type ContextBuilderOutput = {

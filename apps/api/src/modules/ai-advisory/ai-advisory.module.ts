@@ -50,6 +50,21 @@ import { TextExtractionService } from './application/services/retrieval/text-ext
 import { CareSummaryNarrativeService } from './application/services/care-summary/care-summary-narrative.service';
 import { CARE_SUMMARY_NARRATIVE_PORT } from './application/ports/care-summary/care-summary-narrative.port';
 import { BillingModule } from '../billing/billing.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { User, UserSchema } from '../users/public-api';
+import { AuditLog, AuditLogSchema } from '../platform-audit/public-api';
+import { IngestApprovedKnowledgeDocumentService } from './application/services/knowledge-base/documents/ingest-approved-knowledge-document.service';
+import { ExternalEvidenceService } from './application/services/retrieval/external-evidence.service';
+import { ExternalEvidenceQueryPolicy } from './domain/policies/external-evidence-query.policy';
+import { PubmedLiteratureAdapter } from './infrastructure/adapters/retrieval/pubmed-literature.adapter';
+import { EXTERNAL_LITERATURE_PORT } from './application/ports/retrieval/external-literature.port';
+import {
+  KnowledgeCandidate,
+  KnowledgeCandidateSchema,
+} from './domain/entities/knowledge-base/knowledge-candidate.entity';
+import { KnowledgeCandidatesService } from './application/services/knowledge-base/candidates/knowledge-candidates.service';
+import { KnowledgeCandidatesController } from './presentation/controllers/knowledge-base/candidates/knowledge-candidates.controller';
 
 @Module({
   imports: [
@@ -57,6 +72,8 @@ import { BillingModule } from '../billing/billing.module';
     HealthTrackingModule,
     ModerationModule,
     BillingModule,
+    OutboxModule,
+    PlatformAuditModule,
     MongooseModule.forFeature([
       { name: AiConversation.name, schema: AiConversationSchema },
       {
@@ -66,6 +83,9 @@ import { BillingModule } from '../billing/billing.module';
       { name: AiFeedback.name, schema: AiFeedbackSchema },
       { name: AiDocument.name, schema: AiDocumentSchema },
       { name: AiDocumentChunk.name, schema: AiDocumentChunkSchema },
+      { name: KnowledgeCandidate.name, schema: KnowledgeCandidateSchema },
+      { name: User.name, schema: UserSchema },
+      { name: AuditLog.name, schema: AuditLogSchema },
     ]),
   ],
   controllers: [
@@ -73,6 +93,7 @@ import { BillingModule } from '../billing/billing.module';
     AiFeedbacksController,
     AiDocumentsController,
     AiDocumentChunksController,
+    KnowledgeCandidatesController,
   ],
   providers: [
     AiAssistantService,
@@ -81,6 +102,8 @@ import { BillingModule } from '../billing/billing.module';
     AiMessageOrchestrationService,
     AiFeedbacksService,
     AiDocumentsService,
+    KnowledgeCandidatesService,
+    IngestApprovedKnowledgeDocumentService,
     AiDocumentChunksService,
     MedicalAnsweringService,
     PromptBuilderService,
@@ -92,17 +115,25 @@ import { BillingModule } from '../billing/billing.module';
     CareSummaryNarrativeService,
     RagIngestionService,
     RagRetrievalService,
+    ExternalEvidenceService,
+    ExternalEvidenceQueryPolicy,
+    PubmedLiteratureAdapter,
+    { provide: EXTERNAL_LITERATURE_PORT, useExisting: PubmedLiteratureAdapter },
     ContextBuilderService,
     EmbeddingService,
     AtlasVectorStoreService,
     { provide: VECTOR_SEARCH_PORT, useExisting: AtlasVectorStoreService },
-    { provide: CARE_SUMMARY_NARRATIVE_PORT, useExisting: CareSummaryNarrativeService },
+    {
+      provide: CARE_SUMMARY_NARRATIVE_PORT,
+      useExisting: CareSummaryNarrativeService,
+    },
   ],
   exports: [
     AiAssistantService,
     AiFeedbacksService,
     RagIngestionService,
     RagRetrievalService,
+    ExternalEvidenceService,
     CARE_SUMMARY_NARRATIVE_PORT,
   ],
 })
