@@ -587,6 +587,7 @@ export class ConsultationsService implements CareReportPort {
         requestStatus: ConsultationRequestStatus.ACCEPTED,
         sessionStatus: {
           $in: [
+            ConsultationSessionStatus.NOT_STARTED,
             ConsultationSessionStatus.WAITING,
             ConsultationSessionStatus.IN_CONSULTATION,
           ],

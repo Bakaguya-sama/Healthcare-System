@@ -24,6 +24,7 @@ describe('ConsultationsService state machine', () => {
         return this;
       }),
     };
+    const upcomingExec = jest.fn().mockResolvedValue([]);
     const model = {
       findById: jest.fn().mockImplementation(() => {
         const query = Promise.resolve(consultation) as Promise<
@@ -33,6 +34,20 @@ describe('ConsultationsService state machine', () => {
         return query;
       }),
       create: jest.fn().mockResolvedValue(consultation),
+      find: jest.fn().mockImplementation(() => {
+        const query = {
+          select: jest.fn(),
+          sort: jest.fn(),
+          limit: jest.fn(),
+          lean: jest.fn(),
+          exec: upcomingExec,
+        };
+        query.select.mockReturnValue(query);
+        query.sort.mockReturnValue(query);
+        query.limit.mockReturnValue(query);
+        query.lean.mockReturnValue(query);
+        return query;
+      }),
       findOne: jest.fn().mockImplementation(() => {
         const query = {
           session: jest.fn(),
@@ -74,6 +89,8 @@ describe('ConsultationsService state machine', () => {
         undefined,
         outbox as never,
       ),
+      model,
+      upcomingExec,
       consultation,
       patientId,
       doctorId,
@@ -264,5 +281,37 @@ describe('ConsultationsService state machine', () => {
     expect(result.data).not.toHaveProperty('status');
     expect(result.data).not.toHaveProperty('scheduledAt');
     expect(result.data).not.toHaveProperty('doctorSessionId');
+  });
+
+  it('includes NOT_STARTED scheduled consultations in getUpcoming', async () => {
+    const { service, model, upcomingExec, doctorId } = createService();
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    upcomingExec.mockResolvedValueOnce([
+      {
+        _id: new Types.ObjectId(),
+        doctorId,
+        requestStatus: ConsultationRequestStatus.ACCEPTED,
+        sessionStatus: ConsultationSessionStatus.NOT_STARTED,
+        scheduledStartAt: tomorrow,
+      },
+    ]);
+
+    const result = await service.getUpcoming(doctorId.toString(), 'doctor', 7);
+
+    expect(model.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        doctorId,
+        requestStatus: ConsultationRequestStatus.ACCEPTED,
+        sessionStatus: {
+          $in: [
+            ConsultationSessionStatus.NOT_STARTED,
+            ConsultationSessionStatus.WAITING,
+            ConsultationSessionStatus.IN_CONSULTATION,
+          ],
+        },
+      }),
+    );
+    expect(result.count).toBe(1);
+    expect(result.data).toHaveLength(1);
   });
 });
