@@ -1,4 +1,4 @@
-import { AiConversationSchema } from '../../modules/ai-advisory/domain/entities/conversations/ai-conversation.entity';
+import { AiConversationSchema } from '../../modules/ai-advisory/domain/conversations/ai-conversation.entity';
 import { MessageSchema } from '../../modules/consultations/domain/entities/messaging/message.entity';
 import { HealthMetricSchema } from '../../modules/health-tracking/domain/entities/health-metric.entity';
 import { NotificationSchema } from '../../modules/notifications/domain/entities/notification.entity';

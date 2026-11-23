@@ -7,9 +7,9 @@ import type { Model } from 'mongoose';
 import { AppModule } from '../app.module';
 import { OutboxService } from '../infrastructure/outbox/outbox.service';
 import { AuditLog, type AuditLogDocument } from '../modules/platform-audit/public-api';
-import { EmbeddingService } from '../modules/ai-advisory/infrastructure/adapters/retrieval/google-embedding.service';
-import { AiDocument, type AiDocumentDocument, DocumentReviewStatus, DocumentStatus } from '../modules/ai-advisory/domain/entities/knowledge-base/documents/ai-document.entity';
-import { AiDocumentChunk, type AiDocumentChunkDocument } from '../modules/ai-advisory/domain/entities/knowledge-base/chunks/ai-document-chunk.entity';
+import { EmbeddingService } from '../modules/ai-advisory/infrastructure/retrieval/google-embedding.service';
+import { AiDocument, type AiDocumentDocument, DocumentReviewStatus, DocumentStatus } from '../modules/ai-advisory/domain/knowledge-base/documents/ai-document.entity';
+import { AiDocumentChunk, type AiDocumentChunkDocument } from '../modules/ai-advisory/domain/knowledge-base/chunks/ai-document-chunk.entity';
 import { User, type UserDocument } from '../modules/users/public-api';
 
 type BaselineRow = { id: string; question: string; expected_evidence_key: string };

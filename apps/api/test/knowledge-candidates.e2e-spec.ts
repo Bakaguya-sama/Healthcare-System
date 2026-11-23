@@ -4,8 +4,8 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { JwtAuthGuard } from '../src/core/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/core/guards/roles.guard';
-import { KnowledgeCandidatesService } from '../src/modules/ai-advisory/application/services/knowledge-base/candidates/knowledge-candidates.service';
-import { KnowledgeCandidatesController } from '../src/modules/ai-advisory/presentation/controllers/knowledge-base/candidates/knowledge-candidates.controller';
+import { KnowledgeCandidatesService } from '../src/modules/ai-advisory/application/knowledge-base/candidates/knowledge-candidates.service';
+import { KnowledgeCandidatesController } from '../src/modules/ai-advisory/presentation/knowledge-base/candidates/knowledge-candidates.controller';
 
 describe('AI knowledge candidate HTTP contract (e2e)', () => {
   let app: INestApplication<App>;

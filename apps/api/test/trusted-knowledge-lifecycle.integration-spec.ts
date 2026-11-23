@@ -1,6 +1,6 @@
 import { createConnection, type Connection, Types } from 'mongoose';
-import { AiDocument, AiDocumentSchema, DocumentReviewStatus, DocumentStatus } from '../src/modules/ai-advisory/domain/entities/knowledge-base/documents/ai-document.entity';
-import { AiDocumentChunk, AiDocumentChunkSchema } from '../src/modules/ai-advisory/domain/entities/knowledge-base/chunks/ai-document-chunk.entity';
+import { AiDocument, AiDocumentSchema, DocumentReviewStatus, DocumentStatus } from '../src/modules/ai-advisory/domain/knowledge-base/documents/ai-document.entity';
+import { AiDocumentChunk, AiDocumentChunkSchema } from '../src/modules/ai-advisory/domain/knowledge-base/chunks/ai-document-chunk.entity';
 
 jest.setTimeout(30_000);
 const baseUri = process.env.TEST_MONGODB_URI ?? 'mongodb://127.0.0.1:27018/healthcare_phase_b?replicaSet=rs0&directConnection=true';

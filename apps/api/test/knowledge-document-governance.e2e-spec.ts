@@ -2,8 +2,8 @@ import { CanActivate, ExecutionContext, INestApplication, Injectable } from '@ne
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { AiDocumentsController } from '../src/modules/ai-advisory/presentation/controllers/knowledge-base/documents/ai-documents.controller';
-import { AiDocumentsService } from '../src/modules/ai-advisory/application/services/knowledge-base/documents/ai-documents.service';
+import { AiDocumentsController } from '../src/modules/ai-advisory/presentation/knowledge-base/documents/ai-documents.controller';
+import { AiDocumentsService } from '../src/modules/ai-advisory/application/knowledge-base/documents/ai-documents.service';
 import { JwtAuthGuard } from '../src/core/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/core/guards/roles.guard';
 

@@ -20,7 +20,7 @@ import { SubscriptionPaymentGrantService } from '../../modules/billing/applicati
 import { CareTaskPolicyEventService } from '../../modules/chronic-care/application/services/care-task-policy-event.service';
 import { CareReportExportProcessorService } from '../../modules/chronic-care/application/services/care-report-export-processor.service';
 import { AuthEmailDeliveryService } from '../../modules/authentication/infrastructure/email/auth-email-delivery.service';
-import { IngestApprovedKnowledgeDocumentService } from '../../modules/ai-advisory/application/services/knowledge-base/documents/ingest-approved-knowledge-document.service';
+import { IngestApprovedKnowledgeDocumentService } from '../../modules/ai-advisory/application/knowledge-base/documents/ingest-approved-knowledge-document.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';

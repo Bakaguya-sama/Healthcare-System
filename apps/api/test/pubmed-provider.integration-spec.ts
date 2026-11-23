@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
-import { ExternalEvidenceService } from '../src/modules/ai-advisory/application/services/retrieval/external-evidence.service';
+import { ExternalEvidenceService } from '../src/modules/ai-advisory/application/retrieval/external-evidence.service';
 import { ExternalEvidenceQueryPolicy } from '../src/modules/ai-advisory/domain/policies/external-evidence-query.policy';
-import { PubmedLiteratureAdapter } from '../src/modules/ai-advisory/infrastructure/adapters/retrieval/pubmed-literature.adapter';
+import { PubmedLiteratureAdapter } from '../src/modules/ai-advisory/infrastructure/retrieval/pubmed-literature.adapter';
 
 describe('PubMed external literature provider (integration)', () => {
   it('uses the live provider and fails closed without exposing a provider payload', async () => {

@@ -3,68 +3,68 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FilesModule } from '../../infrastructure/files/files.module';
 import { HealthTrackingModule } from '../health-tracking/health-tracking.module';
 import { ModerationModule } from '../moderation/moderation.module';
-import { AiAssistantController } from './presentation/controllers/conversations/ai-assistant.controller';
-import { AiAssistantService } from './application/services/conversations/ai-assistant.service';
-import { AiConversationQueryService } from './application/services/conversations/ai-conversation-query.service';
-import { AiConversationManagementService } from './application/services/conversations/ai-conversation-management.service';
-import { AiMessageOrchestrationService } from './application/services/conversations/ai-message-orchestration.service';
+import { AiAssistantController } from './presentation/conversations/ai-assistant.controller';
+import { AiAssistantService } from './application/conversations/ai-assistant.service';
+import { AiConversationQueryService } from './application/conversations/ai-conversation-query.service';
+import { AiConversationManagementService } from './application/conversations/ai-conversation-management.service';
+import { AiMessageOrchestrationService } from './application/conversations/ai-message-orchestration.service';
 import {
   AiConversationMessage,
   AiConversationMessageSchema,
-} from './domain/entities/conversations/ai-conversation-message.entity';
+} from './domain/conversations/ai-conversation-message.entity';
 import {
   AiConversation,
   AiConversationSchema,
-} from './domain/entities/conversations/ai-conversation.entity';
-import { AiResponseOrchestrator } from './application/services/conversations/ai-response-orchestrator.service';
-import { AiSafetyService } from './application/services/conversations/ai-safety.service';
-import { LlmGatewayService } from './infrastructure/adapters/retrieval/llm-gateway.service';
-import { MedicalAnsweringService } from './application/services/conversations/medical-answering.service';
-import { PromptBuilderService } from './application/services/conversations/prompt-builder.service';
-import { AiFeedbacksController } from './presentation/controllers/feedback/ai-feedbacks.controller';
-import { AiFeedbacksService } from './application/services/feedback/ai-feedbacks.service';
+} from './domain/conversations/ai-conversation.entity';
+import { AiResponseOrchestrator } from './application/conversations/ai-response-orchestrator.service';
+import { AiSafetyService } from './application/conversations/ai-safety.service';
+import { LlmGatewayService } from './infrastructure/retrieval/llm-gateway.service';
+import { MedicalAnsweringService } from './application/conversations/medical-answering.service';
+import { PromptBuilderService } from './application/conversations/prompt-builder.service';
+import { AiFeedbacksController } from './presentation/feedback/ai-feedbacks.controller';
+import { AiFeedbacksService } from './application/feedback/ai-feedbacks.service';
 import {
   AiFeedback,
   AiFeedbackSchema,
-} from './domain/entities/feedback/ai-feedback.entity';
-import { AiDocumentChunksController } from './presentation/controllers/knowledge-base/chunks/ai-document-chunks.controller';
-import { AiDocumentChunksService } from './application/services/knowledge-base/chunks/ai-document-chunks.service';
+} from './domain/feedback/ai-feedback.entity';
+import { AiDocumentChunksController } from './presentation/knowledge-base/chunks/ai-document-chunks.controller';
+import { AiDocumentChunksService } from './application/knowledge-base/chunks/ai-document-chunks.service';
 import {
   AiDocumentChunk,
   AiDocumentChunkSchema,
-} from './domain/entities/knowledge-base/chunks/ai-document-chunk.entity';
-import { AiDocumentsController } from './presentation/controllers/knowledge-base/documents/ai-documents.controller';
-import { AiDocumentsService } from './application/services/knowledge-base/documents/ai-documents.service';
+} from './domain/knowledge-base/chunks/ai-document-chunk.entity';
+import { AiDocumentsController } from './presentation/knowledge-base/documents/ai-documents.controller';
+import { AiDocumentsService } from './application/knowledge-base/documents/ai-documents.service';
 import {
   AiDocument,
   AiDocumentSchema,
-} from './domain/entities/knowledge-base/documents/ai-document.entity';
-import { VECTOR_SEARCH_PORT } from './application/ports/retrieval/vector-store.port';
-import { AtlasVectorStoreService } from './infrastructure/adapters/retrieval/atlas-vector-store.service';
-import { ChunkingService } from './application/services/retrieval/chunking.service';
-import { ContextBuilderService } from './application/services/retrieval/context-builder.service';
-import { EmbeddingService } from './infrastructure/adapters/retrieval/google-embedding.service';
-import { RagIngestionService } from './application/services/retrieval/rag-ingestion.service';
-import { RagRetrievalService } from './application/services/retrieval/rag-retrieval.service';
-import { TextExtractionService } from './application/services/retrieval/text-extraction.service';
-import { CareSummaryNarrativeService } from './application/services/care-summary/care-summary-narrative.service';
-import { CARE_SUMMARY_NARRATIVE_PORT } from './application/ports/care-summary/care-summary-narrative.port';
+} from './domain/knowledge-base/documents/ai-document.entity';
+import { VECTOR_SEARCH_PORT } from './application/retrieval/vector-store.port';
+import { AtlasVectorStoreService } from './infrastructure/retrieval/atlas-vector-store.service';
+import { ChunkingService } from './application/retrieval/chunking.service';
+import { ContextBuilderService } from './application/retrieval/context-builder.service';
+import { EmbeddingService } from './infrastructure/retrieval/google-embedding.service';
+import { RagIngestionService } from './application/retrieval/rag-ingestion.service';
+import { RagRetrievalService } from './application/retrieval/rag-retrieval.service';
+import { TextExtractionService } from './application/retrieval/text-extraction.service';
+import { CareSummaryNarrativeService } from './application/care-summary/care-summary-narrative.service';
+import { CARE_SUMMARY_NARRATIVE_PORT } from './application/care-summary/care-summary-narrative.port';
 import { BillingModule } from '../billing/billing.module';
 import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { User, UserSchema } from '../users/public-api';
 import { AuditLog, AuditLogSchema } from '../platform-audit/public-api';
-import { IngestApprovedKnowledgeDocumentService } from './application/services/knowledge-base/documents/ingest-approved-knowledge-document.service';
-import { ExternalEvidenceService } from './application/services/retrieval/external-evidence.service';
+import { IngestApprovedKnowledgeDocumentService } from './application/knowledge-base/documents/ingest-approved-knowledge-document.service';
+import { ExternalEvidenceService } from './application/retrieval/external-evidence.service';
 import { ExternalEvidenceQueryPolicy } from './domain/policies/external-evidence-query.policy';
-import { PubmedLiteratureAdapter } from './infrastructure/adapters/retrieval/pubmed-literature.adapter';
-import { EXTERNAL_LITERATURE_PORT } from './application/ports/retrieval/external-literature.port';
+import { PubmedLiteratureAdapter } from './infrastructure/retrieval/pubmed-literature.adapter';
+import { EXTERNAL_LITERATURE_PORT } from './application/retrieval/external-literature.port';
 import {
   KnowledgeCandidate,
   KnowledgeCandidateSchema,
-} from './domain/entities/knowledge-base/knowledge-candidate.entity';
-import { KnowledgeCandidatesService } from './application/services/knowledge-base/candidates/knowledge-candidates.service';
-import { KnowledgeCandidatesController } from './presentation/controllers/knowledge-base/candidates/knowledge-candidates.controller';
+} from './domain/knowledge-base/knowledge-candidate.entity';
+import { KnowledgeCandidatesService } from './application/knowledge-base/candidates/knowledge-candidates.service';
+import { KnowledgeCandidatesController } from './presentation/knowledge-base/candidates/knowledge-candidates.controller';
 
 @Module({
   imports: [

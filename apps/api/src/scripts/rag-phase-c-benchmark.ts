@@ -5,9 +5,9 @@ import { NestFactory } from '@nestjs/core';
 import { getModelToken } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { AppModule } from '../app.module';
-import { RagRetrievalService } from '../modules/ai-advisory/application/services/retrieval/rag-retrieval.service';
-import { AiDocumentChunk, type AiDocumentChunkDocument } from '../modules/ai-advisory/domain/entities/knowledge-base/chunks/ai-document-chunk.entity';
-import { AiDocument, type AiDocumentDocument } from '../modules/ai-advisory/domain/entities/knowledge-base/documents/ai-document.entity';
+import { RagRetrievalService } from '../modules/ai-advisory/application/retrieval/rag-retrieval.service';
+import { AiDocumentChunk, type AiDocumentChunkDocument } from '../modules/ai-advisory/domain/knowledge-base/chunks/ai-document-chunk.entity';
+import { AiDocument, type AiDocumentDocument } from '../modules/ai-advisory/domain/knowledge-base/documents/ai-document.entity';
 
 type BaselineRow = { id: string; question: string; scope: string; language: string; expected_evidence_key: string };
 type VectorOnlyBaseline = { latencyMs?: { p95?: number } };
