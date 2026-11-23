@@ -36,7 +36,7 @@ import { BookingException } from '../../errors/booking.exception';
 import { OutboxService } from '../../../../../infrastructure/outbox/outbox.service';
 
 const CONSULTATION_PROJECTION =
-  '_id patientId doctorId patientCareProgramId careAlertId careTaskId availabilitySlotId mode requestStatus sessionStatus quotaPolicy requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
+  '_id patientId doctorId patientCareProgramId careAlertId careTaskId availabilitySlotId mode requestStatus sessionStatus quotaPolicy requestedAt respondedAt scheduledStartAt scheduledEndAt timezone expectedDurationMinutes estimatedWaitMinutes overtimeStartedAt bookingSettingsSnapshot patientNotes doctorNotes followUpAt followUp queueJoinedAt queuePriorityAt calledAt sessionStartedAt interruptedAt interruptionReason resumedAt completedAt noShowAt cancelledAt cancellationReason roomId createdAt updatedAt';
 
 @Injectable()
 export class ConsultationsService implements CareReportPort {
@@ -192,18 +192,49 @@ export class ConsultationsService implements CareReportPort {
     const consultation = await this.inTransaction(async (session) => {
       const consultation = await this.load(id, session);
       this.assertParticipant(consultation, userId);
+      const isDoctor = this.same(consultation.doctorId, userId);
+      const isPatient = this.same(consultation.patientId, userId);
       if (
-        [ConsultationSessionStatus.COMPLETED].includes(
-          consultation.sessionStatus,
-        )
-      )
+        [
+          ConsultationSessionStatus.COMPLETED,
+          ConsultationSessionStatus.NO_SHOW,
+        ].includes(consultation.sessionStatus) ||
+        [
+          ConsultationRequestStatus.CANCELLED,
+          ConsultationRequestStatus.DECLINED,
+          ConsultationRequestStatus.EXPIRED,
+        ].includes(consultation.requestStatus)
+      ) {
         throw new BadRequestException(
           'Cannot update completed or cancelled consultation',
         );
-      if (dto.patientNotes !== undefined)
-        consultation.patientNotes = dto.patientNotes;
-      if (dto.doctorNotes !== undefined)
+      }
+      if (dto.doctorNotes !== undefined) {
+        if (!isDoctor) {
+          throw new ForbiddenException(
+            'Only doctor can update clinical notes',
+          );
+        }
         consultation.doctorNotes = dto.doctorNotes;
+      }
+      if (dto.patientNotes !== undefined) {
+        if (!isPatient) {
+          throw new ForbiddenException(
+            'Only patient can update patient notes',
+          );
+        }
+        if (
+          ![
+            ConsultationSessionStatus.NOT_STARTED,
+            ConsultationSessionStatus.WAITING,
+          ].includes(consultation.sessionStatus)
+        ) {
+          throw new BadRequestException(
+            'Patient notes can only be updated before the consultation starts',
+          );
+        }
+        consultation.patientNotes = dto.patientNotes;
+      }
       if (dto.scheduledStartAt) {
         throw new BookingException(
           HttpStatus.UNPROCESSABLE_ENTITY,

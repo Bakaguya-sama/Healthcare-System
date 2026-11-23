@@ -158,91 +158,110 @@ export class ScheduledBookingService {
     this.assertObjectId(consultationId, 'consultation');
     const key = this.keyHash(patientId, idempotencyKey!);
     const requestHash = this.requestHash({ availabilitySlotId });
-    const consultation = await this.inTransaction(async (session) => {
-      const current = await this.consultations
-        .findById(consultationId)
-        .session(session);
-      if (!current) throw new NotFoundException('Consultation not found');
-      if (!current.patientId.equals(new Types.ObjectId(patientId))) {
-        throw new ForbiddenException({
-          code: 'FORBIDDEN',
-          message: 'Only the patient owner can reschedule this consultation',
-        });
-      }
-      if (current.lastRescheduleKey === key) {
-        if (current.lastRescheduleRequestHash !== requestHash) {
-          this.throwIdempotencyConflict();
+    try {
+      const consultation = await this.inTransaction(async (session) => {
+        const current = await this.consultations
+          .findById(consultationId)
+          .session(session);
+        if (!current) throw new NotFoundException('Consultation not found');
+        if (!current.patientId.equals(new Types.ObjectId(patientId))) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN',
+            message: 'Only the patient owner can reschedule this consultation',
+          });
         }
-        return current;
-      }
-      this.assertReschedulable(current);
-      const next = await this.loadBookableSlot(availabilitySlotId, session);
-      if (!next.doctorId.equals(current.doctorId)) {
-        throw new BookingException(
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          'RESCHEDULE_DOCTOR_MISMATCH',
-          'Reschedule slot must belong to the same doctor',
+        if (current.lastRescheduleKey === key) {
+          if (current.lastRescheduleRequestHash !== requestHash) {
+            this.throwIdempotencyConflict();
+          }
+          return current;
+        }
+        this.assertReschedulable(current);
+        const next = await this.loadBookableSlot(availabilitySlotId, session);
+        if (!next.doctorId.equals(current.doctorId)) {
+          throw new BookingException(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            'RESCHEDULE_DOCTOR_MISMATCH',
+            'Reschedule slot must belong to the same doctor',
+          );
+        }
+        const policy = this.policy.getScheduledPolicy();
+        this.assertNotice(next.startAt, policy.minNoticeMinutes);
+        const claimed = await this.slots.findOneAndUpdate(
+          { _id: next._id, status: AvailabilitySlotStatus.AVAILABLE },
+          { $set: { status: AvailabilitySlotStatus.BOOKED } },
+          { returnDocument: 'after', session },
         );
-      }
-      const policy = this.policy.getScheduledPolicy();
-      this.assertNotice(next.startAt, policy.minNoticeMinutes);
-      const claimed = await this.slots.findOneAndUpdate(
-        { _id: next._id, status: AvailabilitySlotStatus.AVAILABLE },
-        { $set: { status: AvailabilitySlotStatus.BOOKED } },
-        { returnDocument: 'after', session },
-      );
-      if (!claimed) this.throwAlreadyBooked();
-      if (!current.availabilitySlotId) {
-        throw new BookingException(
-          HttpStatus.CONFLICT,
-          'SLOT_STATE_CONFLICT',
-          'Scheduled consultation has no source slot',
-        );
-      }
-      await this.availability.reopenAfterCancellation(
-        current.availabilitySlotId,
-        current._id,
-        session,
-      );
-      const duration = Math.max(
-        1,
-        Math.round((next.endAt.getTime() - next.startAt.getTime()) / 60_000),
-      );
-      const checkInEarlyMinutes =
-        this.policy.getCheckInEarlyMinutesIfConfigured();
-      current.availabilitySlotId = next._id;
-      current.scheduledStartAt = next.startAt;
-      current.scheduledEndAt = next.endAt;
-      current.timezone = next.timezone;
-      current.expectedDurationMinutes = duration;
-      current.bookingSettingsSnapshot = {
-        ...policy,
-        defaultDurationMinutes: duration,
-        ...(checkInEarlyMinutes === undefined ? {} : { checkInEarlyMinutes }),
-      };
-      current.lastRescheduleKey = key;
-      current.lastRescheduleRequestHash = requestHash;
-      await current.save({ session });
-      if (current.careTaskId)
-        await this.outbox?.enqueue(
-          {
-            eventType: 'consultation.care-task.lifecycle.v1',
-            aggregateType: 'consultation',
-            aggregateId: current._id,
-            idempotencyKey: `consultation.care-task.${current._id}.rescheduled.${key}`,
-            payload: {
-              eventVersion: 1,
-              careTaskId: String(current.careTaskId),
-              consultationId: String(current._id),
-              outcome: 'rescheduled',
-              occurredAt: new Date().toISOString(),
-            },
-          },
+        if (!claimed) this.throwAlreadyBooked();
+        if (!current.availabilitySlotId) {
+          throw new BookingException(
+            HttpStatus.CONFLICT,
+            'SLOT_STATE_CONFLICT',
+            'Scheduled consultation has no source slot',
+          );
+        }
+        await this.availability.reopenAfterCancellation(
+          current.availabilitySlotId,
+          current._id,
           session,
         );
-      return current;
-    });
-    return this.response(consultation);
+        const duration = Math.max(
+          1,
+          Math.round((next.endAt.getTime() - next.startAt.getTime()) / 60_000),
+        );
+        const checkInEarlyMinutes =
+          this.policy.getCheckInEarlyMinutesIfConfigured();
+        current.availabilitySlotId = next._id;
+        current.scheduledStartAt = next.startAt;
+        current.scheduledEndAt = next.endAt;
+        current.timezone = next.timezone;
+        current.expectedDurationMinutes = duration;
+        current.bookingSettingsSnapshot = {
+          ...policy,
+          defaultDurationMinutes: duration,
+          ...(checkInEarlyMinutes === undefined
+            ? {}
+            : { checkInEarlyMinutes }),
+        };
+        current.lastRescheduleKey = key;
+        current.lastRescheduleRequestHash = requestHash;
+        await current.save({ session });
+        if (current.careTaskId)
+          await this.outbox?.enqueue(
+            {
+              eventType: 'consultation.care-task.lifecycle.v1',
+              aggregateType: 'consultation',
+              aggregateId: current._id,
+              idempotencyKey: `consultation.care-task.${current._id}.rescheduled.${key}`,
+              payload: {
+                eventVersion: 1,
+                careTaskId: String(current.careTaskId),
+                consultationId: String(current._id),
+                outcome: 'rescheduled',
+                occurredAt: new Date().toISOString(),
+              },
+            },
+            session,
+          );
+        return current;
+      });
+      return this.response(consultation);
+    } catch (error: unknown) {
+      if (this.isDuplicateKey(error)) {
+        const concurrentReplay = await this.consultations.findOne({
+          _id: consultationId,
+          lastRescheduleKey: key,
+        });
+        if (concurrentReplay) {
+          if (concurrentReplay.lastRescheduleRequestHash !== requestHash) {
+            this.throwIdempotencyConflict();
+          }
+          return this.response(concurrentReplay);
+        }
+        this.throwAlreadyBooked();
+      }
+      throw error;
+    }
   }
 
   async releaseSlotForCancellation(

@@ -79,6 +79,7 @@ import {
   CARE_REPORT_EXPORT_INDEXES,
 } from './migrations/202611061000-care-report-exports';
 import { PATIENT_PAYMENT_ORDER_READ_INDEXES } from './migrations/202611062000-patient-payment-order-read-indexes';
+import { CONSULTATION_SLOT_PARTIAL_UNIQUE_INDEX } from './migrations/202611231200-consultation-slot-partial-unique';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -378,7 +379,10 @@ export const MANAGED_DATABASE_INDEXES = [
   CC005_DOCTOR_PRIORITY_INBOX_INDEX,
   ...CC006_CARE_REPORT_INDEXES,
   ...CC007_CARE_SUMMARIES_INDEXES,
-  ...DATA001A_CONSULTATION_INDEXES,
+  ...DATA001A_CONSULTATION_INDEXES.filter(
+    (index) => index.name !== 'availabilitySlotId_1',
+  ),
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_INDEX,
   CC008_CARE_ALERT_CONSULTATION_INDEX,
   ...CC003A_ALERT_DEDUP_INDEXES,
   ...CC012_BILLING_INDEXES,

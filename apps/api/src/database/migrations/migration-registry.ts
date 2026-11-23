@@ -48,6 +48,12 @@ import {
   EXTERNAL_KNOWLEDGE_CANDIDATES_VERSION,
 } from './202611181240-external-knowledge-candidates';
 import {
+  applyConsultationSlotPartialUnique,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_CHECKSUM,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_NAME,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_VERSION,
+} from './202611231200-consultation-slot-partial-unique';
+import {
   applyRf5CanonicalIdentity,
   RF5_CANONICAL_IDENTITY_CHECKSUM,
   RF5_CANONICAL_IDENTITY_NAME,
@@ -612,6 +618,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: EXTERNAL_KNOWLEDGE_CANDIDATES_NAME,
     checksum: EXTERNAL_KNOWLEDGE_CANDIDATES_CHECKSUM,
     up: applyExternalKnowledgeCandidates,
+  },
+  {
+    version: CONSULTATION_SLOT_PARTIAL_UNIQUE_VERSION,
+    name: CONSULTATION_SLOT_PARTIAL_UNIQUE_NAME,
+    checksum: CONSULTATION_SLOT_PARTIAL_UNIQUE_CHECKSUM,
+    up: applyConsultationSlotPartialUnique,
   },
 ];
 

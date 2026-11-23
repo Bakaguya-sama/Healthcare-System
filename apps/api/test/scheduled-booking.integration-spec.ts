@@ -459,6 +459,35 @@ describe('P0 availability slots and scheduled booking', () => {
     });
   });
 
+  it('allows rescheduling and rebooking into a slot previously released by cancellation', async () => {
+    const firstPatient = await activePatient(2);
+    const secondPatient = await activePatient(2);
+    const cancelledSlot = await createSlot(240);
+    const otherSlot = await createSlot(300);
+
+    const firstBooked = await booking.book(firstPatient, 'first-cancel-book', {
+      availabilitySlotId: cancelledSlot.data.id,
+    });
+    await consultations.cancel(firstPatient, firstBooked.data.id, {
+      reason: 'Cancelled earlier',
+    });
+
+    const secondBooked = await booking.book(
+      secondPatient,
+      'second-initial-book',
+      { availabilitySlotId: otherSlot.data.id },
+    );
+    const rescheduled = await booking.reschedule(
+      secondPatient,
+      secondBooked.data.id,
+      'reschedule-reopened',
+      cancelledSlot.data.id,
+    );
+    expect(rescheduled.data.availabilitySlotId).toEqual(
+      new ObjectId(cancelledSlot.data.id),
+    );
+  });
+
   async function createSlot(minutesFromNow: number) {
     const startAt = future(minutesFromNow);
     return availability.create(doctorId.toHexString(), {

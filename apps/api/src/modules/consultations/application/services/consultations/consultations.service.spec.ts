@@ -314,4 +314,54 @@ describe('ConsultationsService state machine', () => {
     expect(result.count).toBe(1);
     expect(result.data).toHaveLength(1);
   });
+
+  it('enforces role and lifecycle ownership on consultation note updates', async () => {
+    const { service, consultation, patientId, doctorId } = createService();
+    consultation.requestStatus = ConsultationRequestStatus.ACCEPTED;
+    consultation.sessionStatus = ConsultationSessionStatus.WAITING;
+
+    await service.update(
+      patientId.toString(),
+      consultation._id.toString(),
+      { patientNotes: 'Fever since yesterday' },
+    );
+    expect((consultation as { patientNotes?: string }).patientNotes).toBe(
+      'Fever since yesterday',
+    );
+
+    await expect(
+      service.update(patientId.toString(), consultation._id.toString(), {
+        doctorNotes: 'Patient forged note',
+      }),
+    ).rejects.toThrow('Only doctor can update clinical notes');
+
+    await expect(
+      service.update(doctorId.toString(), consultation._id.toString(), {
+        patientNotes: 'Doctor overwriting patient text',
+      }),
+    ).rejects.toThrow('Only patient can update patient notes');
+
+    consultation.sessionStatus = ConsultationSessionStatus.IN_CONSULTATION;
+    await expect(
+      service.update(patientId.toString(), consultation._id.toString(), {
+        patientNotes: 'Too late edit',
+      }),
+    ).rejects.toThrow(
+      'Patient notes can only be updated before the consultation starts',
+    );
+
+    await service.update(doctorId.toString(), consultation._id.toString(), {
+      doctorNotes: 'Prescription and follow-up plan',
+    });
+    expect((consultation as { doctorNotes?: string }).doctorNotes).toBe(
+      'Prescription and follow-up plan',
+    );
+
+    consultation.requestStatus = ConsultationRequestStatus.CANCELLED;
+    await expect(
+      service.update(doctorId.toString(), consultation._id.toString(), {
+        doctorNotes: 'Closed write',
+      }),
+    ).rejects.toThrow('Cannot update completed or cancelled consultation');
+  });
 });
