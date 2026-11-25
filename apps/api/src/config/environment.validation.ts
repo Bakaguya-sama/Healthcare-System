@@ -191,6 +191,16 @@ export function validateEnvironment(
       'CARE_MONITORING_AUTOMATION_ENABLED',
       false,
     ),
+    FAMILY_COMPANION_ENABLED: boolean(
+      config,
+      'FAMILY_COMPANION_ENABLED',
+      false,
+    ),
+    FAMILY_INVITATION_BASE_URL: stringValue(
+      config,
+      'FAMILY_INVITATION_BASE_URL',
+      'http://localhost:5173/family-links/redeem?token=',
+    ),
     CONSULTATION_STALE_RECOVERY_ENABLED: boolean(
       config,
       'CONSULTATION_STALE_RECOVERY_ENABLED',

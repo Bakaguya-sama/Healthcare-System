@@ -60,6 +60,7 @@ import { ChronicCareModule } from '../../modules/chronic-care/chronic-care.modul
 import { AuthenticationModule } from '../../modules/authentication/authentication.module';
 import { CacheModule } from 'src/common/cache/cache.module';
 import { AiAdvisoryModule } from '../../modules/ai-advisory/ai-advisory.module';
+import { FamilyCompanionModule } from '../../modules/family-companion/family-companion.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -76,6 +77,7 @@ import { AiAdvisoryModule } from '../../modules/ai-advisory/ai-advisory.module';
     AuthenticationModule,
     CacheModule,
     AiAdvisoryModule,
+    FamilyCompanionModule,
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
       { name: HealthMetric.name, schema: HealthMetricSchema },

@@ -78,6 +78,8 @@ import { CareReportExportProcessorService } from './application/services/care-re
 import { CloudinaryCareReportExportStorageAdapter } from './infrastructure/adapters/cloudinary-care-report-export-storage.adapter';
 import { CARE_REPORT_EXPORT_STORAGE } from './application/ports/care-report-export-storage.port';
 import { FilesModule } from '../../infrastructure/files/files.module';
+import { CARE_TASK_REMINDER_READER } from './application/ports/care-task-reminder-reader.port';
+import { MongooseCareTaskReminderReaderAdapter } from './infrastructure/adapters/mongoose-care-task-reminder-reader.adapter';
 
 @Module({
   imports: [
@@ -117,6 +119,11 @@ import { FilesModule } from '../../infrastructure/files/files.module';
     CareProgramRuleService,
     CareEnrollmentService,
     CareTaskSchedulerService,
+    MongooseCareTaskReminderReaderAdapter,
+    {
+      provide: CARE_TASK_REMINDER_READER,
+      useExisting: MongooseCareTaskReminderReaderAdapter,
+    },
     CareTaskProgressService,
     HealthEvaluationService,
     CareAlertService,
@@ -166,6 +173,7 @@ import { FilesModule } from '../../infrastructure/files/files.module';
     MongooseModule,
     CareProgramRuleService,
     CareReportExportProcessorService,
+    CARE_TASK_REMINDER_READER,
   ],
 })
 export class ChronicCareModule {}

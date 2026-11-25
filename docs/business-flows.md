@@ -345,7 +345,26 @@ như kết quả lâm sàng.
   `estimatedWaitMinutes = null`, `etaReason = ETA_POLICY_NOT_CONFIGURED`. Không
   suy ra ETA bằng cách nhân position với duration mặc định.
 
-## 8. Quyết định đã chốt cho Chronic Care read
+## 8. Luồng invitation người thân đồng hành
+
+- Patient tạo một invitation version. Hệ thống có thể trả deep-link, QR và mã 6
+  chữ số cùng trỏ tới invitation đó; artifact không chứa email, user ID hoặc PHI.
+- Invitation có hiệu lực 7 ngày. Short code chỉ có hiệu lực 15 phút, one-time,
+  bị rate-limit và chỉ lưu hash. Regenerate vô hiệu artifact cũ nhưng không đổi
+  consent/permission.
+- Người chưa có account phải đăng ký role Patient, verify email và đăng nhập rồi
+  mới redeem/accept. Người đã có account chỉ cần đăng nhập và redeem.
+- Patient tìm contact bằng `GET /users/family-companion/contacts` trong module
+  User. API dùng tìm gần đúng theo tên/email/số điện thoại đã xác minh, phân trang,
+  chỉ trả Patient active đã xác minh email cùng ID và thông tin nhận diện tối thiểu.
+- FE cho Patient chọn một record; `POST /family-links` nhận `contactUserId` đó hoặc
+  `share: true`. Backend xác minh lại người nhận khi tạo invitation; không có
+  bảng contact lookup/reference trung gian.
+- Accept chỉ chuyển `pending -> active` sau khi contact xem consent version và
+  chọn permission `missed_task_reminder`/`weekly_progress`. Revoke có hiệu lực
+  ngay với notification/query mới; không vô hiệu hóa account độc lập của contact.
+
+## 9. Quyết định đã chốt cho Chronic Care read
 
 - Admin không được đọc Enrollment trong DA2 hiện tại, kể cả list, detail hay raw
   clinical projection. Route Enrollment tiếp tục chỉ dành cho Patient owner và
@@ -379,3 +398,54 @@ như kết quả lâm sàng.
   `careProgramId + status`, rồi sort `version DESC, _id DESC`; vì số version của một
   Program bị giới hạn bởi catalog workflow và route chỉ lấy một record, Slice 5 không
   thêm index/migration mới.
+
+## E2 — Reminder Family Companion
+
+- Với FamilyLink active, Patient cấp hoặc đổi grant chia sẻ HealthMetric sau
+  khi xác nhận consent; Companion nhận thông báo in-app và xem summary/trend
+  theo scope được cấp. Quyền bao gồm lịch sử và dữ liệu mới, không tự hết hạn.
+
+Khi Companion xem chỉ số, backend chuẩn hóa một cửa sổ dùng chung cho summary và
+trend. Mặc định là tuần lịch hiện tại từ thứ Hai 00:00 đến thứ Hai kế tiếp
+00:00 theo `Asia/Ho_Chi_Minh` (`[start,end)`). Có thể chọn tuần/tháng/quý/năm,
+toàn bộ lịch sử hoặc khoảng custom; anchor chọn ngày trong kỳ để điều hướng.
+Trend trả các điểm đo gốc theo thứ tự mới đến cũ, còn summary tính trên toàn
+cửa sổ bằng quy tắc thống kê của Health Tracking. Cửa sổ không giới hạn grant
+lịch sử. Patient API giữ nguyên semantics cũ; request Companion v1 chỉ truyền
+`from/to` tiếp tục coi `to` là inclusive, còn FE mới dùng `period=custom` với
+`to` end-exclusive.
+- Pause chặn đọc; resume khôi phục grant còn hiệu lực; Patient thu hồi grant
+  hoặc một bên revoke link sẽ chặn đọc tiếp. Re-invite không kế thừa grant cũ.
+
+- Reminder Patient trong cửa sổ task tiếp tục dùng event canonical
+  `care.task.reminder`. Khi task đã chuyển sang `missed`, scheduler tạo riêng
+  `care.task.missed-reminder.v1` với key theo task; worker chỉ ghi notification
+  in-app nếu task còn missed/required và enrollment còn active. Companion chờ
+  notification Patient được persist trước khi dispatch sau grace period 60 phút;
+  không coi riêng trạng thái outbox `delivered` là bằng chứng Patient đã nhận.
+- `weekly_progress` dedupe theo link và tuần, tối đa một lần/tuần; delivery chỉ
+  in-app và payload là trạng thái tổng quát.
+- Worker kiểm tra lại link, permission và task ngay trước dispatch; pause, revoke
+  hoặc task đã hoàn thành đều suppress.
+- Quiet hours `21:00–08:00` dùng timezone của Patient; worker reschedule ra ngoài
+  khoảng này.
+- Missed-task scheduler duyệt mọi task bằng keyset pagination theo `_id`, tối đa
+  200 mỗi batch; các task trùng timestamp không bị bỏ qua. Một task lỗi được tính
+  vào lỗi vận hành và sẽ được thử lại ở lượt quét kế tiếp.
+- Patient reminder dùng `care.task.reminder.<taskId>` cho nhắc trong cửa sổ và
+  `care.task.missed-reminder.<taskId>` cho nhắc khi task đã missed. Companion chỉ
+  được dispatch sau khi notification Patient đã persist và đã qua grace 60 phút
+  từ `missedAt`; event Patient còn pending/processing thì contact được hoãn, còn
+  event dead hoặc kết thúc không có notification thì contact bị suppress. Trước
+  khi tạo notification, delivery path kiểm tra lại task, enrollment qua
+  public port Chronic Care, FamilyLink và đúng FamilyPermission. Thiếu hoặc không
+  xác định được enrollment thì fail-closed.
+- Quota Companion lưu duy nhất `lastMissedTaskDispatchedAt` theo account. Cập nhật
+  quota, notification, notification outbox và `FamilyReminder.dispatched` là một
+  transaction; hai worker cạnh tranh cùng Companion chỉ một transaction được
+  dispatch. Quota hết hạn thì event được hoãn đủ 24 giờ trượt; cập nhật
+  `scheduledAt` và outbox event hoãn cùng transaction.
+- Đổi trạng thái enrollment/link/permission sau lần kiểm tra cuối nhưng trước
+  commit vẫn là race giữa hai bounded context; hệ thống kiểm tra ngay trong
+  delivery transaction nhưng chưa có khóa dùng chung với mọi lifecycle mutation.
+  Không xem đây là atomic barrier.

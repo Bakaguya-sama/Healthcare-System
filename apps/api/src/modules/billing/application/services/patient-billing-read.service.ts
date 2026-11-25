@@ -196,6 +196,7 @@ export class PatientBillingReadService {
         aiQuotaPeriod: plan.aiQuotaPeriod,
         consultationLimitPerCycle: Number(plan.consultationLimitPerCycle),
         activeCareProgramLimit: Number(plan.activeCareProgramLimit),
+        familyLinkLimit: Number(plan.familyLinkLimit ?? 0),
       },
       benefits: this.safeBenefits(plan.benefits),
       available: true,
@@ -230,6 +231,7 @@ export class PatientBillingReadService {
         aiQuotaPeriod: snapshot.aiQuotaPeriod,
         consultationLimitPerCycle: snapshot.consultationLimitPerCycle,
         activeCareProgramLimit: snapshot.activeCareProgramLimit,
+        familyLinkLimit: snapshot.familyLinkLimit,
         benefits: this.safeBenefits(snapshot.benefits),
       },
       startedAt: this.requiredIso(subscription.startedAt),
@@ -270,6 +272,7 @@ export class PatientBillingReadService {
       snapshot.aiTokenLimit,
       snapshot.consultationLimitPerCycle,
       snapshot.activeCareProgramLimit,
+      snapshot.familyLinkLimit,
     ];
     if (
       typeof snapshot.code !== 'string' ||

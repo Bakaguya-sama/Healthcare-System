@@ -12,7 +12,9 @@ export function isPlanSnapshot(value: unknown): value is PlanSnapshot {
     typeof snapshot.code === 'string' &&
     typeof snapshot.name === 'string' &&
     Number.isSafeInteger(snapshot.version) &&
-    isNonNegativeInteger(snapshot.activeCareProgramLimit)
+    isNonNegativeInteger(snapshot.activeCareProgramLimit) &&
+    (snapshot.familyLinkLimit === undefined ||
+      isNonNegativeInteger(snapshot.familyLinkLimit))
   );
 }
 

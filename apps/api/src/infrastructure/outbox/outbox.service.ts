@@ -50,6 +50,15 @@ export class OutboxService {
       .exec();
   }
 
+  async getStatus(idempotencyKey: string): Promise<OutboxStatus | null> {
+    const event = await this.model
+      .findOne({ idempotencyKey })
+      .select('status')
+      .lean()
+      .exec();
+    return event?.status ?? null;
+  }
+
   async getLatestForAggregate(
     aggregateType: string,
     aggregateId: Types.ObjectId,
@@ -93,28 +102,38 @@ export class OutboxService {
     return claimed;
   }
 
-  async markDelivered(id: Types.ObjectId) {
-    return this.model
-      .updateOne(
-        { _id: id, status: OutboxStatus.PROCESSING },
-        {
-          $set: { status: OutboxStatus.DELIVERED, deliveredAt: new Date() },
-          $unset: { lockedAt: '', lockExpiresAt: '' },
-        },
-      )
-      .exec();
+  async markDelivered(id: Types.ObjectId, session?: ClientSession) {
+    const query = this.model.updateOne(
+      { _id: id, status: OutboxStatus.PROCESSING },
+      {
+        $set: { status: OutboxStatus.DELIVERED, deliveredAt: new Date() },
+        $unset: { lockedAt: '', lockExpiresAt: '' },
+      },
+    );
+    if (session) query.session(session);
+    return query.exec();
   }
 
-  async deferUntil(id: Types.ObjectId, availableAt: Date) {
-    return this.model
-      .updateOne(
-        { _id: id, status: OutboxStatus.PROCESSING },
-        {
-          $set: { status: OutboxStatus.PENDING, nextAttemptAt: availableAt },
-          $unset: { lockedAt: '', lockExpiresAt: '' },
-        },
-      )
-      .exec();
+  async getStatusById(id: Types.ObjectId, session?: ClientSession) {
+    const query = this.model.findById(id).select('status').lean();
+    if (session) query.session(session);
+    return (await query.exec())?.status ?? null;
+  }
+
+  async deferUntil(
+    id: Types.ObjectId,
+    availableAt: Date,
+    session?: ClientSession,
+  ) {
+    const query = this.model.updateOne(
+      { _id: id, status: OutboxStatus.PROCESSING },
+      {
+        $set: { status: OutboxStatus.PENDING, nextAttemptAt: availableAt },
+        $unset: { lockedAt: '', lockExpiresAt: '' },
+      },
+    );
+    if (session) query.session(session);
+    return query.exec();
   }
   async markFailed(id: Types.ObjectId, error: unknown) {
     const event = await this.model

@@ -18,6 +18,60 @@ import {
   E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_VERSION,
 } from './202611231300-e1-availability-slot-index-reconciliation';
 import {
+  applyE2FamilyCompanion,
+  E2_FAMILY_COMPANION_CHECKSUM,
+  E2_FAMILY_COMPANION_NAME,
+  E2_FAMILY_COMPANION_VERSION,
+} from './202611231400-e2-family-companion';
+import {
+  applyE2FamilyPhoneLookupIndex,
+  E2_FAMILY_PHONE_LOOKUP_CHECKSUM,
+  E2_FAMILY_PHONE_LOOKUP_NAME,
+  E2_FAMILY_PHONE_LOOKUP_VERSION,
+} from './202611231410-e2-family-phone-lookup-index';
+import {
+  applyE2FamilyIdempotencyScope,
+  E2_FAMILY_IDEMPOTENCY_SCOPE_CHECKSUM,
+  E2_FAMILY_IDEMPOTENCY_SCOPE_NAME,
+  E2_FAMILY_IDEMPOTENCY_SCOPE_VERSION,
+} from './202611231420-e2-family-idempotency-scope';
+import {
+  applyE2FamilyContactLookup,
+  E2_FAMILY_CONTACT_LOOKUP_CHECKSUM,
+  E2_FAMILY_CONTACT_LOOKUP_NAME,
+  E2_FAMILY_CONTACT_LOOKUP_VERSION,
+} from './202611231430-e2-family-contact-lookup';
+import {
+  applyE2RemoveContactLookup,
+  E2_REMOVE_CONTACT_LOOKUP_CHECKSUM,
+  E2_REMOVE_CONTACT_LOOKUP_NAME,
+  E2_REMOVE_CONTACT_LOOKUP_VERSION,
+} from './202611241000-e2-remove-contact-lookup';
+import {
+  applyE2FamilyDeliveryName,
+  E2_FAMILY_DELIVERY_NAME_CHECKSUM,
+  E2_FAMILY_DELIVERY_NAME,
+  E2_FAMILY_DELIVERY_NAME_VERSION,
+} from './202611241010-e2-family-delivery-name';
+import {
+  applyFamilyHealthSharing,
+  FAMILY_HEALTH_SHARING_CHECKSUM,
+  FAMILY_HEALTH_SHARING_NAME,
+  FAMILY_HEALTH_SHARING_VERSION,
+} from './202611241020-e2-family-health-metric-sharing';
+import {
+  applyFamilyCommandReceipts,
+  FAMILY_COMMAND_RECEIPTS_CHECKSUM,
+  FAMILY_COMMAND_RECEIPTS_NAME,
+  FAMILY_COMMAND_RECEIPTS_VERSION,
+} from './202611241030-e2-family-command-receipts';
+import {
+  applyFamilyReminderDelivery,
+  FAMILY_REMINDER_DELIVERY_CHECKSUM,
+  FAMILY_REMINDER_DELIVERY_NAME,
+  FAMILY_REMINDER_DELIVERY_VERSION,
+} from './202611241040-e2-family-reminder-delivery';
+import {
   applyAuthIdentityHardening,
   AUTH_IDENTITY_HARDENING_CHECKSUM,
   AUTH_IDENTITY_HARDENING_NAME,
@@ -636,6 +690,60 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_NAME,
     checksum: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_CHECKSUM,
     up: applyE1AvailabilitySlotIndexReconciliation,
+  },
+  {
+    version: E2_FAMILY_COMPANION_VERSION,
+    name: E2_FAMILY_COMPANION_NAME,
+    checksum: E2_FAMILY_COMPANION_CHECKSUM,
+    up: applyE2FamilyCompanion,
+  },
+  {
+    version: E2_FAMILY_PHONE_LOOKUP_VERSION,
+    name: E2_FAMILY_PHONE_LOOKUP_NAME,
+    checksum: E2_FAMILY_PHONE_LOOKUP_CHECKSUM,
+    up: applyE2FamilyPhoneLookupIndex,
+  },
+  {
+    version: E2_FAMILY_IDEMPOTENCY_SCOPE_VERSION,
+    name: E2_FAMILY_IDEMPOTENCY_SCOPE_NAME,
+    checksum: E2_FAMILY_IDEMPOTENCY_SCOPE_CHECKSUM,
+    up: applyE2FamilyIdempotencyScope,
+  },
+  {
+    version: E2_FAMILY_CONTACT_LOOKUP_VERSION,
+    name: E2_FAMILY_CONTACT_LOOKUP_NAME,
+    checksum: E2_FAMILY_CONTACT_LOOKUP_CHECKSUM,
+    up: applyE2FamilyContactLookup,
+  },
+  {
+    version: E2_REMOVE_CONTACT_LOOKUP_VERSION,
+    name: E2_REMOVE_CONTACT_LOOKUP_NAME,
+    checksum: E2_REMOVE_CONTACT_LOOKUP_CHECKSUM,
+    up: applyE2RemoveContactLookup,
+  },
+  {
+    version: E2_FAMILY_DELIVERY_NAME_VERSION,
+    name: E2_FAMILY_DELIVERY_NAME,
+    checksum: E2_FAMILY_DELIVERY_NAME_CHECKSUM,
+    up: applyE2FamilyDeliveryName,
+  },
+  {
+    version: FAMILY_HEALTH_SHARING_VERSION,
+    name: FAMILY_HEALTH_SHARING_NAME,
+    checksum: FAMILY_HEALTH_SHARING_CHECKSUM,
+    up: applyFamilyHealthSharing,
+  },
+  {
+    version: FAMILY_COMMAND_RECEIPTS_VERSION,
+    name: FAMILY_COMMAND_RECEIPTS_NAME,
+    checksum: FAMILY_COMMAND_RECEIPTS_CHECKSUM,
+    up: applyFamilyCommandReceipts,
+  },
+  {
+    version: FAMILY_REMINDER_DELIVERY_VERSION,
+    name: FAMILY_REMINDER_DELIVERY_NAME,
+    checksum: FAMILY_REMINDER_DELIVERY_CHECKSUM,
+    up: applyFamilyReminderDelivery,
   },
 ];
 

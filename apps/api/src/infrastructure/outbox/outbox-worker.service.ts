@@ -21,6 +21,11 @@ import { CareTaskPolicyEventService } from '../../modules/chronic-care/applicati
 import { CareReportExportProcessorService } from '../../modules/chronic-care/application/services/care-report-export-processor.service';
 import { AuthEmailDeliveryService } from '../../modules/authentication/infrastructure/email/auth-email-delivery.service';
 import { IngestApprovedKnowledgeDocumentService } from '../../modules/ai-advisory/application/knowledge-base/documents/ingest-approved-knowledge-document.service';
+import { ModuleRef } from '@nestjs/core';
+import { ScheduleFamilyReminders } from '../../modules/family-companion/application/use-cases/schedule-family-reminders.use-case';
+import { DeliverFamilyReminder } from '../../modules/family-companion/application/use-cases/deliver-family-reminder.use-case';
+import { ExpireFamilyInvitations } from '../../modules/family-companion/application/use-cases/expire-family-invitations.use-case';
+import { FamilyHealthSharingNotificationService } from '../../modules/family-companion/infrastructure/outbox/family-health-sharing-notification.service';
 
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
@@ -28,6 +33,9 @@ const CARE_TASK_SCHEDULE_JOB = 'schedule-care-tasks';
 const CONSULTATION_STALE_RECOVERY_JOB = 'recover-stale-consultations';
 const PAYMENT_RECONCILIATION_JOB = 'reconcile-payment-grants';
 const CARE_REPORT_EXPORT_CLEANUP_JOB = 'cleanup-care-report-exports';
+const FAMILY_INVITATION_EXPIRY_JOB = 'expire-family-invitations';
+const FAMILY_WEEKLY_PROGRESS_JOB = 'schedule-family-weekly-progress';
+const FAMILY_MISSED_TASK_JOB = 'schedule-family-missed-task-reminders';
 const OUTBOX_OBSERVATION_INTERVAL_MS = 60_000;
 const OUTBOX_PENDING_LAG_WARNING_MS = 5 * 60_000;
 export const NOTIFICATION_REALTIME_CHANNEL = 'healthcare:notification-events';
@@ -43,6 +51,11 @@ export class OutboxWorkerService
   private readonly careAutomationEnabled: boolean;
   private readonly consultationRecoveryEnabled: boolean;
   private readonly paymentReconciliationEnabled: boolean;
+  private readonly familyCompanionEnabled: boolean;
+  private familyReminderScheduler?: ScheduleFamilyReminders;
+  private familyReminderDelivery?: DeliverFamilyReminder;
+  private familyInvitationExpiry?: ExpireFamilyInvitations;
+  private familyHealthSharingNotification?: FamilyHealthSharingNotificationService;
   constructor(
     private readonly config: ConfigService,
     private readonly outbox: OutboxService,
@@ -61,6 +74,8 @@ export class OutboxWorkerService
     private readonly authEmailDelivery?: AuthEmailDeliveryService,
     @Optional()
     private readonly knowledgeIngestion?: IngestApprovedKnowledgeDocumentService,
+    @Optional()
+    private readonly moduleRef?: ModuleRef,
   ) {
     this.careAutomationEnabled =
       this.config.get<boolean>('CARE_MONITORING_AUTOMATION_ENABLED') === true;
@@ -68,9 +83,25 @@ export class OutboxWorkerService
       this.config.get<boolean>('CONSULTATION_STALE_RECOVERY_ENABLED') === true;
     this.paymentReconciliationEnabled =
       this.config.get<boolean>('PAYMENT_RECONCILIATION_ENABLED') === true;
+    this.familyCompanionEnabled =
+      this.config.get<boolean>('FAMILY_COMPANION_ENABLED') === true;
   }
 
   async onModuleInit() {
+    this.familyReminderScheduler = this.moduleRef?.get(
+      ScheduleFamilyReminders,
+      { strict: false },
+    );
+    this.familyReminderDelivery = this.moduleRef?.get(DeliverFamilyReminder, {
+      strict: false,
+    });
+    this.familyInvitationExpiry = this.moduleRef?.get(ExpireFamilyInvitations, {
+      strict: false,
+    });
+    this.familyHealthSharingNotification = this.moduleRef?.get(
+      FamilyHealthSharingNotificationService,
+      { strict: false },
+    );
     const connection = createNodeRedisClient(this.redis.client as never);
     const prefix = this.config.get<string>('OUTBOX_QUEUE_PREFIX') ?? 'bull';
     this.queue = new Queue(OUTBOX_QUEUE, { connection, prefix });
@@ -93,11 +124,17 @@ export class OutboxWorkerService
                   : undefined
                 : job.name === CARE_REPORT_EXPORT_CLEANUP_JOB
                   ? this.careReportExports?.cleanupExpired()
-                  : this.deliverEvent(
-                      String(job.data.eventId),
-                      job.attemptsMade,
-                      job.opts.attempts ?? 1,
-                    ),
+                  : job.name === FAMILY_INVITATION_EXPIRY_JOB
+                    ? this.familyInvitationExpiry?.execute()
+                    : job.name === FAMILY_WEEKLY_PROGRESS_JOB
+                      ? this.familyReminderScheduler?.scheduleWeeklyProgressReminders()
+                      : job.name === FAMILY_MISSED_TASK_JOB
+                        ? this.familyReminderScheduler?.scheduleMissedTaskReminders()
+                        : this.deliverEvent(
+                            String(job.data.eventId),
+                            job.attemptsMade,
+                            job.opts.attempts ?? 1,
+                          ),
       { connection, prefix, concurrency: 4 },
     );
     await this.queue.upsertJobScheduler(
@@ -159,20 +196,64 @@ export class OutboxWorkerService
         },
       );
     }
+    if (this.familyCompanionEnabled) {
+      await this.queue.upsertJobScheduler(
+        'family-invitation-expiry',
+        { every: 60_000 },
+        {
+          name: FAMILY_INVITATION_EXPIRY_JOB,
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 100 },
+        },
+      );
+    } else {
+      await this.queue.removeJobScheduler('family-invitation-expiry');
+    }
+    if (this.familyCompanionEnabled) {
+      await this.queue.upsertJobScheduler(
+        'family-weekly-progress',
+        { every: 3_600_000 },
+        {
+          name: FAMILY_WEEKLY_PROGRESS_JOB,
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 100 },
+        },
+      );
+    } else {
+      await this.queue.removeJobScheduler('family-weekly-progress');
+    }
+    if (this.familyCompanionEnabled) {
+      await this.queue.upsertJobScheduler(
+        'family-missed-task-reminders',
+        { every: 60_000 },
+        {
+          name: FAMILY_MISSED_TASK_JOB,
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 100 },
+        },
+      );
+    } else {
+      await this.queue.removeJobScheduler('family-missed-task-reminders');
+    }
   }
 
   private async dispatchOnce() {
-    const events = await this.outbox.claimBatch(
-      50,
-      30_000,
-      this.careAutomationEnabled
+    const events = await this.outbox.claimBatch(50, 30_000, [
+      ...(this.careAutomationEnabled
         ? []
         : [
             'health.metric.recorded',
             'care.task.reminder',
+            'care.task.missed-reminder.v1',
             'care.task.check_in.submitted.v1',
-          ],
-    );
+          ]),
+      ...(this.familyCompanionEnabled
+        ? []
+        : [
+            'family.reminder.dispatch.v1',
+            'family.health-metric-sharing.changed.v1',
+          ]),
+    ]);
     for (const event of events) {
       await this.queue!.add(
         'deliver-event',
@@ -228,10 +309,21 @@ export class OutboxWorkerService
     const event = await this.outbox.getProcessing(eventId);
     if (!event) return;
     if (
+      !this.familyCompanionEnabled &&
+      [
+        'family.health-metric-sharing.changed.v1',
+        'family.reminder.dispatch.v1',
+      ].includes(event.eventType)
+    ) {
+      await this.outbox.deferUntil(event._id, new Date(Date.now() + 60_000));
+      return;
+    }
+    if (
       !this.careAutomationEnabled &&
       [
         'health.metric.recorded',
         'care.task.reminder',
+        'care.task.missed-reminder.v1',
         'care.task.check_in.submitted.v1',
       ].includes(event.eventType)
     ) {
@@ -254,10 +346,60 @@ export class OutboxWorkerService
         return;
       }
       if (event.eventType === 'knowledge.document.ingestion.requested.v1') {
-        const payload = event.payload as { documentId?: string; ingestionVersion?: number };
-        if (!payload.documentId || !Number.isInteger(payload.ingestionVersion) || !this.knowledgeIngestion)
+        const payload = event.payload as {
+          documentId?: string;
+          ingestionVersion?: number;
+        };
+        if (
+          !payload.documentId ||
+          !Number.isInteger(payload.ingestionVersion) ||
+          !this.knowledgeIngestion
+        )
           throw new Error('Invalid knowledge document ingestion event');
         await this.knowledgeIngestion.ingest(payload.documentId);
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'family.reminder.dispatch.v1') {
+        const payload = event.payload as { familyReminderId?: string };
+        if (!payload.familyReminderId || !this.familyReminderDelivery)
+          throw new Error('Invalid family reminder payload');
+        const delivery = await this.familyReminderDelivery.execute(
+          payload.familyReminderId,
+          String(event._id),
+        );
+        if (delivery && ('deferred' in delivery || 'acknowledged' in delivery))
+          return;
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'family.health-metric-sharing.changed.v1') {
+        const payload = event.payload as {
+          familyLinkId?: string;
+          invitationVersion?: number;
+          revision?: number;
+        };
+        if (
+          !payload.familyLinkId ||
+          !Number.isInteger(payload.invitationVersion) ||
+          !Number.isInteger(payload.revision) ||
+          !this.familyHealthSharingNotification
+        )
+          throw new Error('INVALID_FAMILY_SHARING_EVENT');
+        await this.familyHealthSharingNotification.deliver({
+          familyLinkId: payload.familyLinkId,
+          invitationVersion: payload.invitationVersion!,
+          revision: payload.revision!,
+        });
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (
+        event.eventType.startsWith('family.') &&
+        event.eventType !== 'family.reminder.dispatch.v1'
+      ) {
+        // Lifecycle events are durable audit/outbox facts; they have no external
+        // transport in E2, so acknowledge them without publishing payloads.
         await this.outbox.markDelivered(event._id);
         return;
       }
@@ -385,6 +527,44 @@ export class OutboxWorkerService
             message:
               'Bạn có nhiệm vụ theo dõi sức khỏe cần thực hiện. Hãy xem chi tiết trong ứng dụng.',
             idempotencyKey: `care.task.reminder.${payload.taskId}`,
+          });
+        }
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'care.task.missed-reminder.v1') {
+        const payload = event.payload as {
+          taskId?: string;
+          patientId?: string;
+          scheduledFor?: string;
+        };
+        if (!payload.taskId || !payload.patientId || !payload.scheduledFor)
+          throw new Error('Invalid missed Care Task reminder payload');
+        const scheduledFor = new Date(payload.scheduledFor);
+        if (Number.isNaN(scheduledFor.getTime()))
+          throw new Error('Invalid missed Care Task reminder time');
+        if (scheduledFor > new Date()) {
+          await this.outbox.deferUntil(event._id, scheduledFor);
+          return;
+        }
+        const alreadyRemindedDuringTaskWindow =
+          await this.notifications.hasIdempotencyKey(
+            `care.task.reminder.${payload.taskId}`,
+          );
+        if (
+          !alreadyRemindedDuringTaskWindow &&
+          (await this.reminders.shouldNotifyMissed(
+            payload.taskId,
+            payload.patientId,
+          ))
+        ) {
+          await this.notifications.create(payload.patientId, {
+            userId: payload.patientId,
+            type: NotificationType.INFO,
+            title: 'Nhắc nhiệm vụ theo dõi',
+            message:
+              'Bạn có một nhiệm vụ theo dõi sức khỏe chưa hoàn thành. Hãy xem chi tiết trong ứng dụng.',
+            idempotencyKey: `care.task.missed-reminder.${payload.taskId}`,
           });
         }
         await this.outbox.markDelivered(event._id);

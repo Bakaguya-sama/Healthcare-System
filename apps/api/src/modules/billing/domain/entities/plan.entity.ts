@@ -20,6 +20,7 @@ export type PlanSnapshot = {
   aiQuotaPeriod: 'day' | 'subscription_cycle';
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
 };
 
@@ -41,6 +42,7 @@ export class Plan {
   aiQuotaPeriod: 'day' | 'subscription_cycle';
   @Prop({ required: true, min: 0 }) consultationLimitPerCycle: number;
   @Prop({ required: true, min: 0, max: 100 }) activeCareProgramLimit: number;
+  @Prop({ required: true, min: 0, max: 10, default: 0 }) familyLinkLimit: number;
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) benefits: Record<
     string,
     unknown
@@ -88,6 +90,7 @@ export function snapshotPlan(plan: Plan): PlanSnapshot {
     aiQuotaPeriod: plan.aiQuotaPeriod,
     consultationLimitPerCycle: plan.consultationLimitPerCycle,
     activeCareProgramLimit: plan.activeCareProgramLimit,
+    familyLinkLimit: plan.familyLinkLimit,
     benefits: plan.benefits,
   };
 }

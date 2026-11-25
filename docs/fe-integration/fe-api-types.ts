@@ -2706,6 +2706,7 @@ export interface PlansCreateResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   refundPolicy: Record<string, unknown>;
   status: "draft" | "published" | "retired";
@@ -2746,6 +2747,7 @@ export interface PlansPublishResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   refundPolicy: Record<string, unknown>;
   status: "draft" | "published" | "retired";
@@ -3066,6 +3068,7 @@ export interface PatientBillingReadSubscriptionsResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   };
   startedAt: string;
@@ -3098,6 +3101,7 @@ export interface PatientBillingReadSubscriptionsResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   };
   startedAt: string;
@@ -5648,6 +5652,7 @@ export interface Da2PatientPlan {
     aiQuotaPeriod: "day" | "subscription_cycle";
     consultationLimitPerCycle: number;
     activeCareProgramLimit: number;
+    familyLinkLimit: number;
   };
   available: boolean;
   purchasable: boolean;
@@ -5866,4 +5871,182 @@ export interface OverrideDoctorBookingSettingsRequest
 export interface DoctorBookingSettingsResponse {
   statusCode: number;
   data: DoctorBookingSettings;
+}
+
+// ============================================================================
+// GIAI ĐOẠN E2 — NGƯỜI THÂN ĐỒNG HÀNH
+// Invitation dùng chung cho contact đã có hoặc chưa có account.
+// Không đưa clinical detail, raw token hoặc raw short code vào các projection đọc.
+// ============================================================================
+
+export type FamilyLinkStatus =
+  | 'pending'
+  | 'active'
+  | 'paused'
+  | 'revoked'
+  | 'declined'
+  | 'expired';
+
+export type FamilyReminderPermission =
+  | 'missed_task_reminder'
+  | 'weekly_progress';
+
+export interface FamilyLink {
+  id: string;
+  patientId: string;
+  relationship?: string;
+  status: FamilyLinkStatus;
+  invitationVersion: number;
+  invitationDelivery: 'shared_link' | 'selected_contact';
+  invitationExpiresAt: Da2IsoDateTime;
+  shortCodeExpiresAt?: Da2IsoDateTime;
+  permissions: FamilyReminderPermission[];
+  consentVersion?: string;
+  invitedAt: Da2IsoDateTime;
+  acceptedAt?: Da2IsoDateTime;
+  pausedAt?: Da2IsoDateTime;
+  resumedAt?: Da2IsoDateTime;
+  declinedAt?: Da2IsoDateTime;
+  expiredAt?: Da2IsoDateTime;
+  revokedAt?: Da2IsoDateTime;
+  allowedActions: Array<'accept' | 'decline' | 'pause' | 'resume' | 'revoke'>;
+}
+
+export interface CreateFamilyLinkRequest {
+  contactUserId?: string;
+  share?: boolean;
+  relationship?: string;
+}
+
+export interface SearchFamilyCompanionContactsRequest {
+  search: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface FamilyCompanionContactRecord {
+  id: string;
+  fullName: string;
+  email?: string;
+  phoneNumber?: string;
+}
+
+export interface SearchFamilyCompanionContactsResponse {
+  items: FamilyCompanionContactRecord[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface FamilyInvitationArtifacts {
+  familyLinkId: string;
+  shareLink: string;
+  qrPayload: string;
+  shortCode: string;
+  shortCodeExpiresAt: Da2IsoDateTime;
+  invitationExpiresAt: Da2IsoDateTime;
+  revealOnce: true;
+}
+
+/** Retry sau khi artifact đã được trả lần đầu; không chứa link hoặc mã thô. */
+export interface FamilyInvitationArtifactsReplay {
+  familyLinkId: string;
+  revealOnce: true;
+  available: false;
+}
+
+export type FamilyInvitationArtifactsResult =
+  | FamilyInvitationArtifacts
+  | FamilyInvitationArtifactsReplay;
+
+/** Response for POST /family-links/:id/regenerate-artifacts. */
+export interface RegenerateFamilyInvitationArtifactsResponse {
+  statusCode: 201 | 200;
+  message: string;
+  data: {
+    link: FamilyLink;
+    artifacts: FamilyInvitationArtifactsResult;
+  };
+}
+
+export interface RedeemFamilyInvitationRequest {
+  invitationToken?: string;
+  shortCode?: string;
+}
+
+export interface AcceptFamilyInvitationRequest {
+  consentVersion: string;
+  permissions: FamilyReminderPermission[];
+}
+
+export interface UpdateFamilyReminderPreferencesRequest {
+  permissions: FamilyReminderPermission[];
+  policyVersion: string;
+}
+
+export interface FamilyInvitationResponse {
+  link: FamilyLink;
+  artifacts?: FamilyInvitationArtifactsResult;
+}
+
+/** Response for POST /family-links; retries keep the same shape without secrets. */
+export interface CreateFamilyInvitationResponse {
+  statusCode: 201 | 200;
+  message: string;
+  data: {
+    link: FamilyLink;
+    artifacts: FamilyInvitationArtifactsResult;
+  };
+}
+
+/** Các command thay đổi trạng thái Family Companion đều cần header ổn định khi retry. */
+export interface FamilyCompanionCommandHeaders {
+  'Idempotency-Key': string;
+}
+
+/** Quyền chia sẻ chỉ số được Patient cấp riêng cho một FamilyLink. */
+export type FamilySharedMetricType = 'blood_pressure' | 'heart_rate' | 'blood_glucose' | 'oxygen_saturation' | 'body_temperature' | 'respiratory_rate' | 'bmi' | 'weight' | 'height' | 'water_intake' | 'kcal_intake';
+export type FamilyHealthMetricPeriod = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom';
+export type FamilyHealthMetricSharingRequest =
+  | { scope?: 'all'; consentVersion: 'family-health-metric-sharing.v1' }
+  | { scope: 'selected'; metricTypes: FamilySharedMetricType[]; consentVersion: 'family-health-metric-sharing.v1' };
+export interface FamilyHealthMetricPoint {
+  metricType: FamilySharedMetricType;
+  unit: string;
+  values: Record<string, number>;
+  recordedAt: Da2IsoDateTime;
+}
+export interface FamilyHealthMetricQuery {
+  metricType: FamilySharedMetricType;
+  /** Không truyền period/from/to thì dùng tuần hiện tại theo Asia/Ho_Chi_Minh. */
+  period?: FamilyHealthMetricPeriod;
+  /** Ngày neo YYYY-MM-DD để chuyển kỳ; chỉ dùng với week/month/quarter/year. */
+  anchor?: string;
+  /** Với period=custom, from/to là ISO và tạo khoảng [from,to). */
+  from?: Da2IsoDateTime;
+  to?: Da2IsoDateTime;
+  cursor?: string;
+  limit?: number;
+}
+export interface FamilyHealthMetricTrendResponse {
+  statusCode: number;
+  data: { items: FamilyHealthMetricPoint[]; nextCursor: string | null; window: FamilyHealthMetricWindow };
+}
+export interface FamilyHealthMetricSummaryResponse {
+  statusCode: number;
+  data: { metricType: FamilySharedMetricType; count: number; average: number; minimum: number; maximum: number; latest: FamilyHealthMetricPoint; window: FamilyHealthMetricWindow };
+}
+export interface FamilyHealthMetricWindow {
+  period: FamilyHealthMetricPeriod | 'legacy-range';
+  /** Anchor đã chuẩn hóa để FE có thể gọi cùng kỳ cho summary và trend. */
+  anchor?: string;
+  timeZone: 'Asia/Ho_Chi_Minh';
+  from: Da2IsoDateTime | null;
+  to: Da2IsoDateTime | null;
+  boundary: '[start,end)';
+}
+export interface FamilyHealthMetricSharingResponse {
+  statusCode: number;
+  data: { linkStatus: string; sharing: null | { scope: 'all' | 'selected'; metricTypes: FamilySharedMetricType[]; revision: number; consentVersion: string; consentedAt: Da2IsoDateTime } };
 }

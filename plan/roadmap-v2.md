@@ -171,6 +171,16 @@ nhắc trước; contact chỉ nhận reminder tối thiểu sau grace period. K
 severity, diagnosis, Doctor name, AI/chat/consultation content; urgent không gửi
 mặc định. Revoke có hiệu lực ngay và không vô hiệu hóa account độc lập của contact.
 
+**DEC-E2 invitation:** Invitation dùng cùng một lifecycle cho contact đã có hoặc
+chưa có account. Backend tạo deep-link, QR và short code 6 chữ số cho cùng một
+invitation version; link/QR chứa opaque token, không chứa PHI. Invitation hết hạn
+sau 7 ngày; short code hết hạn sau 15 phút, one-time, rate-limit và lưu hash.
+Người chưa có account phải đăng ký Patient, verify email rồi mới accept. Người đã
+có account redeem sau khi đăng nhập. Contact search là GET thông thường trong
+Users module: like trên tên/email/số điện thoại đã xác minh, có pagination và trả
+Patient record có ID để người mời chọn. Create invitation nhận `contactUserId` và
+backend xác minh lại; không lưu lookup reference/collection trung gian.
+
 **DEC-E3 — Facility directory:** Đã chốt internal curated directory là nguồn
 chính: chỉ `verified` facility mới vào kết quả; sắp xếp theo specialty match và
 khoảng cách, không dùng AI score, quảng cáo hay rating. Map provider chỉ fallback
@@ -424,27 +434,107 @@ trước khi promote.
 
 ### E2 — Family Companion
 
+**Trạng thái:** 🚧 Đang thực hiện. Phạm vi E2 được mở rộng với quyền Patient chủ động chia sẻ HealthMetric summary/trend cho Companion. Cần implementation, consent, kiểm soát truy cập, migration, test và evidence vận hành cho phạm vi mới; evidence cũ trong `docs/evidence/phase-e2-family-companion-2026-11-23.md` không chứng minh các yêu cầu mới đã hoàn tất.
+
 **Slice:** FAM-01. **Phụ thuộc:** E1 ổn định.
 
 1. Invite/accept/reject/revoke consent và `familyLinkLimit`.
 2. Bệnh nhân được nhắc trước; người thân chỉ nhận delayed reminder tối thiểu.
 3. Audit mọi thay đổi permission và delivery dedupe.
+4. Pilot entitlement: FREE = 1, PLUS = 3, CARE = 5; invitation share bằng link/QR/
+   short code, hỗ trợ contact chưa có account sau khi đăng ký Patient và verify
+   email; tìm contact qua GET paginated trong Users, chọn record rồi create bằng ID.
+5. Patient có thể cấp riêng quyền Companion xem summary/trend HealthMetric theo
+   scope all/selected, toàn bộ lịch sử và dữ liệu mới, với consent và revoke.
 
 **Công việc thực hiện:**
 
 1. Tạo `FamilyLinks`, versioned permissions/reminders, unique constraints và
    migration/verifier; không thêm role `family` hoặc `FamilyGroup`.
+   Invitation có thể chưa gắn `familyUserId`; lưu token/code dạng hash, TTL,
+   attempt lock và invitation delivery mode để hỗ trợ link/QR/code an toàn.
 2. Implement state machine `pending → active|declined|expired|revoked`, pause/resume
    và re-invite tăng `invitationVersion`.
+   Search chỉ trả Patient active đã xác minh email, cùng thông tin tối thiểu để
+   phân biệt record. API create không nhận email/phone và xác minh lại ID, role,
+   trạng thái account, self-invite và duplicate. Người chưa có account đi qua
+   Patient registration và email verification trước khi redeem share invitation.
+   Search là use case trong Users, query port/adapter ở infrastructure directory;
+   create/read/accept/reject có use-case entry point, còn domain không phụ thuộc
+   NestJS/Mongoose, transaction AuditLog/Outbox và schema thuộc infrastructure.
 3. Lưu hai consent P1 `missed_task_reminder`/`weekly_progress`; urgent chỉ là
    consent riêng nếu product owner bật sau này.
 4. Worker quyết định reminder theo task/enrollment/grace/quiet-hours/frequency-cap,
    rồi ghi outbox idempotent; không đặt channel delivery vào domain entity.
 5. Bổ sung Patient/contact views owner-scoped, revoke ngay và audit đầy đủ.
+6. Triển khai grant chia sẻ HealthMetric theo invitation version, projection
+   allowlist, authorization mỗi request, audit đọc và notification qua outbox;
+   kiểm thử race, idempotency, redaction và cập nhật FE contract.
+7. Mọi command có side effect phải idempotent trong transaction; redeem/accept/
+   status/permission/regenerate dùng receipt chứa hash key/request và projection
+   an toàn tối đa 7 ngày; create giữ unique key/request hash trên FamilyLink theo
+   vòng đời link. Retry không nhân đôi state/audit/outbox; create/regenerate vẫn
+   reveal link/QR/code đúng một lần, retry trả artifact unavailable.
+   Revoke khi request đọc đang chờ phải làm request đọc fail-closed ở lần kiểm tra
+   authorization sau truy vấn.
 
 **Exit gate:** revoke có hiệu lực tức thì; reminder không chứa HealthMetric, Care
 Alert, Doctor name hoặc consultation content; invitation/consent/reminder retry không
 nhân đôi; authorization/privacy/revoke race tests và consumer empty/error states xanh.
+
+**Review reminder — 24/11/2026:** các thiếu sót reminder đã được xử lý trong
+`ScheduleFamilyReminders`/`DeliverFamilyReminder`, các port application và
+Mongoose adapters: quota trượt 24 giờ theo Companion được conditional-write bằng
+thời gian MongoDB trong transaction; delivery kiểm tra lại task, enrollment,
+FamilyLink và permission; scheduler dùng keyset cursor `_id` theo batch 200;
+reminder và outbox được ghi/hoãn cùng transaction. Patient missed-task notification
+được tạo qua event riêng, có idempotency; Companion chờ Notification được persist,
+hoãn nếu event còn chạy và suppress nếu event dead hoặc đã kết thúc mà không có
+notification. Chi tiết và giới hạn race giữa Chronic Care lifecycle với dispatch ở
+`docs/evidence/phase-e2-family-companion-2026-11-23.md`.
+
+Đây chỉ là kết quả của reminder gate, không chứng minh toàn bộ E2 đã hoàn tất.
+FamilyLink còn các phần DDD/race cần review riêng; FE consumer validation và
+staging API/worker smoke vẫn chưa có evidence. Không bật feature hoặc đánh dấu E2
+hoàn tất chỉ dựa trên local/test evidence.
+
+**Ngữ nghĩa revoke đã chốt và khoảng trống:** yêu cầu là kiểm tra quyền cuối có
+điểm tuyến tính hóa; hiện link, grant và subscription được đọc bằng các thao tác
+riêng nên chưa chứng minh được điểm này khi revoke đồng thời. Không có distributed
+response barrier; response đang bay có thể đến sau revoke. Cần triển khai và test
+atomic authorization snapshot trước khi đóng gate race. FE phải xóa state/cache
+ngay khi nhận kết quả revoke hoặc trạng thái link/quyền thay đổi.
+
+**Đã chốt metric trend:** mặc định tuần lịch hiện tại theo `Asia/Ho_Chi_Minh`,
+thứ Hai 00:00 đến thứ Hai kế tiếp 00:00, end-exclusive. API hỗ trợ preset
+`week|month|quarter|year|all|custom`; `anchor=YYYY-MM-DD` điều hướng kỳ lịch.
+Trend trả điểm đo gốc, summary tính trên toàn bộ cùng cửa sổ bằng thống kê
+canonical Health Tracking. `period=all` cho phép duyệt toàn lịch sử; cửa sổ
+request không thu hẹp quyền grant. Request v1 chỉ dùng `from/to` giữ nguyên
+upper-bound inclusive; FE mới dùng `period=custom` với `[from,to)`. Chi tiết
+contract và evidence được ghi tại ADR E2 và evidence E2.
+
+**Cập nhật evidence 24/11/2026:** Atlas database test `healthcare` đã apply
+`202611241020` và `202611241030`; no-op và verifier PASS tại version
+`202611241030` (50 collections, 126 managed indexes). Integration test chạy trên Atlas
+đã PASS sau khi dọn 10 database synthetic `fc_<32 hex>` do test suite tạo. API/worker
+smoke trên database synthetic cô lập cũng PASS; xem evidence file để biết giới hạn
+môi trường. E2 vẫn giữ 🚧 cho đến khi toàn bộ contract, DDD, regression suite và
+evidence vận hành được review đồng nhất.
+
+**Bằng chứng bổ sung 24/11:** Atlas Family Companion integration PASS 19/19;
+local Family Companion integration 19/19, limiter Redis integration 1/1 (hai
+connection độc lập), Family Companion unit 20/20, HTTP contract E2E 2/2; typecheck,
+build, OpenAPI, realtime, boundary, migration no-op và verifier PASS. Replay
+accept được khóa theo `invitationVersion`; create replay ổn định response và
+không reveal artifact lần hai. Đây vẫn là test/smoke trên môi trường
+test, không phải staging/production; DDD core boundary review đã xác nhận domain
+thuần, use-case entry points, projection an toàn và transaction adapter đúng tầng.
+E2 vẫn 🚧: consumer UI validation chưa chạy được vì FE consumer không có trong
+workspace này; staging endpoint/deploy credentials/worker target cũng chưa được
+cấu hình hoặc cung cấp. Docker Compose hiện chỉ là local Mongo/Redis. `.env.production`
+được xác nhận `NODE_ENV=production` và không được dùng làm staging/test target.
+Test local/Atlas không thay thế hai bằng chứng này.
 
 ### E3 — Tìm cơ sở y tế
 

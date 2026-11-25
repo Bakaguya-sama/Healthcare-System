@@ -14,6 +14,9 @@ import { HealthMetricAlertService } from './application/services/health-metric-a
 import { HEALTH_METRIC } from './application/ports/health-metric.port';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
+import { SHARED_HEALTH_METRIC } from './application/ports/shared-health-metric.port';
+import { MongooseSharedHealthMetricReader } from './infrastructure/mongoose/mongoose-shared-health-metric-reader';
+import { SHARED_HEALTH_METRIC_QUERY } from './application/ports/shared-health-metric-query.port';
 
 @Module({
   imports: [
@@ -29,6 +32,15 @@ import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
   providers: [
     HealthMetricsService,
     HealthMetricQueryService,
+    {
+      provide: SHARED_HEALTH_METRIC_QUERY,
+      useExisting: HealthMetricQueryService,
+    },
+    MongooseSharedHealthMetricReader,
+    {
+      provide: SHARED_HEALTH_METRIC,
+      useExisting: MongooseSharedHealthMetricReader,
+    },
     HealthMetricAlertService,
     { provide: HEALTH_PROFILE, useExisting: HealthMetricQueryService },
     {
@@ -36,6 +48,11 @@ import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
       useExisting: HealthMetricQueryService,
     },
   ],
-  exports: [HealthMetricsService, HEALTH_PROFILE, HEALTH_METRIC],
+  exports: [
+    HealthMetricsService,
+    HEALTH_PROFILE,
+    HEALTH_METRIC,
+    SHARED_HEALTH_METRIC,
+  ],
 })
 export class HealthTrackingModule {}

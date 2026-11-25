@@ -5,7 +5,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, Types } from 'mongoose';
+import { ClientSession, Connection, Model, Types } from 'mongoose';
 import {
   Notification,
   NotificationDocument,
@@ -70,9 +70,60 @@ export class NotificationsService {
   /**
    * 📝 TẠO THÔNG BÁO MỚI
    */
-  async create(userId: string, dto: CreateNotificationDto) {
+  async create(
+    userId: string,
+    dto: CreateNotificationDto,
+    transactionSession?: ClientSession,
+  ) {
     if (!Types.ObjectId.isValid(dto.userId)) {
       throw new BadRequestException('Invalid recipient user ID');
+    }
+
+    if (transactionSession) {
+      if (dto.idempotencyKey) {
+        const existing = await this.notificationModel
+          .findOne({ idempotencyKey: dto.idempotencyKey })
+          .session(transactionSession)
+          .exec();
+        if (existing)
+          return {
+            statusCode: 201,
+            message: 'Notification created successfully',
+            data: existing,
+          };
+      }
+      const [notification] = await this.notificationModel.create(
+        [
+          {
+            userId: new Types.ObjectId(dto.userId),
+            type: dto.type,
+            title: dto.title,
+            message: dto.message,
+            isRead: false,
+            idempotencyKey: dto.idempotencyKey,
+          },
+        ],
+        { session: transactionSession },
+      );
+      await this.outbox.enqueue(
+        {
+          eventType: 'notification.created',
+          aggregateType: 'notification',
+          aggregateId: notification._id,
+          idempotencyKey: `notification.created.${notification._id}`,
+          payload: {
+            userId: dto.userId.toString(),
+            action: 'send',
+            notification: this.mapGatewayNotification(notification),
+          },
+        },
+        transactionSession,
+      );
+      return {
+        statusCode: 201,
+        message: 'Notification created successfully',
+        data: notification,
+      };
     }
 
     if (!this.connection) {
@@ -152,6 +203,12 @@ export class NotificationsService {
       message: 'Notification created successfully',
       data: notification,
     };
+  }
+
+  async hasIdempotencyKey(idempotencyKey: string) {
+    return Boolean(
+      await this.notificationModel.exists({ idempotencyKey }),
+    );
   }
 
   /**

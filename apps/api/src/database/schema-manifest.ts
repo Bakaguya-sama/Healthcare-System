@@ -79,6 +79,12 @@ import {
   CARE_REPORT_EXPORT_INDEXES,
 } from './migrations/202611061000-care-report-exports';
 import { PATIENT_PAYMENT_ORDER_READ_INDEXES } from './migrations/202611062000-patient-payment-order-read-indexes';
+import { FAMILY_HEALTH_SHARING_VALIDATOR } from './migrations/202611241020-e2-family-health-metric-sharing';
+import { FAMILY_COMMAND_RECEIPTS_VALIDATOR } from './migrations/202611241030-e2-family-command-receipts';
+import {
+  FAMILY_REMINDER_DELIVERY_INDEXES,
+  FAMILY_REMINDER_QUOTA_VALIDATOR,
+} from './migrations/202611241040-e2-family-reminder-delivery';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -122,6 +128,18 @@ export const INFRASTRUCTURE_COLLECTIONS: ReadonlyArray<{
 ];
 
 export const EXPECTED_DATABASE_COLLECTIONS = [
+  {
+    name: 'familycommandreceipts',
+    validator: FAMILY_COMMAND_RECEIPTS_VALIDATOR,
+  },
+  {
+    name: 'familyhealthmetricsharings',
+    validator: FAMILY_HEALTH_SHARING_VALIDATOR,
+  },
+  {
+    name: 'familyreminderquotas',
+    validator: FAMILY_REMINDER_QUOTA_VALIDATOR,
+  },
   ...INFRASTRUCTURE_COLLECTIONS,
   ...CC000_FOUNDATION_COLLECTIONS.filter(
     (collection) =>
@@ -163,6 +181,32 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
+  {
+    collection: 'familycommandreceipts',
+    name: 'actor_operation_keyhash_unique',
+    key: { actorId: 1, operation: 1, keyHash: 1 },
+    unique: true,
+  },
+  {
+    collection: 'familycommandreceipts',
+    name: 'family_command_receipt_ttl',
+    key: { createdAt: 1 },
+    expireAfterSeconds: 604800,
+  },
+  {
+    collection: 'familyhealthmetricsharings',
+    name: 'family_link_invitation_revision',
+    key: { familyLinkId: 1, invitationVersion: 1, revision: 1 },
+    unique: true,
+  },
+  {
+    collection: 'familyhealthmetricsharings',
+    name: 'family_link_active_sharing',
+    key: { familyLinkId: 1, invitationVersion: 1 },
+    unique: true,
+    partialFilterExpression: { status: 'active' },
+  },
+  ...FAMILY_REMINDER_DELIVERY_INDEXES,
   {
     collection: SCHEMA_MIGRATIONS_COLLECTION,
     name: 'version_1',
