@@ -16,6 +16,8 @@ import { HttpExceptionFilter } from '../src/core/filters/http-exception.filter';
 import { ProxyThrottlerGuard } from '../src/core/throttling/proxy-throttler.guard';
 import { AuthController } from '../src/modules/authentication/presentation/controllers/auth.controller';
 import { AuthService } from '../src/modules/authentication/application/services/auth.service';
+import { GoogleMobileOAuthService } from '../src/modules/authentication/application/services/google-mobile-oauth.service';
+import { GoogleOAuthError } from '../src/modules/authentication/application/errors/google-oauth.error';
 
 @Controller('platform')
 class PlatformTestController {
@@ -44,6 +46,9 @@ describe('legacy HTTP contract (e2e)', () => {
   const authService = {
     login: jest.fn().mockResolvedValue(loginResponse),
   };
+  const googleMobileOAuth = {
+    beginAttempt: jest.fn().mockResolvedValue({ attemptId: 'a'.repeat(43) }),
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -51,6 +56,7 @@ describe('legacy HTTP contract (e2e)', () => {
       controllers: [AuthController, PlatformTestController],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: GoogleMobileOAuthService, useValue: googleMobileOAuth },
         {
           provide: ConfigService,
           useValue: {
@@ -101,6 +107,34 @@ describe('legacy HTTP contract (e2e)', () => {
       email: 'patient@example.com',
       password: 'StrongPass123!',
     });
+  });
+
+  it('POST /api/v1/auth/oauth/google/mobile/attempt validates input and returns a server-created attempt', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/oauth/google/mobile/attempt')
+      .send({ challenge: 'c'.repeat(43) })
+      .expect(201)
+      .expect({
+        attemptId: 'a'.repeat(43),
+        authorizationPath: `/api/v1/auth/oauth/google?attemptId=${'a'.repeat(43)}`,
+        expiresInSeconds: 300,
+      });
+
+    expect(googleMobileOAuth.beginAttempt).toHaveBeenCalledWith('c'.repeat(43));
+  });
+
+  it('does not expose Redis details when mobile OAuth handoff is unavailable', async () => {
+    googleMobileOAuth.beginAttempt.mockRejectedValueOnce(
+      new GoogleOAuthError('GOOGLE_OAUTH_UNAVAILABLE'),
+    );
+
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/auth/oauth/google/mobile/attempt')
+      .send({ challenge: 'c'.repeat(43) })
+      .expect(503);
+
+    expect(response.body.message).toBe('Google OAuth is temporarily unavailable');
+    expect(JSON.stringify(response.body)).not.toContain('Redis');
   });
 
   it('rejects an invalid login payload at the HTTP boundary', async () => {

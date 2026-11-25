@@ -383,6 +383,12 @@ import {
   CARE_CATALOG_VERSION_TYPE_RECONCILIATION_NAME,
   CARE_CATALOG_VERSION_TYPE_RECONCILIATION_VERSION,
 } from './202611171200-care-catalog-version-type-reconciliation';
+import {
+  applyCareCatalogNumericVersionValidator,
+  CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_CHECKSUM,
+  CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_NAME,
+  CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_VERSION,
+} from './202611251000-care-catalog-numeric-version-validator';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -768,6 +774,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CONSULTATION_SLOT_RECONCILE_NAME,
     checksum: CONSULTATION_SLOT_RECONCILE_CHECKSUM,
     up: reconcileConsultationSlotPartialUnique,
+  },
+  {
+    version: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_VERSION,
+    name: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_NAME,
+    checksum: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_CHECKSUM,
+    up: applyCareCatalogNumericVersionValidator,
   },
 ];
 

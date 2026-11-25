@@ -150,7 +150,9 @@ describe('Family Companion reminder use cases', () => {
 
   it('moves a quota-limited reminder to the rolling 24-hour release time', async () => {
     const lastDispatchedAt = new Date(Date.now() - 23 * 60 * 60 * 1000);
-    const { reminder, store, delivery } = makeDependencies();
+    const { reminder, store, delivery } = makeDependencies({
+      patientReminderDelivered: true,
+    });
     store.dispatchReminder.mockResolvedValue({
       outcome: 'quota_limited',
       lastDispatchedAt,

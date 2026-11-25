@@ -4,7 +4,6 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Optional,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
@@ -36,7 +35,8 @@ import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 import { PATIENT_REPOSITORY_PORT } from '../ports/patient.repository.port';
 import type { PatientRepositoryPort } from '../ports/patient.repository.port';
 import type { CareActor } from './care-program-rule.service';
-import { CareTaskSchedulerService } from './care-task-scheduler.service';
+import { CARE_ENROLLMENT_TASK_SYNC_OUTBOX } from '../ports/care-enrollment-task-sync-outbox.port';
+import type { CareEnrollmentTaskSyncOutboxPort } from '../ports/care-enrollment-task-sync-outbox.port';
 import {
   BASELINE_SCHEMA_VERSION_V1,
   validateBaselineAnswers,
@@ -60,36 +60,9 @@ export class CareEnrollmentService {
     private readonly patients: PatientRepositoryPort,
     @Inject(CARE_PROGRAM_ACCESS_PORT)
     private readonly programAccess: CareProgramAccessPort,
-    @Optional()
-    private readonly taskScheduler?: CareTaskSchedulerService,
+    @Inject(CARE_ENROLLMENT_TASK_SYNC_OUTBOX)
+    private readonly taskSyncOutbox: CareEnrollmentTaskSyncOutboxPort,
   ) {}
-
-  private async scheduleIfActive(enrollment: PatientCareProgramDocument) {
-    if (
-      enrollment?.status !== PatientCareProgramStatus.ACTIVE ||
-      !this.taskScheduler
-    )
-      return;
-    try {
-      const now = new Date();
-      await this.taskScheduler.scheduleEnrollment(enrollment, now);
-      await this.taskScheduler.advanceTaskStatuses(now);
-    } catch {
-      // Scheduling is best-effort outside worker runs so isolated tests never break.
-    }
-  }
-
-  private async cancelOpenTasks(
-    enrollmentId: Types.ObjectId,
-    reason: string,
-  ) {
-    if (!this.taskScheduler) return;
-    try {
-      await this.taskScheduler.cancelEnrollmentTasks(enrollmentId, reason);
-    } catch {
-      // Cancellation is best-effort outside worker runs so isolated tests never break.
-    }
-  }
 
   private fail(
     code: string,
@@ -271,6 +244,14 @@ export class CareEnrollmentService {
           return;
         }
         result = await work(session);
+        await this.taskSyncOutbox.enqueue(
+          {
+            enrollmentId: String(result._id),
+            revision: result.revision,
+            status: result.status,
+          },
+          session,
+        );
         await this.idempotency.create(
           [
             {
@@ -523,7 +504,6 @@ export class CareEnrollmentService {
         return e;
       },
     );
-    await this.scheduleIfActive(updated);
     return updated;
   }
 
@@ -582,7 +562,6 @@ export class CareEnrollmentService {
         return e;
       },
     );
-    await this.scheduleIfActive(updated);
     return updated;
   }
 
@@ -625,7 +604,6 @@ export class CareEnrollmentService {
         return e;
       },
     );
-    await this.cancelOpenTasks(updated._id, 'consent_withdrawn');
     return updated;
   }
 
@@ -714,14 +692,6 @@ export class CareEnrollmentService {
         return e;
       },
     );
-    if (action === 'resume') await this.scheduleIfActive(updated);
-    if (action === 'cancel' || action === 'complete') {
-      const reason =
-        typeof dto?.reason === 'string' && dto.reason.trim()
-          ? dto.reason.trim()
-          : `enrollment_${action}`;
-      await this.cancelOpenTasks(updated._id, reason);
-    }
     return updated;
   }
 }

@@ -15,7 +15,8 @@ The old `POST /auth/register`, OTP delivery endpoints and refresh body `userId` 
 ## OAuth boundary and outstanding enablement gate
 
 Google OAuth uses a Nest Passport Google strategy, PKCE S256 and a one-time
-five-minute encrypted HttpOnly cookie state store; `OAuthAccounts` is the only
+five-minute Redis-backed state record encrypted at rest; the HttpOnly browser cookie
+contains only an opaque random state handle. `OAuthAccounts` is the only
 OAuth persistence table. Local password and Google OAuth are deliberately
 separate authentication methods: Phase A exposes no link, unlink or OAuth
 re-authentication operation. Legacy identity records attached to a local-password,
@@ -24,6 +25,32 @@ grandfathered. A conditional unique `(provider, providerEmail)` index prevents a
 second OAuth-only Patient when Google supplies the same email through another
 provider subject. `GOOGLE_OAUTH_ENABLED` remains disabled by default until this
 migration, provider credentials and browser E2E evidence are approved.
+
+### Mobile handoff amendment — 2026-11-25
+
+Mobile OAuth retains Authorization Code + Google PKCE and browser-bound state; it
+adds a separate app-generated RFC 7636 verifier/challenge. The API generates a
+random attempt ID (5-minute TTL); callback stores an encrypted pending Google
+principal and a hash of a one-time ticket (60-second TTL) in shared Redis. The app
+must exchange attempt ID + ticket + verifier. Redis atomically consumes a successful
+exchange, and only then may Authentication create a session. There is no
+attemptId-only compatibility path. If proof is lost/expired, the app starts over.
+Configured mobile redirect is parsed/validated at startup and never accepted from a
+request. Custom scheme is supported; HTTPS universal links are preferred when owned
+and configured. Browser flow continues to require its HttpOnly cookie and Passport
+state/PKCE. Redis errors fail closed; no process-memory state fallback exists.
+
+### Google account email amendment — 2026-11-25
+
+New OAuth User and OAuth identity are created in one MongoDB transaction. Google
+profile email is normalized; `emailVerifiedAt` is set only when the authenticated
+Google OIDC `email_verified` claim is true and evidence is recorded on the identity.
+Provider subject, not email, is the login key; subsequent logins do not overwrite
+User email. Session responses include `emailVerified`. Active unverified accounts
+may use the existing generic email-OTP request/verify endpoints to prove the contact
+address without changing account status. Legacy missing-email accounts are handled
+only by the explicit dry-run-first backfill command; it never merges accounts or
+marks an email verified from an untrusted historical attribute.
 
 ## Email action delivery flow
 

@@ -484,6 +484,12 @@ trước khi tài liệu có thể hỗ trợ câu trả lời bệnh nhân tron
 
 ## Nhiệm vụ chăm sóc
 
+Patient có thể gửi check-in hoặc xác nhận đã xem nội dung giáo dục trước
+`windowStart` nếu task còn `scheduled`, enrollment active và chưa quá
+`windowEnd`. Doctor review vẫn phải chờ đến `windowStart`; metric được đối chiếu
+theo cửa sổ đo. FE dùng `allowedActions` để hiển thị và xử lý lỗi từ backend khi
+trạng thái hoặc thời gian đã thay đổi; thời điểm lưu và trả về là UTC.
+
 | STT | Nhóm              | Tên                                     | Method + Endpoint                                   | Auth                               | Input                                                                                                                                                                                                                                                                                                                                  | Response                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Error                                                                                                                                                                                                                                                                                                                                                    | Mục đích                                                                                                                                                                                                                                     |
 | --: | ----------------- | --------------------------------------- | --------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------- | ---------------------------------- | ------------- | -------------- | ---------------- | ------------------------------------------- | ------------- | -------------- | ---------------- | ---------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------- | ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | 197 | Nhiệm vụ chăm sóc | Lập lịch nhiệm vụ chăm sóc              | `POST /api/v1/care-tasks/schedule`                  | Bearer JWT (role: admin)           | Không có input<br>Type: `CareTaskScheduleRequest`                                                                                                                                                                                                                                                                                      | `200`<br>`{ enrollments: number; created: number; }`<br>Type: `CareTaskScheduleResponse`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 401 – Unauthorized – thiếu, sai hoặc hết hạn Bearer token<br>403 – Forbidden – role không được phép<br>429 – Too Many Requests – vượt giới hạn ProxyThrottlerGuard<br>500 – Internal server error – exception không phải HttpException được global filter xử lý                                                                                          | Lập lịch nhiệm vụ chăm sóc                                                                                                                                                                                                                   |
@@ -828,6 +834,13 @@ their snapshot and must not be reinterpreted in the client. A
 | Rule               | `GET /care-programs/:id/rules?view=active                                                | draft`                                                                                                                                                          | Patient denied; active+approved Doctor gets active summary; Admin gets sanitized active/draft declarative projection, never raw traces/clinical inputs. |
 | Export             | `POST /care-reports/:id/exports` + key; `GET /care-report-exports/:id`                   | Async owner-only job. Poll status; use `download.url` only when ready and before expiry.                                                                        |
 
+Enrollment state đổi đồng bộ ngay trong response, còn CareTask schedule/cancel là
+outbox side effect bất đồng bộ. Sau `active`/`resume`, tải lại danh sách task theo
+enrollment; không giả định task đã có ngay trong response command. Sau `pause`,
+`complete`, `cancel` hoặc rút consent, thao tác task và reminder bị chặn theo trạng
+thái Enrollment hiện tại dù worker chưa xử lý event. Worker dùng revision mới nhất,
+retry/reconciliation; FE không cần gọi endpoint sync thủ công.
+
 ### Billing and PaymentOrder
 
 - Published catalog: `GET /plans`, `GET /plans/:id`.
@@ -890,27 +903,78 @@ is disabled.
 
 | User intent                     | Endpoint and input                                                                                                                          | Expected result / frontend behavior                                                                                                                                                                                                                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Register Patient                | `POST /api/v1/auth/register/patient` JSON: `{ email, password, fullName, phoneNumber? }`                                                    | `201`, `{ status: "pending_verification", message }`. Never send `role`. Show the email-OTP verification screen; this is not a signed-in session.                                                                                                                                                                        |
-| Register Doctor                 | `POST /api/v1/auth/register/doctor` multipart: local fields plus `specialty`, `workplace`, `experienceYears`, optional `newFilesToUpload[]` | Pending verification. After email verification, Doctor still awaits independent Admin approval. Never send role or document URLs.                                                                                                                                                                                        |
-| Restore rejected Doctor form    | `POST /api/v1/auth/doctor-reapplication/restore`: `{ email, password }`                                                                     | Returns prior professional fields and opaque document metadata for prefill, never a document URL. Resubmit via Doctor endpoint with any new file uploads; server retains prior files.                                                                                                                                    |
-| Request/resend verification OTP | `POST /api/v1/auth/request-email-verification`: `{ email }`                                                                                 | Always show generic queued result. Registration already queues first OTP; use only when user requests resend. `resend-verification` is temporary deprecated alias.                                                                                                                                                       |
-| Verify email OTP                | `POST /api/v1/auth/verify-email`: `{ email, otpCode }`                                                                                      | `200`, email identifies the challenge and OTP proves possession. Redirect to local-password login. This does not approve a Doctor profile.                                                                                                                                                                               |
-| Local sign-in                   | `POST /api/v1/auth/login`: `{ email, password }`                                                                                            | Returns access/refresh tokens only after full-access policy passes. Pending account goes to verification/resend UI.                                                                                                                                                                                                      |
-| Password recovery               | `POST /api/v1/auth/password-recovery`: `{ email }`, then `POST /api/v1/auth/reset-password`: `{ email, otpCode, newPassword }`              | Generic request result. Reset consumes OTP once, revokes all sessions, then route to local sign-in. OAuth-only users have no local password reset path.                                                                                                                                                                  |
-| Google Patient sign-in / signup | Browser navigation only: `GET /api/v1/auth/oauth/google`, then provider callback                                                            | Never XHR this flow and never send provider subject, authorization code, state, or custom return URL. Server owns PKCE/state in HttpOnly cookie. First eligible Google identity creates a Patient OAuth-only account. A Google email that belongs to local account is rejected and user is directed to password sign-in. |
-| Sessions                        | `GET /auth/sessions`; `POST /auth/logout`; `POST /auth/logout-all`; `POST /auth/sessions/revoke` `{ sessionId }`                            | All require Bearer token. `logout` revokes current session only; `logout-all` revokes every owned session. Refresh accepts `{ refreshToken }` only, never `userId`.                                                                                                                                                      |
+| Đăng ký Patient                 | `POST /api/v1/auth/register/patient` JSON: `{ email, password, fullName, phoneNumber? }`                                                    | `201`, `{ status: "pending_verification", message }`. Không gửi `role`. Hiển thị màn hình xác minh email bằng OTP; đây chưa phải phiên đăng nhập.                                                                                                                                                                        |
+| Đăng ký Doctor                  | `POST /api/v1/auth/register/doctor` multipart: trường local cùng `specialty`, `workplace`, `experienceYears`, tùy chọn `newFilesToUpload[]` | Chờ xác minh email. Sau đó Doctor vẫn cần Admin duyệt riêng. Không gửi role hoặc URL tài liệu.                                                                                                                                                                                                                           |
+| Khôi phục hồ sơ Doctor bị từ chối | `POST /api/v1/auth/doctor-reapplication/restore`: `{ email, password }`                                                                   | Trả trường hồ sơ nghề nghiệp và metadata tài liệu opaque để điền lại, không trả URL tài liệu. Gửi lại qua endpoint Doctor cùng file mới nếu có; server giữ file cũ.                                                                                                                                                      |
+| Yêu cầu/gửi lại OTP xác minh     | `POST /api/v1/auth/request-email-verification`: `{ email }`                                                                                 | Luôn hiển thị kết quả chung. Đăng ký đã gửi OTP đầu tiên; chỉ gọi khi người dùng yêu cầu gửi lại.                                                                                                                                                                                                                         |
+| Xác minh email bằng OTP          | `POST /api/v1/auth/verify-email`: `{ email, otpCode }`                                                                                      | `200`; email xác định thử thách, OTP chứng minh quyền sở hữu. Điều hướng sang đăng nhập bằng mật khẩu. Việc này không duyệt hồ sơ Doctor.                                                                                                                                                                                 |
+| Đăng nhập bằng mật khẩu          | `POST /api/v1/auth/login`: `{ email, password }`                                                                                            | Chỉ trả access/refresh token nếu chính sách cấp quyền đầy đủ đạt. Account chờ xác minh chuyển sang giao diện xác minh/gửi lại OTP.                                                                                                                                                                                       |
+| Khôi phục mật khẩu               | `POST /api/v1/auth/password-recovery`: `{ email }`, sau đó `POST /api/v1/auth/reset-password`: `{ email, otpCode, newPassword }`           | Kết quả yêu cầu chung. Reset dùng OTP một lần, thu hồi mọi session rồi chuyển sang đăng nhập. OAuth-only không có luồng reset mật khẩu local.                                                                                                                                                                              |
+| Đăng nhập/đăng ký Google Patient trên web | Điều hướng trình duyệt: `GET /api/v1/auth/oauth/google`, sau đó callback từ provider                                                | Dùng state/PKCE do server quản lý và cookie HttpOnly của cùng trình duyệt. Provider subject đủ điều kiện đầu tiên tạo account Patient OAuth-only. Email trùng account mật khẩu trả lỗi an toàn; hướng người dùng sang đăng nhập bằng mật khẩu.                                                                           |
+| Đăng nhập/đăng ký Google trên mobile | Tạo challenge: `POST /api/v1/auth/oauth/google/mobile/attempt`; đổi ticket: `POST /api/v1/auth/oauth/google/exchange`                   | App tự tạo verifier/challenge; server sinh attempt ID và relative authorize path. Callback trả app-link có ticket một lần; exchange bắt buộc attempt ID + verifier. Chỉ exchange trả session.                                                                                                                                 |
+| Phiên đăng nhập                  | `GET /auth/sessions`; `POST /auth/logout`; `POST /auth/logout-all`; `POST /auth/sessions/revoke` `{ sessionId }`                           | Cần Bearer token. `logout` thu hồi phiên hiện tại; `logout-all` thu hồi mọi phiên thuộc người dùng. Refresh chỉ nhận `{ refreshToken }`, không nhận `userId`.                                                                                                                                                              |
 
 ### Google OAuth UX boundary
 
-There are exactly two independent authentication methods: **local email/password**
-and **Google Patient OAuth-only**. They cannot be linked, unlinked, or merged by
-email. Google sign-in is feature-gated and disabled by default. The callback has no
-client-selected return URL; before enablement, frontend and backend owners must agree
-a fixed allowlisted completion route because the current callback returns the session
-JSON to the browser. Never place authorization code, state, provider token, OTP,
-refresh token, or document URL in browser storage, analytics, or application logs.
-Google enablement also requires migration `202611181220-oauth-provider-email-uniqueness`;
-it enforces one OAuth-only Patient per supplied Google email.
+Hai phương thức đăng nhập vẫn độc lập: local email/password và Google Patient
+OAuth-only; không link/unlink hoặc merge theo email. Google bị feature-flag và mặc
+định tắt. Không có mobile consumer source trong workspace này; các bước dưới đây là
+contract để FE/mobile triển khai và cần consumer validation trước rollout.
+
+#### Luồng mobile
+
+1. Tạo `verifier` bằng CSPRNG (43–128 ký tự RFC 7636), giữ tạm trong bộ nhớ an toàn
+   hoặc secure storage của thiết bị. Tính `challenge = BASE64URL(SHA256(verifier))`
+   không padding; gửi `POST /api/v1/auth/oauth/google/mobile/attempt` với
+   `{ "challenge": "..." }`.
+2. Nhận `{ attemptId, authorizationPath, expiresInSeconds: 300 }`. Attempt ID do
+   server sinh; không tự tạo lại hay dùng nó như credential. Ghép relative path với
+   API origin đã cấu hình rồi mở bằng system browser.
+3. Browser đi qua Google Authorization Code + Google PKCE. Server lưu state/verifier
+   Google trong Redis dùng chung, mã hóa payload, và gắn state với HttpOnly cookie
+   của browser đã khởi tạo. Không tự thêm `redirect_uri`, `state`, `code` hoặc token.
+4. Callback mobile tạo deep/app-link chứa ticket một lần TTL 60 giây. Link không chứa
+   access/refresh token, authorization code, Google token hay verifier. Mở app qua
+   universal link HTTPS nếu deployment đã cấu hình; custom scheme hiện tại vẫn được
+   hỗ trợ. Ticket có thể xuất hiện trong app-link handling nên tuyệt đối không ghi
+   URL vào analytics, crash report hoặc log.
+5. App nhận ticket rồi gọi exchange JSON `{ attemptId, ticket, verifier }`. Chỉ một
+   request hợp lệ thắng atomic consume trên Redis và nhận session. Sau response, xóa
+   verifier/ticket khỏi temporary state; bảo quản access/refresh token theo secure
+   storage policy hiện tại. Không retry ticket sau timeout mơ hồ; bắt đầu OAuth mới.
+6. Attempt hết hạn sau 5 phút; ticket có hiệu lực tối đa 60 giây và không vượt
+   thời hạn còn lại của attempt. Sai/mất verifier, callback replay,
+   Redis lỗi hoặc exchange replay đều fail-closed; người dùng bắt đầu lại. OAuth
+   account mới có thể trả `emailVerified=false`; FE không được xem email attribute
+   là đã chứng minh. `POST /auth/request-email-verification` có thể gửi OTP cho
+   account active chưa verified; `/auth/verify-email` xác minh email nhưng giữ nguyên
+   trạng thái active.
+
+#### Browser, collision và dữ liệu email
+
+Browser flow vẫn là top-level navigation: callback bị ràng buộc với cookie/state và
+trả kết quả session cho browser, không nhận return URL do client chọn. Mobile flow
+không đi qua nhánh browser-session callback: session chỉ được tạo khi exchange hợp lệ.
+Email trùng account mật khẩu trả `409` với `AUTH_GOOGLE_LOCAL_ACCOUNT_EXISTS`; hướng
+người dùng đăng nhập bằng email/mật khẩu. Email đã gắn với Google subject khác trả
+`409` với `AUTH_GOOGLE_IDENTITY_EXISTS`; hướng người dùng chọn Google account ban đầu
+hoặc liên hệ hỗ trợ. FE không được tự thử đổi sang luồng đăng nhập khác, tạo account
+thứ hai hoặc tự merge. Lỗi khác có thể trả `AUTH_GOOGLE_ACCOUNT_CONFLICT`.
+
+Backend chỉ đặt `emailVerifiedAt` khi Google OIDC userinfo có `email_verified=true`;
+đăng nhập lại theo `(provider, providerAccountId)` và không đồng bộ/ghi đè email khi
+provider đổi. Session response có `user.emailVerified`. Không đưa code/state/ticket/
+verifier/token/OTP vào URL (ngoại trừ ticket one-time trong app-link), browser
+storage không an toàn, analytics hoặc log. `GOOGLE_OAUTH_MOBILE_REDIRECT_URL` là cấu
+hình cố định deployment; không lấy từ body/query client. Backfill account cũ là lệnh
+vận hành riêng, mặc định dry-run; không chạy `--apply` lên dữ liệu ứng dụng nếu chưa
+có operator authorization và backup.
+
+Nếu Google không trả email, account vẫn đăng nhập được theo provider subject nhưng
+không thể nhận OTP email hoặc dùng chức năng đòi email đã xác minh. Runtime hiện chưa
+có API thêm/thay email cho OAuth-only account; FE không được giả định có thể tự sửa
+trạng thái này. Hướng dẫn người dùng liên hệ hỗ trợ; ghi nhận đây là khoảng trống
+sản phẩm/API cần quyết định riêng.
 
 ### E2 — Quy tắc client bổ sung
 

@@ -7,6 +7,16 @@ outbox worker evaluates `health.metric.recorded` events and delivers
 `care.task.reminder` events.  It never places raw metric values in an outbox
 payload or operational log.
 
+Enrollment status transitions also write `care.enrollment.tasks.sync.v1` in the
+same MongoDB transaction as the Enrollment revision, audit and idempotency record.
+The worker re-reads current Enrollment state: active schedules idempotent tasks;
+paused/completed/cancelled or missing Enrollment cancels open tasks. With the
+automation flag off, invalid-task cancellation still runs; active-task creation is
+deferred to the periodic scheduler after the flag is enabled. Scheduler reconciliation
+pages all active enrollments and all open tasks in stable `_id` batches. While worker
+sync is pending, task commands and reminders re-check current Enrollment state and
+fail closed.
+
 The flag must only be enabled after migration `202610191000` has completed and
 `database:verify` is successful against the intended environment.  MongoDB must
 run as a replica set because metric creation/correction and its outbox event are
@@ -41,6 +51,12 @@ not return payload data. Retain worker logs under the platform logging policy.
    notification side effects.
 5. For a clinical concern, have the assigned doctor review the patient's alert
    and record the action. This automation is not diagnostic guidance.
+
+For `care.enrollment.tasks.sync.v1`, first verify the latest Enrollment revision and
+status using the authorized operational database procedure, then inspect only event
+ID, aggregate ID, revision, attempt count and safe error code. Do not inspect/log
+baseline answers, consent payload, task response or HealthMetric values. Reconciliation
+can repair missing schedules/cancellations; it does not change Enrollment state.
 
 ## Cutover and data review
 

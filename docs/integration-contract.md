@@ -730,6 +730,12 @@ interface MedicalFacilityDto {
 `POST /care-tasks/schedule` is an Admin operational endpoint that advances due/missed states and schedules the next seven local calendar days for active enrollments. Patient owner và assigned Doctor đọc task/completion rate theo enrollment scope; Admin bị cấm. `GET /care-enrollments/:id/tasks` trả page bounded, còn `GET /care-tasks/:id` trả projection type-specific nhưng không trả raw response/rule/reminder/audit. Completion rate là `completed / (completed + missed)` cho required Patient task, loại `doctor_review`, và là `null` trước terminal outcome. `POST /care-tasks/:id/responses` bắt buộc idempotency; metric dùng `HLTH-02`, education nhận acknowledgment sau exact published-content resolve, và check-in nhận typed `health-check-in.v1`.
 
 **Behavior runtime CareTask policy v1:**
+Patient response `check_in` và acknowledgment `education` được phép trước
+`windowStart` khi task `scheduled`, enrollment active và chưa quá `windowEnd`.
+Doctor review vẫn yêu cầu `windowStart <= now <= windowEnd`; metric tự hoàn
+thành theo thời điểm đo trong cửa sổ metric. Backend luôn xác nhận lại điều kiện
+khi thực hiện, kể cả khi `allowedActions` đã được hiển thị.
+
 `check_in` dùng schema `health-check-in.v1` chỉ gồm `overallStatus`,
 `symptomCodes`, `severity`, không free text; persistence phát deterministic event
 vào Rule Engine và chỉ CareRule `active` đã approved mới có thể tạo CareAlert.
@@ -1131,30 +1137,32 @@ interface AdminDashboardDto {
 > | `POST /auth/register/patient`             | Patient fields only; no client role         | Starts `pending_verification`, queues initial OTP.                                                                                                                                                                                                       |
 > | `POST /auth/register/doctor`              | Doctor fields + documents; no client role   | Starts `pending_verification`; Admin approval remains independent.                                                                                                                                                                                       |
 > | `POST /auth/doctor-reapplication/restore` | `{ email, password }` for a rejected Doctor | Restores prior professional fields plus opaque document metadata for prefill; no raw document URL is returned.                                                                                                                                           |
-> | `POST /auth/request-email-verification`   | `{ email }`                                 | Explicitly requests/replaces the verification OTP; generic response prevents account enumeration. `resend-verification` is a temporary deprecated alias.                                                                                                 |
-> | `POST /auth/verify-email`                 | `{ email, otpCode }`                        | Email identifies the challenge, OTP proves possession; atomically consumes the OTP and activates a pending local account.                                                                                                                                |
+> | `POST /auth/request-email-verification`   | `{ email }`                                 | Explicitly requests/replaces the verification OTP; generic response prevents account enumeration. Eligible pending local accounts and active Google accounts without verified email may receive it. `resend-verification` is a temporary deprecated alias. |
+> | `POST /auth/verify-email`                 | `{ email, otpCode }`                        | Email identifies the challenge, OTP proves possession; atomically consumes the OTP. Pending local account becomes active; an already-active Google account remains active and only gains `emailVerifiedAt`. |
 > | `POST /auth/password-recovery`            | `{ email }`                                 | Generic response and password-reset OTP delivery.                                                                                                                                                                                                        |
 > | `POST /auth/reset-password`               | `{ email, otpCode, newPassword }`           | Atomically consumes the reset OTP, changes password, revokes all sessions.                                                                                                                                                                               |
-> | `GET /auth/oauth/google` / callback       | Browser-only Passport redirect              | Feature-gated Google OAuth for Patient OAuth-only accounts, with state + PKCE; no arbitrary client redirect. Local password and OAuth never link/merge. A provider email collision with local account is refused and directs the user to password login. |
+> | `GET /auth/oauth/google` / callback       | Browser navigation; Passport redirect        | Feature-gated Patient-only Google OAuth with browser-bound Redis state/PKCE. Mobile uses attempt/ticket exchange below; no request-selected redirect. Local/OAuth identities never merge. |
 
 | ID       | Method + path                             | Role                       | Request                                 | Response                                            | Status                                                                  |
 | -------- | ----------------------------------------- | -------------------------- | --------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------- |
 | AUTH-01  | `POST /auth/register/patient`             | Public                     | Patient fields; no role                 | pending-verification result                         | Current canonical                                                       |
 | AUTH-02  | `POST /auth/register/doctor`              | Public                     | Doctor fields + documents; no role      | pending-verification or reapplication result        | Current; rejected Doctor reapply preserves verified email               |
 | AUTH-02A | `POST /auth/doctor-reapplication/restore` | Rejected Doctor credential | `{ email, password }`                   | prior form fields + opaque document metadata        | Current canonical; no raw document URL                                  |
-| AUTH-03  | `POST /auth/request-email-verification`   | Public                     | `{ email }`                             | generic queued result                               | Current canonical; `resend-verification` deprecated alias               |
-| AUTH-03A | `POST /auth/verify-email`                 | Public                     | `{ email, otpCode }`                    | activation result                                   | Current canonical                                                       |
-| AUTH-04  | `POST /auth/login`                        | Public                     | `{ email, password }`                   | session/token response                              | Current canonical                                                       |
-| AUTH-05  | `POST /auth/refresh`                      | Refresh-token holder       | `{ refreshToken }`                      | rotated session/token response                      | Current canonical; identity only from signed token                      |
+| AUTH-03  | `POST /auth/request-email-verification`   | Public                     | `{ email }`                             | generic queued result                               | Eligible pending local or active OAuth account missing verified email; no account enumeration |
+| AUTH-03A | `POST /auth/verify-email`                 | Public                     | `{ email, otpCode }`                    | verification result                                 | Pending local becomes active; active Google account stays active         |
+| AUTH-04  | `POST /auth/login`                        | Public                     | `{ email, password }`                   | session/token; `user.emailVerified`                 | Current canonical                                                       |
+| AUTH-05  | `POST /auth/refresh`                      | Refresh-token holder       | `{ refreshToken }`                      | rotated session/token; `user.emailVerified`         | Current canonical; identity only from signed token                      |
 | AUTH-06  | `POST /auth/logout`                       | Authenticated              | current session                         | revocation result                                   | Current canonical                                                       |
 | AUTH-07  | `POST /auth/logout-all`                   | Authenticated              | none                                    | revocation result                                   | Current canonical                                                       |
 | AUTH-08  | `POST /auth/password-recovery`            | Public                     | `{ email }`                             | generic queued result                               | Current canonical                                                       |
 | AUTH-09  | `POST /auth/reset-password`               | Public                     | `{ email, otpCode, newPassword }`       | reset result                                        | Current canonical; revokes all sessions                                 |
 | AUTH-10  | —                                         | —                          | —                                       | —                                                   | Deferred: local change-password use case                                |
 | AUTH-11  | `GET /auth/me`                            | Authenticated              | none                                    | current profile                                     | Current canonical                                                       |
-| AUTH-12  | `GET /auth/oauth/google`                  | Public browser             | Passport redirect                       | Google authorization redirect                       | Feature-flagged; state + PKCE                                           |
-| AUTH-13  | `GET /auth/oauth/google/callback`         | Public browser             | provider callback                       | Patient OAuth-only session result                   | Feature-flagged; no arbitrary return URL; local email collision refused |
-| AUTH-13A | —                                         | —                          | —                                       | —                                                   | Removed: no OAuth link/unlink/re-authentication API                     |
+| AUTH-12  | `GET /auth/oauth/google`                  | Public browser/mobile      | Browser navigation; mobile supplies server-issued `attemptId` in authorize path | Google authorization redirect | Feature-flagged; browser cookie + shared Redis state/Google PKCE; no client-selected callback |
+| AUTH-12A | `POST /auth/oauth/google/mobile/attempt`  | Public mobile bootstrap    | `{ challenge }`                          | `{ attemptId, authorizationPath, expiresInSeconds: 300 }` | App challenge; backend-generated attempt; five-minute TTL; rate-limited |
+| AUTH-13  | `GET /auth/oauth/google/callback`         | Public browser/provider    | provider callback                       | Browser session JSON or fixed mobile bridge ticket   | State/cookie/Google PKCE validated; mobile callback stores principal/ticket only, not session |
+| AUTH-13A | `POST /auth/oauth/google/exchange`        | Mobile app                 | `{ attemptId, ticket, verifier }`        | Patient session/token result, including `user.emailVerified` | Ticket TTL 60 sec; shared Redis atomic one-time consume; app verifier required |
+| AUTH-13B | —                                         | —                          | —                                       | —                                                   | No OAuth link/unlink/re-authentication API                              |
 | AUTH-14  | `GET /auth/sessions`                      | Authenticated              | none                                    | own safe session metadata                           | Current canonical                                                       |
 | AUTH-15  | `POST /auth/sessions/revoke`              | Session owner              | `{ sessionId }`                         | revocation result                                   | Current canonical                                                       |
 | USER-01  | `GET /users/me`                           | Authenticated              | none                                    | `UserDto`                                           | Current                                                                 |
@@ -1172,6 +1180,24 @@ interface AdminDashboardDto {
 | PAT-02   | `GET /patients/me`                        | Patient                    | none                                    | patient profile + public user fields                | Current canonical                                                       |
 | PAT-03   | `DELETE /patients/me`                     | Patient                    | none                                    | success response                                    | Legacy/deprecate; dùng USER-08 để áp dụng retention/audit               |
 | PAT-04   | `GET /patients`                           | Admin                      | page, limit, sortBy, sortOrder          | paginated patient profiles                          | Current canonical                                                       |
+
+Mobile attempt TTL là 5 phút; ticket TTL là 60 giây. `challenge` là SHA-256
+base64url của app verifier RFC 7636 (không padding); server không nhận verifier ở
+attempt endpoint. Callback giữ state/Google PKCE trong Redis dùng chung và cookie
+HttpOnly của browser khởi tạo. `authorizationPath` là relative path để FE ghép API
+origin; redirect app/universal link lấy duy nhất từ `GOOGLE_OAUTH_MOBILE_REDIRECT_URL`.
+Exchange replay, sai verifier, hết hạn hoặc Redis lỗi đều từ chối; nếu app mất
+verifier phải bắt đầu lại. Không log attempt secret, ticket, state, code, verifier,
+provider token hoặc access/refresh token. Login/refresh/exchange response bổ sung
+`user.emailVerified` boolean; đây là trạng thái verification hiện tại, không thay
+thế authorization policy khác.
+
+Email backfill là maintenance command, không phải API công khai:
+`pnpm --filter api auth:backfill-google-emails` chạy dry-run; thêm `--apply` để ghi,
+`--verify` để chỉ kiểm tra consistency, và `--limit`/`--after` cho batches. Apply
+không đặt `emailVerifiedAt`; email vẫn phải được chứng minh qua OIDC evidence đã lưu
+hoặc email OTP. Chạy trên production chỉ khi operator xác định database/backup và
+được phép rõ ràng.
 
 `/users/profile`, `/patients/profile` và patient profile `PATCH` không còn được hỗ trợ. Patient profile hiện chỉ có quan hệ `userId`; dữ liệu tài khoản thay đổi qua `PATCH /users/me`.
 
@@ -1298,6 +1324,18 @@ interface AdminDashboardDto {
 | FAM-12  | `DELETE /family-links/:id/health-metric-sharing` | Patient owner                                     | idempotency                                                                   | revoked                                                          | Current E2 extension                                                                                                               |
 | FAM-13  | `GET /family-links/:id/health-metrics/summary`   | Companion                                         | metricType + optional date range                                              | safe summary                                                     | Current E2 extension; active link/grant/scope/entitlement được kiểm tra mỗi request                                                |
 | FAM-14  | `GET /family-links/:id/health-metrics/trend`     | Companion                                         | metricType + optional date range/cursor/limit                                 | safe metric points                                               | Current E2 extension; giá trị + thời điểm đo, không có note/clinical detail                                                        |
+
+**Đồng bộ Enrollment → CareTask:** trạng thái Enrollment được lưu và audit cùng
+OutboxEvent `care.enrollment.tasks.sync.v1` trong một transaction. Worker nhận event
+thì đọc lại Enrollment/revision hiện tại, không áp dụng trạng thái cũ từ payload;
+active sẽ schedule idempotent, trạng thái khác hoặc Enrollment không còn tồn tại sẽ
+hủy task mở. Outbox retry/backoff và lịch reconciliation xử lý event trễ/mất lệch;
+reconciliation duyệt task theo `_id` keyset batches, không giới hạn ở 200 record đầu.
+Trong lúc đồng bộ, task response, Doctor review, metric evaluation và reminder đều
+kiểm tra Enrollment hiện tại phải active, nếu không thì fail-closed/suppress.
+Enrollment command có thể trả trạng thái mới trước khi task được tạo/hủy; FE cần
+refresh danh sách task sau transition và không giả định đồng bộ tức thời. Reconciliation
+hủy task inactive chạy mỗi 5 phút kể cả khi automation tạo task mới đang tắt.
 
 **Idempotency và artifact invitation:** các command mutation yêu cầu header
 `Idempotency-Key`; receipt được scope theo actor/operation/key hash, so khớp request

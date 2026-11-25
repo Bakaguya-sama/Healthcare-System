@@ -17,6 +17,7 @@ export enum AuthEventType {
   DOCTOR_REAPPLICATION_SUBMITTED = 'doctor_reapplication_submitted',
   ACCOUNT_BANNED = 'account_banned',
   ACCOUNT_UNBANNED = 'account_unbanned',
+  OAUTH_EMAIL_BACKFILLED = 'oauth_email_backfilled',
 }
 
 @Schema({ timestamps: true, collection: 'auth_events' })

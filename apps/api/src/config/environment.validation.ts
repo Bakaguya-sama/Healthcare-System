@@ -1,5 +1,17 @@
 import { LATEST_SCHEMA_VERSION } from '../database/migrations/migration-registry';
 
+function isAllowedGoogleMobileRedirect(value: string): boolean {
+  try {
+    const redirect = new URL(value);
+    if (redirect.username || redirect.password) return false;
+    if (redirect.protocol === 'healthcare:') return Boolean(redirect.hostname);
+    if (redirect.protocol === 'https:') return Boolean(redirect.hostname);
+    return redirect.protocol === 'http:' && redirect.hostname === 'localhost';
+  } catch {
+    return false;
+  }
+}
+
 export type NodeEnvironment = 'development' | 'test' | 'staging' | 'production';
 
 const NODE_ENVIRONMENTS = new Set<NodeEnvironment>([
@@ -195,9 +207,7 @@ export function validateEnvironment(
   }
   if (
     googleOauthMobileRedirectUrl &&
-    !/^(?:healthcare:\/\/|https:\/\/|http:\/\/localhost(?::\d+)?(?:\/|$))/i.test(
-      googleOauthMobileRedirectUrl,
-    )
+    !isAllowedGoogleMobileRedirect(googleOauthMobileRedirectUrl)
   ) {
     throw new Error(
       'GOOGLE_OAUTH_MOBILE_REDIRECT_URL must use healthcare://, https://, or http://localhost',

@@ -10,6 +10,8 @@ export class OAuthIdentity {
   @Prop({ type: Types.ObjectId, required: true, ref: 'User', index: true })
   userId!: Types.ObjectId;
   @Prop({ type: String, default: null }) providerEmail?: string | null;
+  /** True only when Google's authenticated OIDC userinfo claim was true. */
+  @Prop({ type: Boolean, default: false }) providerEmailVerified!: boolean;
   @Prop({ type: Date, default: Date.now }) linkedAt!: Date;
 }
 export const OAuthIdentitySchema = SchemaFactory.createForClass(OAuthIdentity);

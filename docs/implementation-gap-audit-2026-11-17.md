@@ -147,3 +147,28 @@ giữ authorization theo FamilyLink và projection allowlist; không thể forwa
 nguyên response `GET /health-metrics` vì DTO Patient còn có patient ID, source
 reference và metadata validation. Product decision về period/timezone/markers
 đang chờ; đề xuất trong ADR E2.
+
+## Review follow-up sau merge — 25/11/2026
+
+Đã xử lý các vấn đề auth/Chronic Care được phát hiện khi review nhánh merge:
+
+- Google mobile handoff hiện proof-bound bằng challenge/verifier riêng của app;
+  callback chỉ phát ticket ngắn hạn, Redis shared store consume một lần và chỉ
+  exchange hợp lệ mới tạo session. OAuth browser tiếp tục dùng Passport state,
+  Google PKCE và cookie binding.
+- Signup Google tạo User/OAuthIdentity transactionally; chỉ claim OIDC
+  `email_verified=true` đặt trạng thái verified. GET User/login không còn backfill
+  ngầm. Account cũ xử lý qua command dry-run-first và verifier read-only.
+- Enrollment transition ghi outbox/audit/idempotency trong transaction; worker
+  kiểm tra revision/trạng thái hiện tại, retry và reconciliation cập nhật CareTask.
+  Task command/review/evaluation/reminder fail-closed khi enrollment inactive.
+- Validator số phiên bản catalog được sửa bằng migration tiến `202611251000`;
+  CC000 lịch sử giữ nguyên.
+
+Unit, integration, local HTTP E2E, typecheck/build, OpenAPI/realtime/boundary,
+local migration/verifier và worker boot evidence được ghi tại
+[`docs/evidence/merge-review-fixes-2026-11-25.md`](evidence/merge-review-fixes-2026-11-25.md).
+Consumer FE/mobile, Google provider smoke và API/worker staging vẫn BLOCKED vì
+không có consumer/device/provider/staging evidence trong phiên. Do đó Phase A/E2
+không được đánh dấu hoàn tất. Account Google không có email vẫn cần quyết định và
+API authenticated add/change-email riêng nếu muốn hỗ trợ xác minh email sau signup.

@@ -30,6 +30,7 @@ import { FamilyHealthSharingNotificationService } from '../../modules/family-com
 const OUTBOX_QUEUE = 'healthcare-outbox';
 const DISPATCH_JOB = 'dispatch-pending-events';
 const CARE_TASK_SCHEDULE_JOB = 'schedule-care-tasks';
+const CARE_TASK_RECONCILIATION_JOB = 'reconcile-inactive-care-tasks';
 const CONSULTATION_STALE_RECOVERY_JOB = 'recover-stale-consultations';
 const PAYMENT_RECONCILIATION_JOB = 'reconcile-payment-grants';
 const CARE_REPORT_EXPORT_CLEANUP_JOB = 'cleanup-care-report-exports';
@@ -114,6 +115,8 @@ export class OutboxWorkerService
             ? this.careAutomationEnabled
               ? this.careTasks.scheduleActiveEnrollments()
               : undefined
+            : job.name === CARE_TASK_RECONCILIATION_JOB
+              ? this.careTasks.reconcileInactiveEnrollmentTasks()
             : job.name === CONSULTATION_STALE_RECOVERY_JOB
               ? this.consultationRecoveryEnabled
                 ? this.staleConsultations.recover()
@@ -159,6 +162,17 @@ export class OutboxWorkerService
     } else {
       await this.queue.removeJobScheduler('care-task-schedule');
     }
+    // Reconciliation only cancels tasks whose enrollment is missing or no
+    // longer active. It must continue even while new care automation is off.
+    await this.queue.upsertJobScheduler(
+      'care-task-inactive-reconciliation',
+      { every: 5 * 60_000 },
+      {
+        name: CARE_TASK_RECONCILIATION_JOB,
+        data: {},
+        opts: { removeOnComplete: 100, removeOnFail: 100 },
+      },
+    );
     if (this.consultationRecoveryEnabled) {
       await this.queue.upsertJobScheduler(
         'consultation-stale-recovery',
@@ -429,6 +443,28 @@ export class OutboxWorkerService
         const payload = event.payload as { metricId?: string };
         if (!payload.metricId) throw new Error('Invalid care metric event');
         await this.careMetrics.evaluateRecordedMetric(payload.metricId);
+        await this.outbox.markDelivered(event._id);
+        return;
+      }
+      if (event.eventType === 'care.enrollment.tasks.sync.v1') {
+        const payload = event.payload as {
+          eventVersion?: number;
+          enrollmentId?: string;
+          revision?: number;
+        };
+        if (
+          payload.eventVersion !== 1 ||
+          !payload.enrollmentId ||
+          !Number.isSafeInteger(payload.revision) ||
+          (payload.revision ?? 0) < 1
+        )
+          throw new Error('Invalid enrollment task-sync payload');
+        await this.careTasks.syncEnrollmentTasksToCurrentState(
+          payload.enrollmentId,
+          payload.revision!,
+          new Date(),
+          this.careAutomationEnabled,
+        );
         await this.outbox.markDelivered(event._id);
         return;
       }

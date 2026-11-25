@@ -563,6 +563,127 @@
         ]
       }
     },
+    "/api/v1/auth/oauth/google/mobile/attempt": {
+      "post": {
+        "operationId": "Auth_beginGoogleMobileOAuth",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginGoogleMobileOAuthDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "attemptId",
+                    "authorizationPath",
+                    "expiresInSeconds"
+                  ],
+                  "properties": {
+                    "attemptId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$"
+                    },
+                    "authorizationPath": {
+                      "type": "string",
+                      "example": "/api/v1/auth/oauth/google?attemptId=…"
+                    },
+                    "expiresInSeconds": {
+                      "type": "integer",
+                      "example": 300
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Begin Google mobile sign-in with an app verifier challenge",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/oauth/google/callback": {
       "get": {
         "operationId": "Auth_completeGooglePatientAuthentication",
@@ -642,6 +763,152 @@
             }
           }
         },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oauth/google/exchange": {
+      "post": {
+        "operationId": "Auth_exchangeGoogleOAuthTicket",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeOAuthTicketDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "accessToken",
+                    "refreshToken",
+                    "user"
+                  ],
+                  "properties": {
+                    "accessToken": {
+                      "type": "string",
+                      "description": "Session access token; never place it in a URL or log."
+                    },
+                    "refreshToken": {
+                      "type": "string",
+                      "description": "Session refresh token; never place it in a URL or log."
+                    },
+                    "user": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "role",
+                        "emailVerified"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
+                        },
+                        "fullName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "example": "patient"
+                        },
+                        "avatarUrl": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "HTTP 403 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "HTTP 404 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HTTP 409 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Exchange a one-time Google OAuth handoff ticket for a Patient session",
         "tags": [
           "auth"
         ]
@@ -28917,6 +29184,41 @@
       }
     },
     "schemas": {
+      "BeginGoogleMobileOAuthDto": {
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "type": "string",
+            "description": "Base64url SHA-256 challenge of an app-generated RFC 7636 verifier",
+            "example": "uD9_RuTUk2cZV7j5C2j2eU_sx0eJ9gUu2hC8O2I2aX4"
+          }
+        },
+        "required": [
+          "challenge"
+        ]
+      },
+      "ExchangeOAuthTicketDto": {
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string",
+            "description": "Backend-generated mobile OAuth attempt ID"
+          },
+          "ticket": {
+            "type": "string",
+            "description": "One-time opaque ticket issued by Google OAuth callback"
+          },
+          "verifier": {
+            "type": "string",
+            "description": "App-generated RFC 7636 verifier; never put it in a URL"
+          }
+        },
+        "required": [
+          "attemptId",
+          "ticket",
+          "verifier"
+        ]
+      },
       "RegisterPatientDto": {
         "type": "object",
         "properties": {
@@ -31956,6 +32258,9 @@
           "id": {
             "type": "string"
           },
+          "revision": {
+            "type": "number"
+          },
           "program": {
             "$ref": "#/components/schemas/CareProgramSummaryDto"
           },
@@ -31999,6 +32304,7 @@
         },
         "required": [
           "id",
+          "revision",
           "program",
           "status",
           "timezone",
@@ -32042,6 +32348,9 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "revision": {
+            "type": "number"
           },
           "program": {
             "$ref": "#/components/schemas/CareProgramSummaryDto"
@@ -32106,6 +32415,7 @@
         },
         "required": [
           "id",
+          "revision",
           "program",
           "status",
           "timezone",
@@ -32152,8 +32462,7 @@
           }
         },
         "required": [
-          "policyVersion",
-          "purposes"
+          "policyVersion"
         ]
       },
       "BaselineDto": {

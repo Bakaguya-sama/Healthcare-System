@@ -2,7 +2,7 @@
  * Contract TypeScript dành cho Frontend.
  * Sinh từ controller/DTO/service hiện tại; không import package backend.
  * Quy ước: mọi field ngày/giờ được biểu diễn bằng string ISO 8601, không dùng Date.
- * Ngày đối chiếu: 2026-11-15.
+ * Ngày đối chiếu: 2026-11-25.
  */
 
 // ==================== COMMON ====================
@@ -95,10 +95,8 @@ export interface HealthReadyResponse {
 
 // ==================== AUTH ====================
 
-/**
- * Phase A canonical authentication types (2026-11-18). These take precedence
- * over legacy generated Auth* types below. New frontend code must not use
- * `/auth/register`, role-bearing registration, or OAuth link/unlink types.
+/** Contract xác thực hiện tại: đăng ký tách theo role, refresh chỉ nhận token;
+ * Google identity không có API link/unlink.
  */
 export type AuthenticationRole = 'patient' | 'doctor' | 'admin' | 'ai_manager';
 
@@ -113,7 +111,7 @@ export interface RegisterDoctorRequest extends RegisterPatientRequest {
   specialty: string;
   workplace: string;
   experienceYears: number;
-  /** Sent only as multipart files under `newFilesToUpload`; never send URL strings. */
+  /** Chỉ gửi tệp multipart trong `newFilesToUpload`; không gửi chuỗi URL. */
   newFilesToUpload?: UploadBinary[];
 }
 
@@ -158,162 +156,75 @@ export interface RefreshSessionRequest {
   refreshToken: string;
 }
 
-/** Google OAuth is browser navigation, not a JSON request. No link/unlink API exists. */
-export type BeginGooglePatientAuthentication = never;
+/** Điểm vào OAuth web là điều hướng trình duyệt cấp cao nhất, không phải XHR. */
+export type BeginGooglePatientAuthentication = 'GET /api/v1/auth/oauth/google';
 
-/** POST /api/v1/auth/register — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthRegisterRequest {
-  email: string;
-  password: string;
-  fullName: string;
-  phoneNumber?: string;
-  role?: "patient" | "doctor" | "admin";
-  specialty?: string;
-  experienceYears?: number;
-  workplace?: string;
-  verificationDocuments?: Array<string>;
-  existingVerificationDocuments?: Array<string>;
-  newFilesToUpload?: UploadBinary[];
+/** POST /api/v1/auth/oauth/google/mobile/attempt */
+export interface BeginGoogleMobileOAuthRequest {
+  /** SHA-256 dạng base64url không padding của verifier RFC 7636 do ứng dụng tự giữ. */
+  challenge: string;
 }
 
-/** POST /api/v1/auth/register — response thành công theo return type thực tế. */
-export interface AuthRegisterResponse {
+export interface BeginGoogleMobileOAuthResponse {
+  /** API tự sinh; đây không phải credential và không đủ để lấy session. */
+  attemptId: string;
+  /** Đường dẫn tương đối; ghép với API origin đã cấu hình rồi mở bằng trình duyệt hệ thống. */
+  authorizationPath: string;
+  expiresInSeconds: 300;
+}
+
+/** POST /api/v1/auth/oauth/google/exchange */
+export interface ExchangeGoogleMobileOAuthRequest {
+  attemptId: string;
+  /** Ticket dùng một lần nhận qua app/universal link; hết hạn sau 60 giây. */
+  ticket: string;
+  /** Chỉ giữ cục bộ cho attempt này; tuyệt đối không đưa vào URL, analytics hoặc log. */
+  verifier: string;
+}
+
+export interface GoogleOAuthSessionUser {
+  id: string;
+  email?: string;
+  emailVerified: boolean;
+  fullName: string;
+  role: 'patient';
+  avatarUrl?: string;
+}
+
+/** User của local login/refresh; không tạo role quản trị qua Google signup. */
+export interface AuthSessionUser extends Omit<GoogleOAuthSessionUser, 'role'> {
+  role: AuthenticationRole;
+}
+
+export interface GoogleOAuthSessionResponse {
   accessToken: string;
   refreshToken: string;
-  user: { id: string;
-  email: undefined | string;
-  fullName: string;
-  role: "patient" | "doctor" | "admin";
-  avatarUrl: string;
-  };
+  user: GoogleOAuthSessionUser;
 }
 
-/** POST /api/v1/auth/login — input (Params/Query/Headers/Body theo tên field). */
+export type GoogleOAuthSafeErrorCode =
+  | 'AUTH_GOOGLE_LOCAL_ACCOUNT_EXISTS'
+  | 'AUTH_GOOGLE_IDENTITY_EXISTS'
+  | 'AUTH_GOOGLE_ACCOUNT_CONFLICT';
+
+/** POST /api/v1/auth/login */
 export interface AuthLoginRequest {
   email: string;
   password: string;
 }
 
-/** POST /api/v1/auth/login — response thành công theo return type thực tế. */
-export interface AuthLoginResponse {
+export interface AuthSessionResponse {
   accessToken: string;
   refreshToken: string;
-  user: { id: string;
-  email: undefined | string;
-  fullName: string;
-  role: "patient" | "doctor" | "admin";
-  avatarUrl: string;
-  };
+  user: AuthSessionUser;
 }
 
-/** POST /api/v1/auth/refresh — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthRefreshRequest {
-  userId: string;
-  refreshToken: string;
-}
+/** Local login, refresh và Google mobile exchange dùng chung cấu trúc response này. */
+export type AuthLoginResponse = AuthSessionResponse;
+export type AuthRefreshRequest = RefreshSessionRequest;
+export type AuthRefreshResponse = AuthSessionResponse;
 
-/** POST /api/v1/auth/refresh — response thành công theo return type thực tế. */
-export interface AuthRefreshResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: { id: string;
-  email: undefined | string;
-  fullName: string;
-  role: "patient" | "doctor" | "admin";
-  avatarUrl: string;
-  };
-}
-
-/** POST /api/v1/auth/logout — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthLogoutRequest {
-
-}
-
-/** POST /api/v1/auth/logout — response thành công theo return type thực tế. */
-export interface AuthLogoutResponse {
-  message: string;
-}
-
-/** GET /api/v1/auth/me — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthGetProfileRequest {
-
-}
-
-/** GET /api/v1/auth/me — response thành công theo return type thực tế. */
-export interface AuthGetProfileResponse {
-  fullName: string;
-  email?: string;
-  passwordHash?: string;
-  gender: string;
-  dateOfBirth: string;
-  role: "patient" | "doctor" | "admin";
-  phoneNumber: string;
-  avatarUrl: string;
-  avatarPublicId: string;
-  accountStatus: "active" | "banned";
-  isOnline: boolean;
-  address: { street: string;
-  ward: string;
-  district: string;
-  city: string;
-  country: string;
-  };
-  banReason: string;
-  doctorProfile?: { specialty: string;
-  workplace: string;
-  verificationDocuments: Array<string>;
-  experienceYears: number;
-  averageRating: number;
-  ratingSum: number;
-  reviewCount: number;
-  verifiedAt: string;
-  rejectReason: string;
-  verificationStatus: "pending" | "approved" | "rejected";
-  };
-  adminProfile?: { adminRole: "super_admin" | "user_manager" | "ai_manager";
-  };
-}
-
-/** POST /api/v1/auth/change-password — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthChangePasswordRequest {
-  email: string;
-  otpCode: string;
-  newPassword: string;
-}
-
-/** POST /api/v1/auth/change-password — response thành công theo return type thực tế. */
-export interface AuthChangePasswordResponse {
-  message: string;
-}
-
-/** POST /api/v1/auth/forgot-password — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthForgotPasswordRequest {
-  email: string;
-}
-
-/** POST /api/v1/auth/forgot-password — response thành công theo return type thực tế. */
-export interface AuthForgotPasswordResponse {
-  message: string;
-}
-
-/** POST /api/v1/auth/send-otp — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthSendOtpRequest {
-  email: string;
-}
-
-/** POST /api/v1/auth/send-otp — response thành công theo return type thực tế. */
-export interface AuthSendOtpResponse {
-  message: string;
-}
-
-/** POST /api/v1/auth/confirm-otp — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthConfirmOtpRequest {
-  email: string;
-  otpCode: string;
-}
-
-/** POST /api/v1/auth/confirm-otp — response thành công theo return type thực tế. */
-export interface AuthConfirmOtpResponse {
+export interface AuthCommandResponse {
   message: string;
 }
 

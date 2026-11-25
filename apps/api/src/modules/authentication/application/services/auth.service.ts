@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -35,13 +36,15 @@ import { RegisterDoctorDto } from '../../presentation/dto/register-doctor.dto';
 import { LoginDto } from '../../presentation/dto/login.dto';
 import { mayReceiveFullAccess } from '../../domain/policies/account-access.policy';
 import { CloudinaryService } from '../../../../infrastructure/files/cloudinary.service';
-import {
-  OAuthIdentity,
-  OAuthIdentityDocument,
-} from '../../domain/entities/oauth-identity.schema';
+import { GOOGLE_PATIENT_ACCOUNT_REPOSITORY } from '../ports/google-patient-account.repository.port';
+import type {
+  GooglePatientAccount,
+  GooglePatientAccountRepositoryPort,
+} from '../ports/google-patient-account.repository.port';
 import { ConfigService } from '@nestjs/config';
-import { GooglePrincipal } from '../../infrastructure/strategies/google.strategy';
+import type { GooglePrincipal } from '../ports/oauth-mobile-handoff.port';
 import { OtpService } from './otp.service';
+import { normalizeGoogleAccountEmail } from '../../domain/policies/google-account-email.policy';
 
 type Meta = { userAgent?: string; networkFingerprint?: string };
 @Injectable()
@@ -52,8 +55,8 @@ export class AuthService {
     private readonly sessions: Model<AuthSessionDocument>,
     @InjectModel(AuthEvent.name)
     private readonly events: Model<AuthEventDocument>,
-    @InjectModel(OAuthIdentity.name)
-    private readonly identities: Model<OAuthIdentityDocument>,
+    @Inject(GOOGLE_PATIENT_ACCOUNT_REPOSITORY)
+    private readonly googlePatientAccounts: GooglePatientAccountRepositoryPort,
     private readonly jwt: JwtService,
     private readonly outbox: OutboxService,
     private readonly files: CloudinaryService,
@@ -244,11 +247,17 @@ export class AuthService {
 
   async requestEmailVerification(email: string) {
     const user = await this.users.findOne({ email: email.toLowerCase() });
-    if (user?.accountStatus === AccountStatus.PENDING_VERIFICATION) {
+    const canVerifyPendingAccount =
+      user?.accountStatus === AccountStatus.PENDING_VERIFICATION;
+    const canVerifyActiveEmail =
+      user?.accountStatus === AccountStatus.ACTIVE && !user.emailVerifiedAt;
+    if (user && (canVerifyPendingAccount || canVerifyActiveEmail)) {
       await this.issueOtp(user, 'email_verification');
       await this.record(AuthEventType.OTP_SENT, user._id, {
         purpose: 'email_verification',
-        transition: 'verification_requested',
+        transition: canVerifyPendingAccount
+          ? 'verification_requested'
+          : 'active_email_verification_requested',
       });
     }
     return { message: 'If eligible, a verification email has been queued' };
@@ -313,15 +322,27 @@ export class AuthService {
     } catch {
       throw new BadRequestException('Invalid or expired verification code');
     }
-    await this.users.updateOne(
-      { _id: user._id, accountStatus: AccountStatus.PENDING_VERIFICATION },
+    const canActivate =
+      user.accountStatus === AccountStatus.PENDING_VERIFICATION;
+    const canVerifyActiveEmail =
+      user.accountStatus === AccountStatus.ACTIVE && !user.emailVerifiedAt;
+    if (!canActivate && !canVerifyActiveEmail)
+      throw new BadRequestException('Invalid or expired verification code');
+    const result = await this.users.updateOne(
+      {
+        _id: user._id,
+        accountStatus: user.accountStatus,
+        ...(canVerifyActiveEmail ? { emailVerifiedAt: null } : {}),
+      },
       {
         $set: {
-          accountStatus: AccountStatus.ACTIVE,
+          ...(canActivate ? { accountStatus: AccountStatus.ACTIVE } : {}),
           emailVerifiedAt: new Date(),
         },
       },
     );
+    if (result.matchedCount !== 1)
+      throw new BadRequestException('Invalid or expired verification code');
     await this.record(AuthEventType.OTP_VERIFIED, user._id, {
       purpose: 'email_verification',
     });
@@ -368,109 +389,75 @@ export class AuthService {
   ) {
     if (this.config.get<boolean>('GOOGLE_OAUTH_ENABLED') !== true)
       throw new NotFoundException('OAuth provider is unavailable');
-    let identity = await this.identities.findOne({
-      provider: principal.provider,
-      providerAccountId: principal.providerAccountId,
-    });
-    let user: UserDocument | null = null;
-    if (identity)
-      user = await this.users.findById(identity.userId).select('+passwordHash');
-    if (!identity) {
+    let account = await this.googlePatientAccounts.findByProviderSubject(
+      principal.provider,
+      principal.providerAccountId,
+    );
+    if (!account) {
       if (this.config.get<boolean>('GOOGLE_OAUTH_ALLOW_SIGNUP') !== true)
         throw new ForbiddenException(
           'Google sign-in is not available for a new account',
         );
-      // This happens only after Google authenticated the browser. It prevents a
-      // second Patient OAuth-only account for a known local email without
-      // turning a public email endpoint into an account-existence oracle.
-      if (
-        principal.email &&
-        (await this.users.exists({ email: principal.email.toLowerCase() }))
-      )
-        throw new ConflictException(
-          'This email already has a password account; sign in with password',
-        );
-      if (
-        principal.email &&
-        (await this.identities.exists({
-          provider: principal.provider,
-          providerEmail: principal.email.toLowerCase(),
-        }))
-      )
-        throw new ConflictException(
-          'This email is already registered with a different Google account; use the original Google account or contact support',
-        );
-      const normalizedEmail = principal.email?.trim().toLowerCase() || undefined;
-      user = await this.users.create({
+      const normalizedEmail = normalizeGoogleAccountEmail(principal.email);
+      if (principal.email?.trim() && !normalizedEmail)
+        throw new ConflictException('Google account email is invalid');
+      const owner = normalizedEmail
+        ? await this.googlePatientAccounts.findEmailOwner(normalizedEmail)
+        : null;
+      if (owner) this.rejectGoogleEmailCollision(owner);
+
+      const created = await this.googlePatientAccounts.createPatientAccount({
+        provider: principal.provider,
+        providerAccountId: principal.providerAccountId,
+        email: normalizedEmail ?? undefined,
+        emailVerified:
+          Boolean(normalizedEmail) && principal.emailVerified === true,
         fullName: principal.displayName || 'Google user',
-        ...(normalizedEmail ? { email: normalizedEmail } : {}),
-        role: UserRole.PATIENT,
-        accountStatus: AccountStatus.ACTIVE,
       });
-      try {
-        identity = await this.identities.create({
-          provider: principal.provider,
-          providerAccountId: principal.providerAccountId,
-          providerEmail: normalizedEmail ?? null,
-          userId: user._id,
-          linkedAt: new Date(),
-        });
-      } catch (error) {
-        // The database uniqueness constraint closes a concurrent-callback race.
-        // This new user has no domain data, so it is safe to remove on conflict.
-        await this.users.deleteOne({ _id: user._id });
-        if (this.isDuplicateKeyError(error))
-          throw new ConflictException(
-            'This email is already registered with a different Google account; use the original Google account or contact support',
-          );
-        throw error;
-      }
+      if (created.kind === 'created' || created.kind === 'existing_subject')
+        account = created.account;
+      else this.rejectGoogleEmailCollision(created.kind);
     }
-    // A legacy link record must not silently preserve Google login for a local,
-    // Doctor, or administrative account after the policy was simplified.
-    if (identity && (user?.role !== UserRole.PATIENT || user.passwordHash))
+    // A legacy identity must not silently preserve Google login for a local,
+    // Doctor, or administrative account after the independent-login policy.
+    if (account.role !== UserRole.PATIENT || account.hasPassword)
       throw new ForbiddenException(
-        'Google sign-in is unavailable for this account; sign in with password',
+        'This account uses password sign-in. Please use the password sign-in option.',
       );
-    if (
-      !user ||
-      !mayReceiveFullAccess({
-        accountStatus: user.accountStatus,
-        role: user.role,
-        doctorVerificationStatus: user.doctorProfile?.verificationStatus,
-      })
-    )
+    if (!mayReceiveFullAccess(account))
       throw new ForbiddenException('Account is not eligible for access');
-    const fallbackEmail =
-      (principal.email ?? identity?.providerEmail)?.trim().toLowerCase() ||
-      undefined;
-    if (!user.email && fallbackEmail) {
-      const emailInUse = await this.users.exists({
-        email: fallbackEmail,
-        _id: { $ne: user._id },
-      });
-      if (!emailInUse) {
-        await this.users.updateOne(
-          { _id: user._id },
-          { $set: { email: fallbackEmail } },
-        );
-        user.email = fallbackEmail;
-      }
-    }
-    const result = await this.issueSession(user, meta);
-    await this.record(AuthEventType.LOGIN_SUCCESS, user._id, {
+    const result = await this.issueSession(account, meta);
+    await this.record(AuthEventType.LOGIN_SUCCESS, account.id, {
       provider: 'google',
     });
     return result;
   }
 
-  private isDuplicateKeyError(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 11000
-    );
+  private rejectGoogleEmailCollision(
+    owner:
+      | 'password_account'
+      | 'google_account'
+      | 'other_account'
+      | 'dangling_identity'
+      | 'conflict',
+  ): never {
+    if (owner === 'password_account')
+      throw new ConflictException({
+        code: 'AUTH_GOOGLE_LOCAL_ACCOUNT_EXISTS',
+        message:
+          'This email already has a password account. Sign in with your email and password instead.',
+      });
+    if (owner === 'google_account')
+      throw new ConflictException({
+        code: 'AUTH_GOOGLE_IDENTITY_EXISTS',
+        message:
+          'This email is already connected to a different Google account. Sign in with that Google account or contact support.',
+      });
+    throw new ConflictException({
+      code: 'AUTH_GOOGLE_ACCOUNT_CONFLICT',
+      message:
+        'This Google account cannot be used. Sign in with the existing method or contact support.',
+    });
   }
 
   async refreshToken(refreshToken: string, meta: Meta = {}) {
@@ -576,12 +563,17 @@ export class AuthService {
   }
 
   private async issueSession(
-    user: UserDocument,
+    user: UserDocument | GooglePatientAccount,
     meta: Meta,
     familyId: string = randomUUID(),
   ) {
+    const isMongooseUser = '_id' in user;
+    const userId = isMongooseUser ? user._id.toString() : user.id;
+    const emailVerified = isMongooseUser
+      ? Boolean(user.emailVerifiedAt)
+      : user.emailVerified;
     const sid = new Types.ObjectId().toString(),
-      payload = { sub: user._id.toString(), role: user.role, sid };
+      payload = { sub: userId, role: user.role, sid };
     const accessToken = this.jwt.sign(payload, { expiresIn: '30m' });
     const refreshToken = this.jwt.sign(
       { ...payload, jti: sid },
@@ -590,7 +582,7 @@ export class AuthService {
     const now = new Date();
     await this.sessions.create({
       _id: sid,
-      userId: user._id,
+      userId: new Types.ObjectId(userId),
       familyId,
       refreshTokenHash: this.hash(refreshToken),
       expiresAt: new Date(now.getTime() + 604800000),
@@ -604,8 +596,9 @@ export class AuthService {
       accessToken,
       refreshToken,
       user: {
-        id: user._id.toString(),
+        id: userId,
         email: user.email,
+        emailVerified,
         fullName: user.fullName,
         role: user.role,
         avatarUrl: user.avatarUrl,

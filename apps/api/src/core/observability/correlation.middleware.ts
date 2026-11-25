@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { CorrelationContext } from './correlation-context';
+import { requestPathWithoutQuery } from './request-path';
 
 export const CORRELATION_ID_HEADER = 'x-correlation-id';
 const SAFE_CORRELATION_ID = /^[a-zA-Z0-9._-]{1,128}$/;
@@ -24,7 +25,7 @@ export function correlationMiddleware(
       requestLogger.log({
         event: 'http_request_completed',
         method: request.method,
-        path: request.originalUrl || request.url,
+        path: requestPathWithoutQuery(request.originalUrl || request.url),
         statusCode: response.statusCode,
         durationMs: Number((performance.now() - startedAt).toFixed(3)),
       });

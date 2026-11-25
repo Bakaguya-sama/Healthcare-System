@@ -7,6 +7,9 @@
 // Runtime addendum 2026-11-06: CareReportExports reflects applied migration 202611061000.
 // MongoDB partial, sparse, TTL, time-series and Atlas Vector Search indexes
 // must be created and verified by versioned migration files.
+// Merge follow-up 2026-11-25: migration 202611251000 updates only CarePrograms.version
+// and CareRules.version validators to accept BSON int/long/double; no schema field or
+// collection is added. OAuth mobile attempts/tickets live in shared Redis, not MongoDB.
 // Set Mongoose autoIndex/autoCreate=false in staging and production-like environments.
 
 Table Users {
@@ -46,6 +49,7 @@ Table OAuthAccounts {
   provider varchar [not null, note: "google only in Phase A; provider email is an attribute, never an automatic account-merge key"]
   providerAccountId varchar [not null, note: "Stable provider subject ID"]
   providerEmail varchar [note: "Provider attribute only; never auto-merge/link with a local email"]
+  providerEmailVerified boolean [not null, default: false, note: "True only when trusted Google OIDC email_verified claim was true; never inferred by backfill"]
   linkedAt datetime [not null]
   createdAt datetime
   updatedAt datetime
@@ -1276,7 +1280,7 @@ Table Notifications {
 
 Table OutboxEvents {
   id ObjectID [pk]
-  eventType varchar [not null, note: "notification.deliver, appointment.reminder, care.task.materialize, care.task.reminder, care.evaluate, care.summary.generate, care.contact.remind, subscription.grant_requested, subscription.granted, payment.paid, payment.cancelled, refund.requested, refund.approved, refund.rejected, refund.succeeded, refund.failed, refund.manual_review"]
+  eventType varchar [not null, note: "notification.deliver, appointment.reminder, care.enrollment.tasks.sync.v1, care.task.materialize, care.task.reminder, care.evaluate, care.summary.generate, care.contact.remind, subscription.grant_requested, subscription.granted, payment.paid, payment.cancelled, refund.requested, refund.approved, refund.rejected, refund.succeeded, refund.failed, refund.manual_review"]
   aggregateType varchar [not null, note: "consultation, patientCareProgram, careTask, careAlert, careReport, familyLink, paymentOrder, paymentRefund, subscription, notification"]
   aggregateId ObjectID [not null]
   payload json [not null]

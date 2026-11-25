@@ -193,79 +193,7 @@ export class UsersService {
         .exec(),
       this.userModel.countDocuments(filter),
     ]);
-    await this.hydrateMissingUserEmails(items);
     return { items, page, limit, total, totalPages: Math.ceil(total / limit) };
-  }
-
-  private async hydrateMissingUserEmails<
-    T extends { _id?: unknown; email?: string | null },
-  >(records: T[]): Promise<void> {
-    const missing = records.filter(
-      (record) => (!record.email || !String(record.email).trim()) && record._id,
-    );
-    if (missing.length === 0) return;
-
-    const db = this.userModel.db;
-    if (!db || typeof db.collection !== 'function') return;
-
-    const objectIds = missing
-      .map((record) => {
-        const raw = String(record._id);
-        return Types.ObjectId.isValid(raw) ? new Types.ObjectId(raw) : null;
-      })
-      .filter((id): id is Types.ObjectId => id !== null);
-    if (objectIds.length === 0) return;
-
-    try {
-      const identities = await db
-        .collection('oauth_identities')
-        .find({
-          userId: { $in: objectIds },
-          providerEmail: { $type: 'string' },
-        })
-        .project<{ userId: Types.ObjectId; providerEmail?: string }>({
-          userId: 1,
-          providerEmail: 1,
-        })
-        .toArray();
-
-      const emailByUserId = new Map<string, string>();
-      for (const identity of identities) {
-        const normalized = identity.providerEmail?.trim().toLowerCase();
-        if (normalized && identity.userId) {
-          emailByUserId.set(String(identity.userId), normalized);
-        }
-      }
-
-      if (emailByUserId.size === 0) return;
-
-      for (const record of missing) {
-        const hydrated = emailByUserId.get(String(record._id));
-        if (!hydrated) continue;
-        const conflict = await this.userModel.exists({
-          email: hydrated,
-          _id: { $ne: record._id as Types.ObjectId },
-        });
-        if (!conflict) {
-          record.email = hydrated;
-          await this.userModel
-            .updateOne(
-              {
-                _id: record._id as Types.ObjectId,
-                $or: [
-                  { email: { $exists: false } },
-                  { email: null },
-                  { email: '' },
-                ],
-              },
-              { $set: { email: hydrated } },
-            )
-            .catch(() => undefined);
-        }
-      }
-    } catch {
-      // Best-effort hydration must not interrupt user reads
-    }
   }
 
   async findDoctors() {
@@ -328,7 +256,6 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    await this.hydrateMissingUserEmails([user]);
     return user;
   }
 
@@ -341,8 +268,6 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
-    await this.hydrateMissingUserEmails([user]);
 
     const createdAtValue =
       'createdAt' in user

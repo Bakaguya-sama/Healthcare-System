@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import {
@@ -20,12 +20,10 @@ describe('AuthService Phase A lifecycle', () => {
       exists: jest.fn(),
     };
     const events = { create: jest.fn().mockResolvedValue(undefined) };
-    const identities = {
-      findOne: jest.fn(),
-      exists: jest.fn(),
-      create: jest.fn(),
-      countDocuments: jest.fn(),
-      deleteOne: jest.fn(),
+    const googleAccounts = {
+      findByProviderSubject: jest.fn(),
+      findEmailOwner: jest.fn(),
+      createPatientAccount: jest.fn(),
     };
     const otp = { issue: jest.fn().mockResolvedValue({}), consume: jest.fn().mockResolvedValue(undefined) };
     const outbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
@@ -38,14 +36,14 @@ describe('AuthService Phase A lifecycle', () => {
       users as never,
       {} as never,
       events as never,
-      identities as never,
+      googleAccounts as never,
       { verify: jest.fn(), sign: jest.fn() } as never,
       outbox as never,
       {} as never,
       config as never,
       otp as never,
     );
-    return { service, users, events, identities, otp, outbox };
+    return { service, users, events, googleAccounts, otp, outbox };
   }
 
   it('keeps OTP delivery secret-free in the outbox event', async () => {
@@ -92,10 +90,53 @@ describe('AuthService Phase A lifecycle', () => {
     expect(updateCalls[0][1].$set.emailVerifiedAt).toBeInstanceOf(Date);
   });
 
-  it('rejects Google signup when its email belongs to a local account', async () => {
-    const { service, identities, users } = setup();
-    identities.findOne.mockResolvedValue(null);
-    users.exists.mockResolvedValue({ _id: 'local-user' });
+  it('allows an active Google account to verify an unverified contact email by OTP without changing account status', async () => {
+    const { service, users, otp } = setup();
+    users.findOne.mockResolvedValue({
+      ...user,
+      accountStatus: AccountStatus.ACTIVE,
+      emailVerifiedAt: null,
+    });
+    users.updateOne.mockResolvedValue({ matchedCount: 1 });
+
+    await expect(service.verifyEmail(user.email, '123456')).resolves.toEqual({
+      message: 'Email verified',
+    });
+    expect(users.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountStatus: AccountStatus.ACTIVE,
+        emailVerifiedAt: null,
+      }),
+      { $set: { emailVerifiedAt: expect.any(Date) } },
+    );
+    expect(otp.consume).toHaveBeenCalledWith(
+      user.email,
+      'email_verification',
+      '123456',
+    );
+  });
+
+  it('queues a verification OTP for an active account only while its email remains unverified', async () => {
+    const { service, users, otp, outbox } = setup();
+    users.findOne.mockResolvedValue({
+      ...user,
+      accountStatus: AccountStatus.ACTIVE,
+      emailVerifiedAt: null,
+    });
+
+    await service.requestEmailVerification(user.email);
+    expect(otp.issue).toHaveBeenCalledWith(user.email, 'email_verification');
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { userId: 'user-1', purpose: 'email_verification' },
+      }),
+    );
+  });
+
+  it('directs a Google collision with a password account to local sign-in', async () => {
+    const { service, googleAccounts } = setup();
+    googleAccounts.findByProviderSubject.mockResolvedValue(null);
+    googleAccounts.findEmailOwner.mockResolvedValue('password_account');
 
     await expect(
       service.completeGooglePatientAuthentication({
@@ -103,18 +144,45 @@ describe('AuthService Phase A lifecycle', () => {
         providerAccountId: 'google-subject',
         email: 'patient@example.com',
       }),
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect(users.create).not.toHaveBeenCalled();
+    ).rejects.toMatchObject({
+      response: {
+        code: 'AUTH_GOOGLE_LOCAL_ACCOUNT_EXISTS',
+        message: expect.stringContaining('email and password'),
+      },
+    });
+    expect(googleAccounts.createPatientAccount).not.toHaveBeenCalled();
+  });
+
+  it('gives a distinct recovery message when email belongs to another Google account', async () => {
+    const { service, googleAccounts } = setup();
+    googleAccounts.findByProviderSubject.mockResolvedValue(null);
+    googleAccounts.findEmailOwner.mockResolvedValue('google_account');
+
+    await expect(
+      service.completeGooglePatientAuthentication({
+        provider: 'google',
+        providerAccountId: 'different-subject',
+        email: 'same@example.com',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'AUTH_GOOGLE_IDENTITY_EXISTS',
+        message: expect.stringContaining('different Google account'),
+      },
+    });
+    expect(googleAccounts.createPatientAccount).not.toHaveBeenCalled();
   });
 
   it('refuses a legacy linked local account under the independent-login policy', async () => {
-    const { service, identities, users } = setup();
-    identities.findOne.mockResolvedValue({ userId: 'local-user' });
-    users.findById.mockReturnValue({
-      select: jest.fn().mockResolvedValue({
-        role: UserRole.PATIENT,
-        passwordHash: 'local-password-hash',
-      }),
+    const { service, googleAccounts } = setup();
+    googleAccounts.findByProviderSubject.mockResolvedValue({
+      id: 'local-user',
+      email: 'patient@example.com',
+      emailVerified: true,
+      fullName: 'Patient',
+      role: UserRole.PATIENT,
+      accountStatus: AccountStatus.ACTIVE,
+      hasPassword: true,
     });
 
     await expect(
@@ -125,19 +193,98 @@ describe('AuthService Phase A lifecycle', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('rejects a second Google subject carrying an existing OAuth-only email', async () => {
-    const { service, identities, users } = setup();
-    identities.findOne.mockResolvedValue(null);
-    identities.exists.mockResolvedValue({ _id: 'other-google-identity' });
+  it('logs an existing Google subject by provider ID without changing its email', async () => {
+    const { service, googleAccounts, users, events } = setup();
+    googleAccounts.findByProviderSubject.mockResolvedValue({
+      id: 'oauth-user',
+      email: 'saved@example.com',
+      emailVerified: false,
+      fullName: 'Patient',
+      role: UserRole.PATIENT,
+      accountStatus: AccountStatus.ACTIVE,
+      hasPassword: false,
+    });
+    jest.spyOn(service as never, 'issueSession' as never).mockResolvedValue({
+      accessToken: 'access',
+      refreshToken: 'refresh',
+    } as never);
 
-    await expect(
-      service.completeGooglePatientAuthentication({
-        provider: 'google',
-        providerAccountId: 'second-google-subject',
-        email: 'same-google-email@example.com',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect(users.create).not.toHaveBeenCalled();
+    await service.completeGooglePatientAuthentication({
+      provider: 'google',
+      providerAccountId: 'stable-subject',
+      email: 'changed-at-provider@example.com',
+      emailVerified: true,
+    });
+
+    expect(googleAccounts.createPatientAccount).not.toHaveBeenCalled();
+    expect(users.updateOne).not.toHaveBeenCalled();
+    expect(events.create).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { provider: 'google' } }),
+    );
+  });
+
+  it('creates a Google Patient account with normalized email and only trusted verification evidence', async () => {
+    const { service, googleAccounts } = setup();
+    googleAccounts.findByProviderSubject.mockResolvedValue(null);
+    googleAccounts.findEmailOwner.mockResolvedValue(null);
+    googleAccounts.createPatientAccount.mockResolvedValue({
+      kind: 'created',
+      account: {
+        id: 'oauth-user-1',
+        email: 'verified@example.com',
+        emailVerified: true,
+        fullName: 'Synthetic Patient',
+        role: UserRole.PATIENT,
+        accountStatus: AccountStatus.ACTIVE,
+        hasPassword: false,
+      },
+    });
+    jest.spyOn(service as never, 'issueSession' as never).mockResolvedValue({} as never);
+
+    await service.completeGooglePatientAuthentication({
+      provider: 'google',
+      providerAccountId: 'subject-verified',
+      email: 'VERIFIED@example.com',
+      emailVerified: true,
+    });
+
+    expect(googleAccounts.createPatientAccount).toHaveBeenCalledWith({
+      provider: 'google',
+      providerAccountId: 'subject-verified',
+      email: 'verified@example.com',
+      emailVerified: true,
+      fullName: 'Google user',
+    });
+  });
+
+  it('never treats an unverified Google email as verified', async () => {
+    const { service, googleAccounts } = setup();
+    googleAccounts.findByProviderSubject.mockResolvedValue(null);
+    googleAccounts.findEmailOwner.mockResolvedValue(null);
+    googleAccounts.createPatientAccount.mockResolvedValue({
+      kind: 'created',
+      account: {
+        id: 'oauth-user-2',
+        email: 'unverified@example.com',
+        emailVerified: false,
+        fullName: 'Google user',
+        role: UserRole.PATIENT,
+        accountStatus: AccountStatus.ACTIVE,
+        hasPassword: false,
+      },
+    });
+    jest.spyOn(service as never, 'issueSession' as never).mockResolvedValue({} as never);
+
+    await service.completeGooglePatientAuthentication({
+      provider: 'google',
+      providerAccountId: 'subject-unverified',
+      email: 'unverified@example.com',
+      emailVerified: false,
+    });
+
+    expect(googleAccounts.createPatientAccount).toHaveBeenCalledWith(
+      expect.objectContaining({ emailVerified: false }),
+    );
   });
 
   it('restores rejected Doctor fields without returning a raw document URL', async () => {

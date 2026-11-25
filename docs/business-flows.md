@@ -67,8 +67,11 @@ Enrollment read bị cấm theo chính sách DA2 hiện hành.
    `displayType`; không dùng URL tự do hoặc HTML trực tiếp trong CareTask.
 7. **Trạng thái code hiện tại:** check-in, Doctor review, immutable education
    content và Consultation lifecycle đã là runtime behavior. Task thiếu template/
-   content published vẫn fail-closed; task `completed|missed|cancelled`, ngoài
-   response window hoặc enrollment không active không nhận response. Retry cùng
+   content published vẫn fail-closed; task `completed|missed|cancelled`, quá
+   `windowEnd` hoặc enrollment không active không nhận response. Patient có thể
+   gửi response `check_in` hoặc xác nhận `education` khi task còn `scheduled`
+   trước `windowStart`; Doctor review vẫn yêu cầu đã đến `windowStart`. Metric
+   chỉ hoàn thành task khi thời điểm đo nằm trong cửa sổ metric. Retry cùng
    key/payload replay, cùng key khác request trả conflict.
 
 **Contract implementation runtime v1:** `overallStatus` dùng
@@ -100,6 +103,28 @@ không nhận HTML/object/upload và client phải HTML-escape khi render. Revie
 tính Patient adherence. Education phải resolve chính xác content catalog published
 theo `{ contentId, version, locale, displayType }`; không tìm thấy bản immutable
 đó thì không trả URL/HTML fallback, `allowedActions=[]` và command fail-closed.
+
+### 1.2. Đồng bộ CareTask theo trạng thái Enrollment
+
+Mỗi command làm thay đổi Enrollment ghi state/revision, audit, idempotency receipt
+và `care.enrollment.tasks.sync.v1` trong cùng MongoDB transaction. API trả trạng thái
+Enrollment đã commit; việc schedule/cancel CareTask là side effect bất đồng bộ, vì
+vậy client không được giả định danh sách task đã cập nhật ngay trong response đó.
+
+Outbox worker không áp trạng thái cũ từ payload. Nó tải Enrollment hiện tại, kiểm tra
+revision không thấp hơn event, rồi schedule idempotent task cho trạng thái `active`
+hoặc hủy task còn mở cho `paused|completed|cancelled`/Enrollment không còn tồn tại.
+Duplicate event/retry dùng cùng idempotency key và unique task key; event cũ không
+được đảo ngược state mới. Event lỗi được retry/dead-letter theo outbox policy.
+
+Reconciliation định kỳ quét Enrollment active theo `_id` batches để bổ sung task
+còn thiếu, đồng thời quét task `scheduled|due` theo `_id` batches để hủy task có
+Enrollment thiếu hoặc không active. Khi automation flag tắt, worker vẫn xử lý hủy
+task không còn hợp lệ; tạo task active được hoãn cho tới khi automation được bật.
+Trong khoảng chờ đồng bộ, task response, Doctor review, metric evaluation và
+reminder đều đọc trạng thái Enrollment hiện tại và fail-closed nếu không active.
+Đây là eventual consistency có reconciliation, không phải transaction xuyên hai
+aggregate; staging/production cần quan sát outbox lag và dead-letter.
 
 ## 2. Theo dõi chỉ số → evaluation → alert — ✅
 

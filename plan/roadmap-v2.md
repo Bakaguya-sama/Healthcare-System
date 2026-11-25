@@ -268,6 +268,15 @@ nhận OAuth, refund, booking config và các feature P1.
 
 **Evidence 2026-11-18:** database migration `202611181200`, `202611181210` và `202611181220` đã apply; verifier PASS tại schema version `202611181220` (44 collections, 122 managed indexes). Full unit: 51 suites/183 tests PASS; integration: 23 suites/115 tests PASS; E2E: 4 suites/16 tests PASS. Xem evidence file cho command/giới hạn. Lint riêng các file Phase A PASS không warning, nhưng full-repository lint FAIL vì warning baseline tồn đọng; owner cần xử lý hoặc chấp nhận chính thức một remediation plan trước khi Phase A được đánh dấu ✅.
 
+**Review follow-up 25/11/2026:** mobile Google OAuth được bổ sung app verifier-bound
+handoff qua Redis dùng chung; callback không tạo session, exchange một lần mới tạo
+session. Google User/OAuthIdentity tạo trong transaction; email chỉ verified khi
+claim OIDC đáng tin cậy xác nhận. Backfill account cũ là lệnh dry-run riêng. Local
+unit/integration evidence và các gate chưa chạy được ghi tại
+`docs/evidence/merge-review-fixes-2026-11-25.md`. Phase A vẫn 🚧 cho tới khi consumer
+FE/mobile validation và staging/provider smoke có evidence; account Google không có
+email hiện chưa có luồng authenticated add/change-email.
+
 ## 6. Giai đoạn B — Trusted RAG foundation
 
 **Trạng thái:** ✅ (evidence 2026-11-18)
@@ -535,6 +544,16 @@ workspace này; staging endpoint/deploy credentials/worker target cũng chưa đ
 cấu hình hoặc cung cấp. Docker Compose hiện chỉ là local Mongo/Redis. `.env.production`
 được xác nhận `NODE_ENV=production` và không được dùng làm staging/test target.
 Test local/Atlas không thay thế hai bằng chứng này.
+
+**Review follow-up 25/11/2026:** CareEnrollment transition ghi
+`care.enrollment.tasks.sync.v1` cùng enrollment, audit và idempotency trong một
+transaction; worker đọc revision/status hiện tại, retry và reconciliation xử lý
+task bị lệch. `CARE_MONITORING_AUTOMATION_ENABLED=false` vẫn cho phép hủy task của
+enrollment inactive, nhưng trì hoãn tạo task active. Validator số phiên bản care
+được sửa bằng migration forward-only `202611251000`; migration `CC000` không bị sửa
+trong worktree. Local Mongo replica-set/Redis tests đã chạy, nhưng chưa có staging
+API/worker smoke. Đây không đóng E2; các gate DDD/read-revoke, FE consumer và staging
+ở trên vẫn giữ nguyên.
 
 ### E3 — Tìm cơ sở y tế
 

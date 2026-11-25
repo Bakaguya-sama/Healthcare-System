@@ -32,6 +32,7 @@
     "realtime:check": "ts-node -r tsconfig-paths/register src/scripts/realtime-contract.ts --check",
     "database:migrate": "ts-node -r tsconfig-paths/register src/database/migrations/run-migrations.ts",
     "database:verify": "ts-node -r tsconfig-paths/register src/database/verify-database.ts",
+    "auth:backfill-google-emails": "ts-node -r tsconfig-paths/register src/scripts/backfill-google-account-emails.ts",
     "database:probe": "ts-node -r tsconfig-paths/register src/database/probe-atlas.ts",
     "database:seed:reference": "ts-node -r tsconfig-paths/register src/database/seeds/reference.seed.ts",
     "database:seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/demo.seed.ts",

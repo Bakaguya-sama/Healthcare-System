@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -6,20 +7,27 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Optional,
   Post,
   Req,
   Res,
+  ServiceUnavailableException,
+  UnauthorizedException,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from '../../application/services/auth.service';
-import { OAuthHandoffService } from '../../application/services/oauth-handoff.service';
+import { GoogleMobileOAuthService } from '../../application/services/google-mobile-oauth.service';
 import { renderMobileDeepLinkBridgeHtml } from '../../../../common/http/mobile-deep-link-bridge';
 import { RegisterPatientDto } from '../dto/register-patient.dto';
 import { RegisterDoctorDto } from '../dto/register-doctor.dto';
@@ -28,16 +36,19 @@ import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { VerifyEmailDto } from '../dto/verify-email.dto';
 import { RevokeSessionDto } from '../dto/revoke-session.dto';
 import { ExchangeOAuthTicketDto } from '../dto/exchange-oauth-ticket.dto';
+import { BeginGoogleMobileOAuthDto } from '../dto/begin-google-mobile-oauth.dto';
 import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
-import { GooglePrincipal } from '../../infrastructure/strategies/google.strategy';
+import type { GooglePrincipal } from '../../application/ports/oauth-mobile-handoff.port';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { RequestEmailVerificationDto } from '../dto/request-email-verification.dto';
 import { RestoreDoctorReapplicationDto } from '../dto/restore-doctor-reapplication.dto';
+import { GoogleOAuthEnabledGuard } from '../guards/google-oauth-enabled.guard';
+import { GoogleOAuthError } from '../../application/errors/google-oauth.error';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -45,60 +56,80 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
-    @Optional() private readonly oauthHandoff?: OAuthHandoffService,
+    private readonly googleMobileOAuth: GoogleMobileOAuthService,
   ) {}
 
   @Get('oauth/google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleOAuthEnabledGuard, AuthGuard('google'))
   startGooglePatientAuthentication() {
     return;
   }
 
+  @Post('oauth/google/mobile/attempt')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Begin Google mobile sign-in with an app verifier challenge' })
+  @ApiCreatedResponse({
+    schema: {
+      type: 'object',
+      required: ['attemptId', 'authorizationPath', 'expiresInSeconds'],
+      properties: {
+        attemptId: { type: 'string', pattern: '^[A-Za-z0-9_-]{43}$' },
+        authorizationPath: { type: 'string', example: '/api/v1/auth/oauth/google?attemptId=…' },
+        expiresInSeconds: { type: 'integer', example: 300 },
+      },
+    },
+  })
+  async beginGoogleMobileOAuth(@Body() dto: BeginGoogleMobileOAuthDto) {
+    try {
+      const { attemptId } = await this.googleMobileOAuth.beginAttempt(dto.challenge);
+      return {
+        attemptId,
+        authorizationPath: `${this.googleAuthorizePath()}?attemptId=${encodeURIComponent(attemptId)}`,
+        expiresInSeconds: 300,
+      };
+    } catch (error) {
+      this.mapGoogleOAuthError(error);
+    }
+  }
+
   @Get('oauth/google/callback')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleOAuthEnabledGuard, AuthGuard('google'))
   async completeGooglePatientAuthentication(
     @Req() req: Request & { user?: GooglePrincipal },
     @Res({ passthrough: true }) res?: Response,
   ) {
     if (this.config.get<boolean>('GOOGLE_OAUTH_ENABLED') !== true || !req.user)
       throw new NotFoundException('OAuth provider is unavailable');
+    if (res) this.setPrivateOAuthResponseHeaders(res);
 
     const mobileRedirect = this.config
       .get<string>('GOOGLE_OAUTH_MOBILE_REDIRECT_URL')
       ?.trim();
     const acceptHeader = req.headers?.accept ?? '';
-    const wantsHtml = Boolean(
-      res &&
-        mobileRedirect &&
-        this.oauthHandoff &&
-        acceptHeader.includes('text/html') &&
-        !acceptHeader.includes('application/json'),
-    );
+    const attemptId = (req as Request & { oauthAttemptId?: string }).oauthAttemptId;
+    if (attemptId && (!res || !mobileRedirect || !acceptHeader.includes('text/html')))
+      throw new ForbiddenException('Google mobile handoff is unavailable');
+    const wantsHtml = Boolean(res && mobileRedirect && attemptId);
 
     if (!wantsHtml) {
+      if (res) this.setPrivateOAuthResponseHeaders(res);
       return this.auth.completeGooglePatientAuthentication(
         req.user,
         this.meta(req),
       );
     }
 
-    const attemptId = (req as Request & { oauthAttemptId?: string })
-      .oauthAttemptId;
-
     try {
-      const session = await this.auth.completeGooglePatientAuthentication(
-        req.user,
-        this.meta(req),
+      const ticket = await this.googleMobileOAuth.storeCallback(
+        attemptId!,
+        { ...req.user, emailVerified: req.user.emailVerified === true },
       );
-      if (attemptId) {
-        await this.oauthHandoff!.storeAttemptSession(attemptId, session);
-      }
-      const ticket = await this.oauthHandoff!.issue(session);
-      const separator = mobileRedirect!.includes('?') ? '&' : '?';
-      const targetUrl = `${mobileRedirect}${separator}ticket=${encodeURIComponent(ticket)}`;
+      const targetUrl = this.mobileHandoffUrl(mobileRedirect!, 'ticket', ticket);
       res!.setHeader('Cache-Control', 'no-store');
       res!.setHeader('Pragma', 'no-cache');
       res!.setHeader('Referrer-Policy', 'no-referrer');
+      res!.setHeader('X-Content-Type-Options', 'nosniff');
       res!.setHeader('Content-Type', 'text/html; charset=utf-8');
       return renderMobileDeepLinkBridgeHtml({
         targetUrl,
@@ -115,20 +146,7 @@ export class AuthController {
           : error instanceof ForbiddenException
             ? 'account_ineligible'
             : 'oauth_failed';
-      const errorMessage =
-        error instanceof Error ? error.message : 'Google sign-in unavailable';
-      if (attemptId) {
-        await this.oauthHandoff!.storeAttemptError(
-          attemptId,
-          errorCode,
-          errorMessage,
-        ).catch(() => {});
-      }
-      const separator = mobileRedirect!.includes('?') ? '&' : '?';
-      const targetUrl = `${mobileRedirect}${separator}error=${encodeURIComponent(errorCode)}`;
-      const retryGoogleUrl = attemptId
-        ? `/api/v1/auth/oauth/google?attemptId=${encodeURIComponent(attemptId)}`
-        : '/api/v1/auth/oauth/google';
+      const targetUrl = this.mobileHandoffUrl(mobileRedirect!, 'error', errorCode);
       const isConflict = errorCode === 'local_account_exists';
       res!.setHeader('Cache-Control', 'no-store');
       res!.setHeader('Pragma', 'no-cache');
@@ -143,7 +161,6 @@ export class AuthController {
           ? 'Email Google vừa chọn đã đăng ký bằng mật khẩu. Hãy chọn tài khoản Google khác hoặc quay lại ứng dụng để đăng nhập bằng mật khẩu. / This Google email is registered with a password. Choose another Google account or return to the app to sign in with password.'
           : 'Đang chuyển về ứng dụng Healthcare... / Returning to Healthcare app...',
         buttonLabel: 'Quay lại ứng dụng / Return to App',
-        secondaryUrl: retryGoogleUrl,
         secondaryLabel:
           'Chọn tài khoản Google khác / Choose Another Google Account',
         hint: 'Nếu nút Quay lại không tự chuyển app trên bản dev, hãy nhấn nút chuyển ứng dụng về Healthcare. / If Return to App does not switch on dev build, use the app switcher to return to Healthcare.',
@@ -158,11 +175,44 @@ export class AuthController {
     summary:
       'Exchange a one-time Google OAuth handoff ticket for a Patient session',
   })
-  exchangeGoogleOAuthTicket(@Body() dto: ExchangeOAuthTicketDto) {
-    if (!this.oauthHandoff) {
-      throw new NotFoundException('OAuth provider is unavailable');
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      required: ['accessToken', 'refreshToken', 'user'],
+      properties: {
+        accessToken: { type: 'string', description: 'Session access token; never place it in a URL or log.' },
+        refreshToken: { type: 'string', description: 'Session refresh token; never place it in a URL or log.' },
+        user: {
+          type: 'object',
+          required: ['id', 'role', 'emailVerified'],
+          properties: {
+            id: { type: 'string' },
+            email: { type: 'string' },
+            emailVerified: { type: 'boolean' },
+            fullName: { type: 'string' },
+            role: { type: 'string', example: 'patient' },
+            avatarUrl: { type: 'string' },
+          },
+        },
+      },
+    },
+  })
+  async exchangeGoogleOAuthTicket(
+    @Body() dto: ExchangeOAuthTicketDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.setPrivateOAuthResponseHeaders(res);
+    try {
+      return await this.googleMobileOAuth.exchange(
+        dto.attemptId,
+        dto.ticket,
+        dto.verifier,
+        this.meta(req),
+      );
+    } catch (error) {
+      this.mapGoogleOAuthError(error);
     }
-    return this.oauthHandoff.consume(dto.ticket);
   }
 
   @Post('register/patient')
@@ -293,5 +343,37 @@ export class AuthController {
 
   private meta(req: Request) {
     return { userAgent: req.get('user-agent') };
+  }
+
+  private googleAuthorizePath() {
+    const prefix = this.config
+      .getOrThrow<string>('API_PREFIX')
+      .replace(/^\/+|\/+$/g, '');
+    const version = this.config.getOrThrow<string>('API_VERSION');
+    return `/${prefix}/v${version}/auth/oauth/google`;
+  }
+
+  private mobileHandoffUrl(base: string, key: 'ticket' | 'error', value: string) {
+    const target = new URL(base);
+    target.searchParams.set(key, value);
+    return target.toString();
+  }
+
+  private mapGoogleOAuthError(error: unknown): never {
+    if (error instanceof GoogleOAuthError) {
+      if (error.code === 'GOOGLE_OAUTH_INVALID_CHALLENGE')
+        throw new BadRequestException('Invalid Google OAuth mobile challenge');
+      if (error.code === 'GOOGLE_OAUTH_UNAVAILABLE')
+        throw new ServiceUnavailableException('Google OAuth is temporarily unavailable');
+      throw new UnauthorizedException('Google OAuth handoff is invalid or expired');
+    }
+    throw error;
+  }
+
+  private setPrivateOAuthResponseHeaders(res: Response) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
   }
 }

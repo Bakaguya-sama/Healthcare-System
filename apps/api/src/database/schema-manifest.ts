@@ -85,6 +85,10 @@ import {
   FAMILY_REMINDER_DELIVERY_INDEXES,
   FAMILY_REMINDER_QUOTA_VALIDATOR,
 } from './migrations/202611241040-e2-family-reminder-delivery';
+import {
+  CARE_PROGRAM_NUMERIC_VERSION_VALIDATOR,
+  CARE_RULE_NUMERIC_VERSION_VALIDATOR,
+} from './migrations/202611251000-care-catalog-numeric-version-validator';
 import { CONSULTATION_SLOT_PARTIAL_UNIQUE_INDEX } from './migrations/202611231200-consultation-slot-partial-unique';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
@@ -145,11 +149,16 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
   ...CC000_FOUNDATION_COLLECTIONS.filter(
     (collection) =>
       collection.name !== 'careprograms' &&
+      collection.name !== 'carerules' &&
       collection.name !== 'patientcareprograms',
   ),
   ...CC014_BASELINE_SCHEMA_COLLECTIONS.filter(
-    (collection) => collection.name !== 'patientcareprograms',
+    (collection) =>
+      collection.name !== 'careprograms' &&
+      collection.name !== 'patientcareprograms',
   ),
+  { name: 'careprograms', validator: CARE_PROGRAM_NUMERIC_VERSION_VALIDATOR },
+  { name: 'carerules', validator: CARE_RULE_NUMERIC_VERSION_VALIDATOR },
   {
     name: 'patientcareprograms',
     validator: CC014_PATIENT_CARE_PROGRAM_VALIDATOR,
