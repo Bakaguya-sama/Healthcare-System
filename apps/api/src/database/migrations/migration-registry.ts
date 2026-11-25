@@ -5,11 +5,126 @@ import {
   RF2D_QUERY_INDEX_MIGRATION_VERSION,
 } from './202609162200-rf2d-query-indexes';
 import type { DatabaseMigration } from './migration.types';
-import { applyAuthIdentityHardening, AUTH_IDENTITY_HARDENING_CHECKSUM, AUTH_IDENTITY_HARDENING_NAME, AUTH_IDENTITY_HARDENING_VERSION } from './202611181000-auth-identity-hardening';
-import { applyAuthOtpCookieCleanup, AUTH_OTP_COOKIE_CLEANUP_CHECKSUM, AUTH_OTP_COOKIE_CLEANUP_NAME, AUTH_OTP_COOKIE_CLEANUP_VERSION } from './202611181100-auth-otp-cookie-state-cleanup';
-import { applyAuthEventRedaction, AUTH_EVENT_REDACTION_CHECKSUM, AUTH_EVENT_REDACTION_NAME, AUTH_EVENT_REDACTION_VERSION } from './202611181200-auth-event-redaction';
-import { applyOauthIdentityOwnerUniqueness, OAUTH_IDENTITY_OWNER_UNIQUENESS_CHECKSUM, OAUTH_IDENTITY_OWNER_UNIQUENESS_NAME, OAUTH_IDENTITY_OWNER_UNIQUENESS_VERSION } from './202611181210-oauth-identity-owner-uniqueness';
-import { applyOauthProviderEmailUniqueness, OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM, OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME, OAUTH_PROVIDER_EMAIL_UNIQUENESS_VERSION } from './202611181220-oauth-provider-email-uniqueness';
+import {
+  applyE1DoctorBookingSettings,
+  E1_DOCTOR_BOOKING_SETTINGS_CHECKSUM,
+  E1_DOCTOR_BOOKING_SETTINGS_NAME,
+  E1_DOCTOR_BOOKING_SETTINGS_VERSION,
+} from './202611231000-e1-doctor-booking-settings';
+import {
+  applyE1AvailabilitySlotIndexReconciliation,
+  E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_CHECKSUM,
+  E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_NAME,
+  E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_VERSION,
+} from './202611231300-e1-availability-slot-index-reconciliation';
+import {
+  applyE2FamilyCompanion,
+  E2_FAMILY_COMPANION_CHECKSUM,
+  E2_FAMILY_COMPANION_NAME,
+  E2_FAMILY_COMPANION_VERSION,
+} from './202611231400-e2-family-companion';
+import {
+  applyE2FamilyPhoneLookupIndex,
+  E2_FAMILY_PHONE_LOOKUP_CHECKSUM,
+  E2_FAMILY_PHONE_LOOKUP_NAME,
+  E2_FAMILY_PHONE_LOOKUP_VERSION,
+} from './202611231410-e2-family-phone-lookup-index';
+import {
+  applyE2FamilyIdempotencyScope,
+  E2_FAMILY_IDEMPOTENCY_SCOPE_CHECKSUM,
+  E2_FAMILY_IDEMPOTENCY_SCOPE_NAME,
+  E2_FAMILY_IDEMPOTENCY_SCOPE_VERSION,
+} from './202611231420-e2-family-idempotency-scope';
+import {
+  applyE2FamilyContactLookup,
+  E2_FAMILY_CONTACT_LOOKUP_CHECKSUM,
+  E2_FAMILY_CONTACT_LOOKUP_NAME,
+  E2_FAMILY_CONTACT_LOOKUP_VERSION,
+} from './202611231430-e2-family-contact-lookup';
+import {
+  applyE2RemoveContactLookup,
+  E2_REMOVE_CONTACT_LOOKUP_CHECKSUM,
+  E2_REMOVE_CONTACT_LOOKUP_NAME,
+  E2_REMOVE_CONTACT_LOOKUP_VERSION,
+} from './202611241000-e2-remove-contact-lookup';
+import {
+  applyE2FamilyDeliveryName,
+  E2_FAMILY_DELIVERY_NAME_CHECKSUM,
+  E2_FAMILY_DELIVERY_NAME,
+  E2_FAMILY_DELIVERY_NAME_VERSION,
+} from './202611241010-e2-family-delivery-name';
+import {
+  applyFamilyHealthSharing,
+  FAMILY_HEALTH_SHARING_CHECKSUM,
+  FAMILY_HEALTH_SHARING_NAME,
+  FAMILY_HEALTH_SHARING_VERSION,
+} from './202611241020-e2-family-health-metric-sharing';
+import {
+  applyFamilyCommandReceipts,
+  FAMILY_COMMAND_RECEIPTS_CHECKSUM,
+  FAMILY_COMMAND_RECEIPTS_NAME,
+  FAMILY_COMMAND_RECEIPTS_VERSION,
+} from './202611241030-e2-family-command-receipts';
+import {
+  applyFamilyReminderDelivery,
+  FAMILY_REMINDER_DELIVERY_CHECKSUM,
+  FAMILY_REMINDER_DELIVERY_NAME,
+  FAMILY_REMINDER_DELIVERY_VERSION,
+} from './202611241040-e2-family-reminder-delivery';
+import {
+  applyAuthIdentityHardening,
+  AUTH_IDENTITY_HARDENING_CHECKSUM,
+  AUTH_IDENTITY_HARDENING_NAME,
+  AUTH_IDENTITY_HARDENING_VERSION,
+} from './202611181000-auth-identity-hardening';
+import {
+  applyAuthOtpCookieCleanup,
+  AUTH_OTP_COOKIE_CLEANUP_CHECKSUM,
+  AUTH_OTP_COOKIE_CLEANUP_NAME,
+  AUTH_OTP_COOKIE_CLEANUP_VERSION,
+} from './202611181100-auth-otp-cookie-state-cleanup';
+import {
+  applyAuthEventRedaction,
+  AUTH_EVENT_REDACTION_CHECKSUM,
+  AUTH_EVENT_REDACTION_NAME,
+  AUTH_EVENT_REDACTION_VERSION,
+} from './202611181200-auth-event-redaction';
+import {
+  applyOauthIdentityOwnerUniqueness,
+  OAUTH_IDENTITY_OWNER_UNIQUENESS_CHECKSUM,
+  OAUTH_IDENTITY_OWNER_UNIQUENESS_NAME,
+  OAUTH_IDENTITY_OWNER_UNIQUENESS_VERSION,
+} from './202611181210-oauth-identity-owner-uniqueness';
+import {
+  applyOauthProviderEmailUniqueness,
+  OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM,
+  OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME,
+  OAUTH_PROVIDER_EMAIL_UNIQUENESS_VERSION,
+} from './202611181220-oauth-provider-email-uniqueness';
+import {
+  applyTrustedKnowledgeDocuments,
+  TRUSTED_KNOWLEDGE_DOCUMENTS_CHECKSUM,
+  TRUSTED_KNOWLEDGE_DOCUMENTS_NAME,
+  TRUSTED_KNOWLEDGE_DOCUMENTS_VERSION,
+} from './202611181230-trusted-knowledge-documents';
+import {
+  applyExternalKnowledgeCandidates,
+  EXTERNAL_KNOWLEDGE_CANDIDATES_CHECKSUM,
+  EXTERNAL_KNOWLEDGE_CANDIDATES_NAME,
+  EXTERNAL_KNOWLEDGE_CANDIDATES_VERSION,
+} from './202611181240-external-knowledge-candidates';
+import {
+  applyConsultationSlotPartialUnique,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_CHECKSUM,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_NAME,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_VERSION,
+} from './202611231200-consultation-slot-partial-unique';
+import {
+  CONSULTATION_SLOT_RECONCILE_CHECKSUM,
+  CONSULTATION_SLOT_RECONCILE_NAME,
+  CONSULTATION_SLOT_RECONCILE_VERSION,
+  reconcileConsultationSlotPartialUnique,
+} from './202611241050-consultation-slot-partial-unique-reconcile';
 import {
   applyRf5CanonicalIdentity,
   RF5_CANONICAL_IDENTITY_CHECKSUM,
@@ -268,6 +383,12 @@ import {
   CARE_CATALOG_VERSION_TYPE_RECONCILIATION_NAME,
   CARE_CATALOG_VERSION_TYPE_RECONCILIATION_VERSION,
 } from './202611171200-care-catalog-version-type-reconciliation';
+import {
+  applyCareCatalogNumericVersionValidator,
+  CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_CHECKSUM,
+  CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_NAME,
+  CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_VERSION,
+} from './202611251000-care-catalog-numeric-version-validator';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -563,6 +684,102 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: OAUTH_PROVIDER_EMAIL_UNIQUENESS_NAME,
     checksum: OAUTH_PROVIDER_EMAIL_UNIQUENESS_CHECKSUM,
     up: applyOauthProviderEmailUniqueness,
+  },
+  {
+    version: TRUSTED_KNOWLEDGE_DOCUMENTS_VERSION,
+    name: TRUSTED_KNOWLEDGE_DOCUMENTS_NAME,
+    checksum: TRUSTED_KNOWLEDGE_DOCUMENTS_CHECKSUM,
+    up: applyTrustedKnowledgeDocuments,
+  },
+  {
+    version: EXTERNAL_KNOWLEDGE_CANDIDATES_VERSION,
+    name: EXTERNAL_KNOWLEDGE_CANDIDATES_NAME,
+    checksum: EXTERNAL_KNOWLEDGE_CANDIDATES_CHECKSUM,
+    up: applyExternalKnowledgeCandidates,
+  },
+  {
+    version: E1_DOCTOR_BOOKING_SETTINGS_VERSION,
+    name: E1_DOCTOR_BOOKING_SETTINGS_NAME,
+    checksum: E1_DOCTOR_BOOKING_SETTINGS_CHECKSUM,
+    up: applyE1DoctorBookingSettings,
+  },
+  {
+    version: CONSULTATION_SLOT_PARTIAL_UNIQUE_VERSION,
+    name: CONSULTATION_SLOT_PARTIAL_UNIQUE_NAME,
+    checksum: CONSULTATION_SLOT_PARTIAL_UNIQUE_CHECKSUM,
+    up: applyConsultationSlotPartialUnique,
+  },
+  {
+    version: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_VERSION,
+    name: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_NAME,
+    checksum: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_CHECKSUM,
+    up: applyE1AvailabilitySlotIndexReconciliation,
+  },
+  {
+    version: E2_FAMILY_COMPANION_VERSION,
+    name: E2_FAMILY_COMPANION_NAME,
+    checksum: E2_FAMILY_COMPANION_CHECKSUM,
+    up: applyE2FamilyCompanion,
+  },
+  {
+    version: E2_FAMILY_PHONE_LOOKUP_VERSION,
+    name: E2_FAMILY_PHONE_LOOKUP_NAME,
+    checksum: E2_FAMILY_PHONE_LOOKUP_CHECKSUM,
+    up: applyE2FamilyPhoneLookupIndex,
+  },
+  {
+    version: E2_FAMILY_IDEMPOTENCY_SCOPE_VERSION,
+    name: E2_FAMILY_IDEMPOTENCY_SCOPE_NAME,
+    checksum: E2_FAMILY_IDEMPOTENCY_SCOPE_CHECKSUM,
+    up: applyE2FamilyIdempotencyScope,
+  },
+  {
+    version: E2_FAMILY_CONTACT_LOOKUP_VERSION,
+    name: E2_FAMILY_CONTACT_LOOKUP_NAME,
+    checksum: E2_FAMILY_CONTACT_LOOKUP_CHECKSUM,
+    up: applyE2FamilyContactLookup,
+  },
+  {
+    version: E2_REMOVE_CONTACT_LOOKUP_VERSION,
+    name: E2_REMOVE_CONTACT_LOOKUP_NAME,
+    checksum: E2_REMOVE_CONTACT_LOOKUP_CHECKSUM,
+    up: applyE2RemoveContactLookup,
+  },
+  {
+    version: E2_FAMILY_DELIVERY_NAME_VERSION,
+    name: E2_FAMILY_DELIVERY_NAME,
+    checksum: E2_FAMILY_DELIVERY_NAME_CHECKSUM,
+    up: applyE2FamilyDeliveryName,
+  },
+  {
+    version: FAMILY_HEALTH_SHARING_VERSION,
+    name: FAMILY_HEALTH_SHARING_NAME,
+    checksum: FAMILY_HEALTH_SHARING_CHECKSUM,
+    up: applyFamilyHealthSharing,
+  },
+  {
+    version: FAMILY_COMMAND_RECEIPTS_VERSION,
+    name: FAMILY_COMMAND_RECEIPTS_NAME,
+    checksum: FAMILY_COMMAND_RECEIPTS_CHECKSUM,
+    up: applyFamilyCommandReceipts,
+  },
+  {
+    version: FAMILY_REMINDER_DELIVERY_VERSION,
+    name: FAMILY_REMINDER_DELIVERY_NAME,
+    checksum: FAMILY_REMINDER_DELIVERY_CHECKSUM,
+    up: applyFamilyReminderDelivery,
+  },
+  {
+    version: CONSULTATION_SLOT_RECONCILE_VERSION,
+    name: CONSULTATION_SLOT_RECONCILE_NAME,
+    checksum: CONSULTATION_SLOT_RECONCILE_CHECKSUM,
+    up: reconcileConsultationSlotPartialUnique,
+  },
+  {
+    version: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_VERSION,
+    name: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_NAME,
+    checksum: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_CHECKSUM,
+    up: applyCareCatalogNumericVersionValidator,
   },
 ];
 

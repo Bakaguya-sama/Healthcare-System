@@ -8,5 +8,6 @@ export class CreatePlanDraftDto {
   @IsInt() @Min(0) aiRequestLimit!: number; @IsInt() @Min(0) aiTokenLimit!: number;
   @IsIn(['day', 'subscription_cycle']) aiQuotaPeriod!: 'day' | 'subscription_cycle';
   @IsInt() @Min(0) consultationLimitPerCycle!: number; @IsInt() @Min(0) @Max(100) activeCareProgramLimit!: number;
+  @IsInt() @Min(0) @Max(10) familyLinkLimit!: number;
   @IsObject() benefits!: Record<string, unknown>; @IsObject() refundPolicy!: Record<string, unknown>;
 }

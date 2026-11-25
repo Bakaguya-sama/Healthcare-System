@@ -22,7 +22,6 @@ import {
   ConsultationSessionStatus,
 } from '../../../domain/entities/consultations/consultation.entity';
 import { PageQueryDto } from '../../../../../common/pagination';
-import { BookingPolicyService } from './booking-policy';
 
 const QUEUE_PROJECTION =
   '_id patientId doctorId mode requestStatus sessionStatus scheduledStartAt expectedDurationMinutes queueJoinedAt queuePriorityAt calledAt sessionStartedAt updatedAt';
@@ -53,7 +52,6 @@ export class ConsultationQueueService {
     @InjectModel(Consultation.name)
     private readonly consultations: Model<ConsultationDocument>,
     private readonly users: UsersService,
-    private readonly policy: BookingPolicyService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -440,12 +438,10 @@ export class ConsultationQueueService {
   private assertCheckInWindow(consultation: ConsultationDocument, now: Date) {
     const snapshot = consultation.bookingSettingsSnapshot;
     const snapshotEarly = snapshot?.checkInEarlyMinutes;
-    const checkInEarlyMinutes =
-      typeof snapshotEarly === 'number'
-        ? snapshotEarly
-        : this.policy.getCheckInEarlyMinutes();
+    const checkInEarlyMinutes = snapshotEarly;
     const noShowAfterMinutes = snapshot?.noShowAfterMinutes;
     if (
+      typeof checkInEarlyMinutes !== 'number' ||
       typeof noShowAfterMinutes !== 'number' ||
       !consultation.scheduledStartAt
     ) {

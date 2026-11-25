@@ -151,6 +151,40 @@ no acknowledge action, and command processing fails closed.
 
 **CC-003A implementation update 20/10/2026:** The worker has scheduled task processing and handlers for metric events and reminders, guarded by `CARE_MONITORING_AUTOMATION_ENABLED` (default off). Metric events are written transactionally and evaluation retries repair missing alert creation. Active new alerts deduplicate per enrollment/rule/local calendar day; attention can escalate to urgent with a separate safety notification. Historical alerts remain unchanged and are not merged; historical metrics without events are not automatically re-evaluated. Existing queued events can run after enabling the flag, subject to enrollment status at processing time. The source/local gate is closed with worker, crash-lease recovery, replay and authorization evidence; production enablement follows `docs/runbooks/care-monitoring-automation.md` and is not implied by this statement.
 
+#### Enrollment-to-CareTask synchronization — merge follow-up 25/11/2026
+
+Enrollment state remains canonical. Each status-changing command commits the new
+Enrollment revision, audit record, idempotency record and
+`care.enrollment.tasks.sync.v1` outbox event in one MongoDB transaction. The event
+contains only `{ eventVersion, enrollmentId, revision, status }`; it carries no
+clinical content. The outbox worker loads the current Enrollment rather than
+replaying the payload's status. An older event therefore cannot reactivate tasks
+after a newer pause/cancel transition. Active state schedules tasks with their
+existing unique key; non-active or missing enrollment cancels open `scheduled|due`
+tasks. Reprocessing is safe and outbox failures are retried/dead-lettered.
+
+The scheduled reconciliation job uses stable `_id` batches: it pages through all
+active enrollments to materialize missing tasks and through all open tasks to cancel
+those whose Enrollment is missing/non-active. It is not limited to the first 200
+records. The automation flag gates creation for active enrollments; cancellation of
+invalid open tasks remains allowed while the flag is off. Task response, review,
+metric processing and reminder paths check current Enrollment status and reject or
+suppress work while asynchronous task synchronization is pending. This is eventual
+consistency with reconciliation, not a cross-aggregate transaction; outbox lag and
+dead-letter state must be monitored.
+
+#### Care catalog numeric validator correction — migration `202611251000`
+
+The published `CC000` migration remains unchanged from its released contract. A
+forward-only `collMod` migration updates only `CarePrograms.version` and
+`CareRules.version` validators to accept BSON `int`, `long` or `double`, while
+preserving `minimum: 1`, required fields and all other validator constraints. It is
+idempotent and no data conversion is performed. New and existing databases must run
+the migration and `database:verify`; the schema manifest describes the post-migration
+validator. Rollback is a later forward migration restoring the prior numeric type
+only after verifying no integer/long values remain; do not edit CC000 or reverse an
+already applied migration in place.
+
 #### Urgent alert consultation benefit — implemented backend snapshot (CC-013A)
 
 An authorized assigned Doctor may initiate a consultation from a qualifying `urgent` Care Alert as an included Care Program benefit: it consumes no ordinary consultation quota and has no separate patient charge. An `attention` alert consultation follows the ordinary quota/pricing policy. Consultations owns the backend-assigned immutable `quotaPolicy` snapshot (`consultation_limit` or `care_program_included`); never reuse `legacyQuotaExempt` or trust a client-provided policy/severity. `CareAlertService` derives the policy only after verifying assigned Doctor and active alert state; the consultation service writes it with provenance/audit in the same transaction. Included snapshots remain included after later enrollment/subscription expiry, pause or downgrade; historic records without the field retain ordinary quota treatment and are not rewritten. PaymentOrder in `CC-PAY-001` is limited to server-side Plan purchases and does not create a consultation charge. Any future consultation-charge path must read this immutable snapshot and reject a charge for `care_program_included`; it must not infer eligibility from a missing usage ledger. It does not guarantee immediate availability or replace emergency services.

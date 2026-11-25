@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 
 export type RedisDataClass =
   | 'otp'
+  | 'oauth'
   | 'throttle'
   | 'presence'
   | 'consultation'

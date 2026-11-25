@@ -1,5 +1,17 @@
 import { LATEST_SCHEMA_VERSION } from '../database/migrations/migration-registry';
 
+function isAllowedGoogleMobileRedirect(value: string): boolean {
+  try {
+    const redirect = new URL(value);
+    if (redirect.username || redirect.password) return false;
+    if (redirect.protocol === 'healthcare:') return Boolean(redirect.hostname);
+    if (redirect.protocol === 'https:') return Boolean(redirect.hostname);
+    return redirect.protocol === 'http:' && redirect.hostname === 'localhost';
+  } catch {
+    return false;
+  }
+}
+
 export type NodeEnvironment = 'development' | 'test' | 'staging' | 'production';
 
 const NODE_ENVIRONMENTS = new Set<NodeEnvironment>([
@@ -172,6 +184,16 @@ export function validateEnvironment(
     'OAUTH_STATE_ENCRYPTION_SECRET',
     '',
   ).trim();
+  const googleOauthMobileRedirectUrl = stringValue(
+    config,
+    'GOOGLE_OAUTH_MOBILE_REDIRECT_URL',
+    '',
+  ).trim();
+  const vnpayMobileReturnDeepLink = stringValue(
+    config,
+    'VNPAY_MOBILE_RETURN_DEEP_LINK',
+    'healthcare://premium?vnpay=return',
+  ).trim();
   if (
     googleOauthEnabled &&
     (!googleOauthClientId ||
@@ -183,6 +205,24 @@ export function validateEnvironment(
       'Google OAuth requires client credentials, callback URL and a 32+ character OAUTH_STATE_ENCRYPTION_SECRET',
     );
   }
+  if (
+    googleOauthMobileRedirectUrl &&
+    !isAllowedGoogleMobileRedirect(googleOauthMobileRedirectUrl)
+  ) {
+    throw new Error(
+      'GOOGLE_OAUTH_MOBILE_REDIRECT_URL must use healthcare://, https://, or http://localhost',
+    );
+  }
+  if (
+    vnpayMobileReturnDeepLink &&
+    !/^(?:healthcare:\/\/|https:\/\/|http:\/\/localhost(?::\d+)?(?:\/|$))/i.test(
+      vnpayMobileReturnDeepLink,
+    )
+  ) {
+    throw new Error(
+      'VNPAY_MOBILE_RETURN_DEEP_LINK must use healthcare://, https://, or http://localhost',
+    );
+  }
 
   return {
     ...config,
@@ -191,28 +231,20 @@ export function validateEnvironment(
       'CARE_MONITORING_AUTOMATION_ENABLED',
       false,
     ),
+    FAMILY_COMPANION_ENABLED: boolean(
+      config,
+      'FAMILY_COMPANION_ENABLED',
+      false,
+    ),
+    FAMILY_INVITATION_BASE_URL: stringValue(
+      config,
+      'FAMILY_INVITATION_BASE_URL',
+      'http://localhost:5173/family-links/redeem?token=',
+    ),
     CONSULTATION_STALE_RECOVERY_ENABLED: boolean(
       config,
       'CONSULTATION_STALE_RECOVERY_ENABLED',
       false,
-    ),
-    SCHEDULED_BOOKING_BUFFER_MINUTES: optionalInteger(
-      config,
-      'SCHEDULED_BOOKING_BUFFER_MINUTES',
-      0,
-      240,
-    ),
-    SCHEDULED_BOOKING_MIN_NOTICE_MINUTES: optionalInteger(
-      config,
-      'SCHEDULED_BOOKING_MIN_NOTICE_MINUTES',
-      0,
-      10_080,
-    ),
-    CONSULTATION_CHECK_IN_EARLY_MINUTES: optionalInteger(
-      config,
-      'CONSULTATION_CHECK_IN_EARLY_MINUTES',
-      0,
-      1_440,
     ),
     CARE_REPORT_EXPORT_ARTIFACT_TTL_MINUTES: optionalInteger(
       config,
@@ -231,6 +263,7 @@ export function validateEnvironment(
     VNPAY_TMN_CODE: stringValue(config, 'VNPAY_TMN_CODE', '').trim(),
     VNPAY_HASH_SECRET: stringValue(config, 'VNPAY_HASH_SECRET', '').trim(),
     VNPAY_RETURN_URL: stringValue(config, 'VNPAY_RETURN_URL', '').trim(),
+    VNPAY_MOBILE_RETURN_DEEP_LINK: vnpayMobileReturnDeepLink,
     PAYMENT_RECONCILIATION_ENABLED: boolean(
       config,
       'PAYMENT_RECONCILIATION_ENABLED',
@@ -245,6 +278,7 @@ export function validateEnvironment(
     GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
     GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret,
     GOOGLE_OAUTH_CALLBACK_URL: googleOauthCallbackUrl,
+    GOOGLE_OAUTH_MOBILE_REDIRECT_URL: googleOauthMobileRedirectUrl,
     OAUTH_STATE_ENCRYPTION_SECRET: oauthStateEncryptionSecret,
     NODE_ENV: nodeEnv,
     PORT: integer(config, 'PORT', 3000, 1, 65_535),

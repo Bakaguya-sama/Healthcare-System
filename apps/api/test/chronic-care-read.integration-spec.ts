@@ -252,6 +252,7 @@ describe('P0 Chronic Care read API service', () => {
     expect(patientPage.items).toHaveLength(1);
     expect(patientPage.items[0]).toMatchObject({
       id: String(own._id),
+      revision: 1,
       assignedDoctor: { id: doctorId.toHexString() },
     });
     await expect(
@@ -269,6 +270,7 @@ describe('P0 Chronic Care read API service', () => {
     );
     expect(doctorPage.items[0]).toMatchObject({
       id: String(own._id),
+      revision: 1,
       patient: { id: patientId.toHexString() },
     });
     await expect(
@@ -356,6 +358,7 @@ describe('P0 Chronic Care read API service', () => {
     );
     expect(detail).toMatchObject({
       id: String(enrollment._id),
+      revision: 1,
       taskSummary: { counts: { completed: 1 } },
       alertSummary: { openCount: 1 },
       latestReport: { reportType: 'weekly' },

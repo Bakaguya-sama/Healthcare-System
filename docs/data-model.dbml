@@ -7,6 +7,9 @@
 // Runtime addendum 2026-11-06: CareReportExports reflects applied migration 202611061000.
 // MongoDB partial, sparse, TTL, time-series and Atlas Vector Search indexes
 // must be created and verified by versioned migration files.
+// Merge follow-up 2026-11-25: migration 202611251000 updates only CarePrograms.version
+// and CareRules.version validators to accept BSON int/long/double; no schema field or
+// collection is added. OAuth mobile attempts/tickets live in shared Redis, not MongoDB.
 // Set Mongoose autoIndex/autoCreate=false in staging and production-like environments.
 
 Table Users {
@@ -15,6 +18,7 @@ Table Users {
   email varchar [note: "Nullable only for Patient OAuth-only accounts; normalize to lowercase before persistence; partial unique index where email is a string"]
   passwordHash varchar [note: "Nullable only for Patient OAuth-only accounts; select:false; never return publicly"]
   emailVerifiedAt datetime
+  phoneVerifiedAt datetime [note: "Only verified phone numbers are eligible for family-companion search/display"]
   gender varchar
   dateOfBirth date
   phoneNumber varchar
@@ -25,7 +29,7 @@ Table Users {
   banReason varchar
   lastOnlineAt datetime [note: "Durable last-known online time; realtime presence remains in Redis/Socket.IO"]
   address json [note: "{ street, ward, district, city, country }"]
-  doctorProfile json [note: "{ specialty, workplace, verificationDocuments[], experienceYears, averageRating, ratingSum, reviewCount, verificationStatus: pending|approved|rejected, verifiedAt, rejectReason, bookingSettings: { bookingPolicy: instant|approval_required, defaultDurationMinutes, bufferMinutes, minNoticeMinutes, maxAdvanceDays, cancellationDeadlineMinutes, checkInEarlyMinutes, noShowAfterMinutes } }; business values are Admin-configurable within system hard limits and snapshotted into a Consultation"]
+  doctorProfile json [note: "{ specialty, workplace, verificationDocuments[], experienceYears, averageRating, ratingSum, reviewCount, verificationStatus: pending|approved|rejected, verifiedAt, rejectReason, bookingSettings: { bookingPolicy: instant, bufferMinutes, minNoticeMinutes, cancellationDeadlineMinutes, checkInEarlyMinutes, noShowAfterMinutes, effectiveFrom, updatedAt, updatedBy, overrideReason? } }; E1 pilot permits instant only; values are bounded and Admin-overridable, then snapshotted into a Consultation without retroactive change"]
   adminProfile json [note: "{ adminRole: super_admin|user_manager|ai_manager }"]
   createdAt datetime
   updatedAt datetime
@@ -45,6 +49,7 @@ Table OAuthAccounts {
   provider varchar [not null, note: "google only in Phase A; provider email is an attribute, never an automatic account-merge key"]
   providerAccountId varchar [not null, note: "Stable provider subject ID"]
   providerEmail varchar [note: "Provider attribute only; never auto-merge/link with a local email"]
+  providerEmailVerified boolean [not null, default: false, note: "True only when trusted Google OIDC email_verified claim was true; never inferred by backfill"]
   linkedAt datetime [not null]
   createdAt datetime
   updatedAt datetime
@@ -132,7 +137,7 @@ Table Consultations {
   doctorId ObjectID [not null]
   patientCareProgramId ObjectID [note: "Optional link to the Patient Care Program that initiated/follows this consultation"]
   careAlertId ObjectID [note: "Optional alert context; consultation remains usable without a Care Program"]
-  availabilitySlotId ObjectID [note: "Null for on-demand; sparse unique MongoDB index"]
+  availabilitySlotId ObjectID [note: "Null for on-demand; unique among pending or accepted consultations"]
   mode varchar [not null, note: "on_demand, scheduled"]
   requestStatus varchar [not null, note: "pending, accepted, declined, cancelled, expired; instant scheduled booking starts accepted"]
   sessionStatus varchar [not null, note: "not_started, waiting, in_consultation, interrupted, completed, no_show"]
@@ -180,7 +185,7 @@ Table Consultations {
   updatedAt datetime
 
   Indexes {
-    availabilitySlotId [unique, note: "Sparse unique index created by migration"]
+    availabilitySlotId [unique, note: "Partial unique index for objectId and requestStatus pending or accepted; terminal consultations retain history"]
     roomId [unique, note: "Sparse unique index created by migration"]
     (doctorId, requestStatus, requestedAt)
     (patientId, requestStatus, requestedAt)
@@ -340,6 +345,12 @@ Table HealthMetrics {
 Table AiDocuments {
   id ObjectID [pk]
   title varchar [not null]
+  parentDocumentId ObjectID [note: "Stable document family for a replacement version; only an Admin-selected active version is retrievable"]
+  documentVersion int [not null, default: 1]
+  contentHash varchar [not null, note: "SHA-256 of uploaded content; internal provenance and retry dedupe only"]
+  ingestionVersion int [not null, default: 1]
+  scope varchar [not null, default: "general", note: "Approved clinical scope used by retrieval policy"]
+  source varchar [not null, default: "internal", note: "Safe provenance label; storage URL is never a public citation field"]
   fileUrl varchar [not null]
   fileType varchar [not null]
   publicId varchar
@@ -375,6 +386,8 @@ Table AiDocuments {
 Table AiDocumentChunks {
   id ObjectID [pk]
   documentId ObjectID [not null]
+  documentVersion int [not null, default: 1]
+  scope varchar [not null, default: "general"]
   chunkIndex int [not null]
   content text [not null]
   embedding json [note: "Atlas Vector Search index is provisioned separately"]
@@ -411,6 +424,26 @@ Table AiDocumentChunks {
   }
 }
 
+Table KnowledgeCandidates {
+  id ObjectID [pk]
+  pmid varchar [not null, unique, note: "PubMed identifier; external evidence is not retrievable before review"]
+  contentHash varchar [not null, unique, note: "Deduplicates equivalent external literature"]
+  title varchar [not null]
+  sourceUrl varchar [not null, note: "Public citation URL only"]
+  status varchar [not null, default: "pending_review", note: "pending_review, promoted, rejected"]
+  reviewedBy ObjectID
+  reviewedAt datetime
+  reviewReason varchar
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    pmid [unique]
+    contentHash [unique]
+    (status, createdAt)
+  }
+}
+
 Table BlacklistKeywords {
   id ObjectID [pk]
   keyword varchar [not null, unique]
@@ -436,7 +469,8 @@ Table Plans {
   aiQuotaPeriod varchar [not null, default: "day", note: "day, subscription_cycle"]
   consultationLimitPerCycle int [not null]
   activeCareProgramLimit int [not null]
-  benefits json [not null, note: "{ weeklyAiSummary, reports[], smartReminder, medicationReminder, exports[], doctorReview, priorityInbox, followUp, familyLinkLimit, facilitySearch }"]
+  familyLinkLimit int [not null, note: "Entitlement default; bounded by system hard ceiling and copied into Subscription.planSnapshot"]
+  benefits json [not null, note: "{ weeklyAiSummary, reports[], smartReminder, medicationReminder, exports[], doctorReview, priorityInbox, followUp, facilitySearch }"]
   refundPolicy json [not null, note: "Versioned business policy: { version, refundType: full_only, refundWindowHours, maxAiTokensUsed, maxConsultationsCounted, maxDoctorReviewsCompleted, maxPaidReportsGenerated, maxPaidCareTasksCompleted, requireAdminApproval }"]
   status varchar [not null, note: "draft, published, retired"]
   effectiveFrom datetime
@@ -735,6 +769,7 @@ Table CareTasks {
     uniqueKey [unique]
     (patientId, status, scheduledFor)
     (patientCareProgramId, status, windowStart)
+    (status, required, id) [note: "Keyset scan for required missed tasks"]
     (doctorId, taskType, status, scheduledFor)
     (completionSourceType, completionSourceId)
   }
@@ -949,13 +984,21 @@ Table SubscriptionAddOns {
 Table FamilyLinks {
   id ObjectID [pk]
   patientId ObjectID [not null]
-  familyUserId ObjectID [not null, note: "The family member must register a normal Patient account; no family role is introduced"]
+  familyUserId ObjectID [note: "Optional while invitation is unclaimed; after redeem the family member must be an active normal Patient account; no family role is introduced"]
   relationship varchar
   status varchar [not null, note: "pending, active, paused, revoked, declined, expired; revoked/declined/expired may be re-invited by incrementing invitationVersion and returning to pending"]
   invitationVersion int [not null, default: 1, note: "Incremented when the same patient-family pair is invited again; earlier attempts remain in AuditLogs"]
-  invitedBy ObjectID [not null, note: "Normally the patient"]
+  idempotencyKey varchar [note: "Client key used for invitation creation; do not store the raw key in logs"]
+  idempotencyRequestHash varchar [note: "SHA-256 of normalized request fields, used to reject key reuse with a different payload"]
+  invitationDelivery varchar [not null, note: "shared_link or selected_contact; every invitation still emits link/QR/short-code artifacts"]
+  invitationTokenHash varchar [note: "Opaque link/QR token hash; raw token is never persisted or logged"]
+  shortCodeHash varchar [note: "Six-digit one-time code hash; raw code is reveal-once only"]
+  shortCodeExpiresAt datetime
+  shortCodeFailedAttempts int [not null, default: 0]
+  shortCodeLockedUntil datetime
   invitedAt datetime [not null]
   invitationExpiresAt datetime [not null]
+  consentVersion varchar [note: "Version accepted by the invited Patient account"]
   acceptedAt datetime
   pausedAt datetime
   pausedBy ObjectID
@@ -972,8 +1015,10 @@ Table FamilyLinks {
 
   Indexes {
     (patientId, status)
-    (patientId, familyUserId) [unique]
+    (patientId, familyUserId) [unique, note: "Partial unique only when familyUserId exists; pending unclaimed invitations may be multiple"]
     (familyUserId, status, updatedAt)
+    invitationTokenHash [unique, note: "Sparse/partial unique while artifact is current"]
+    shortCodeHash [note: "Hash-only field; expired/replaced codes are not reusable"]
   }
 }
 
@@ -998,20 +1043,60 @@ Table FamilyPermissions {
   }
 }
 
+Table FamilyHealthMetricSharings {
+  id ObjectID [pk]
+  familyLinkId ObjectID [not null]
+  patientId ObjectID [not null]
+  familyUserId ObjectID [not null]
+  invitationVersion int [not null]
+  revision int [not null]
+  status varchar [not null, note: 'active, revoked, superseded']
+  scope varchar [not null, note: 'all or selected']
+  metricTypes json [not null]
+  consentVersion varchar [not null]
+  consentedBy ObjectID [not null]
+  consentedAt datetime [not null]
+  revokedAt datetime
+  revokedBy ObjectID
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (familyLinkId, invitationVersion, revision) [unique]
+    (familyLinkId, invitationVersion) [unique, note: 'Partial unique where status is active']
+  }
+}
+
+Table FamilyCommandReceipts {
+  id ObjectID [pk]
+  actorId ObjectID [not null]
+  operation varchar [not null]
+  keyHash varchar [not null, note: "SHA-256 only; never persist or log the raw Idempotency-Key"]
+  requestHash varchar [not null, note: "SHA-256 of normalized command input"]
+  result json [not null, note: "Redacted command projection; invitation token/code artifacts are never stored"]
+  createdAt datetime [not null, note: "TTL index removes receipts after 7 days"]
+  updatedAt datetime
+
+  Indexes {
+    (actorId, operation, keyHash) [unique]
+    createdAt [note: "TTL 7 days"]
+  }
+}
+
 Table FamilyReminders {
   id ObjectID [pk]
-  patientCareProgramId ObjectID [not null]
-  careTaskId ObjectID [not null]
+  careTaskId ObjectID [note: "Nullable for weekly_progress reminders"]
   patientId ObjectID [not null]
   familyLinkId ObjectID [not null]
   permissionId ObjectID [not null]
-  reminderType varchar [not null, note: "due, overdue, missed_task, urgent_opt_in"]
+  reminderType varchar [not null, note: "missed_task, weekly_progress"]
   uniqueKey varchar [not null, unique, note: "Prevents duplicate reminder for the same task/family member/type"]
   status varchar [not null, note: "scheduled, dispatched, skipped; transport delivery state belongs to Notifications/OutboxEvents"]
   scheduledAt datetime [not null]
   notificationId ObjectID [note: "Per-recipient notification created after the domain reminder is dispatched"]
   dispatchedAt datetime
   skipReason varchar
+  patientTimeZone varchar
   createdAt datetime
   updatedAt datetime
 
@@ -1020,6 +1105,18 @@ Table FamilyReminders {
     (careTaskId, status)
     (familyLinkId, createdAt)
     (status, scheduledAt)
+  }
+}
+
+Table FamilyReminderQuotas [note: "Operational rolling cap state; one record per Companion, no task or clinical data"] {
+  id ObjectID [pk]
+  companionUserId ObjectID [not null, unique]
+  lastMissedTaskDispatchedAt datetime [note: "Updated in the same transaction as the in-app notification; rolling 24-hour cap"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    companionUserId [unique]
   }
 }
 
@@ -1183,7 +1280,7 @@ Table Notifications {
 
 Table OutboxEvents {
   id ObjectID [pk]
-  eventType varchar [not null, note: "notification.deliver, appointment.reminder, care.task.materialize, care.task.reminder, care.evaluate, care.summary.generate, care.contact.remind, subscription.grant_requested, subscription.granted, payment.paid, payment.cancelled, refund.requested, refund.approved, refund.rejected, refund.succeeded, refund.failed, refund.manual_review"]
+  eventType varchar [not null, note: "notification.deliver, appointment.reminder, care.enrollment.tasks.sync.v1, care.task.materialize, care.task.reminder, care.evaluate, care.summary.generate, care.contact.remind, subscription.grant_requested, subscription.granted, payment.paid, payment.cancelled, refund.requested, refund.approved, refund.rejected, refund.succeeded, refund.failed, refund.manual_review"]
   aggregateType varchar [not null, note: "consultation, patientCareProgram, careTask, careAlert, careReport, familyLink, paymentOrder, paymentRefund, subscription, notification"]
   aggregateId ObjectID [not null]
   payload json [not null]
@@ -1386,12 +1483,18 @@ Ref: FamilyPermissions.patientId > Users.id
 Ref: FamilyPermissions.familyLinkId > FamilyLinks.id
 Ref: FamilyPermissions.grantedBy > Users.id
 Ref: FamilyPermissions.revokedBy > Users.id
-Ref: FamilyReminders.patientCareProgramId > PatientCarePrograms.id
+Ref: FamilyHealthMetricSharings.familyLinkId > FamilyLinks.id
+Ref: FamilyHealthMetricSharings.patientId > Users.id
+Ref: FamilyHealthMetricSharings.familyUserId > Users.id
+Ref: FamilyHealthMetricSharings.consentedBy > Users.id
+Ref: FamilyHealthMetricSharings.revokedBy > Users.id
+Ref: FamilyCommandReceipts.actorId > Users.id
 Ref: FamilyReminders.careTaskId > CareTasks.id
 Ref: FamilyReminders.patientId > Users.id
 Ref: FamilyReminders.familyLinkId > FamilyLinks.id
 Ref: FamilyReminders.permissionId > FamilyPermissions.id
 Ref: FamilyReminders.notificationId > Notifications.id
+Ref: FamilyReminderQuotas.companionUserId > Users.id
 Ref: MedicalFacilities.verifiedBy > Users.id
 Ref: MedicalFacilities.createdBy > Users.id
 Ref: DiseaseSpecialties.createdBy > Users.id

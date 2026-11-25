@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { UserRole } from '../../../../core/domain/user.enums';
@@ -30,6 +35,8 @@ import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 import { PATIENT_REPOSITORY_PORT } from '../ports/patient.repository.port';
 import type { PatientRepositoryPort } from '../ports/patient.repository.port';
 import type { CareActor } from './care-program-rule.service';
+import { CARE_ENROLLMENT_TASK_SYNC_OUTBOX } from '../ports/care-enrollment-task-sync-outbox.port';
+import type { CareEnrollmentTaskSyncOutboxPort } from '../ports/care-enrollment-task-sync-outbox.port';
 import {
   BASELINE_SCHEMA_VERSION_V1,
   validateBaselineAnswers,
@@ -53,6 +60,8 @@ export class CareEnrollmentService {
     private readonly patients: PatientRepositoryPort,
     @Inject(CARE_PROGRAM_ACCESS_PORT)
     private readonly programAccess: CareProgramAccessPort,
+    @Inject(CARE_ENROLLMENT_TASK_SYNC_OUTBOX)
+    private readonly taskSyncOutbox: CareEnrollmentTaskSyncOutboxPort,
   ) {}
 
   private fail(
@@ -235,6 +244,14 @@ export class CareEnrollmentService {
           return;
         }
         result = await work(session);
+        await this.taskSyncOutbox.enqueue(
+          {
+            enrollmentId: String(result._id),
+            revision: result.revision,
+            status: result.status,
+          },
+          session,
+        );
         await this.idempotency.create(
           [
             {
@@ -442,7 +459,7 @@ export class CareEnrollmentService {
   }
 
   async submitConsent(actor: CareActor, id: string, dto: any, key: string) {
-    return this.command(
+    const updated = await this.command(
       actor,
       'care-enrollment.consent',
       key,
@@ -487,10 +504,11 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    return updated;
   }
 
   async submitBaseline(actor: CareActor, id: string, dto: any, key: string) {
-    return this.command(
+    const updated = await this.command(
       actor,
       'care-enrollment.baseline',
       key,
@@ -544,10 +562,11 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    return updated;
   }
 
   async withdrawConsent(actor: CareActor, id: string, key: string) {
-    return this.command(
+    const updated = await this.command(
       actor,
       'care-enrollment.withdraw-consent',
       key,
@@ -585,6 +604,7 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    return updated;
   }
 
   async transition(
@@ -594,7 +614,7 @@ export class CareEnrollmentService {
     dto: any,
     key: string,
   ) {
-    return this.command(
+    const updated = await this.command(
       actor,
       `care-enrollment.${action}`,
       key,
@@ -672,5 +692,6 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    return updated;
   }
 }

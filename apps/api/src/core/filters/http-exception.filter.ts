@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { CorrelationContext } from '../observability/correlation-context';
+import { requestPathWithoutQuery } from '../observability/request-path';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -42,7 +43,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       event: 'http_request_failed',
       statusCode: status,
       method: request.method,
-      path: request.url,
+      path: requestPathWithoutQuery(request.originalUrl || request.url),
       exception:
         exception instanceof Error ? exception.name : 'UnknownException',
     });
@@ -50,7 +51,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: requestPathWithoutQuery(request.originalUrl || request.url),
       method: request.method,
       correlationId,
       error: HttpStatus[status] ?? 'Error',

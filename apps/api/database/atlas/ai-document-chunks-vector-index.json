@@ -14,6 +14,22 @@
       {
         "type": "filter",
         "path": "isActive"
+      },
+      {
+        "type": "filter",
+        "path": "reviewStatus"
+      },
+      {
+        "type": "filter",
+        "path": "scope"
+      },
+      {
+        "type": "filter",
+        "path": "knowledgeLanguage"
+      },
+      {
+        "type": "filter",
+        "path": "validUntil"
       }
     ]
   }

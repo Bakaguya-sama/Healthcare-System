@@ -11,7 +11,7 @@ export enum PatientCareProgramStatus {
   CANCELLED = 'cancelled',
 }
 
-@Schema({ timestamps: true, collection: 'patientcareprograms' })
+@Schema({ timestamps: true, minimize: false, collection: 'patientcareprograms' })
 export class PatientCareProgram {
   @Prop({ required: true, min: 1, default: 1 }) revision: number;
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })

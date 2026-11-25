@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -14,6 +15,7 @@ import {
 import { QueryMessageDto } from '../../../presentation/dto/messaging/query-message.dto';
 import { CloudinaryService } from 'src/infrastructure/files/cloudinary.service';
 import {
+  ConsultationMode,
   ConsultationRequestStatus,
   ConsultationSessionStatus,
 } from '../../../domain/entities/consultations/consultation.entity';
@@ -175,6 +177,55 @@ export class ChatService {
       );
     }
 
+    if (consultation.requestStatus === ConsultationRequestStatus.CANCELLED) {
+      throw new BadRequestException(
+        'Cannot send message in cancelled consultation',
+      );
+    }
+    if (consultation.requestStatus !== ConsultationRequestStatus.ACCEPTED) {
+      throw new ForbiddenException(
+        'Consultation must be accepted before sending messages',
+      );
+    }
+    if (consultation.sessionStatus === ConsultationSessionStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Cannot send message in completed consultation',
+      );
+    }
+    if (consultation.sessionStatus === ConsultationSessionStatus.NO_SHOW) {
+      throw new BadRequestException(
+        'Cannot send message in no-show consultation',
+      );
+    }
+    if (consultation.mode === ConsultationMode.SCHEDULED) {
+      if (
+        consultation.sessionStatus === ConsultationSessionStatus.NOT_STARTED
+      ) {
+        throw new ForbiddenException({
+          code: 'CONSULTATION_NOT_READY_FOR_CHAT',
+          message:
+            'Scheduled consultation requires patient check-in and doctor call before sending messages',
+        });
+      }
+      if (
+        consultation.sessionStatus === ConsultationSessionStatus.WAITING &&
+        !consultation.calledAt
+      ) {
+        throw new ForbiddenException({
+          code: 'CONSULTATION_NOT_CALLED_FOR_CHAT',
+          message:
+            'Doctor must call the queued consultation before sending messages',
+        });
+      }
+    }
+
+    if (isPatient && dto.senderType !== 'patient') {
+      throw new BadRequestException('senderType does not match sender role');
+    }
+    if (isDoctor && dto.senderType !== 'doctor') {
+      throw new BadRequestException('senderType does not match sender role');
+    }
+
     let attachmentsForDb: MessageDbAttachment[] = [];
 
     if (attachments && attachments.length > 0) {
@@ -196,26 +247,6 @@ export class ChatService {
         fileSize: att.size ?? 0,
         mimeType: att.mimeType,
       }));
-    }
-
-    const isCompleted =
-      consultation.sessionStatus === ConsultationSessionStatus.COMPLETED;
-    const isClosed =
-      consultation.requestStatus === ConsultationRequestStatus.CANCELLED;
-    if (isCompleted)
-      throw new BadRequestException(
-        'Cannot send message in completed consultation',
-      );
-    if (isClosed)
-      throw new BadRequestException(
-        'Cannot send message in cancelled consultation',
-      );
-
-    if (isPatient && dto.senderType !== 'patient') {
-      throw new BadRequestException('senderType does not match sender role');
-    }
-    if (isDoctor && dto.senderType !== 'doctor') {
-      throw new BadRequestException('senderType does not match sender role');
     }
 
     if (dto.clientMessageId) {

@@ -105,6 +105,7 @@ export class CareTaskProgressService {
     query: QueryEnrollmentCareTasksDto,
   ): Promise<PageResult<Record<string, unknown>>> {
     const enrollment = await this.authorizedEnrollment(actor, enrollmentId);
+    const now = new Date();
     const filter: Record<string, unknown> = {
       patientCareProgramId: enrollment._id,
     };
@@ -136,7 +137,6 @@ export class CareTaskProgressService {
         .exec(),
       this.tasks.countDocuments(filter).exec(),
     ]);
-    const now = new Date();
     return {
       items: await Promise.all(
         rows.map((row) =>
@@ -267,7 +267,7 @@ export class CareTaskProgressService {
             HttpStatus.CONFLICT,
             'Care Task no longer accepts responses',
           );
-        if (now < new Date(task.windowStart) || now > new Date(task.windowEnd))
+        if (now > new Date(task.windowEnd))
           this.fail(
             'CARE_TASK_OUTSIDE_RESPONSE_WINDOW',
             HttpStatus.CONFLICT,
@@ -282,7 +282,6 @@ export class CareTaskProgressService {
               status: {
                 $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE],
               },
-              windowStart: { $lte: now },
               windowEnd: { $gte: now },
             },
             {
@@ -788,7 +787,7 @@ export class CareTaskProgressService {
         HttpStatus.CONFLICT,
         'Care Task no longer accepts responses',
       );
-    if (now < new Date(task.windowStart) || now > new Date(task.windowEnd))
+    if (now > new Date(task.windowEnd))
       this.fail(
         'CARE_TASK_OUTSIDE_RESPONSE_WINDOW',
         HttpStatus.CONFLICT,
@@ -934,7 +933,6 @@ export class CareTaskProgressService {
   private async allowedActions(actor: CareActor, task: PlainTask, now: Date) {
     if (
       ![CareTaskStatus.SCHEDULED, CareTaskStatus.DUE].includes(task.status) ||
-      now < new Date(task.windowStart) ||
       now > new Date(task.windowEnd)
     )
       return [];

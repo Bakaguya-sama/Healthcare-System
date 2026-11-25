@@ -61,7 +61,101 @@ export class CareTaskSchedulerService {
       if (enrollments.length < 100) break;
       after = enrollments[enrollments.length - 1]._id;
     }
+    await this.reconcileInactiveEnrollmentTasks();
     return { enrollments: enrollmentCount, created };
+  }
+
+  /** Applies the current enrollment state, not a possibly stale event snapshot. */
+  async syncEnrollmentTasksToCurrentState(
+    enrollmentId: string,
+    eventRevision: number,
+    now = new Date(),
+    allowScheduling = true,
+  ) {
+    if (!Types.ObjectId.isValid(enrollmentId))
+      throw new Error('Invalid care enrollment sync event');
+    const id = new Types.ObjectId(enrollmentId);
+    const enrollment = await this.enrollments.findById(id).exec();
+    if (!enrollment) {
+      await this.cancelEnrollmentTasks(id, 'enrollment_missing');
+      return { status: 'missing' as const };
+    }
+    if (enrollment.revision < eventRevision)
+      throw new Error('Care enrollment event is ahead of persisted state');
+    if (enrollment.status === PatientCareProgramStatus.ACTIVE) {
+      if (!allowScheduling)
+        return { status: 'active_scheduling_disabled' as const, revision: enrollment.revision };
+      await this.scheduleEnrollment(enrollment, now);
+      await this.advanceTaskStatuses(now);
+      return { status: 'active' as const, revision: enrollment.revision };
+    }
+    await this.cancelEnrollmentTasks(
+      id,
+      `enrollment_${enrollment.status}`.slice(0, 500),
+    );
+    return { status: enrollment.status, revision: enrollment.revision };
+  }
+
+  /** Reconciles every still-open task in stable batches; it never trusts old outbox state. */
+  async reconcileInactiveEnrollmentTasks(batchSize = 200) {
+    const limit = Math.max(1, Math.min(500, Math.floor(batchSize)));
+    const now = new Date();
+    let after: Types.ObjectId | undefined;
+    let cancelled = 0;
+    for (;;) {
+      const tasks = await this.tasks
+        .find({
+          status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
+          ...(after ? { _id: { $gt: after } } : {}),
+        })
+        .select('_id patientCareProgramId')
+        .sort({ _id: 1 })
+        .limit(limit)
+        .lean()
+        .exec();
+      if (!tasks.length) break;
+      const enrollmentIds = [
+        ...new Map(
+          tasks.map((task) => [String(task.patientCareProgramId), task.patientCareProgramId]),
+        ).values(),
+      ];
+      const enrollments = await this.enrollments
+        .find({ _id: { $in: enrollmentIds } })
+        .select('_id status')
+        .lean()
+        .exec();
+      const activeIds = new Set(
+        enrollments
+          .filter((enrollment) => enrollment.status === PatientCareProgramStatus.ACTIVE)
+          .map((enrollment) => String(enrollment._id)),
+      );
+      const currentEnrollmentIds = new Set(enrollments.map((item) => String(item._id)));
+      const inactiveIds = enrollmentIds.filter(
+        (id) => !activeIds.has(String(id)),
+      );
+      for (const id of inactiveIds) {
+        const reason = currentEnrollmentIds.has(String(id))
+          ? 'enrollment_not_active'
+          : 'enrollment_missing';
+        const result = await this.tasks.updateMany(
+          {
+            patientCareProgramId: id,
+            status: { $in: [CareTaskStatus.SCHEDULED, CareTaskStatus.DUE] },
+          },
+          {
+            $set: {
+              status: CareTaskStatus.CANCELLED,
+              cancelledAt: now,
+              cancellationReason: reason,
+            },
+          },
+        );
+        cancelled += result.modifiedCount;
+      }
+      after = tasks[tasks.length - 1]._id;
+      if (tasks.length < limit) break;
+    }
+    return cancelled;
   }
 
   async scheduleEnrollment(
@@ -79,6 +173,14 @@ export class CareTaskSchedulerService {
         ? String(programVersion)
         : 'v1';
     let day = localDate(now, enrollment.timezone);
+    const todayLocalDate = day;
+    const startedAtDate = enrollment.startedAt
+      ? new Date(enrollment.startedAt)
+      : null;
+    const startedToday =
+      startedAtDate !== null &&
+      !Number.isNaN(startedAtDate.getTime()) &&
+      localDate(startedAtDate, enrollment.timezone) === todayLocalDate;
     let created = 0;
     for (let index = 0; index < horizonDays; index += 1) {
       for (const template of templates) {
@@ -87,11 +189,45 @@ export class CareTaskSchedulerService {
           template.schedule.time,
           enrollment.timezone,
         );
-        const windowEnd = new Date(
+        let windowEnd = new Date(
           windowStart.getTime() + template.schedule.windowMinutes * 60_000,
         );
-        if (windowEnd < now) continue;
+        if (
+          day === todayLocalDate &&
+          windowEnd < now &&
+          startedToday &&
+          startedAtDate &&
+          startedAtDate > windowStart
+        ) {
+          // Give newly activated day-1 patients a fair completion window instead of skipping today's morning tasks.
+          const graceDurationMs = template.schedule.windowMinutes * 60_000;
+          windowEnd = new Date(
+            Math.max(
+              windowEnd.getTime(),
+              startedAtDate.getTime() + graceDurationMs,
+              now.getTime() + graceDurationMs,
+            ),
+          );
+        }
+        if (windowEnd < now && day !== todayLocalDate) continue;
         const uniqueKey = `${enrollment._id}:${template.key}:${scheduleVersion}:${day}`;
+        // A pause cancels open tasks, but resume must reuse the same unique key.
+        // Restore only still-open windows cancelled by enrollment reconciliation;
+        // completed, missed and manually cancelled tasks remain untouched.
+        await this.tasks.updateOne(
+          {
+            uniqueKey,
+            status: CareTaskStatus.CANCELLED,
+            cancellationReason: { $in: ['enrollment_paused', 'enrollment_not_active'] },
+            windowEnd: { $gte: now },
+          },
+          {
+            $set: {
+              status: windowStart <= now ? CareTaskStatus.DUE : CareTaskStatus.SCHEDULED,
+            },
+            $unset: { cancelledAt: '', cancellationReason: '' },
+          },
+        ).exec();
         const task = await this.tasks
           .findOneAndUpdate(
             { uniqueKey },
@@ -110,11 +246,12 @@ export class CareTaskSchedulerService {
           )
           .exec();
         created += 1;
-        await this.taskQueue.enqueue({
-          taskId: String(task._id),
-          patientId: String(task.patientId),
-          scheduledFor: task.scheduledFor,
-        });
+        if ([CareTaskStatus.SCHEDULED, CareTaskStatus.DUE].includes(task.status))
+          await this.taskQueue.enqueue({
+            taskId: String(task._id),
+            patientId: String(task.patientId),
+            scheduledFor: task.scheduledFor,
+          });
       }
       day = nextLocalDate(day);
     }

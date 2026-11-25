@@ -25,6 +25,7 @@ export type PlanDraftInput = Pick<
   | 'aiQuotaPeriod'
   | 'consultationLimitPerCycle'
   | 'activeCareProgramLimit'
+  | 'familyLinkLimit'
   | 'benefits'
   | 'refundPolicy'
 >;
@@ -164,6 +165,7 @@ const DEFAULT_PLAN_ARTIFACTS: PlanDraftInput[] = [
     aiQuotaPeriod: 'day',
     consultationLimitPerCycle: 1,
     activeCareProgramLimit: 1,
+    familyLinkLimit: 1,
     benefits: { weeklyAiSummary: false },
     refundPolicy: { version: 'v1', refundType: 'none' },
   },
@@ -178,6 +180,7 @@ const DEFAULT_PLAN_ARTIFACTS: PlanDraftInput[] = [
     aiQuotaPeriod: 'day',
     consultationLimitPerCycle: 3,
     activeCareProgramLimit: 3,
+    familyLinkLimit: 3,
     benefits: { weeklyAiSummary: true, summaryTokenBudget: 15_000 },
     refundPolicy: { version: 'v1', refundType: 'full_only' },
   },
@@ -192,6 +195,7 @@ const DEFAULT_PLAN_ARTIFACTS: PlanDraftInput[] = [
     aiQuotaPeriod: 'day',
     consultationLimitPerCycle: 6,
     activeCareProgramLimit: 6,
+    familyLinkLimit: 5,
     benefits: {
       weeklyAiSummary: true,
       summaryTokenBudget: 30_000,

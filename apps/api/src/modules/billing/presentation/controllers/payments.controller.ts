@@ -5,12 +5,15 @@ import {
   Headers,
   HttpCode,
   Ip,
+  Optional,
   Param,
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -22,7 +25,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { renderMobileDeepLinkBridgeHtml } from '../../../../common/http/mobile-deep-link-bridge';
 import { CurrentUser } from '../../../../core/decorators/current-user.decorator';
 import { Roles } from '../../../../core/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
@@ -44,6 +48,7 @@ export class PaymentsController {
     private readonly payments: PaymentOrderService,
     private readonly evidence: PaymentEvidenceService,
     private readonly patientReads: PatientPaymentOrderReadService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
   @Post('orders')
   @ApiBearerAuth()
@@ -126,7 +131,30 @@ export class PaymentsController {
   // Browser return is display-only. IPN remains the sole payment authority.
   @Get('vnpay/return')
   @HttpCode(200)
-  returnFromVnpay() {
+  returnFromVnpay(
+    @Req() req?: Request,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const acceptHeader = req?.headers?.accept ?? '';
+    if (
+      res &&
+      acceptHeader.includes('text/html') &&
+      !acceptHeader.includes('application/json')
+    ) {
+      const deepLink =
+        this.config?.get<string>('VNPAY_MOBILE_RETURN_DEEP_LINK')?.trim() ||
+        'healthcare://premium?vnpay=return';
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return renderMobileDeepLinkBridgeHtml({
+        targetUrl: deepLink,
+        title: 'Đang xác minh giao dịch VNPAY / Verifying VNPAY Payment',
+        subtitle:
+          'Giao dịch đang được hệ thống kiểm tra tự động qua cổng VNPAY. Trạng thái cuối cùng sẽ cập nhật trong ứng dụng. / Your payment is being verified via VNPAY IPN. Final status will update in the app.',
+        buttonLabel: 'Quay lại ứng dụng Healthcare / Return to Healthcare App',
+      });
+    }
     return {
       status: 'payment_verification_pending',
       message:

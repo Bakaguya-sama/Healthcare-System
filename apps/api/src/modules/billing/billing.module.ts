@@ -104,6 +104,7 @@ import { PatientPaymentOrderReadService } from './application/services/patient-p
     CONSULTATION_USAGE_PORT,
     AI_QUOTA_PORT,
     SubscriptionPaymentGrantService,
+    FreeSubscriptionGrantService,
   ],
 })
 export class BillingModule {}

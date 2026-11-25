@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsInt,
@@ -14,6 +15,6 @@ export class RegisterDoctorDto {
   @ApiProperty() @IsString() @IsNotEmpty() fullName!: string;
   @ApiProperty() @IsString() @IsNotEmpty() specialty!: string;
   @ApiProperty() @IsString() @IsNotEmpty() workplace!: string;
-  @ApiProperty() @IsInt() @Min(0) experienceYears!: number;
+  @ApiProperty() @Type(() => Number) @IsInt() @Min(0) experienceYears!: number;
   @ApiPropertyOptional() @IsOptional() @IsString() phoneNumber?: string;
 }

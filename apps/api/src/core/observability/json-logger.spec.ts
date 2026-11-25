@@ -1,5 +1,5 @@
 import { CorrelationContext } from './correlation-context';
-import { JsonLogger, redactLogValue } from './json-logger';
+import { JsonLogger, redactError, redactLogValue } from './json-logger';
 
 describe('JsonLogger redaction', () => {
   it('redacts nested credentials and bearer tokens', () => {
@@ -32,5 +32,40 @@ describe('JsonLogger redaction', () => {
       message: { event: 'test', apiKey: '[REDACTED]' },
     });
     output.mockRestore();
+  });
+
+  it('preserves redacted nested failures from AggregateError', () => {
+    const nested = new Error('Redis rejected password=redis-secret');
+    const aggregate = new AggregateError(
+      [nested, new Error('Mongo unavailable')],
+      'bootstrap dependencies failed',
+    );
+
+    expect(redactError(aggregate)).toMatchObject({
+      name: 'AggregateError',
+      message: 'bootstrap dependencies failed',
+      errors: [
+        {
+          name: 'Error',
+          message: 'Redis rejected password=[REDACTED]',
+        },
+        { name: 'Error', message: 'Mongo unavailable' },
+      ],
+    });
+  });
+
+  it('preserves a redacted error cause', () => {
+    const root = new Error('startup failed', {
+      cause: new Error('Bearer secret.token.value'),
+    });
+
+    expect(redactError(root)).toMatchObject({
+      name: 'Error',
+      message: 'startup failed',
+      cause: {
+        name: 'Error',
+        message: 'Bearer [REDACTED]',
+      },
+    });
   });
 });

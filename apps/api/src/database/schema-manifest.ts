@@ -79,6 +79,17 @@ import {
   CARE_REPORT_EXPORT_INDEXES,
 } from './migrations/202611061000-care-report-exports';
 import { PATIENT_PAYMENT_ORDER_READ_INDEXES } from './migrations/202611062000-patient-payment-order-read-indexes';
+import { FAMILY_HEALTH_SHARING_VALIDATOR } from './migrations/202611241020-e2-family-health-metric-sharing';
+import { FAMILY_COMMAND_RECEIPTS_VALIDATOR } from './migrations/202611241030-e2-family-command-receipts';
+import {
+  FAMILY_REMINDER_DELIVERY_INDEXES,
+  FAMILY_REMINDER_QUOTA_VALIDATOR,
+} from './migrations/202611241040-e2-family-reminder-delivery';
+import {
+  CARE_PROGRAM_NUMERIC_VERSION_VALIDATOR,
+  CARE_RULE_NUMERIC_VERSION_VALIDATOR,
+} from './migrations/202611251000-care-catalog-numeric-version-validator';
+import { CONSULTATION_SLOT_PARTIAL_UNIQUE_INDEX } from './migrations/202611231200-consultation-slot-partial-unique';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -122,15 +133,32 @@ export const INFRASTRUCTURE_COLLECTIONS: ReadonlyArray<{
 ];
 
 export const EXPECTED_DATABASE_COLLECTIONS = [
+  {
+    name: 'familycommandreceipts',
+    validator: FAMILY_COMMAND_RECEIPTS_VALIDATOR,
+  },
+  {
+    name: 'familyhealthmetricsharings',
+    validator: FAMILY_HEALTH_SHARING_VALIDATOR,
+  },
+  {
+    name: 'familyreminderquotas',
+    validator: FAMILY_REMINDER_QUOTA_VALIDATOR,
+  },
   ...INFRASTRUCTURE_COLLECTIONS,
   ...CC000_FOUNDATION_COLLECTIONS.filter(
     (collection) =>
       collection.name !== 'careprograms' &&
+      collection.name !== 'carerules' &&
       collection.name !== 'patientcareprograms',
   ),
   ...CC014_BASELINE_SCHEMA_COLLECTIONS.filter(
-    (collection) => collection.name !== 'patientcareprograms',
+    (collection) =>
+      collection.name !== 'careprograms' &&
+      collection.name !== 'patientcareprograms',
   ),
+  { name: 'careprograms', validator: CARE_PROGRAM_NUMERIC_VERSION_VALIDATOR },
+  { name: 'carerules', validator: CARE_RULE_NUMERIC_VERSION_VALIDATOR },
   {
     name: 'patientcareprograms',
     validator: CC014_PATIENT_CARE_PROGRAM_VALIDATOR,
@@ -163,6 +191,32 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
+  {
+    collection: 'familycommandreceipts',
+    name: 'actor_operation_keyhash_unique',
+    key: { actorId: 1, operation: 1, keyHash: 1 },
+    unique: true,
+  },
+  {
+    collection: 'familycommandreceipts',
+    name: 'family_command_receipt_ttl',
+    key: { createdAt: 1 },
+    expireAfterSeconds: 604800,
+  },
+  {
+    collection: 'familyhealthmetricsharings',
+    name: 'family_link_invitation_revision',
+    key: { familyLinkId: 1, invitationVersion: 1, revision: 1 },
+    unique: true,
+  },
+  {
+    collection: 'familyhealthmetricsharings',
+    name: 'family_link_active_sharing',
+    key: { familyLinkId: 1, invitationVersion: 1 },
+    unique: true,
+    partialFilterExpression: { status: 'active' },
+  },
+  ...FAMILY_REMINDER_DELIVERY_INDEXES,
   {
     collection: SCHEMA_MIGRATIONS_COLLECTION,
     name: 'version_1',
@@ -378,7 +432,10 @@ export const MANAGED_DATABASE_INDEXES = [
   CC005_DOCTOR_PRIORITY_INBOX_INDEX,
   ...CC006_CARE_REPORT_INDEXES,
   ...CC007_CARE_SUMMARIES_INDEXES,
-  ...DATA001A_CONSULTATION_INDEXES,
+  ...DATA001A_CONSULTATION_INDEXES.filter(
+    (index) => index.name !== 'availabilitySlotId_1',
+  ),
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_INDEX,
   CC008_CARE_ALERT_CONSULTATION_INDEX,
   ...CC003A_ALERT_DEDUP_INDEXES,
   ...CC012_BILLING_INDEXES,

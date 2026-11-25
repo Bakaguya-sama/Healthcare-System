@@ -27,6 +27,7 @@ const staleContractArtifacts: string[] = [];
 const invalidModuleTopology: string[] = [];
 const invalidCrossContextImports: string[] = [];
 const invalidModuleSourceLayout: string[] = [];
+const invalidFamilyCompanionLayerDirection: string[] = [];
 function inspectDirectory(directory: string): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -70,6 +71,7 @@ const allowedBoundedContexts = new Set([
   'notifications',
   'platform-audit',
   'users',
+  'family-companion',
 ]);
 const allowedContextModuleFiles = new Set([
   'administration/administration.module.ts',
@@ -83,6 +85,7 @@ const allowedContextModuleFiles = new Set([
   'notifications/notifications.module.ts',
   'platform-audit/platform-audit.module.ts',
   'users/users.module.ts',
+  'family-companion/family-companion.module.ts',
 ]);
 
 for (const entry of readdirSync(modulesRoot, { withFileTypes: true })) {
@@ -126,12 +129,47 @@ function inspectModuleSourceLayout(directory: string): void {
     }
     if (!entry.name.endsWith('.ts')) continue;
     const modulePath = relative(modulesRoot, path).replaceAll('\\', '/');
-    if (legacySourceLayoutPatterns.some((pattern) => pattern.test(modulePath))) {
+    if (
+      legacySourceLayoutPatterns.some((pattern) => pattern.test(modulePath))
+    ) {
       invalidModuleSourceLayout.push(path);
     }
   }
 }
 inspectModuleSourceLayout(modulesRoot);
+
+function inspectFamilyCompanionLayers(directory: string): void {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      inspectFamilyCompanionLayers(path);
+      continue;
+    }
+    if (!entry.name.endsWith('.ts') || entry.name.endsWith('.spec.ts'))
+      continue;
+    const modulePath = relative(modulesRoot, path).replaceAll('\\', '/');
+    const content = readFileSync(path, 'utf8');
+    if (
+      modulePath.startsWith('family-companion/domain/') &&
+      /@nestjs|from ['"]mongoose['"]|family-companion\/(?:infrastructure|presentation)|\.\.\/\.\.\/(?:infrastructure|presentation)/.test(
+        content,
+      )
+    ) {
+      invalidFamilyCompanionLayerDirection.push(path);
+    }
+    if (
+      /^family-companion\/application\/(?:commands|queries|ports)\//.test(
+        modulePath,
+      ) &&
+      /family-companion\/(?:infrastructure|presentation)|\.\.\/\.\.\/(?:infrastructure|presentation)|from ['"]mongoose['"]/.test(
+        content,
+      )
+    ) {
+      invalidFamilyCompanionLayerDirection.push(path);
+    }
+  }
+}
+inspectFamilyCompanionLayers(join(modulesRoot, 'family-companion'));
 
 const contextGroups = new Map([
   ['authentication', 'identity'],
@@ -192,6 +230,12 @@ if (invalidModuleTopology.length > 0) {
 if (invalidModuleSourceLayout.length > 0) {
   throw new Error(
     `Backend module source uses a legacy layout: ${invalidModuleSourceLayout.join(', ')}`,
+  );
+}
+
+if (invalidFamilyCompanionLayerDirection.length > 0) {
+  throw new Error(
+    `Family Companion violates DDD dependency direction: ${invalidFamilyCompanionLayerDirection.join(', ')}`,
   );
 }
 

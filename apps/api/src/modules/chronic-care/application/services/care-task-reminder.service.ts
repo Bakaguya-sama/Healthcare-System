@@ -42,4 +42,26 @@ export class CareTaskReminderService {
       }),
     );
   }
+
+  async shouldNotifyMissed(taskId: string, patientId: string) {
+    if (!Types.ObjectId.isValid(taskId) || !Types.ObjectId.isValid(patientId))
+      throw new Error('Invalid care task reminder identifiers');
+    const task = await this.tasks
+      .findOne({
+        _id: new Types.ObjectId(taskId),
+        patientId: new Types.ObjectId(patientId),
+        status: CareTaskStatus.MISSED,
+        required: true,
+      })
+      .select('patientCareProgramId')
+      .lean()
+      .exec();
+    if (!task) return false;
+    return Boolean(
+      await this.enrollments.exists({
+        _id: task.patientCareProgramId,
+        status: PatientCareProgramStatus.ACTIVE,
+      }),
+    );
+  }
 }

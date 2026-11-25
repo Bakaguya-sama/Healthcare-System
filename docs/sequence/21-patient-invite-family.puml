@@ -1,28 +1,32 @@
-OK
 @startuml
 autoactivate on
-title Gửi lời mời người thân
-actor "Bệnh nhân" as A
-boundary "Family Link Page" as UI
-control FamilyLinkController as C
-control FamilyLinkService as S
-database MongoDB as DB
-actor "Notification Service" as N
-A -> UI : Nhập tài khoản người thân và gửi lời mời
-UI -> C : POST family links(invitee)
-C -> S : createInvitation(invitee)
-S -> DB : Kiểm tra user, consent và familyLinkLimit
-DB --> S : validation result
-alt Không hợp lệ hoặc vượt giới hạn
- S --> C : Error
- C --> UI : errorResponse
- UI --> A : Hiển thị lỗi
-else Hợp lệ
- S -> DB : Lưu lời mời pending
- S -> N : sendInvitation(invitee)
- N --> S : delivered
- S --> C : invitation
- C --> UI : successResponse
- UI --> A : Hiển thị lời mời đã gửi
+title Tìm, chọn contact và tạo lời mời người thân
+actor "Bệnh nhân" as Patient
+boundary "Family Companion UI" as UI
+control UsersController as UsersController
+control UsersService as Users
+control FamilyLinksController as FamilyController
+control CreateFamilyInvitation as Create
+database FamilyInvitationCreationStore as InvitationStore
+
+Patient -> UI : Nhập từ khóa tên/email/số điện thoại
+UI -> UsersController : GET /users/family-companion/contacts?search&page&limit
+UsersController -> Users : searchFamilyCompanionContacts
+Users --> UsersController : danh sách Patient eligible + id, phân trang
+UsersController --> UI : danh sách record để chọn
+
+Patient -> UI : Chọn record và xác nhận lời mời
+UI -> FamilyController : POST /family-links\ncontactUserId + Idempotency-Key
+FamilyController -> Create : execute(patientId, command, key)
+
+Create -> InvitationStore : tải lại và xác minh contact ID + Patient + entitlement
+alt Contact không eligible, self-invite, limit hoặc duplicate
+  InvitationStore --> Create : policy conflict
+  Create --> FamilyController : safe business error
+else Được phép
+  Create -> InvitationStore : transaction FamilyLink + AuditLog + OutboxEvent
+  InvitationStore --> Create : pending invitation projection
+  Create --> FamilyController : link/QR/code reveal-once
+  FamilyController --> UI : Hiển thị invitation/artifact
 end
 @enduml

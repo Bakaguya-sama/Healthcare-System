@@ -69,21 +69,21 @@ nên code trước khi product owner chốt policy.
 
 ## Khoảng trống nghiệp vụ và delivery khác
 
-| ID       | Trạng thái         | Khoảng trống đã xác minh                                                                                                                             | Hướng đóng và exit gate                                                                                                                          |
-| -------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CARE-01  | Còn thiếu          | `doctorProfile.bookingSettings` chưa thay bridge ENV cho scheduled booking; `approval_required` chưa có.                                             | Chốt ownership/admin hard limits, snapshot/migration và migration của pilot policy trước enablement.                                             |
-| CARE-02  | Còn thiếu hậu DA2  | Unified on-demand queue và ETA có dữ liệu vận hành chưa được làm; scheduled queue đã có.                                                             | Đo scheduled pilot trước; policy fairness/priority/cancel/race và realtime contract cần chốt.                                                    |
-| CARE-03  | Cần quyết định     | Scheduled consultation quá 24 giờ chưa xử lý chỉ được cảnh báo/review; disposition/quota tiếp theo chưa chốt.                                        | Product owner chốt disposition; test không double-count/release quota.                                                                           |
-| DEL-01   | Còn thiếu P1       | Frontend Patient/Doctor/Admin, Payment Return UI và full Web E2E nằm ở repository khác; backend handoff không chứng minh consumer journey.           | Pin generated contract version, consumer contract tests và E2E do owner frontend chạy.                                                           |
-| ADMIN-01 | Còn thiếu          | Booking hiện dùng ENV bridge; refund policy, feature flag và business configuration chưa có một governance/version/audit surface thống nhất.         | Chốt owner, version/snapshot, role/audit và hard-limit trước khi mở Admin command/config API.                                                    |
-| FAM-01   | Còn thiếu P1       | Family link, consent, reminder, audit và privacy projection chưa có module/entity/migration/API runtime.                                             | Invite/accept/revoke, `familyLinkLimit`, delayed reminder và test không lộ PHI/clinical content.                                                 |
-| NTF-01   | Còn thiếu P1       | In-app outbox có runtime, nhưng FCM delivery và notification campaign snapshot/fan-out/recipient lifecycle chưa có source canonical.                 | Worker batch/idempotency, audience allowlist, opt-in/privacy, delivery retry/dead-letter và operations evidence.                                 |
-| RTC-01   | Còn thiếu P1       | Chat realtime có runtime; WebRTC foreground call, TURN/reconnect contract và multi-instance adapter proof chưa có.                                   | Server-authorized room/signaling, load/failure test và operational/security evidence trước production claim.                                     |
-| MED-01   | Còn thiếu P1       | Medication adherence chưa có model/command/policy runtime.                                                                                           | Chỉ nhận sau Care Program P0; consent/reminder/adherence có safety boundary, không tự kê/đổi thuốc.                                              |
-| MOD-01   | Còn thiếu P1       | Manual violation moderation có runtime; AI-assisted classification/recommendation chưa có.                                                           | AI chỉ gợi ý, Admin là outcome authority; bias/privacy/audit test trước enablement.                                                              |
-| MOB-01   | Còn thiếu P1       | Mobile Patient/Doctor không nằm trong repository và chưa có consumer implementation evidence.                                                        | Contract pin, critical journey E2E và security/privacy review tại repository mobile.                                                             |
-| DIR-01   | Còn thiếu P1       | Tìm cơ sở y tế chưa có module/entity/migration/API runtime. Product spec chỉ định đây là feature sau Family Companion; bản đồ ngoài chỉ là fallback. | Taxonomy disease-to-specialty, Admin-curated facility lifecycle, Patient search/filter/pagination và privacy review trước provider map fallback. |
-| OPS-01   | Giữ nguyên Phase F | KPI aggregate và operations dashboard chưa có; đây là `CC-OPS-001` sau DA2.                                                                          | Theo đúng Phase F của roadmap mới; không dùng seed/demo để suy ra kết quả lâm sàng.                                                              |
+| ID       | Trạng thái                       | Khoảng trống đã xác minh                                                                                                                                                                                                                                                                                                                                                                                 | Hướng đóng và exit gate                                                                                                                                                                         |
+| -------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CARE-01  | ✅ Đã triển khai E1              | E1 đưa `doctorProfile.bookingSettings` thay bridge ENV cho scheduled booking; pilot chỉ hỗ trợ `instant`, `approval_required` vẫn chưa được nhận. Migration/verifier, API Doctor/Admin, snapshot regression, worker/outbox rehearsal và pilot aggregate đã có evidence.                                                                                                                                  | Tiếp tục theo dõi vận hành staging/production; CARE-02 vẫn phụ trách unified on-demand queue/ETA sau khi có thêm dữ liệu.                                                                       |
+| CARE-02  | Còn thiếu hậu DA2                | Unified on-demand queue và ETA có dữ liệu vận hành chưa được làm; scheduled queue đã có.                                                                                                                                                                                                                                                                                                                 | Đo scheduled pilot trước; policy fairness/priority/cancel/race và realtime contract cần chốt.                                                                                                   |
+| CARE-03  | Cần quyết định                   | Scheduled consultation quá 24 giờ chưa xử lý chỉ được cảnh báo/review; disposition/quota tiếp theo chưa chốt.                                                                                                                                                                                                                                                                                            | Product owner chốt disposition; test không double-count/release quota.                                                                                                                          |
+| DEL-01   | Còn thiếu P1                     | Frontend Patient/Doctor/Admin, Payment Return UI và full Web E2E nằm ở repository khác; backend handoff không chứng minh consumer journey.                                                                                                                                                                                                                                                               | Pin generated contract version, consumer contract tests và E2E do owner frontend chạy.                                                                                                          |
+| ADMIN-01 | Còn thiếu                        | Booking hiện dùng ENV bridge; refund policy, feature flag và business configuration chưa có một governance/version/audit surface thống nhất.                                                                                                                                                                                                                                                             | Chốt owner, version/snapshot, role/audit và hard-limit trước khi mở Admin command/config API.                                                                                                   |
+| FAM-01   | Đã triển khai; gate E2 chưa đóng | Contact search là GET like + pagination ở Users; FE chọn Patient record và create bằng ID. Không có collection lookup trung gian. Migration/verifier, DDD core boundaries, transactional idempotency, health sharing, worker và redaction đã có evidence; Atlas/local integration 19 tests, Redis limiter hai connection 1 test, unit 20 tests, HTTP contract E2E 2 tests và build/contract checks pass. | Còn staging deploy/worker smoke và FE consumer validation; test full repository integration trên Atlas bị suite ngoài E2 chặn bởi DB-name limit. Xem evidence E2; giữ trạng thái chưa hoàn tất. |
+| NTF-01   | Còn thiếu P1                     | In-app outbox có runtime, nhưng FCM delivery và notification campaign snapshot/fan-out/recipient lifecycle chưa có source canonical.                                                                                                                                                                                                                                                                     | Worker batch/idempotency, audience allowlist, opt-in/privacy, delivery retry/dead-letter và operations evidence.                                                                                |
+| RTC-01   | Còn thiếu P1                     | Chat realtime có runtime; WebRTC foreground call, TURN/reconnect contract và multi-instance adapter proof chưa có.                                                                                                                                                                                                                                                                                       | Server-authorized room/signaling, load/failure test và operational/security evidence trước production claim.                                                                                    |
+| MED-01   | Còn thiếu P1                     | Medication adherence chưa có model/command/policy runtime.                                                                                                                                                                                                                                                                                                                                               | Chỉ nhận sau Care Program P0; consent/reminder/adherence có safety boundary, không tự kê/đổi thuốc.                                                                                             |
+| MOD-01   | Còn thiếu P1                     | Manual violation moderation có runtime; AI-assisted classification/recommendation chưa có.                                                                                                                                                                                                                                                                                                               | AI chỉ gợi ý, Admin là outcome authority; bias/privacy/audit test trước enablement.                                                                                                             |
+| MOB-01   | Còn thiếu P1                     | Mobile Patient/Doctor không nằm trong repository và chưa có consumer implementation evidence.                                                                                                                                                                                                                                                                                                            | Contract pin, critical journey E2E và security/privacy review tại repository mobile.                                                                                                            |
+| DIR-01   | Còn thiếu P1                     | Tìm cơ sở y tế chưa có module/entity/migration/API runtime. Product spec chỉ định đây là feature sau Family Companion; bản đồ ngoài chỉ là fallback.                                                                                                                                                                                                                                                     | Taxonomy disease-to-specialty, Admin-curated facility lifecycle, Patient search/filter/pagination và privacy review trước provider map fallback.                                                |
+| OPS-01   | Giữ nguyên Phase F               | KPI aggregate và operations dashboard chưa có; đây là `CC-OPS-001` sau DA2.                                                                                                                                                                                                                                                                                                                              | Theo đúng Phase F của roadmap mới; không dùng seed/demo để suy ra kết quả lâm sàng.                                                                                                             |
 
 ## Mâu thuẫn tài liệu cần sửa trước khi nhận slice
 
@@ -110,3 +110,65 @@ nên code trước khi product owner chốt policy.
 
 Mỗi slice phải cập nhật OpenAPI/realtime nếu surface thay đổi, migration/verifier
 nếu persistence thay đổi, và contract frontend trước khi ghi nhận hoàn thành.
+
+## E2 bổ sung — HealthMetric sharing
+
+Companion summary/trend dùng cửa sổ tuần/tháng/quý/năm/toàn lịch sử/custom;
+mặc định tuần hiện tại theo `Asia/Ho_Chi_Minh`, end-exclusive. Patient contract
+được giữ nguyên; lịch sử chỉ được phân trang theo request, không giới hạn grant.
+Xem ADR và evidence E2 cho query sharing, projection và compatibility details.
+
+### Trạng thái xác minh 24/11/2026
+
+Các lệnh invitation cũ hiện dùng transactional idempotency receipt; integration
+test xác nhận retry create song song chỉ reveal artifact một lần, retry command
+không nhân đôi outbox và key accept không thể phát lại kết quả sang invitation
+version mới. Migration `202611241020` và `202611241030`, verifier/no-op, Atlas
+test integration (19 tests), local integration (19 tests), limiter Redis hai
+connection (1 test), Family Companion unit (20 tests), HTTP E2E (2 tests),
+typecheck/build/OpenAPI/realtime/boundary đều đã chạy PASS trong phiên này.
+Evidence chi tiết nằm trong `docs/evidence/phase-e2-family-companion-2026-11-23.md`.
+
+**E2 vẫn chưa hoàn tất:** database/worker smoke chỉ trên Atlas test và local,
+chưa có staging/production deployment evidence; phần transaction/use-case
+orchestration còn tập trung trong Mongoose adapter và cần review/refactor DDD
+cuối; cần FE consumer validation từ repository FE. Không được đánh dấu gate ✅
+trước khi owner cung cấp staging deployment/worker access và consumer evidence.
+
+Đã thêm API cấp/thu hồi/xem quyền và đọc summary/trend theo FamilyLink; quyền
+đọc là grant độc lập và mặc định tắt. Trạng thái nghiệm thu và giới hạn test,
+migration, worker, DDD được theo dõi tại `docs/evidence/phase-e2-family-companion-2026-11-23.md`;
+chưa suy ra E2 đã hoàn tất chỉ từ sự tồn tại của API.
+
+Review tiếp 24/11: request DTO của HealthMetric sharing đã được chuyển khỏi
+controller sang `presentation/dto`. API trend hiện trả điểm đo gốc với `from`/
+`to` tùy chọn; chưa có default tuần/bucket. Việc tái sử dụng Patient view cần
+giữ authorization theo FamilyLink và projection allowlist; không thể forward
+nguyên response `GET /health-metrics` vì DTO Patient còn có patient ID, source
+reference và metadata validation. Product decision về period/timezone/markers
+đang chờ; đề xuất trong ADR E2.
+
+## Review follow-up sau merge — 25/11/2026
+
+Đã xử lý các vấn đề auth/Chronic Care được phát hiện khi review nhánh merge:
+
+- Google mobile handoff hiện proof-bound bằng challenge/verifier riêng của app;
+  callback chỉ phát ticket ngắn hạn, Redis shared store consume một lần và chỉ
+  exchange hợp lệ mới tạo session. OAuth browser tiếp tục dùng Passport state,
+  Google PKCE và cookie binding.
+- Signup Google tạo User/OAuthIdentity transactionally; chỉ claim OIDC
+  `email_verified=true` đặt trạng thái verified. GET User/login không còn backfill
+  ngầm. Account cũ xử lý qua command dry-run-first và verifier read-only.
+- Enrollment transition ghi outbox/audit/idempotency trong transaction; worker
+  kiểm tra revision/trạng thái hiện tại, retry và reconciliation cập nhật CareTask.
+  Task command/review/evaluation/reminder fail-closed khi enrollment inactive.
+- Validator số phiên bản catalog được sửa bằng migration tiến `202611251000`;
+  CC000 lịch sử giữ nguyên.
+
+Unit, integration, local HTTP E2E, typecheck/build, OpenAPI/realtime/boundary,
+local migration/verifier và worker boot evidence được ghi tại
+[`docs/evidence/merge-review-fixes-2026-11-25.md`](evidence/merge-review-fixes-2026-11-25.md).
+Consumer FE/mobile, Google provider smoke và API/worker staging vẫn BLOCKED vì
+không có consumer/device/provider/staging evidence trong phiên. Do đó Phase A/E2
+không được đánh dấu hoàn tất. Account Google không có email vẫn cần quyết định và
+API authenticated add/change-email riêng nếu muốn hỗ trợ xác minh email sau signup.

@@ -13,3 +13,5 @@ export {
   AI_QUOTA_PORT,
   type AiQuotaPort,
 } from './application/ports/ai-quota.port';
+export { FreeSubscriptionGrantService } from './application/services/free-subscription-grant.service';
+export type { SubscriptionDocument } from './domain/entities/subscription.entity';

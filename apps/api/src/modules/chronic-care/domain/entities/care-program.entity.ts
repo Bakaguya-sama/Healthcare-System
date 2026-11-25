@@ -9,7 +9,7 @@ export enum CareProgramStatus {
   RETIRED = 'retired',
 }
 
-@Schema({ timestamps: true, collection: 'careprograms' })
+@Schema({ timestamps: true, minimize: false, collection: 'careprograms' })
 export class CareProgram {
   @Prop({ required: true, trim: true, maxlength: 120 })
   programCode: string;

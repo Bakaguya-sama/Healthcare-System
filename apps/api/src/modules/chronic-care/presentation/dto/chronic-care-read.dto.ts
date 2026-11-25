@@ -121,6 +121,7 @@ export class CareProgramDetailDto extends CareProgramSummaryDto {
 
 export class CareEnrollmentSummaryDto {
   @ApiProperty() id: string;
+  @ApiProperty() revision: number;
   @ApiProperty({ type: CareProgramSummaryDto }) program: CareProgramSummaryDto;
   @ApiProperty({ enum: PatientCareProgramStatus })
   status: PatientCareProgramStatus;

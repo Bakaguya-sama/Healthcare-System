@@ -58,4 +58,36 @@ describe('CareTaskReminderService', () => {
       ).service.shouldNotify(taskId, patientId, now),
     ).resolves.toBe(false);
   });
+
+  it('sends a missed-task reminder only for a still-missed required task in an active enrollment', async () => {
+    const { service, findOne, exists } = createService(
+      { patientCareProgramId: enrollmentId },
+      true,
+    );
+    await expect(service.shouldNotifyMissed(taskId, patientId)).resolves.toBe(
+      true,
+    );
+    expect(findOne).toHaveBeenCalledWith({
+      _id: new Types.ObjectId(taskId),
+      patientId: new Types.ObjectId(patientId),
+      status: 'missed',
+      required: true,
+    });
+    expect(exists).toHaveBeenCalledWith({
+      _id: enrollmentId,
+      status: 'active',
+    });
+  });
+
+  it('fails closed for a missing task or inactive enrollment on missed delivery', async () => {
+    await expect(
+      createService(null, true).service.shouldNotifyMissed(taskId, patientId),
+    ).resolves.toBe(false);
+    await expect(
+      createService(
+        { patientCareProgramId: enrollmentId },
+        false,
+      ).service.shouldNotifyMissed(taskId, patientId),
+    ).resolves.toBe(false);
+  });
 });

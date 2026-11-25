@@ -2,7 +2,7 @@
  * Contract TypeScript dành cho Frontend.
  * Sinh từ controller/DTO/service hiện tại; không import package backend.
  * Quy ước: mọi field ngày/giờ được biểu diễn bằng string ISO 8601, không dùng Date.
- * Ngày đối chiếu: 2026-11-15.
+ * Ngày đối chiếu: 2026-11-25.
  */
 
 // ==================== COMMON ====================
@@ -95,10 +95,8 @@ export interface HealthReadyResponse {
 
 // ==================== AUTH ====================
 
-/**
- * Phase A canonical authentication types (2026-11-18). These take precedence
- * over legacy generated Auth* types below. New frontend code must not use
- * `/auth/register`, role-bearing registration, or OAuth link/unlink types.
+/** Contract xác thực hiện tại: đăng ký tách theo role, refresh chỉ nhận token;
+ * Google identity không có API link/unlink.
  */
 export type AuthenticationRole = 'patient' | 'doctor' | 'admin' | 'ai_manager';
 
@@ -113,7 +111,7 @@ export interface RegisterDoctorRequest extends RegisterPatientRequest {
   specialty: string;
   workplace: string;
   experienceYears: number;
-  /** Sent only as multipart files under `newFilesToUpload`; never send URL strings. */
+  /** Chỉ gửi tệp multipart trong `newFilesToUpload`; không gửi chuỗi URL. */
   newFilesToUpload?: UploadBinary[];
 }
 
@@ -158,162 +156,75 @@ export interface RefreshSessionRequest {
   refreshToken: string;
 }
 
-/** Google OAuth is browser navigation, not a JSON request. No link/unlink API exists. */
-export type BeginGooglePatientAuthentication = never;
+/** Điểm vào OAuth web là điều hướng trình duyệt cấp cao nhất, không phải XHR. */
+export type BeginGooglePatientAuthentication = 'GET /api/v1/auth/oauth/google';
 
-/** POST /api/v1/auth/register — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthRegisterRequest {
-  email: string;
-  password: string;
-  fullName: string;
-  phoneNumber?: string;
-  role?: "patient" | "doctor" | "admin";
-  specialty?: string;
-  experienceYears?: number;
-  workplace?: string;
-  verificationDocuments?: Array<string>;
-  existingVerificationDocuments?: Array<string>;
-  newFilesToUpload?: UploadBinary[];
+/** POST /api/v1/auth/oauth/google/mobile/attempt */
+export interface BeginGoogleMobileOAuthRequest {
+  /** SHA-256 dạng base64url không padding của verifier RFC 7636 do ứng dụng tự giữ. */
+  challenge: string;
 }
 
-/** POST /api/v1/auth/register — response thành công theo return type thực tế. */
-export interface AuthRegisterResponse {
+export interface BeginGoogleMobileOAuthResponse {
+  /** API tự sinh; đây không phải credential và không đủ để lấy session. */
+  attemptId: string;
+  /** Đường dẫn tương đối; ghép với API origin đã cấu hình rồi mở bằng trình duyệt hệ thống. */
+  authorizationPath: string;
+  expiresInSeconds: 300;
+}
+
+/** POST /api/v1/auth/oauth/google/exchange */
+export interface ExchangeGoogleMobileOAuthRequest {
+  attemptId: string;
+  /** Ticket dùng một lần nhận qua app/universal link; hết hạn sau 60 giây. */
+  ticket: string;
+  /** Chỉ giữ cục bộ cho attempt này; tuyệt đối không đưa vào URL, analytics hoặc log. */
+  verifier: string;
+}
+
+export interface GoogleOAuthSessionUser {
+  id: string;
+  email?: string;
+  emailVerified: boolean;
+  fullName: string;
+  role: 'patient';
+  avatarUrl?: string;
+}
+
+/** User của local login/refresh; không tạo role quản trị qua Google signup. */
+export interface AuthSessionUser extends Omit<GoogleOAuthSessionUser, 'role'> {
+  role: AuthenticationRole;
+}
+
+export interface GoogleOAuthSessionResponse {
   accessToken: string;
   refreshToken: string;
-  user: { id: string;
-  email: undefined | string;
-  fullName: string;
-  role: "patient" | "doctor" | "admin";
-  avatarUrl: string;
-  };
+  user: GoogleOAuthSessionUser;
 }
 
-/** POST /api/v1/auth/login — input (Params/Query/Headers/Body theo tên field). */
+export type GoogleOAuthSafeErrorCode =
+  | 'AUTH_GOOGLE_LOCAL_ACCOUNT_EXISTS'
+  | 'AUTH_GOOGLE_IDENTITY_EXISTS'
+  | 'AUTH_GOOGLE_ACCOUNT_CONFLICT';
+
+/** POST /api/v1/auth/login */
 export interface AuthLoginRequest {
   email: string;
   password: string;
 }
 
-/** POST /api/v1/auth/login — response thành công theo return type thực tế. */
-export interface AuthLoginResponse {
+export interface AuthSessionResponse {
   accessToken: string;
   refreshToken: string;
-  user: { id: string;
-  email: undefined | string;
-  fullName: string;
-  role: "patient" | "doctor" | "admin";
-  avatarUrl: string;
-  };
+  user: AuthSessionUser;
 }
 
-/** POST /api/v1/auth/refresh — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthRefreshRequest {
-  userId: string;
-  refreshToken: string;
-}
+/** Local login, refresh và Google mobile exchange dùng chung cấu trúc response này. */
+export type AuthLoginResponse = AuthSessionResponse;
+export type AuthRefreshRequest = RefreshSessionRequest;
+export type AuthRefreshResponse = AuthSessionResponse;
 
-/** POST /api/v1/auth/refresh — response thành công theo return type thực tế. */
-export interface AuthRefreshResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: { id: string;
-  email: undefined | string;
-  fullName: string;
-  role: "patient" | "doctor" | "admin";
-  avatarUrl: string;
-  };
-}
-
-/** POST /api/v1/auth/logout — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthLogoutRequest {
-
-}
-
-/** POST /api/v1/auth/logout — response thành công theo return type thực tế. */
-export interface AuthLogoutResponse {
-  message: string;
-}
-
-/** GET /api/v1/auth/me — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthGetProfileRequest {
-
-}
-
-/** GET /api/v1/auth/me — response thành công theo return type thực tế. */
-export interface AuthGetProfileResponse {
-  fullName: string;
-  email?: string;
-  passwordHash?: string;
-  gender: string;
-  dateOfBirth: string;
-  role: "patient" | "doctor" | "admin";
-  phoneNumber: string;
-  avatarUrl: string;
-  avatarPublicId: string;
-  accountStatus: "active" | "banned";
-  isOnline: boolean;
-  address: { street: string;
-  ward: string;
-  district: string;
-  city: string;
-  country: string;
-  };
-  banReason: string;
-  doctorProfile?: { specialty: string;
-  workplace: string;
-  verificationDocuments: Array<string>;
-  experienceYears: number;
-  averageRating: number;
-  ratingSum: number;
-  reviewCount: number;
-  verifiedAt: string;
-  rejectReason: string;
-  verificationStatus: "pending" | "approved" | "rejected";
-  };
-  adminProfile?: { adminRole: "super_admin" | "user_manager" | "ai_manager";
-  };
-}
-
-/** POST /api/v1/auth/change-password — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthChangePasswordRequest {
-  email: string;
-  otpCode: string;
-  newPassword: string;
-}
-
-/** POST /api/v1/auth/change-password — response thành công theo return type thực tế. */
-export interface AuthChangePasswordResponse {
-  message: string;
-}
-
-/** POST /api/v1/auth/forgot-password — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthForgotPasswordRequest {
-  email: string;
-}
-
-/** POST /api/v1/auth/forgot-password — response thành công theo return type thực tế. */
-export interface AuthForgotPasswordResponse {
-  message: string;
-}
-
-/** POST /api/v1/auth/send-otp — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthSendOtpRequest {
-  email: string;
-}
-
-/** POST /api/v1/auth/send-otp — response thành công theo return type thực tế. */
-export interface AuthSendOtpResponse {
-  message: string;
-}
-
-/** POST /api/v1/auth/confirm-otp — input (Params/Query/Headers/Body theo tên field). */
-export interface AuthConfirmOtpRequest {
-  email: string;
-  otpCode: string;
-}
-
-/** POST /api/v1/auth/confirm-otp — response thành công theo return type thực tế. */
-export interface AuthConfirmOtpResponse {
+export interface AuthCommandResponse {
   message: string;
 }
 
@@ -2706,6 +2617,7 @@ export interface PlansCreateResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   refundPolicy: Record<string, unknown>;
   status: "draft" | "published" | "retired";
@@ -2746,6 +2658,7 @@ export interface PlansPublishResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   refundPolicy: Record<string, unknown>;
   status: "draft" | "published" | "retired";
@@ -3066,6 +2979,7 @@ export interface PatientBillingReadSubscriptionsResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   };
   startedAt: string;
@@ -3098,6 +3012,7 @@ export interface PatientBillingReadSubscriptionsResponse {
   aiQuotaPeriod: "day" | "subscription_cycle";
   consultationLimitPerCycle: number;
   activeCareProgramLimit: number;
+  familyLinkLimit: number;
   benefits: Record<string, unknown>;
   };
   startedAt: string;
@@ -4037,380 +3952,6 @@ export interface AiFeedbacksVerifyFeedbackResponse {
 
 // ==================== AI DOCUMENTS ====================
 
-/** GET /api/v1/ai-documents — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsGetAllDocumentsRequest {
-  query: { page?: number;
-  limit?: number;
-  sortOrder?: -1 | 1;
-  status?: "processing" | "active" | "error" | "inactive";
-  search?: string;
-  sortBy?: string;
-  };
-}
-
-/** GET /api/v1/ai-documents — response thành công theo return type thực tế. */
-export interface AiDocumentsGetAllDocumentsResponse {
-  data: Array<{ _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-  }>;
-  total: number;
-}
-
-/** POST /api/v1/ai-documents — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsCreateRequest {
-  file: UploadBinary;
-  title?: string;
-}
-
-/** POST /api/v1/ai-documents — response thành công theo return type thực tế. */
-export interface AiDocumentsCreateResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** GET /api/v1/ai-documents/search/{query} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsSearchDocumentsRequest {
-  params: { query: string;
-  };
-}
-
-/** GET /api/v1/ai-documents/search/{query} — response thành công theo return type thực tế. */
-export type AiDocumentsSearchDocumentsResponse = Array<{ _id: string; title: string; fileUrl: string; fileType: string; publicId: string; status: "processing" | "active" | "error" | "inactive"; uploadedBy: string; validUntil?: string; reviewStatus: "pending_review" | "approved" | "rejected" | "archived"; approvedBy?: string; approvedAt?: string; }>;
-
-/** GET /api/v1/ai-documents/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsGetDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** GET /api/v1/ai-documents/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentsGetDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsUpdateDocumentRequest {
-  params: { id: string;
-  };
-  body: { title?: string;
-  fileUrl?: string;
-  fileType?: string;
-  status?: "processing" | "active" | "error" | "inactive";
-  validUntil?: null | string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentsUpdateDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** DELETE /api/v1/ai-documents/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsDeleteDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** DELETE /api/v1/ai-documents/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentsDeleteDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id}/index — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsIndexDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id}/index — response thành công theo return type thực tế. */
-export interface AiDocumentsIndexDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id}/usage — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsIncrementUsageRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id}/usage — response thành công theo return type thực tế. */
-export interface AiDocumentsIncrementUsageResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-/** PATCH /api/v1/ai-documents/{id}/archive — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentsArchiveDocumentRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-documents/{id}/archive — response thành công theo return type thực tế. */
-export interface AiDocumentsArchiveDocumentResponse {
-  _id: string;
-  title: string;
-  fileUrl: string;
-  fileType: string;
-  publicId: string;
-  status: "processing" | "active" | "error" | "inactive";
-  uploadedBy: string;
-  validUntil?: string;
-  reviewStatus: "pending_review" | "approved" | "rejected" | "archived";
-  approvedBy?: string;
-  approvedAt?: string;
-}
-
-// ==================== AI DOCUMENT CHUNKS ====================
-
-/** GET /api/v1/ai-document-chunks — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksGetAllChunksRequest {
-  query: { page?: number;
-  limit?: number;
-  sortOrder?: -1 | 1;
-  documentId?: string;
-  search?: string;
-  sortBy?: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks — response thành công theo return type thực tế. */
-export interface AiDocumentChunksGetAllChunksResponse {
-  data: Array<{ _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-  }>;
-  total: number;
-}
-
-/** POST /api/v1/ai-document-chunks — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksCreateRequest {
-  documentId: string;
-  content: string;
-  chunkIndex: number;
-  embedding?: Array<number>;
-  tokenCount?: number;
-  metadata?: Record<string, unknown>;
-  relatedChunks?: Array<string>;
-}
-
-/** POST /api/v1/ai-document-chunks — response thành công theo return type thực tế. */
-export interface AiDocumentChunksCreateResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** POST /api/v1/ai-document-chunks/batch — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksCreateManyRequest {
-  body: Array<string>;
-}
-
-/** POST /api/v1/ai-document-chunks/batch — response thành công theo return type thực tế. */
-export type AiDocumentChunksCreateManyResponse = Array<{ _id: string; documentId: string; chunkIndex: number; content: string; embedding: Array<number>; isActive: boolean; reviewStatus: "approved" | "rejected" | "pending_review" | "archived"; validUntil?: string; }>;
-
-/** GET /api/v1/ai-document-chunks/document/{documentId} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksGetDocumentChunksRequest {
-  params: { documentId: string;
-  };
-  query: { page?: number;
-  limit?: number;
-  sortOrder?: -1 | 1;
-  documentId?: string;
-  search?: string;
-  sortBy?: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks/document/{documentId} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksGetDocumentChunksResponse {
-  data: Array<{ _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-  }>;
-  total: number;
-}
-
-/** DELETE /api/v1/ai-document-chunks/document/{documentId} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksDeleteDocumentChunksRequest {
-  params: { documentId: string;
-  };
-}
-
-/** DELETE /api/v1/ai-document-chunks/document/{documentId} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksDeleteDocumentChunksResponse {
-  deletedCount: number;
-}
-
-/** GET /api/v1/ai-document-chunks/search/{query} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksSearchChunksRequest {
-  params: { query: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks/search/{query} — response thành công theo return type thực tế. */
-export type AiDocumentChunksSearchChunksResponse = Array<{ _id: string; documentId: string; chunkIndex: number; content: string; embedding: Array<number>; isActive: boolean; reviewStatus: "approved" | "rejected" | "pending_review" | "archived"; validUntil?: string; }>;
-
-/** GET /api/v1/ai-document-chunks/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksGetChunkRequest {
-  params: { id: string;
-  };
-}
-
-/** GET /api/v1/ai-document-chunks/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksGetChunkResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksUpdateChunkRequest {
-  params: { id: string;
-  };
-  body: { content?: string;
-  embedding?: Array<number>;
-  metadata?: Record<string, unknown>;
-  relatedChunks?: Array<string>;
-  };
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksUpdateChunkResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** DELETE /api/v1/ai-document-chunks/{id} — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksDeleteChunkRequest {
-  params: { id: string;
-  };
-}
-
-/** DELETE /api/v1/ai-document-chunks/{id} — response thành công theo return type thực tế. */
-export interface AiDocumentChunksDeleteChunkResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id}/usage — input (Params/Query/Headers/Body theo tên field). */
-export interface AiDocumentChunksIncrementUsageRequest {
-  params: { id: string;
-  };
-}
-
-/** PATCH /api/v1/ai-document-chunks/{id}/usage — response thành công theo return type thực tế. */
-export interface AiDocumentChunksIncrementUsageResponse {
-  _id: string;
-  documentId: string;
-  chunkIndex: number;
-  content: string;
-  embedding: Array<number>;
-  isActive: boolean;
-  reviewStatus: "approved" | "rejected" | "pending_review" | "archived";
-  validUntil?: string;
-}
-
-// ==================== CARE-PROGRAMS ====================
-
 /** GET /api/v1/care-programs — input (Params/Query/Headers/Body theo tên field). */
 export interface CareProgramRuleListProgramsRequest {
   query: { page?: number;
@@ -4842,6 +4383,7 @@ export interface CareEnrollmentDetailRequest {
 /** GET /api/v1/care-enrollments/{id} — response thành công theo return type thực tế. */
 export interface CareEnrollmentDetailResponse {
   id: string;
+  revision: number;
   program: { id: string;
   programCode: string;
   version: number;
@@ -5909,6 +5451,7 @@ export interface Da2CareIdentitySummary {
 
 export interface Da2CareEnrollmentSummary {
   id: string;
+  revision: number;
   program: Da2CareProgramSummary;
   status: "pending" | "active" | "paused" | "completed" | "cancelled";
   patient?: Da2CareIdentitySummary;
@@ -6022,6 +5565,7 @@ export interface Da2PatientPlan {
     aiQuotaPeriod: "day" | "subscription_cycle";
     consultationLimitPerCycle: number;
     activeCareProgramLimit: number;
+    familyLinkLimit: number;
   };
   available: boolean;
   purchasable: boolean;
@@ -6068,4 +5612,354 @@ export interface Da2CareReportExport {
   download?: { url: string; expiresAt: Da2IsoDateTime };
   failureReasonCode?: string;
   replayed?: boolean;
+}
+
+// ============================================================================
+// GIAI ĐOẠN C — RAG VÀ QUẢN TRỊ NGUỒN BẰNG CHỨNG BÊN NGOÀI
+// Đây là các type trong hợp đồng công khai cho frontend. Cố ý không bao gồm
+// thông tin nội bộ về storage, vector, chunk và provider.
+// ============================================================================
+
+/** Trạng thái xử lý tài liệu do các endpoint tài liệu tri thức trả về. */
+export type KnowledgeDocumentStatus =
+  | 'pending_ingestion'
+  | 'processing'
+  | 'ready_for_activation'
+  | 'active'
+  | 'error'
+  | 'inactive';
+
+export type KnowledgeDocumentReviewStatus =
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+  | 'archived';
+
+export interface KnowledgeDocument {
+  _id: string;
+  title: string;
+  fileType: string;
+  status: KnowledgeDocumentStatus;
+  reviewStatus: KnowledgeDocumentReviewStatus;
+  documentVersion: number;
+  parentDocumentId?: string | null;
+  scope: string;
+  knowledgeLanguage: string;
+  source: string;
+  ingestionVersion?: number;
+  validUntil?: Da2IsoDateTime | null;
+  uploadedBy: string;
+  reviewedBy?: string | null;
+  reviewedAt?: Da2IsoDateTime | null;
+  reviewReason?: string | null;
+  approvedBy?: string;
+  approvedAt?: Da2IsoDateTime;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+export interface KnowledgeDocumentUpdateRequest {
+  title?: string;
+  fileUrl?: string;
+  fileType?: string;
+  status?: KnowledgeDocumentStatus;
+  validUntil?: Da2IsoDateTime | null;
+}
+
+export interface KnowledgeDocumentRejectRequest {
+  reason?: string;
+}
+
+export interface KnowledgeDocumentsListRequest {
+  page?: number;
+  limit?: number;
+  status?: KnowledgeDocumentStatus;
+  search?: string;
+  sortBy?: 'createdAt' | 'updatedAt' | 'title';
+  sortOrder?: 1 | -1;
+}
+
+export interface KnowledgeDocumentsListResponse {
+  data: KnowledgeDocument[];
+  total: number;
+}
+
+/** Response của `GET /api/v1/ai-documents/search/{query}`. */
+export type KnowledgeDocumentSearchResponse = KnowledgeDocument[];
+
+/** `multipart/form-data`; `file` is a PDF, DOC, DOCX or TXT file. */
+export interface KnowledgeDocumentSubmissionRequest {
+  file: File;
+  title?: string;
+  validUntil?: Da2IsoDateTime | null;
+}
+
+export type KnowledgeDocumentReplacementRequest =
+  KnowledgeDocumentSubmissionRequest;
+
+/** Request của `POST /api/v1/ai-documents/{id}/reject`. */
+export type RejectKnowledgeDocumentRequest = KnowledgeDocumentRejectRequest;
+
+/** Citation công khai trong câu trả lời AI; không chứa nội bộ storage, vector hoặc provider. */
+export interface AiEvidenceCitation {
+  source: string;
+  title?: string;
+  excerpt: string;
+  documentVersion?: number;
+  pageNumber?: number | null;
+  sectionTitle?: string | null;
+}
+
+/** Các trường bằng chứng trong câu trả lời AI dành cho bệnh nhân. */
+export interface AiRagEvidence {
+  groundedByRag: boolean;
+  citations: AiEvidenceCitation[];
+  confidence: number;
+}
+
+export type KnowledgeCandidateStatus =
+  | 'pending_review'
+  | 'promoted'
+  | 'rejected';
+
+/** Chỉ chứa metadata PubMed công khai; API không nhận hoặc trả về abstract. */
+export interface KnowledgeCandidate {
+  _id: string;
+  pmid: string;
+  title: string;
+  sourceUrl: string;
+  status: KnowledgeCandidateStatus;
+  reviewedAt?: Da2IsoDateTime | null;
+  reviewReason?: string | null;
+  createdAt: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+}
+
+/** Response của `GET /api/v1/ai-knowledge-candidates`. */
+export type KnowledgeCandidateListResponse = KnowledgeCandidate[];
+
+export interface ProposeKnowledgeCandidateRequest {
+  pmid: string;
+  title: string;
+  sourceUrl: string;
+}
+
+export interface RejectKnowledgeCandidateRequest {
+  reason?: string;
+}
+
+export interface PromoteKnowledgeCandidateResponse {
+  candidate: KnowledgeCandidate;
+  document: KnowledgeDocument;
+}
+
+/** Cấu hình canonical áp dụng cho các lịch scheduled được tạo sau thời điểm lưu. */
+export interface DoctorBookingSettings {
+  bookingPolicy: 'instant';
+  bufferMinutes: number;
+  minNoticeMinutes: number;
+  cancellationDeadlineMinutes: number;
+  checkInEarlyMinutes: number;
+  noShowAfterMinutes: number;
+  effectiveFrom: Da2IsoDateTime;
+  updatedAt: Da2IsoDateTime;
+  updatedBy?: string;
+}
+
+export type UpdateDoctorBookingSettingsRequest = Pick<
+  DoctorBookingSettings,
+  | 'bookingPolicy'
+  | 'bufferMinutes'
+  | 'minNoticeMinutes'
+  | 'cancellationDeadlineMinutes'
+  | 'checkInEarlyMinutes'
+  | 'noShowAfterMinutes'
+>;
+
+export interface OverrideDoctorBookingSettingsRequest
+  extends UpdateDoctorBookingSettingsRequest {
+  overrideReason: string;
+}
+
+export interface DoctorBookingSettingsResponse {
+  statusCode: number;
+  data: DoctorBookingSettings;
+}
+
+// ============================================================================
+// GIAI ĐOẠN E2 — NGƯỜI THÂN ĐỒNG HÀNH
+// Invitation dùng chung cho contact đã có hoặc chưa có account.
+// Không đưa clinical detail, raw token hoặc raw short code vào các projection đọc.
+// ============================================================================
+
+export type FamilyLinkStatus =
+  | 'pending'
+  | 'active'
+  | 'paused'
+  | 'revoked'
+  | 'declined'
+  | 'expired';
+
+export type FamilyReminderPermission =
+  | 'missed_task_reminder'
+  | 'weekly_progress';
+
+export interface FamilyLink {
+  id: string;
+  patientId: string;
+  relationship?: string;
+  status: FamilyLinkStatus;
+  invitationVersion: number;
+  invitationDelivery: 'shared_link' | 'selected_contact';
+  invitationExpiresAt: Da2IsoDateTime;
+  shortCodeExpiresAt?: Da2IsoDateTime;
+  permissions: FamilyReminderPermission[];
+  consentVersion?: string;
+  invitedAt: Da2IsoDateTime;
+  acceptedAt?: Da2IsoDateTime;
+  pausedAt?: Da2IsoDateTime;
+  resumedAt?: Da2IsoDateTime;
+  declinedAt?: Da2IsoDateTime;
+  expiredAt?: Da2IsoDateTime;
+  revokedAt?: Da2IsoDateTime;
+  allowedActions: Array<'accept' | 'decline' | 'pause' | 'resume' | 'revoke'>;
+}
+
+export interface CreateFamilyLinkRequest {
+  contactUserId?: string;
+  share?: boolean;
+  relationship?: string;
+}
+
+export interface SearchFamilyCompanionContactsRequest {
+  search: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface FamilyCompanionContactRecord {
+  id: string;
+  fullName: string;
+  email?: string;
+  phoneNumber?: string;
+}
+
+export interface SearchFamilyCompanionContactsResponse {
+  items: FamilyCompanionContactRecord[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface FamilyInvitationArtifacts {
+  familyLinkId: string;
+  shareLink: string;
+  qrPayload: string;
+  shortCode: string;
+  shortCodeExpiresAt: Da2IsoDateTime;
+  invitationExpiresAt: Da2IsoDateTime;
+  revealOnce: true;
+}
+
+/** Retry sau khi artifact đã được trả lần đầu; không chứa link hoặc mã thô. */
+export interface FamilyInvitationArtifactsReplay {
+  familyLinkId: string;
+  revealOnce: true;
+  available: false;
+}
+
+export type FamilyInvitationArtifactsResult =
+  | FamilyInvitationArtifacts
+  | FamilyInvitationArtifactsReplay;
+
+/** Response for POST /family-links/:id/regenerate-artifacts. */
+export interface RegenerateFamilyInvitationArtifactsResponse {
+  statusCode: 201 | 200;
+  message: string;
+  data: {
+    link: FamilyLink;
+    artifacts: FamilyInvitationArtifactsResult;
+  };
+}
+
+export interface RedeemFamilyInvitationRequest {
+  invitationToken?: string;
+  shortCode?: string;
+}
+
+export interface AcceptFamilyInvitationRequest {
+  consentVersion: string;
+  permissions: FamilyReminderPermission[];
+}
+
+export interface UpdateFamilyReminderPreferencesRequest {
+  permissions: FamilyReminderPermission[];
+  policyVersion: string;
+}
+
+export interface FamilyInvitationResponse {
+  link: FamilyLink;
+  artifacts?: FamilyInvitationArtifactsResult;
+}
+
+/** Response for POST /family-links; retries keep the same shape without secrets. */
+export interface CreateFamilyInvitationResponse {
+  statusCode: 201 | 200;
+  message: string;
+  data: {
+    link: FamilyLink;
+    artifacts: FamilyInvitationArtifactsResult;
+  };
+}
+
+/** Các command thay đổi trạng thái Family Companion đều cần header ổn định khi retry. */
+export interface FamilyCompanionCommandHeaders {
+  'Idempotency-Key': string;
+}
+
+/** Quyền chia sẻ chỉ số được Patient cấp riêng cho một FamilyLink. */
+export type FamilySharedMetricType = 'blood_pressure' | 'heart_rate' | 'blood_glucose' | 'oxygen_saturation' | 'body_temperature' | 'respiratory_rate' | 'bmi' | 'weight' | 'height' | 'water_intake' | 'kcal_intake';
+export type FamilyHealthMetricPeriod = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom';
+export type FamilyHealthMetricSharingRequest =
+  | { scope?: 'all'; consentVersion: 'family-health-metric-sharing.v1' }
+  | { scope: 'selected'; metricTypes: FamilySharedMetricType[]; consentVersion: 'family-health-metric-sharing.v1' };
+export interface FamilyHealthMetricPoint {
+  metricType: FamilySharedMetricType;
+  unit: string;
+  values: Record<string, number>;
+  recordedAt: Da2IsoDateTime;
+}
+export interface FamilyHealthMetricQuery {
+  metricType: FamilySharedMetricType;
+  /** Không truyền period/from/to thì dùng tuần hiện tại theo Asia/Ho_Chi_Minh. */
+  period?: FamilyHealthMetricPeriod;
+  /** Ngày neo YYYY-MM-DD để chuyển kỳ; chỉ dùng với week/month/quarter/year. */
+  anchor?: string;
+  /** Với period=custom, from/to là ISO và tạo khoảng [from,to). */
+  from?: Da2IsoDateTime;
+  to?: Da2IsoDateTime;
+  cursor?: string;
+  limit?: number;
+}
+export interface FamilyHealthMetricTrendResponse {
+  statusCode: number;
+  data: { items: FamilyHealthMetricPoint[]; nextCursor: string | null; window: FamilyHealthMetricWindow };
+}
+export interface FamilyHealthMetricSummaryResponse {
+  statusCode: number;
+  data: { metricType: FamilySharedMetricType; count: number; average: number; minimum: number; maximum: number; latest: FamilyHealthMetricPoint; window: FamilyHealthMetricWindow };
+}
+export interface FamilyHealthMetricWindow {
+  period: FamilyHealthMetricPeriod | 'legacy-range';
+  /** Anchor đã chuẩn hóa để FE có thể gọi cùng kỳ cho summary và trend. */
+  anchor?: string;
+  timeZone: 'Asia/Ho_Chi_Minh';
+  from: Da2IsoDateTime | null;
+  to: Da2IsoDateTime | null;
+  boundary: '[start,end)';
+}
+export interface FamilyHealthMetricSharingResponse {
+  statusCode: number;
+  data: { linkStatus: string; sharing: null | { scope: 'all' | 'selected'; metricTypes: FamilySharedMetricType[]; revision: number; consentVersion: string; consentedAt: Da2IsoDateTime } };
 }

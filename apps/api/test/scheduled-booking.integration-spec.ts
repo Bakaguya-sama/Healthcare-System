@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { ConfigService } from '@nestjs/config';
 import { HttpException } from '@nestjs/common';
 import { MongoClient, ObjectId } from 'mongodb';
 import { Connection, createConnection } from 'mongoose';
@@ -124,12 +123,16 @@ describe('P0 availability slots and scheduled booking', () => {
         };
       }),
     };
-    const policy = new BookingPolicyService(
-      new ConfigService({
-        SCHEDULED_BOOKING_BUFFER_MINUTES: 15,
-        SCHEDULED_BOOKING_MIN_NOTICE_MINUTES: 60,
+    const policy = new BookingPolicyService({
+      getActiveScheduledPolicy: jest.fn().mockResolvedValue({
+        bookingPolicy: 'instant',
+        bufferMinutes: 15,
+        minNoticeMinutes: 60,
+        cancellationDeadlineMinutes: 60,
+        checkInEarlyMinutes: 15,
+        noShowAfterMinutes: 10,
       }),
-    );
+    } as never);
     const grants = new FreeSubscriptionGrantService(
       planModel as never,
       subscriptionModel as never,
@@ -457,6 +460,63 @@ describe('P0 availability slots and scheduled booking', () => {
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'RESCHEDULE_CUTOFF_PASSED' }),
     });
+  });
+
+  it('keeps the original policy snapshot when a patient reschedules', async () => {
+    const patientId = await activePatient(2);
+    const oldSlot = await createSlot(180);
+    const nextSlot = await createSlot(300);
+    const booked = await booking.book(patientId, 'snapshot-book', {
+      availabilitySlotId: oldSlot.data.id,
+    });
+    const before = (await connection
+      .model(Consultation.name)
+      .findById(booked.data.id)
+      .lean()) as { bookingSettingsSnapshot?: Record<string, unknown> } | null;
+    await booking.reschedule(
+      patientId,
+      booked.data.id,
+      'snapshot-reschedule',
+      nextSlot.data.id,
+    );
+    const after = (await connection
+      .model(Consultation.name)
+      .findById(booked.data.id)
+      .lean()) as { bookingSettingsSnapshot?: Record<string, unknown> } | null;
+    expect(after?.bookingSettingsSnapshot).toEqual(
+      before?.bookingSettingsSnapshot,
+    );
+  });
+
+  it('allows rescheduling and rebooking into a slot previously released by cancellation', async () => {
+    const firstPatient = await activePatient(2);
+    const secondPatient = await activePatient(2);
+    const cancelledSlot = await createSlot(240);
+    const otherSlot = await createSlot(300);
+
+    const firstBooked = await booking.book(firstPatient, 'first-cancel-book', {
+      availabilitySlotId: cancelledSlot.data.id,
+    });
+    await consultations.cancel(firstPatient, firstBooked.data.id, {
+      reason: 'Cancelled earlier',
+    });
+
+    const secondBooked = await booking.book(
+      secondPatient,
+      'second-initial-book',
+      { availabilitySlotId: otherSlot.data.id },
+    );
+    const rescheduled = await booking.reschedule(
+      secondPatient,
+      secondBooked.data.id,
+      'reschedule-reopened',
+      cancelledSlot.data.id,
+    );
+    const saved = await connection
+      .model(Consultation.name)
+      .findById(rescheduled.data.id)
+      .lean<{ availabilitySlotId: ObjectId }>();
+    expect(saved?.availabilitySlotId).toEqual(new ObjectId(cancelledSlot.data.id));
   });
 
   async function createSlot(minutesFromNow: number) {

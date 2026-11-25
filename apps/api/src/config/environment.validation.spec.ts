@@ -96,4 +96,26 @@ describe('validateEnvironment', () => {
       }),
     ).toThrow('CARE_REPORT_EXPORT_SIGNED_URL_TTL_SECONDS');
   });
+
+  it('validates Google mobile redirects with URL parsing and no credential host tricks', () => {
+    const oauth = {
+      ...validConfig,
+      GOOGLE_OAUTH_MOBILE_REDIRECT_URL: 'healthcare://oauth/callback',
+    };
+    expect(validateEnvironment(oauth).GOOGLE_OAUTH_MOBILE_REDIRECT_URL).toBe(
+      'healthcare://oauth/callback',
+    );
+    expect(() =>
+      validateEnvironment({
+        ...validConfig,
+        GOOGLE_OAUTH_MOBILE_REDIRECT_URL: 'https://user:pass@app.example.com/callback',
+      }),
+    ).toThrow('GOOGLE_OAUTH_MOBILE_REDIRECT_URL');
+    expect(() =>
+      validateEnvironment({
+        ...validConfig,
+        GOOGLE_OAUTH_MOBILE_REDIRECT_URL: 'http://attacker.example/callback',
+      }),
+    ).toThrow('GOOGLE_OAUTH_MOBILE_REDIRECT_URL');
+  });
 });

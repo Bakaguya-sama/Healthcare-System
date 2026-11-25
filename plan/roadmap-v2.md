@@ -58,25 +58,35 @@ Giai đoạn D và các wave E có thể chạy song song với B/C nếu đã q
 có owner riêng và không dùng chung capacity critical. Không chạy song song hai
 slice cùng sửa một aggregate, migration hoặc contract consumer.
 
+### Chính sách lint cho các giai đoạn sau A
+
+Warning baseline của toàn repository hiện vượt budget đã cấu hình và đang được ghi
+nhận riêng tại evidence Phase A. Từ **Giai đoạn B trở đi**, kết quả full-repository
+lint fail chỉ vì warning baseline **không chặn** bắt đầu hoặc đóng exit gate. Vẫn bắt
+buộc: không có ESLint error; các file mới/sửa trong phase phải lint sạch; không tăng
+budget, không tắt rule, không thêm suppression để che warning. Full lint vẫn được
+chạy/ghi evidence để theo dõi debt, nhưng không dùng warning count cũ làm lý do giữ
+phase ở trạng thái chưa hoàn tất.
+
 ## 3. Quyết định đã chốt
 
 Tất cả quyết định dưới đây đã được Product Owner chấp thuận ngày 17/11/2026.
 Chúng không còn chặn quyết định scope; riêng PAY-01 vẫn không được enable cho đến
 khi có xác nhận Finance/Legal và evidence provider/sandbox.
 
-| ID     | Trạng thái                 | Quyết định áp dụng                                                                     | Slice      | Owner xác nhận                   | Kết quả phải ghi                                                              |
-| ------ | -------------------------- | -------------------------------------------------------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------- |
-| DEC-A1 | ✅ Chốt                    | Local account mới vào `pending_verification`                                           | AUTH-02    | Product + Security               | State machine, resend, recovery, login gate                                   |
-| DEC-A2 | ✅ Chốt | Một OIDC provider (Google) chỉ cho Patient OAuth-only, PKCE/state, không auto-merge email | AUTH-01 | Product + Security | Hai phương thức độc lập; collision local từ chối an toàn, không link/unlink |
-| DEC-A3 | ✅ Chốt                    | Logout mặc định current session; có `logout-all` riêng                                 | AUTH-03    | Product + Security               | API/UX contract và audit event                                                |
-| DEC-B1 | ✅ Chốt                    | `ai_manager` upload/manage; Admin approve/reject/archive/delete và chọn active version | RAG-01/02  | `ai_manager` + Admin             | Sub-role guard, transition/audit, replacement/expiry policy                   |
-| DEC-B2 | ✅ Chốt                    | Citation bắt buộc; chốt ngưỡng sau baseline tiếng Việt đầu tiên                        | RAG-04/06  | Medical content owner + AI owner | Provenance fields và quality/SLO threshold                                    |
-| DEC-C1 | ✅ Chốt                    | PubMed chỉ Layer 2 sau Evidence Gate hoặc user yêu cầu y văn mới                       | RAG-05     | Product + Privacy + AI owner     | Evidence threshold, PII scrub, provider rate policy                           |
-| DEC-D1 | ✅ Chốt có gate enablement | Full-only, 7 ngày, Admin approval, timeout/unknown → manual review                     | PAY-01     | Product + Finance/Legal          | Policy snapshot, usage eligibility, approval, manual review                   |
-| DEC-D2 | ✅ Hoãn                    | Không triển khai consultation charging trong roadmap hiện tại                          | PAY-02     | Product + Finance                | Giữ invariant `care_program_included`; scope nhận lại cần pricing/tax/invoice |
-| DEC-E1 | ✅ Chốt                    | Instant pilot; policy canonical/snapshot; không tự xử lý lịch quá 24 giờ               | CARE-01/03 | Product + Operations             | Booking settings, disposition, quota transition                               |
-| DEC-E2 | ✅ Chốt                    | Chỉ `missed_task_reminder` và `weekly_progress`, default off                           | FAM-01     | Product + Privacy                | Invite/revoke, reminder content, PHI boundary                                 |
-| DEC-E3 | ✅ Chốt                    | Internal curated là nguồn chính; map provider chỉ fallback                             | DIR-01     | Product + Admin owner            | Verification, taxonomy, location/privacy contract                             |
+| ID     | Trạng thái                 | Quyết định áp dụng                                                                        | Slice      | Owner xác nhận                   | Kết quả phải ghi                                                              |
+| ------ | -------------------------- | ----------------------------------------------------------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------- |
+| DEC-A1 | ✅ Chốt                    | Local account mới vào `pending_verification`                                              | AUTH-02    | Product + Security               | State machine, resend, recovery, login gate                                   |
+| DEC-A2 | ✅ Chốt                    | Một OIDC provider (Google) chỉ cho Patient OAuth-only, PKCE/state, không auto-merge email | AUTH-01    | Product + Security               | Hai phương thức độc lập; collision local từ chối an toàn, không link/unlink   |
+| DEC-A3 | ✅ Chốt                    | Logout mặc định current session; có `logout-all` riêng                                    | AUTH-03    | Product + Security               | API/UX contract và audit event                                                |
+| DEC-B1 | ✅ Chốt                    | `ai_manager` upload/manage; Admin approve/reject/archive/delete và chọn active version    | RAG-01/02  | `ai_manager` + Admin             | Sub-role guard, transition/audit, replacement/expiry policy                   |
+| DEC-B2 | ✅ Chốt                    | Citation bắt buộc; chốt ngưỡng sau baseline tiếng Việt đầu tiên                           | RAG-04/06  | Medical content owner + AI owner | Provenance fields và quality/SLO threshold                                    |
+| DEC-C1 | ✅ Chốt                    | PubMed chỉ Layer 2 sau Evidence Gate hoặc user yêu cầu y văn mới                          | RAG-05     | Product + Privacy + AI owner     | Evidence threshold, PII scrub, provider rate policy                           |
+| DEC-D1 | ✅ Chốt có gate enablement | Full-only, 7 ngày, Admin approval, timeout/unknown → manual review                        | PAY-01     | Product + Finance/Legal          | Policy snapshot, usage eligibility, approval, manual review                   |
+| DEC-D2 | ✅ Hoãn                    | Không triển khai consultation charging trong roadmap hiện tại                             | PAY-02     | Product + Finance                | Giữ invariant `care_program_included`; scope nhận lại cần pricing/tax/invoice |
+| DEC-E1 | ✅ Chốt                    | Instant pilot; policy canonical/snapshot; không tự xử lý lịch quá 24 giờ                  | CARE-01/03 | Product + Operations             | Booking settings, disposition, quota transition                               |
+| DEC-E2 | ✅ Chốt                    | Chỉ `missed_task_reminder` và `weekly_progress`, default off                              | FAM-01     | Product + Privacy                | Invite/revoke, reminder content, PHI boundary                                 |
+| DEC-E3 | ✅ Chốt                    | Internal curated là nguồn chính; map provider chỉ fallback                                | DIR-01     | Product + Admin owner            | Verification, taxonomy, location/privacy contract                             |
 
 ### Cách áp dụng các quyết định
 
@@ -161,6 +171,16 @@ nhắc trước; contact chỉ nhận reminder tối thiểu sau grace period. K
 severity, diagnosis, Doctor name, AI/chat/consultation content; urgent không gửi
 mặc định. Revoke có hiệu lực ngay và không vô hiệu hóa account độc lập của contact.
 
+**DEC-E2 invitation:** Invitation dùng cùng một lifecycle cho contact đã có hoặc
+chưa có account. Backend tạo deep-link, QR và short code 6 chữ số cho cùng một
+invitation version; link/QR chứa opaque token, không chứa PHI. Invitation hết hạn
+sau 7 ngày; short code hết hạn sau 15 phút, one-time, rate-limit và lưu hash.
+Người chưa có account phải đăng ký Patient, verify email rồi mới accept. Người đã
+có account redeem sau khi đăng nhập. Contact search là GET thông thường trong
+Users module: like trên tên/email/số điện thoại đã xác minh, có pagination và trả
+Patient record có ID để người mời chọn. Create invitation nhận `contactUserId` và
+backend xác minh lại; không lưu lookup reference/collection trung gian.
+
 **DEC-E3 — Facility directory:** Đã chốt internal curated directory là nguồn
 chính: chỉ `verified` facility mới vào kết quả; sắp xếp theo specialty match và
 khoảng cách, không dùng AI score, quảng cáo hay rating. Map provider chỉ fallback
@@ -222,13 +242,13 @@ nhận OAuth, refund, booking config và các feature P1.
 
 ### Yêu cầu
 
-| Slice    | Nội dung                                                                                                |
-| -------- | ------------------------------------------------------------------------------------------------------- |
-| AUTH-03  | Refresh lấy subject từ token; current/all-session logout; list/revoke session/device; replay protection |
-| AUTH-04  | Xóa log DTO nhạy cảm; chuẩn hóa email delivery qua outbox hoặc exception có retry/observability         |
-| AUTH-02  | Email activation/resend/login gate theo DEC-A1                                                          |
+| Slice    | Nội dung                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------- |
+| AUTH-03  | Refresh lấy subject từ token; current/all-session logout; list/revoke session/device; replay protection    |
+| AUTH-04  | Xóa log DTO nhạy cảm; chuẩn hóa email delivery qua outbox hoặc exception có retry/observability            |
+| AUTH-02  | Email activation/resend/login gate theo DEC-A1                                                             |
 | AUTH-01  | Google OAuth Patient-only, PKCE/state, collision/recovery UX; không auto-merge hoặc link/unlink bằng email |
-| ADMIN-01 | Version/audit/role ownership cho business policy, feature flag và technical hard limit                  |
+| ADMIN-01 | Version/audit/role ownership cho business policy, feature flag và technical hard limit                     |
 
 ### Trình tự
 
@@ -248,9 +268,18 @@ nhận OAuth, refund, booking config và các feature P1.
 
 **Evidence 2026-11-18:** database migration `202611181200`, `202611181210` và `202611181220` đã apply; verifier PASS tại schema version `202611181220` (44 collections, 122 managed indexes). Full unit: 51 suites/183 tests PASS; integration: 23 suites/115 tests PASS; E2E: 4 suites/16 tests PASS. Xem evidence file cho command/giới hạn. Lint riêng các file Phase A PASS không warning, nhưng full-repository lint FAIL vì warning baseline tồn đọng; owner cần xử lý hoặc chấp nhận chính thức một remediation plan trước khi Phase A được đánh dấu ✅.
 
+**Review follow-up 25/11/2026:** mobile Google OAuth được bổ sung app verifier-bound
+handoff qua Redis dùng chung; callback không tạo session, exchange một lần mới tạo
+session. Google User/OAuthIdentity tạo trong transaction; email chỉ verified khi
+claim OIDC đáng tin cậy xác nhận. Backfill account cũ là lệnh dry-run riêng. Local
+unit/integration evidence và các gate chưa chạy được ghi tại
+`docs/evidence/merge-review-fixes-2026-11-25.md`. Phase A vẫn 🚧 cho tới khi consumer
+FE/mobile validation và staging/provider smoke có evidence; account Google không có
+email hiện chưa có luồng authenticated add/change-email.
+
 ## 6. Giai đoạn B — Trusted RAG foundation
 
-**Trạng thái:** ⏳
+**Trạng thái:** ✅ (evidence 2026-11-18)
 **Kết quả mong đợi:** mọi câu trả lời RAG biết nguồn nào được phép dùng, citation
 trỏ được về document/version/page/section và thiếu evidence thì fail-safe.
 
@@ -281,9 +310,11 @@ trỏ được về document/version/page/section và thiếu evidence thì fail
 - Emergency/prescription/no-evidence red-team tests xanh.
 - Có benchmark baseline và rollback path.
 
+**Evidence 2026-11-18:** migration `202611181230` và database verifier PASS (44 collections, 122 managed indexes). Unit 5 suites/10 tests, MongoDB integration 1 suite/1 test và governance E2E 1 suite/2 tests PASS; bao phủ role authority, retry/late archive, duplicate chunk/version, citation redaction và emergency/prescription/no-evidence policy. Xem `docs/evidence/phase-b-trusted-rag-2026-11-18.md`.
+
 ## 7. Giai đoạn C — Retrieval quality và external evidence
 
-**Trạng thái:** ⏳ sau Giai đoạn B
+**Trạng thái:** ✅ (evidence 2026-11-23). DEC-B2/DEC-C1 đã được Product Owner chấp thuận 18/11/2026.
 **Kết quả mong đợi:** tăng chất lượng retrieval có đo lường; chỉ dùng nguồn ngoài
 khi evidence nội bộ không đủ và không gửi PII/PHI.
 
@@ -292,7 +323,7 @@ khi evidence nội bộ không đủ và không gửi PII/PHI.
 1. **RAG-03:** Atlas full-text + vector hybrid, RRF.
 2. Thử reranker, MMR và parent context từng thành phần; chỉ giữ nếu benchmark tốt hơn.
 3. Hiệu chỉnh threshold theo evaluation set, không dùng một ngưỡng cố định toàn hệ thống.
-4. **RAG-05:** PII/PHI scrubber → PubMed/MEDLINE retriever → TTL cache → evidence fusion.
+4. **RAG-05:** PII/PHI scrubber → PubMed/MEDLINE retriever → TTL cache → quarantined candidate discovery; không fusion external metadata vào patient response.
 5. Thêm `KnowledgeCandidate` review/promotion và PMID/content-hash dedupe.
 6. **RAG-07:** multi-query, agentic RAG hoặc GraphRAG chỉ khi có use case/benchmark riêng.
 
@@ -301,6 +332,24 @@ khi evidence nội bộ không đủ và không gửi PII/PHI.
 - Quality/citation/latency/cost tốt hơn baseline theo ngưỡng DEC-B2.
 - Test chứng minh không gửi ảnh, identity hoặc health history ra PubMed/provider ngoài.
 - Provider failure/rate limit không làm hệ thống suy đoán hoặc auto-promote nguồn.
+
+**Evidence 2026-11-23:** migration `202611181240` và database verifier PASS tại version
+`202611181240` (45 collections, 122 managed indexes). Atlas `vector_index` và
+`ai_document_chunks_fulltext` self-probe PASS; vector index đã được đồng bộ theo contract
+3072 dimensions của Gemini và definition trong repository. Với chấp thuận rõ ràng của
+Product Owner, 11 document/chunk synthetic, không PHI, được tạo cô lập trong `scope=benchmark`
+qua script có confirmation, audit và outbox; chúng không nằm trong serving scope.
+
+Benchmark Atlas thật chạy 3 lượt × 20 case: citation rate `100%`, expected-evidence match
+`100%`, hybrid P95 `541ms`; vector-only P95 `635ms`, nên hybrid thấp hơn trần DEC-B2 `762ms`
+(120% vector-only). Enforced runner PASS. Candidate API, promotion metadata-only sang
+`AiDocument(source=pubmed)`, audit/outbox, unit, PubMed integration fail-closed và HTTP E2E
+đều PASS. Patient-triggered PubMed discovery chỉ tạo candidate pending review; external metadata
+không được đưa vào LLM context/citation trước khi `super_admin` promote rồi ingest/activate.
+Evidence chi tiết: `docs/evidence/phase-c-retrieval-quality-2026-11-23.md`.
+Không được dùng fixture synthetic như medical-content approval; knowledge y khoa thật vẫn phải
+qua workflow review/ingest/activate.
+
 - Mọi thành phần nâng cao có feature flag và rollback độc lập.
 
 ## 8. Giai đoạn D — Billing, refund và projection vận hành
@@ -356,7 +405,11 @@ ghi hoàn tất chỉ vì backend route tồn tại.
 
 **Slice:** CARE-01..03.
 
-1. Thay ENV bridge bằng `doctorProfile.bookingSettings` có Admin hard limits và snapshot.
+**Trạng thái E1:** ✅ Hoàn tất exit gate implementation/release-rehearsal ngày
+23/11/2026. Việc promote staging/production vẫn thuộc checklist vận hành của
+owner có quyền deploy; không được hiểu là đã smoke production.
+
+1. Thay ENV bridge bằng `doctorProfile.bookingSettings` có hard limit hệ thống, Admin override có lý do và snapshot.
 2. Chốt/implement `approval_required` nếu được nhận.
 3. Chốt disposition/quota cho scheduled quá 24 giờ.
 4. Sau khi có dữ liệu pilot, thiết kế unified on-demand queue và ETA.
@@ -364,7 +417,8 @@ ghi hoàn tất chỉ vì backend route tồn tại.
 **Công việc thực hiện:**
 
 1. Đưa `bookingSettings` về canonical Doctor profile: validation min/max, quyền
-   Doctor/Admin, audit và migration/backfill rõ ràng.
+   Doctor/Admin, audit và migration/backfill rõ ràng. Pilot E1 chỉ cho phép
+   `instant`; `approval_required` không được expose trước khi có UX/SLA riêng.
 2. Snapshot `bookingPolicy`, notice, buffer, cancellation/check-in/no-show policy
    vào Consultation khi booking; không đọc lại mutable setting khi xử lý lịch cũ.
 3. Tách command create/update slot, booking/reschedule/cancel/check-in/call-next/
@@ -377,29 +431,129 @@ ghi hoàn tất chỉ vì backend route tồn tại.
 tests; policy được snapshot và thay đổi không hồi tố lịch đã đặt; OpenAPI/realtime
 contract, audit log và runbook recovery khớp runtime.
 
+**Evidence E1 (23/11/2026, ✅ đã đóng exit gate):** migration canonical settings
+và reconciliation index apply/no-op, database verifier pass; unit/integration
+booking-queue và worker/outbox pass; worker process release rehearsal pass;
+OpenAPI/realtime check, typecheck, build và boundary check pass; pilot aggregate
+đã được ghi nhận (4 scheduled, lead time trung bình 948.39 phút, queue wait
+trung bình 0.81 phút, 0 stale review). Chi tiết và lệnh tái hiện tại
+`docs/evidence/e1-consultation-policy-exit-2026-11-23.md`. Không có claim deploy
+staging/production trong evidence này; owner phải chạy checklist deploy thật
+trước khi promote.
+
 ### E2 — Family Companion
+
+**Trạng thái:** 🚧 Đang thực hiện. Phạm vi E2 được mở rộng với quyền Patient chủ động chia sẻ HealthMetric summary/trend cho Companion. Cần implementation, consent, kiểm soát truy cập, migration, test và evidence vận hành cho phạm vi mới; evidence cũ trong `docs/evidence/phase-e2-family-companion-2026-11-23.md` không chứng minh các yêu cầu mới đã hoàn tất.
 
 **Slice:** FAM-01. **Phụ thuộc:** E1 ổn định.
 
 1. Invite/accept/reject/revoke consent và `familyLinkLimit`.
 2. Bệnh nhân được nhắc trước; người thân chỉ nhận delayed reminder tối thiểu.
 3. Audit mọi thay đổi permission và delivery dedupe.
+4. Pilot entitlement: FREE = 1, PLUS = 3, CARE = 5; invitation share bằng link/QR/
+   short code, hỗ trợ contact chưa có account sau khi đăng ký Patient và verify
+   email; tìm contact qua GET paginated trong Users, chọn record rồi create bằng ID.
+5. Patient có thể cấp riêng quyền Companion xem summary/trend HealthMetric theo
+   scope all/selected, toàn bộ lịch sử và dữ liệu mới, với consent và revoke.
 
 **Công việc thực hiện:**
 
 1. Tạo `FamilyLinks`, versioned permissions/reminders, unique constraints và
    migration/verifier; không thêm role `family` hoặc `FamilyGroup`.
+   Invitation có thể chưa gắn `familyUserId`; lưu token/code dạng hash, TTL,
+   attempt lock và invitation delivery mode để hỗ trợ link/QR/code an toàn.
 2. Implement state machine `pending → active|declined|expired|revoked`, pause/resume
    và re-invite tăng `invitationVersion`.
+   Search chỉ trả Patient active đã xác minh email, cùng thông tin tối thiểu để
+   phân biệt record. API create không nhận email/phone và xác minh lại ID, role,
+   trạng thái account, self-invite và duplicate. Người chưa có account đi qua
+   Patient registration và email verification trước khi redeem share invitation.
+   Search là use case trong Users, query port/adapter ở infrastructure directory;
+   create/read/accept/reject có use-case entry point, còn domain không phụ thuộc
+   NestJS/Mongoose, transaction AuditLog/Outbox và schema thuộc infrastructure.
 3. Lưu hai consent P1 `missed_task_reminder`/`weekly_progress`; urgent chỉ là
    consent riêng nếu product owner bật sau này.
 4. Worker quyết định reminder theo task/enrollment/grace/quiet-hours/frequency-cap,
    rồi ghi outbox idempotent; không đặt channel delivery vào domain entity.
 5. Bổ sung Patient/contact views owner-scoped, revoke ngay và audit đầy đủ.
+6. Triển khai grant chia sẻ HealthMetric theo invitation version, projection
+   allowlist, authorization mỗi request, audit đọc và notification qua outbox;
+   kiểm thử race, idempotency, redaction và cập nhật FE contract.
+7. Mọi command có side effect phải idempotent trong transaction; redeem/accept/
+   status/permission/regenerate dùng receipt chứa hash key/request và projection
+   an toàn tối đa 7 ngày; create giữ unique key/request hash trên FamilyLink theo
+   vòng đời link. Retry không nhân đôi state/audit/outbox; create/regenerate vẫn
+   reveal link/QR/code đúng một lần, retry trả artifact unavailable.
+   Revoke khi request đọc đang chờ phải làm request đọc fail-closed ở lần kiểm tra
+   authorization sau truy vấn.
 
 **Exit gate:** revoke có hiệu lực tức thì; reminder không chứa HealthMetric, Care
 Alert, Doctor name hoặc consultation content; invitation/consent/reminder retry không
 nhân đôi; authorization/privacy/revoke race tests và consumer empty/error states xanh.
+
+**Review reminder — 24/11/2026:** các thiếu sót reminder đã được xử lý trong
+`ScheduleFamilyReminders`/`DeliverFamilyReminder`, các port application và
+Mongoose adapters: quota trượt 24 giờ theo Companion được conditional-write bằng
+thời gian MongoDB trong transaction; delivery kiểm tra lại task, enrollment,
+FamilyLink và permission; scheduler dùng keyset cursor `_id` theo batch 200;
+reminder và outbox được ghi/hoãn cùng transaction. Patient missed-task notification
+được tạo qua event riêng, có idempotency; Companion chờ Notification được persist,
+hoãn nếu event còn chạy và suppress nếu event dead hoặc đã kết thúc mà không có
+notification. Chi tiết và giới hạn race giữa Chronic Care lifecycle với dispatch ở
+`docs/evidence/phase-e2-family-companion-2026-11-23.md`.
+
+Đây chỉ là kết quả của reminder gate, không chứng minh toàn bộ E2 đã hoàn tất.
+FamilyLink còn các phần DDD/race cần review riêng; FE consumer validation và
+staging API/worker smoke vẫn chưa có evidence. Không bật feature hoặc đánh dấu E2
+hoàn tất chỉ dựa trên local/test evidence.
+
+**Ngữ nghĩa revoke đã chốt và khoảng trống:** yêu cầu là kiểm tra quyền cuối có
+điểm tuyến tính hóa; hiện link, grant và subscription được đọc bằng các thao tác
+riêng nên chưa chứng minh được điểm này khi revoke đồng thời. Không có distributed
+response barrier; response đang bay có thể đến sau revoke. Cần triển khai và test
+atomic authorization snapshot trước khi đóng gate race. FE phải xóa state/cache
+ngay khi nhận kết quả revoke hoặc trạng thái link/quyền thay đổi.
+
+**Đã chốt metric trend:** mặc định tuần lịch hiện tại theo `Asia/Ho_Chi_Minh`,
+thứ Hai 00:00 đến thứ Hai kế tiếp 00:00, end-exclusive. API hỗ trợ preset
+`week|month|quarter|year|all|custom`; `anchor=YYYY-MM-DD` điều hướng kỳ lịch.
+Trend trả điểm đo gốc, summary tính trên toàn bộ cùng cửa sổ bằng thống kê
+canonical Health Tracking. `period=all` cho phép duyệt toàn lịch sử; cửa sổ
+request không thu hẹp quyền grant. Request v1 chỉ dùng `from/to` giữ nguyên
+upper-bound inclusive; FE mới dùng `period=custom` với `[from,to)`. Chi tiết
+contract và evidence được ghi tại ADR E2 và evidence E2.
+
+**Cập nhật evidence 24/11/2026:** Atlas database test `healthcare` đã apply
+`202611241020` và `202611241030`; no-op và verifier PASS tại version
+`202611241030` (50 collections, 126 managed indexes). Integration test chạy trên Atlas
+đã PASS sau khi dọn 10 database synthetic `fc_<32 hex>` do test suite tạo. API/worker
+smoke trên database synthetic cô lập cũng PASS; xem evidence file để biết giới hạn
+môi trường. E2 vẫn giữ 🚧 cho đến khi toàn bộ contract, DDD, regression suite và
+evidence vận hành được review đồng nhất.
+
+**Bằng chứng bổ sung 24/11:** Atlas Family Companion integration PASS 19/19;
+local Family Companion integration 19/19, limiter Redis integration 1/1 (hai
+connection độc lập), Family Companion unit 20/20, HTTP contract E2E 2/2; typecheck,
+build, OpenAPI, realtime, boundary, migration no-op và verifier PASS. Replay
+accept được khóa theo `invitationVersion`; create replay ổn định response và
+không reveal artifact lần hai. Đây vẫn là test/smoke trên môi trường
+test, không phải staging/production; DDD core boundary review đã xác nhận domain
+thuần, use-case entry points, projection an toàn và transaction adapter đúng tầng.
+E2 vẫn 🚧: consumer UI validation chưa chạy được vì FE consumer không có trong
+workspace này; staging endpoint/deploy credentials/worker target cũng chưa được
+cấu hình hoặc cung cấp. Docker Compose hiện chỉ là local Mongo/Redis. `.env.production`
+được xác nhận `NODE_ENV=production` và không được dùng làm staging/test target.
+Test local/Atlas không thay thế hai bằng chứng này.
+
+**Review follow-up 25/11/2026:** CareEnrollment transition ghi
+`care.enrollment.tasks.sync.v1` cùng enrollment, audit và idempotency trong một
+transaction; worker đọc revision/status hiện tại, retry và reconciliation xử lý
+task bị lệch. `CARE_MONITORING_AUTOMATION_ENABLED=false` vẫn cho phép hủy task của
+enrollment inactive, nhưng trì hoãn tạo task active. Validator số phiên bản care
+được sửa bằng migration forward-only `202611251000`; migration `CC000` không bị sửa
+trong worktree. Local Mongo replica-set/Redis tests đã chạy, nhưng chưa có staging
+API/worker smoke. Đây không đóng E2; các gate DDD/read-revoke, FE consumer và staging
+ở trên vẫn giữ nguyên.
 
 ### E3 — Tìm cơ sở y tế
 
@@ -499,3 +653,5 @@ Một slice chỉ được chuyển ✅ khi đủ các mục áp dụng:
 - Quyết định mới cập nhật bảng DEC trước khi thay đổi thứ tự/scope.
 - Nếu một slice không đạt decision gate hoặc thiếu owner/capacity, giữ ⏳; không
   ghép ngầm vào slice khác.
+
+- tổ chức lại ai-advisory

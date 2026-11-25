@@ -58,6 +58,9 @@ import {
 import { CareTaskPolicyEventService } from '../../modules/chronic-care/application/services/care-task-policy-event.service';
 import { ChronicCareModule } from '../../modules/chronic-care/chronic-care.module';
 import { AuthenticationModule } from '../../modules/authentication/authentication.module';
+import { CacheModule } from 'src/common/cache/cache.module';
+import { AiAdvisoryModule } from '../../modules/ai-advisory/ai-advisory.module';
+import { FamilyCompanionModule } from '../../modules/family-companion/family-companion.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -67,11 +70,15 @@ import { AuthenticationModule } from '../../modules/authentication/authenticatio
     }),
     DatabaseModule,
     RedisModule,
+    CacheModule,
     OutboxModule,
     PlatformAuditModule,
     BillingModule,
     ChronicCareModule,
     AuthenticationModule,
+    CacheModule,
+    AiAdvisoryModule,
+    FamilyCompanionModule,
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
       { name: HealthMetric.name, schema: HealthMetricSchema },
@@ -100,4 +107,4 @@ import { AuthenticationModule } from '../../modules/authentication/authenticatio
     ConsultationStaleRecoveryService,
   ],
 })
-export class OutboxWorkerModule {}
+export class OutboxWorkerModule { }

@@ -39,6 +39,10 @@ export class User {
 
   @Prop() phoneNumber: string;
 
+  /** Present only after a trusted phone verification flow consumes an OTP. */
+  @Prop({ type: Date, default: null })
+  phoneVerifiedAt?: Date | null;
+
   // Ảnh đại diện chung cho Bác sĩ, Bệnh nhân, Admin
   @Prop() avatarUrl: string;
 

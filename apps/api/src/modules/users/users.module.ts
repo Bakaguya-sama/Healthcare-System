@@ -15,16 +15,30 @@ import { PatientProfileService } from './application/services/patients/patient-p
 import { AdminsController } from './presentation/controllers/admins/admins.controller';
 import { AdminsService } from './application/services/admins/admins.service';
 import { UserAdministrationService } from './application/services/user-administration.service';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
+import { DoctorBookingSettingsService } from './application/services/doctors/doctor-booking-settings.service';
+import { DoctorBookingSettingsController } from './presentation/controllers/doctor-booking-settings.controller';
+import { SearchFamilyCompanionContacts } from './application/use-cases/search-family-companion-contacts.use-case';
+import { FAMILY_COMPANION_CONTACT_DIRECTORY } from './application/ports/family-companion-contact-directory.port';
+import { MongooseFamilyCompanionContactDirectory } from './infrastructure/mongoose/mongoose-family-companion-contact.directory';
 
 @Module({
   imports: [
     FilesModule,
+    PlatformAuditModule,
+    OutboxModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: PatientProfile.name, schema: PatientProfileSchema },
     ]),
   ],
-  controllers: [UsersController, PatientProfileController, AdminsController],
+  controllers: [
+    UsersController,
+    PatientProfileController,
+    AdminsController,
+    DoctorBookingSettingsController,
+  ],
   providers: [
     UsersService,
     DoctorDirectoryService,
@@ -32,6 +46,13 @@ import { UserAdministrationService } from './application/services/user-administr
     PatientProfileService,
     AdminsService,
     UserAdministrationService,
+    DoctorBookingSettingsService,
+    SearchFamilyCompanionContacts,
+    MongooseFamilyCompanionContactDirectory,
+    {
+      provide: FAMILY_COMPANION_CONTACT_DIRECTORY,
+      useExisting: MongooseFamilyCompanionContactDirectory,
+    },
   ],
   exports: [
     MongooseModule,
@@ -40,6 +61,7 @@ import { UserAdministrationService } from './application/services/user-administr
     UsersCacheService,
     AdminsService,
     UserAdministrationService,
+    DoctorBookingSettingsService,
   ],
 })
 export class UsersModule {}

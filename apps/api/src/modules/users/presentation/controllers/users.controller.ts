@@ -24,6 +24,8 @@ import { DoctorPrefillData } from '../dto/doctors/doctor-prefill.dto';
 import { QueryDoctorsDto } from '../dto/doctors/query-doctors.dto';
 import { DoctorDirectoryService } from '../../application/services/doctors/doctor-directory.service';
 import { QueryUsersDto } from '../dto/users/query-users.dto';
+import { QueryFamilyCompanionContactsDto } from '../dto/users/query-family-companion-contacts.dto';
+import { SearchFamilyCompanionContacts } from '../../application/use-cases/search-family-companion-contacts.use-case';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -33,6 +35,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly doctorDirectory: DoctorDirectoryService,
+    private readonly searchFamilyCompanionContactsUseCase: SearchFamilyCompanionContacts,
   ) {}
 
   @Get()
@@ -49,6 +52,22 @@ export class UsersController {
   @ApiOperation({ summary: 'Admin: tìm kiếm users có phân trang' })
   findAllPaged(@Query() query: QueryUsersDto) {
     return this.usersService.findAllPaged(query);
+  }
+
+  @Get('family-companion/contacts')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @ApiOperation({
+    summary: 'Tìm Patient đang hoạt động để chọn làm Family Companion',
+  })
+  searchFamilyCompanionContacts(
+    @Query() query: QueryFamilyCompanionContactsDto,
+  ) {
+    return this.searchFamilyCompanionContactsUseCase.execute(
+      query.search,
+      query.page,
+      query.limit,
+    );
   }
 
   @Get('doctors')

@@ -12,6 +12,7 @@ import { AccountStatus } from '../../../../core/domain/user.enums';
 import { mayReceiveFullAccess } from '../../domain/policies/account-access.policy';
 
 export interface JwtPayload {
+  id?: string;
   sub: string;
   email?: string;
   role: string;
@@ -53,6 +54,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return {
+      id: payload.sub,
       sub: payload.sub,
       email: payload.email,
       role: payload.role,

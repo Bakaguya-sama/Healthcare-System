@@ -25,6 +25,7 @@ import type {
   HealthProfileMetric,
   HealthProfilePort,
 } from '../ports/health-profile.port';
+import type { SharedHealthMetricQueryPort } from '../ports/shared-health-metric-query.port';
 
 type HealthMetricReadRow = HealthMetric & { _id: Types.ObjectId };
 
@@ -58,7 +59,7 @@ const METRIC_TYPE_VALUES: readonly string[] = Object.values(MetricType);
 
 @Injectable()
 export class HealthMetricQueryService
-  implements HealthProfilePort, HealthMetricPort
+  implements HealthProfilePort, HealthMetricPort, SharedHealthMetricQueryPort
 {
   constructor(
     @InjectModel(HealthMetric.name)
@@ -305,60 +306,38 @@ export class HealthMetricQueryService
     userId: string,
     metricTypeValue: string,
     query?: QueryHealthMetricDto,
+    allowFullHistory = false,
   ) {
     if (!Types.ObjectId.isValid(userId))
       throw new BadRequestException('Invalid user ID');
     if (!METRIC_TYPE_VALUES.includes(metricTypeValue))
       throw new BadRequestException('Invalid metric type');
     const metricType = metricTypeValue as MetricType;
-    const endDate = query?.endDate ? new Date(query.endDate) : new Date();
+    const endDate = query?.endDate
+      ? new Date(query.endDate)
+      : allowFullHistory
+        ? new Date(8640000000000000)
+        : new Date();
     const startDate = query?.startDate
       ? new Date(query.startDate)
-      : new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+      : allowFullHistory
+        ? new Date(-8640000000000000)
+        : new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
     if (
       Number.isNaN(startDate.getTime()) ||
       Number.isNaN(endDate.getTime()) ||
       startDate > endDate ||
-      endDate.getTime() - startDate.getTime() > 366 * 24 * 60 * 60 * 1000
+      (!allowFullHistory &&
+        endDate.getTime() - startDate.getTime() > 366 * 24 * 60 * 60 * 1000)
     )
       throw new BadRequestException('Invalid statistics date range');
-    const [result] =
-      await this.healthMetricModel.aggregate<HealthMetricStatisticsAggregation>(
-        [
-          {
-            $match: {
-              'meta.patientId': new Types.ObjectId(userId),
-              'meta.metricType': metricType,
-              validationStatus: HealthMetricValidationStatus.VALID,
-              recordedAt: { $gte: startDate, $lte: endDate },
-            },
-          },
-          { $sort: { recordedAt: -1, _id: -1 } },
-          {
-            $facet: {
-              stats: [{ $count: 'count' }],
-              numericStats: [
-                {
-                  $group: {
-                    _id: null,
-                    average: {
-                      $avg: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[metricType]}`,
-                    },
-                    minimum: {
-                      $min: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[metricType]}`,
-                    },
-                    maximum: {
-                      $max: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[metricType]}`,
-                    },
-                  },
-                },
-                { $project: { _id: 0 } },
-              ],
-              latest: [{ $limit: 1 }],
-            },
-          },
-        ],
-      );
+    const result = await this.calculateStatistics({
+      patientId: userId,
+      metricType,
+      from: startDate,
+      to: endDate,
+      endInclusive: true,
+    });
     if (!result?.latest.length)
       throw new NotFoundException('No metrics found for this type');
     const stats = result.numericStats[0];
@@ -376,6 +355,102 @@ export class HealthMetricQueryService
         latest: this.toDto(result.latest[0]),
       },
     };
+  }
+
+  /** Uses the same statistics definition as Patient API with an end-exclusive window. */
+  async getStatisticsInWindow(
+    patientId: string,
+    metricTypeValue: string,
+    from: Date | undefined,
+    to: Date | undefined,
+  ) {
+    if (!Types.ObjectId.isValid(patientId))
+      throw new BadRequestException('Invalid user ID');
+    if (!METRIC_TYPE_VALUES.includes(metricTypeValue))
+      throw new BadRequestException('Invalid metric type');
+    if (
+      (from && !Number.isFinite(from.getTime())) ||
+      (to && !Number.isFinite(to.getTime())) ||
+      (from && to && from >= to)
+    )
+      throw new BadRequestException('Invalid statistics date range');
+    const metricType = metricTypeValue as MetricType;
+    const startDate = from ?? new Date(-8640000000000000);
+    const endDate = to ?? new Date(8640000000000000);
+    const result = await this.calculateStatistics({
+      patientId,
+      metricType,
+      from: startDate,
+      to: endDate,
+      endInclusive: false,
+    });
+    if (!result?.latest.length)
+      throw new NotFoundException('No metrics found for this type');
+    const stats = result.numericStats[0];
+    if (!stats)
+      throw new BadRequestException('No numeric values found in metrics');
+    return {
+      statusCode: 200,
+      message: 'Statistics retrieved successfully',
+      data: {
+        metricType,
+        count: result.stats[0]?.count ?? 0,
+        average: Math.round(stats.average * 100) / 100,
+        minimum: stats.minimum,
+        maximum: stats.maximum,
+        latest: this.toDto(result.latest[0]),
+      },
+    };
+  }
+
+  private async calculateStatistics(input: {
+    patientId: string;
+    metricType: MetricType;
+    from: Date;
+    to: Date;
+    endInclusive: boolean;
+  }) {
+    const [result] =
+      await this.healthMetricModel.aggregate<HealthMetricStatisticsAggregation>(
+        [
+          {
+            $match: {
+              'meta.patientId': new Types.ObjectId(input.patientId),
+              'meta.metricType': input.metricType,
+              validationStatus: HealthMetricValidationStatus.VALID,
+              recordedAt: {
+                $gte: input.from,
+                [input.endInclusive ? '$lte' : '$lt']: input.to,
+              },
+            },
+          },
+          { $sort: { recordedAt: -1, _id: -1 } },
+          {
+            $facet: {
+              stats: [{ $count: 'count' }],
+              numericStats: [
+                {
+                  $group: {
+                    _id: null,
+                    average: {
+                      $avg: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[input.metricType]}`,
+                    },
+                    minimum: {
+                      $min: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[input.metricType]}`,
+                    },
+                    maximum: {
+                      $max: `$values.${PRIMARY_VALUE_KEY_BY_TYPE[input.metricType]}`,
+                    },
+                  },
+                },
+                { $project: { _id: 0 } },
+              ],
+              latest: [{ $limit: 1 }],
+            },
+          },
+        ],
+      );
+    return result;
   }
 
   private toReportItem(row: HealthMetricReadRow): HealthMetricReportItem {

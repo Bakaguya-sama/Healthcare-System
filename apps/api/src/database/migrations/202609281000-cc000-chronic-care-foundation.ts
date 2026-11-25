@@ -39,7 +39,7 @@ export const CC000_FOUNDATION_COLLECTIONS: ReadonlyArray<{
         ],
         properties: {
           programCode: { bsonType: 'string' },
-          version: { bsonType: 'double', minimum: 1 },
+          version: { bsonType: ['int', 'long', 'double'], minimum: 1 },
           name: { bsonType: 'string' },
           diseaseKey: { bsonType: 'string' },
           description: { bsonType: 'string' },
@@ -80,7 +80,7 @@ export const CC000_FOUNDATION_COLLECTIONS: ReadonlyArray<{
         ],
         properties: {
           careProgramId: { bsonType: 'objectId' },
-          version: { bsonType: 'double', minimum: 1 },
+          version: { bsonType: ['int', 'long', 'double'], minimum: 1 },
           status: { enum: ['draft', 'active', 'retired'] },
           rules: { bsonType: 'array' },
           dataSources: { bsonType: 'array' },
