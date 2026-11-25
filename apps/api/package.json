@@ -40,6 +40,7 @@
     "billing:audit-consultation-usages": "ts-node -r tsconfig-paths/register src/scripts/audit-consultation-usages.ts",
     "billing:exempt-legacy-consultations": "ts-node -r tsconfig-paths/register src/scripts/exempt-legacy-consultations.ts",
     "billing:reconcile-payment-grants": "ts-node -r tsconfig-paths/register src/scripts/reconcile-payment-grants.ts",
+    "billing:simulate-vnpay-ipn": "ts-node -r tsconfig-paths/register src/scripts/simulate-vnpay-ipn.ts",
     "rf10c:reconcile": "ts-node -r tsconfig-paths/register src/scripts/rf10c-reconcile.ts",
     "database:bootstrap": "pnpm run database:migrate && pnpm run database:verify && pnpm run database:seed:reference",
     "migration:up": "pnpm run database:migrate",

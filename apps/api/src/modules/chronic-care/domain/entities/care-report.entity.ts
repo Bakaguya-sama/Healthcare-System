@@ -14,7 +14,7 @@ export enum CareReportStatus {
   INVALIDATED = 'invalidated',
 }
 
-@Schema({ timestamps: true, collection: 'carereports' })
+@Schema({ timestamps: true, minimize: false, collection: 'carereports' })
 export class CareReport {
   @Prop({ type: Types.ObjectId, ref: 'PatientCareProgram', required: true })
   patientCareProgramId: Types.ObjectId;

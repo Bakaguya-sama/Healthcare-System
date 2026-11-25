@@ -25,6 +25,7 @@ import { OutboxModule } from '../../infrastructure/outbox/outbox.module';
 import { AuthEmailDeliveryService } from './infrastructure/email/auth-email-delivery.service';
 import { GoogleStrategy } from './infrastructure/strategies/google.strategy';
 import { OtpService } from './application/services/otp.service';
+import { OAuthHandoffService } from './application/services/oauth-handoff.service';
 
 @Global()
 @Module({
@@ -54,10 +55,17 @@ import { OtpService } from './application/services/otp.service';
   providers: [
     AuthService,
     OtpService,
+    OAuthHandoffService,
     JwtStrategy,
     GoogleStrategy,
     AuthEmailDeliveryService,
   ],
-  exports: [JwtModule, PassportModule, AuthEmailDeliveryService, OtpService],
+  exports: [
+    JwtModule,
+    PassportModule,
+    AuthEmailDeliveryService,
+    OtpService,
+    OAuthHandoffService,
+  ],
 })
 export class AuthenticationModule {}

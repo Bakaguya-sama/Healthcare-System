@@ -114,6 +114,18 @@ import {
   EXTERNAL_KNOWLEDGE_CANDIDATES_VERSION,
 } from './202611181240-external-knowledge-candidates';
 import {
+  applyConsultationSlotPartialUnique,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_CHECKSUM,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_NAME,
+  CONSULTATION_SLOT_PARTIAL_UNIQUE_VERSION,
+} from './202611231200-consultation-slot-partial-unique';
+import {
+  CONSULTATION_SLOT_RECONCILE_CHECKSUM,
+  CONSULTATION_SLOT_RECONCILE_NAME,
+  CONSULTATION_SLOT_RECONCILE_VERSION,
+  reconcileConsultationSlotPartialUnique,
+} from './202611241050-consultation-slot-partial-unique-reconcile';
+import {
   applyRf5CanonicalIdentity,
   RF5_CANONICAL_IDENTITY_CHECKSUM,
   RF5_CANONICAL_IDENTITY_NAME,
@@ -686,6 +698,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     up: applyE1DoctorBookingSettings,
   },
   {
+    version: CONSULTATION_SLOT_PARTIAL_UNIQUE_VERSION,
+    name: CONSULTATION_SLOT_PARTIAL_UNIQUE_NAME,
+    checksum: CONSULTATION_SLOT_PARTIAL_UNIQUE_CHECKSUM,
+    up: applyConsultationSlotPartialUnique,
+  },
+  {
     version: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_VERSION,
     name: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_NAME,
     checksum: E1_AVAILABILITY_SLOT_INDEX_RECONCILIATION_CHECKSUM,
@@ -744,6 +762,12 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: FAMILY_REMINDER_DELIVERY_NAME,
     checksum: FAMILY_REMINDER_DELIVERY_CHECKSUM,
     up: applyFamilyReminderDelivery,
+  },
+  {
+    version: CONSULTATION_SLOT_RECONCILE_VERSION,
+    name: CONSULTATION_SLOT_RECONCILE_NAME,
+    checksum: CONSULTATION_SLOT_RECONCILE_CHECKSUM,
+    up: reconcileConsultationSlotPartialUnique,
   },
 ];
 

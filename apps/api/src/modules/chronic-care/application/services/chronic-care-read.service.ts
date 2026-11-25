@@ -243,9 +243,17 @@ export class ChronicCareReadService {
       this.alertSummary(enrollment._id),
       this.latestReport(enrollment._id),
     ]);
+    const programConfig =
+      enrollment.programConfig && typeof enrollment.programConfig === 'object'
+        ? (enrollment.programConfig as Record<string, unknown>)
+        : undefined;
     return {
       ...summary,
       consent: this.safeConsent(enrollment.consent),
+      ...(programConfig?.baselineForm &&
+      typeof programConfig.baselineForm === 'object'
+        ? { baselineForm: programConfig.baselineForm }
+        : {}),
       baseline: enrollment.baselineAnswers
         ? {
             answers: enrollment.baselineAnswers,
@@ -290,6 +298,7 @@ export class ChronicCareReadService {
     return rows.map((row) => {
       const result: Record<string, unknown> = {
         id: String(row._id),
+        revision: typeof row.revision === 'number' ? row.revision : 1,
         program: programMap.get(this.stringId(row.careProgramId) || '') || null,
         status: row.status,
         timezone: row.timezone,

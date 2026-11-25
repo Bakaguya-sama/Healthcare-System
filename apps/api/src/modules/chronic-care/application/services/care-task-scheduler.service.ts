@@ -79,6 +79,14 @@ export class CareTaskSchedulerService {
         ? String(programVersion)
         : 'v1';
     let day = localDate(now, enrollment.timezone);
+    const todayLocalDate = day;
+    const startedAtDate = enrollment.startedAt
+      ? new Date(enrollment.startedAt)
+      : null;
+    const startedToday =
+      startedAtDate !== null &&
+      !Number.isNaN(startedAtDate.getTime()) &&
+      localDate(startedAtDate, enrollment.timezone) === todayLocalDate;
     let created = 0;
     for (let index = 0; index < horizonDays; index += 1) {
       for (const template of templates) {
@@ -87,10 +95,27 @@ export class CareTaskSchedulerService {
           template.schedule.time,
           enrollment.timezone,
         );
-        const windowEnd = new Date(
+        let windowEnd = new Date(
           windowStart.getTime() + template.schedule.windowMinutes * 60_000,
         );
-        if (windowEnd < now) continue;
+        if (
+          day === todayLocalDate &&
+          windowEnd < now &&
+          startedToday &&
+          startedAtDate &&
+          startedAtDate > windowStart
+        ) {
+          // Give newly activated day-1 patients a fair completion window instead of skipping today's morning tasks.
+          const graceDurationMs = template.schedule.windowMinutes * 60_000;
+          windowEnd = new Date(
+            Math.max(
+              windowEnd.getTime(),
+              startedAtDate.getTime() + graceDurationMs,
+              now.getTime() + graceDurationMs,
+            ),
+          );
+        }
+        if (windowEnd < now && day !== todayLocalDate) continue;
         const uniqueKey = `${enrollment._id}:${template.key}:${scheduleVersion}:${day}`;
         const task = await this.tasks
           .findOneAndUpdate(

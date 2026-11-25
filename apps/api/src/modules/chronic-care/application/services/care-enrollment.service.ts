@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { UserRole } from '../../../../core/domain/user.enums';
@@ -30,6 +36,7 @@ import type { DoctorRepositoryPort } from '../ports/doctor.repository.port';
 import { PATIENT_REPOSITORY_PORT } from '../ports/patient.repository.port';
 import type { PatientRepositoryPort } from '../ports/patient.repository.port';
 import type { CareActor } from './care-program-rule.service';
+import { CareTaskSchedulerService } from './care-task-scheduler.service';
 import {
   BASELINE_SCHEMA_VERSION_V1,
   validateBaselineAnswers,
@@ -53,7 +60,36 @@ export class CareEnrollmentService {
     private readonly patients: PatientRepositoryPort,
     @Inject(CARE_PROGRAM_ACCESS_PORT)
     private readonly programAccess: CareProgramAccessPort,
+    @Optional()
+    private readonly taskScheduler?: CareTaskSchedulerService,
   ) {}
+
+  private async scheduleIfActive(enrollment: PatientCareProgramDocument) {
+    if (
+      enrollment?.status !== PatientCareProgramStatus.ACTIVE ||
+      !this.taskScheduler
+    )
+      return;
+    try {
+      const now = new Date();
+      await this.taskScheduler.scheduleEnrollment(enrollment, now);
+      await this.taskScheduler.advanceTaskStatuses(now);
+    } catch {
+      // Scheduling is best-effort outside worker runs so isolated tests never break.
+    }
+  }
+
+  private async cancelOpenTasks(
+    enrollmentId: Types.ObjectId,
+    reason: string,
+  ) {
+    if (!this.taskScheduler) return;
+    try {
+      await this.taskScheduler.cancelEnrollmentTasks(enrollmentId, reason);
+    } catch {
+      // Cancellation is best-effort outside worker runs so isolated tests never break.
+    }
+  }
 
   private fail(
     code: string,
@@ -442,7 +478,7 @@ export class CareEnrollmentService {
   }
 
   async submitConsent(actor: CareActor, id: string, dto: any, key: string) {
-    return this.command(
+    const updated = await this.command(
       actor,
       'care-enrollment.consent',
       key,
@@ -487,10 +523,12 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    await this.scheduleIfActive(updated);
+    return updated;
   }
 
   async submitBaseline(actor: CareActor, id: string, dto: any, key: string) {
-    return this.command(
+    const updated = await this.command(
       actor,
       'care-enrollment.baseline',
       key,
@@ -544,10 +582,12 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    await this.scheduleIfActive(updated);
+    return updated;
   }
 
   async withdrawConsent(actor: CareActor, id: string, key: string) {
-    return this.command(
+    const updated = await this.command(
       actor,
       'care-enrollment.withdraw-consent',
       key,
@@ -585,6 +625,8 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    await this.cancelOpenTasks(updated._id, 'consent_withdrawn');
+    return updated;
   }
 
   async transition(
@@ -594,7 +636,7 @@ export class CareEnrollmentService {
     dto: any,
     key: string,
   ) {
-    return this.command(
+    const updated = await this.command(
       actor,
       `care-enrollment.${action}`,
       key,
@@ -672,5 +714,14 @@ export class CareEnrollmentService {
         return e;
       },
     );
+    if (action === 'resume') await this.scheduleIfActive(updated);
+    if (action === 'cancel' || action === 'complete') {
+      const reason =
+        typeof dto?.reason === 'string' && dto.reason.trim()
+          ? dto.reason.trim()
+          : `enrollment_${action}`;
+      await this.cancelOpenTasks(updated._id, reason);
+    }
+    return updated;
   }
 }

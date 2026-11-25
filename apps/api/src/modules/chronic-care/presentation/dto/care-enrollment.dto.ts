@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsObject,
@@ -22,7 +23,11 @@ export class CreateCareEnrollmentDto {
 
 export class ConsentDto {
   @ApiProperty() @IsString() @IsNotEmpty() policyVersion: string;
-  @ApiProperty({ type: [String] }) purposes: string[];
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  purposes?: string[];
 }
 
 export class BaselineDto {

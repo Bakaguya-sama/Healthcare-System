@@ -229,7 +229,19 @@ ConsultationSchema.index(
 );
 ConsultationSchema.index(
   { availabilitySlotId: 1 },
-  { name: 'availabilitySlotId_1', unique: true, sparse: true },
+  {
+    name: 'availabilitySlotId_1',
+    unique: true,
+    partialFilterExpression: {
+      availabilitySlotId: { $type: 'objectId' },
+      requestStatus: {
+        $in: [
+          ConsultationRequestStatus.PENDING,
+          ConsultationRequestStatus.ACCEPTED,
+        ],
+      },
+    },
+  },
 );
 ConsultationSchema.index(
   { scheduledBookingKey: 1 },

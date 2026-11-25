@@ -133,7 +133,7 @@ Table Consultations {
   doctorId ObjectID [not null]
   patientCareProgramId ObjectID [note: "Optional link to the Patient Care Program that initiated/follows this consultation"]
   careAlertId ObjectID [note: "Optional alert context; consultation remains usable without a Care Program"]
-  availabilitySlotId ObjectID [note: "Null for on-demand; sparse unique MongoDB index"]
+  availabilitySlotId ObjectID [note: "Null for on-demand; unique among pending or accepted consultations"]
   mode varchar [not null, note: "on_demand, scheduled"]
   requestStatus varchar [not null, note: "pending, accepted, declined, cancelled, expired; instant scheduled booking starts accepted"]
   sessionStatus varchar [not null, note: "not_started, waiting, in_consultation, interrupted, completed, no_show"]
@@ -181,7 +181,7 @@ Table Consultations {
   updatedAt datetime
 
   Indexes {
-    availabilitySlotId [unique, note: "Sparse unique index created by migration"]
+    availabilitySlotId [unique, note: "Partial unique index for objectId and requestStatus pending or accepted; terminal consultations retain history"]
     roomId [unique, note: "Sparse unique index created by migration"]
     (doctorId, requestStatus, requestedAt)
     (patientId, requestStatus, requestedAt)

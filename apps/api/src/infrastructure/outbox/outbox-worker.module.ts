@@ -70,6 +70,7 @@ import { FamilyCompanionModule } from '../../modules/family-companion/family-com
     }),
     DatabaseModule,
     RedisModule,
+    CacheModule,
     OutboxModule,
     PlatformAuditModule,
     BillingModule,
@@ -106,4 +107,4 @@ import { FamilyCompanionModule } from '../../modules/family-companion/family-com
     ConsultationStaleRecoveryService,
   ],
 })
-export class OutboxWorkerModule {}
+export class OutboxWorkerModule { }

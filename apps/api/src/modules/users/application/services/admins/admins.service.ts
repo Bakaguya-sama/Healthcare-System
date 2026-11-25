@@ -179,7 +179,7 @@ export class AdminsService {
       throw new BadRequestException('Cannot modify your account.');
     }
     const admin = await this.users.findOneAndUpdate(
-      { _id: userId, role: UserRole.ADMIN, adminProfile: { $exists: true } },
+      { _id: userId, role: UserRole.ADMIN },
       dto.adminRole
         ? {
             $set: {
