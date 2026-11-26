@@ -56,6 +56,7 @@ export class PatientPlanQuotaDto {
   aiQuotaPeriod: 'day' | 'subscription_cycle';
   @ApiProperty() consultationLimitPerCycle: number;
   @ApiProperty() activeCareProgramLimit: number;
+  @ApiProperty() familyLinkLimit: number;
 }
 
 export class PatientPlanSummaryDto {
