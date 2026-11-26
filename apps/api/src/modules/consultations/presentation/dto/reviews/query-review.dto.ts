@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsOptional,
   IsNumber,
@@ -36,6 +37,7 @@ export class QueryReviewDto extends PageSortQueryDto {
 
   @ApiProperty({ example: 5, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(5)

@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsIn,
@@ -91,11 +92,13 @@ export class FamilyLinksQueryDto {
   status?: string;
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page = 1;
   @ApiPropertyOptional({ minimum: 1, default: 20 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   limit = 20;

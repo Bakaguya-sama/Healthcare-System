@@ -19,7 +19,7 @@ import { UsersCacheService } from './users-cache.service';
 import { QueryUsersDto } from '../../presentation/dto/users/query-users.dto';
 
 const USER_PUBLIC_READ_PROJECTION =
-  '_id fullName email gender dateOfBirth role phoneNumber avatarUrl accountStatus isOnline address banReason createdAt updatedAt';
+  '_id fullName email emailVerifiedAt gender dateOfBirth role phoneNumber avatarUrl accountStatus isOnline address banReason createdAt updatedAt';
 const USER_ADMIN_SEARCH_PROJECTION = `${USER_PUBLIC_READ_PROJECTION} doctorProfile.specialty doctorProfile.workplace doctorProfile.verificationStatus adminProfile.adminRole`;
 // Legacy array endpoints remain bounded until their canonical paginated adapters are introduced.
 const DIRECTORY_RESULT_HARD_CAP = 100;
