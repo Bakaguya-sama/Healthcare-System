@@ -5804,6 +5804,12 @@ export type FamilyReminderPermission =
   | 'missed_task_reminder'
   | 'weekly_progress';
 
+export interface FamilyLinkParticipantProfile {
+  fullName: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
 export interface FamilyLink {
   id: string;
   patientId: string;
@@ -5823,6 +5829,9 @@ export interface FamilyLink {
   expiredAt?: Da2IsoDateTime;
   revokedAt?: Da2IsoDateTime;
   allowedActions: Array<'accept' | 'decline' | 'pause' | 'resume' | 'revoke'>;
+  counterparty?: FamilyLinkParticipantProfile | null;
+  patient?: FamilyLinkParticipantProfile | null;
+  companion?: FamilyLinkParticipantProfile | null;
 }
 
 export interface CreateFamilyLinkRequest {

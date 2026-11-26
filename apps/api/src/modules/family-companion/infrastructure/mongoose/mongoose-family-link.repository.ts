@@ -33,6 +33,7 @@ import type {
   FamilyInvitationWorkflowResult,
   FamilyLinkRepository,
 } from '../../application/ports/family-link.repository';
+import type { FamilyLinkParticipantProfile } from '../../application/ports/family-link-read.repository';
 
 @Injectable()
 export class MongooseFamilyLinkRepository implements FamilyLinkRepository {
@@ -213,7 +214,11 @@ export class MongooseFamilyLinkRepository implements FamilyLinkRepository {
           .exec();
         if (!updated)
           throw new BadRequestException('INVITATION_NOT_FOUND_OR_EXPIRED');
-        return this.toProjection(updated);
+        const counterparty = await this.loadParticipantProfile(
+          updated.patientId,
+          session,
+        );
+        return this.toProjection(updated, counterparty);
       },
     );
     return outcome.result;
@@ -360,7 +365,11 @@ export class MongooseFamilyLinkRepository implements FamilyLinkRepository {
           },
           session,
         );
-        return this.toProjection(link);
+        const counterparty = await this.loadParticipantProfile(
+          link.patientId,
+          session,
+        );
+        return this.toProjection(link, counterparty);
       },
     );
     return outcome.result;
@@ -500,7 +509,12 @@ export class MongooseFamilyLinkRepository implements FamilyLinkRepository {
           },
           session,
         );
-        return this.toProjection(link);
+        const isOwner = String(link.patientId) === userId;
+        const counterparty = await this.loadParticipantProfile(
+          isOwner ? link.familyUserId : link.patientId,
+          session,
+        );
+        return this.toProjection(link, counterparty);
       },
     );
     return outcome.result;
@@ -579,7 +593,11 @@ export class MongooseFamilyLinkRepository implements FamilyLinkRepository {
           },
           session,
         );
-        return this.toProjection(link);
+        const counterparty = await this.loadParticipantProfile(
+          link.familyUserId,
+          session,
+        );
+        return this.toProjection(link, counterparty);
       },
     );
     return outcome.result;
@@ -776,8 +794,27 @@ export class MongooseFamilyLinkRepository implements FamilyLinkRepository {
     return createHash('sha256').update(value).digest('hex');
   }
 
+  private async loadParticipantProfile(
+    userId: Types.ObjectId | undefined,
+    session?: ClientSession,
+  ): Promise<FamilyLinkParticipantProfile | null> {
+    if (!userId) return null;
+    let query = this.users
+      .findById(userId)
+      .select('_id fullName email avatarUrl');
+    if (session) query = query.session(session);
+    const doc = await query.lean().exec();
+    if (!doc?.fullName) return null;
+    return {
+      fullName: doc.fullName,
+      ...(doc.email ? { email: doc.email } : {}),
+      ...(doc.avatarUrl ? { avatarUrl: doc.avatarUrl } : {}),
+    };
+  }
+
   private toProjection(
     link: FamilyLinkDocument | (FamilyLink & { _id: Types.ObjectId }),
+    counterparty?: FamilyLinkParticipantProfile | null,
   ) {
     return {
       id: String(link._id),
@@ -798,6 +835,7 @@ export class MongooseFamilyLinkRepository implements FamilyLinkRepository {
       expiredAt: link.expiredAt,
       revokedAt: link.revokedAt,
       allowedActions: this.allowedActions(link.status),
+      ...(counterparty !== undefined ? { counterparty } : {}),
     };
   }
 

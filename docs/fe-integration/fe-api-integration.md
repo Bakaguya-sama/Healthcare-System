@@ -986,8 +986,7 @@ sản phẩm/API cần quyết định riêng.
   là trạng thái tổng quát, không có dữ liệu lâm sàng.
 - Mọi lệnh thay đổi trạng thái (`POST`, `PUT`) phải gửi `Idempotency-Key`. Artifact
   link/QR/mã chỉ hiển thị sau khi tạo hoặc regenerate và không được lưu vào cache/log.
-- Projection `FamilyLink` chỉ có `patientId` và metadata trạng thái; không trả
-  `familyUserId`, tên, avatar, email, phone hay clinical detail của contact.
+- Projection `FamilyLink` cho người dùng (`GET /family-links`, `GET /family-links/:id`, `POST /family-links/redeem`, `POST /family-links/:id/accept`, `PUT /family-links/:id/permissions`, `POST /family-links/:id/actions/:action`) trả `patientId`, metadata trạng thái và thông tin tối giản của đối phương `counterparty: { fullName, email?, avatarUrl? } | null` (chỉ hiển thị sau khi có `familyUserId` hoặc với người nhận khi xem lời mời từ chủ tài khoản; không trả raw `familyUserId`, `pendingRedeemerUserId` chưa chấp nhận hay dữ liệu lâm sàng). `GET /admin/family-links` trả thêm `patient` và `companion` tối giản (`fullName`, `email?`, `avatarUrl?`) cho bảng kiểm toán.
 
 ### E2 — Chia sẻ chỉ số sức khỏe với người thân
 

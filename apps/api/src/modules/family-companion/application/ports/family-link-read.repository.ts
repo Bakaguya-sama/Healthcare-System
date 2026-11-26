@@ -1,5 +1,11 @@
 import type { FamilyLinkStatus } from '../../domain/policies/family-companion.policy';
 
+export interface FamilyLinkParticipantProfile {
+  fullName: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
 export interface FamilyLinkReadModel {
   id: string;
   patientId: string;
@@ -18,6 +24,9 @@ export interface FamilyLinkReadModel {
   declinedAt?: Date;
   expiredAt?: Date;
   revokedAt?: Date;
+  counterparty?: FamilyLinkParticipantProfile | null;
+  patient?: FamilyLinkParticipantProfile | null;
+  companion?: FamilyLinkParticipantProfile | null;
 }
 
 export interface FamilyLinkPage {
