@@ -1,15 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import type { FamilyLinkStatus } from '../../domain/policies/family-companion.policy';
 
 export type FamilyLinkDocument = HydratedDocument<FamilyLink>;
 
 @Schema({ timestamps: true, collection: 'familylinks', minimize: false })
 export class FamilyLink {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   patientId: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User' }) familyUserId?: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+  familyUserId?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
   pendingRedeemerUserId?: Types.ObjectId;
   @Prop() pendingRedeemedAt?: Date;
   @Prop({ maxlength: 80, trim: true }) relationship?: string;
@@ -39,18 +40,21 @@ export class FamilyLink {
   @Prop({ required: true }) invitationExpiresAt: Date;
   @Prop() acceptedAt?: Date;
   @Prop() pausedAt?: Date;
-  @Prop({ type: Types.ObjectId, ref: 'User' }) pausedBy?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+  pausedBy?: Types.ObjectId;
   @Prop() resumedAt?: Date;
-  @Prop({ type: Types.ObjectId, ref: 'User' }) resumedBy?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+  resumedBy?: Types.ObjectId;
   @Prop() declinedAt?: Date;
   @Prop({ maxlength: 160 }) declineReason?: string;
   @Prop() expiredAt?: Date;
   @Prop() revokedAt?: Date;
-  @Prop({ type: Types.ObjectId, ref: 'User' }) revokedBy?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+  revokedBy?: Types.ObjectId;
   @Prop({ maxlength: 160 }) revokeReason?: string;
   @Prop({ maxlength: 64 }) consentVersion?: string;
   @Prop({ type: [String], required: true, default: [] }) permissions: string[];
-  @Prop({ type: Types.ObjectId, ref: 'Subscription' })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Subscription' })
   entitlementSubscriptionId?: Types.ObjectId;
   @Prop({ min: 0, max: 10 }) entitlementFamilyLinkLimit?: number;
   createdAt: Date;

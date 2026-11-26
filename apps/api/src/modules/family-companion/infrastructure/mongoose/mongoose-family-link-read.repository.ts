@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   FamilyLinkPage,
   FamilyLinkReadModel,
@@ -22,15 +22,19 @@ export class MongooseFamilyLinkReadRepository implements FamilyLinkReadRepositor
     page: number;
     limit: number;
   }): Promise<FamilyLinkPage> {
+    if (!Types.ObjectId.isValid(input.userId)) {
+      return { items: [], total: 0 };
+    }
+    const userObjectId = new Types.ObjectId(input.userId);
     const filter: Record<string, unknown> =
       input.direction === 'sent'
-        ? { patientId: input.userId }
+        ? { patientId: userObjectId }
         : input.direction === 'received'
-          ? { familyUserId: input.userId }
+          ? { familyUserId: userObjectId }
           : {
               $or: [
-                { patientId: input.userId },
-                { familyUserId: input.userId },
+                { patientId: userObjectId },
+                { familyUserId: userObjectId },
               ],
             };
     if (input.status) filter.status = input.status;
@@ -38,10 +42,14 @@ export class MongooseFamilyLinkReadRepository implements FamilyLinkReadRepositor
   }
 
   async findParticipantLink(userId: string, linkId: string) {
+    if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(linkId)) {
+      return null;
+    }
+    const userObjectId = new Types.ObjectId(userId);
     const link = await this.links
       .findOne({
-        _id: linkId,
-        $or: [{ patientId: userId }, { familyUserId: userId }],
+        _id: new Types.ObjectId(linkId),
+        $or: [{ patientId: userObjectId }, { familyUserId: userObjectId }],
       })
       .lean()
       .exec();

@@ -1,16 +1,25 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type FamilyReminderDocument = HydratedDocument<FamilyReminder>;
 
 @Schema({ timestamps: true, collection: 'familyreminders' })
 export class FamilyReminder {
-  @Prop({ type: Types.ObjectId, ref: 'CareTask' }) careTaskId?: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'CareTask' })
+  careTaskId?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   patientId: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'FamilyLink', required: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'FamilyLink',
+    required: true,
+  })
   familyLinkId: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'FamilyPermission', required: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'FamilyPermission',
+    required: true,
+  })
   permissionId: Types.ObjectId;
   @Prop({
     type: String,
@@ -26,7 +35,7 @@ export class FamilyReminder {
   })
   status: string;
   @Prop({ required: true }) scheduledAt: Date;
-  @Prop({ type: Types.ObjectId, ref: 'Notification' })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Notification' })
   notificationId?: Types.ObjectId;
   @Prop() dispatchedAt?: Date;
   @Prop({ maxlength: 80 }) skipReason?: string;

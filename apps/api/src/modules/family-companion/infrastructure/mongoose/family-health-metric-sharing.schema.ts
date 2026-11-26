@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type FamilyHealthMetricSharingDocument =
   HydratedDocument<FamilyHealthMetricSharing>;
@@ -7,11 +7,15 @@ export type FamilyHealthMetricSharingDocument =
 /** One revision per consent change; previous revisions remain available for audit. */
 @Schema({ timestamps: true, collection: 'familyhealthmetricsharings' })
 export class FamilyHealthMetricSharing {
-  @Prop({ type: Types.ObjectId, ref: 'FamilyLink', required: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'FamilyLink',
+    required: true,
+  })
   familyLinkId: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   patientId: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   familyUserId: Types.ObjectId;
   @Prop({ required: true, min: 1 }) invitationVersion: number;
   @Prop({ required: true, min: 1 }) revision: number;
@@ -20,11 +24,12 @@ export class FamilyHealthMetricSharing {
   @Prop({ required: true, enum: ['all', 'selected'] }) scope: string;
   @Prop({ type: [String], default: [] }) metricTypes: string[];
   @Prop({ required: true, maxlength: 64 }) consentVersion: string;
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   consentedBy: Types.ObjectId;
   @Prop({ required: true }) consentedAt: Date;
   @Prop() revokedAt?: Date;
-  @Prop({ type: Types.ObjectId, ref: 'User' }) revokedBy?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+  revokedBy?: Types.ObjectId;
 }
 
 export const FamilyHealthMetricSharingSchema = SchemaFactory.createForClass(

@@ -1,12 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type FamilyCommandReceiptDocument =
   HydratedDocument<FamilyCommandReceipt>;
 
 @Schema({ collection: 'familycommandreceipts', timestamps: true })
 export class FamilyCommandReceipt {
-  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    required: true,
+    ref: 'User',
+  })
   actorId: Types.ObjectId;
   @Prop({ required: true, trim: true, maxlength: 80 }) operation: string;
   @Prop({ required: true, trim: true, maxlength: 64 }) keyHash: string;

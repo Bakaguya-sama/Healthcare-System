@@ -1,12 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type FamilyReminderQuotaDocument = HydratedDocument<FamilyReminderQuota>;
 
 /** Operational state only; contains no task or clinical information. */
 @Schema({ timestamps: true, collection: 'familyreminderquotas' })
 export class FamilyReminderQuota {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   companionUserId: Types.ObjectId;
   @Prop({ type: Date }) lastMissedTaskDispatchedAt?: Date;
   createdAt: Date;
