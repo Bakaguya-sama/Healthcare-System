@@ -82,6 +82,8 @@ import { CARE_TASK_REMINDER_READER } from './application/ports/care-task-reminde
 import { MongooseCareTaskReminderReaderAdapter } from './infrastructure/adapters/mongoose-care-task-reminder-reader.adapter';
 import { OutboxCareEnrollmentTaskSyncAdapter } from './infrastructure/adapters/outbox-care-enrollment-task-sync.adapter';
 import { CARE_ENROLLMENT_TASK_SYNC_OUTBOX } from './application/ports/care-enrollment-task-sync-outbox.port';
+import { CARE_PROGRAM_DIRECTORY_READER } from './application/ports/care-program-directory-reader.port';
+import { MongooseCareProgramDirectoryReader } from './infrastructure/adapters/mongoose-care-program-directory-reader.adapter';
 
 @Module({
   imports: [
@@ -119,6 +121,8 @@ import { CARE_ENROLLMENT_TASK_SYNC_OUTBOX } from './application/ports/care-enrol
   ],
   providers: [
     CareProgramRuleService,
+    MongooseCareProgramDirectoryReader,
+    { provide: CARE_PROGRAM_DIRECTORY_READER, useExisting: MongooseCareProgramDirectoryReader },
     CareEnrollmentService,
     OutboxCareEnrollmentTaskSyncAdapter,
     {
@@ -177,6 +181,7 @@ import { CARE_ENROLLMENT_TASK_SYNC_OUTBOX } from './application/ports/care-enrol
     },
   ],
   exports: [
+    CARE_PROGRAM_DIRECTORY_READER,
     MongooseModule,
     CareProgramRuleService,
     CareReportExportProcessorService,

@@ -1,6 +1,6 @@
 # HealthAI Roadmap sau DA2 phiên bản 2
 
-> Cập nhật: **17/11/2026**
+> Cập nhật: **26/11/2026**
 > Nguồn: source audit, `docs/product-spec.md`, RAG blueprint, migration, test,
 > OpenAPI và realtime contract trong repository.
 > Đây là roadmap hiện hành. [`roadmap.md`](roadmap.md) được giữ làm snapshot DA2
@@ -32,7 +32,7 @@ flowchart LR
     A --> D[D Billing và refund]
     A --> E1[E1 Consultation policy]
     E1 --> E2[E2 Family Companion]
-    E2 --> E3[E3 Facility directory]
+    E2 -. "E3 core chạy song song; gate release E2 vẫn mở" .-> E3[E3 Facility directory]
     A --> E4[E4 Delivery channels]
     E1 --> E5[E5 Clinical P1]
     C --> F[F Operations metrics]
@@ -86,7 +86,7 @@ khi có xác nhận Finance/Legal và evidence provider/sandbox.
 | DEC-D2 | ✅ Hoãn                    | Không triển khai consultation charging trong roadmap hiện tại                             | PAY-02     | Product + Finance                | Giữ invariant `care_program_included`; scope nhận lại cần pricing/tax/invoice |
 | DEC-E1 | ✅ Chốt                    | Instant pilot; policy canonical/snapshot; không tự xử lý lịch quá 24 giờ                  | CARE-01/03 | Product + Operations             | Booking settings, disposition, quota transition                               |
 | DEC-E2 | ✅ Chốt                    | Chỉ `missed_task_reminder` và `weekly_progress`, default off                              | FAM-01     | Product + Privacy                | Invite/revoke, reminder content, PHI boundary                                 |
-| DEC-E3 | ✅ Chốt                    | Internal curated là nguồn chính; map provider chỉ fallback                                | DIR-01     | Product + Admin owner            | Verification, taxonomy, location/privacy contract                             |
+| DEC-E3 | ✅ Chốt                    | Danh mục nội bộ do super_admin duyệt là nguồn chính; Google chỉ khi chủ động; không giới hạn gói; AI để sau | DIR-01 | Product + Admin owner | TP.HCM, taxonomy, lifecycle, location/privacy, Places policy |
 
 ### Cách áp dụng các quyết định
 
@@ -181,12 +181,16 @@ Users module: like trên tên/email/số điện thoại đã xác minh, có pag
 Patient record có ID để người mời chọn. Create invitation nhận `contactUserId` và
 backend xác minh lại; không lưu lookup reference/collection trung gian.
 
-**DEC-E3 — Facility directory:** Đã chốt internal curated directory là nguồn
-chính: chỉ `verified` facility mới vào kết quả; sắp xếp theo specialty match và
-khoảng cách, không dùng AI score, quảng cáo hay rating. Map provider chỉ fallback
-khi danh mục nội bộ thiếu kết quả hoặc Patient chủ động mở rộng; vị trí chính xác
-chỉ dùng cho query hiện tại và không lưu mặc định. Kết quả external phải gắn nhãn
-nguồn, không tự promote thành facility verified.
+**DEC-E3 — Facility directory:** Đã chốt danh mục nội bộ do `super_admin` duyệt
+là nguồn chính; chỉ Facility `verified` được Patient tìm thấy. Pilot áp dụng tại
+TP. Hồ Chí Minh và không giới hạn theo gói. Google Maps/Places chỉ được gọi khi
+Patient chủ động mở rộng tìm kiếm hoặc `super_admin` tìm candidate; không tự gọi
+khi nội bộ không có kết quả. Vị trí chính xác chỉ dùng cho request hiện tại, không
+log mặc định. Place ID được lưu bền vững; tên/địa chỉ Places chỉ là preview tạm có
+attribution, không đưa vào Facility draft/receipt/audit/cache. Tọa độ Places chỉ được trả tạm trong preview, không lưu trong database. super_admin phải nhập và
+kiểm tra dữ liệu được công bố từ nguồn chính thức độc lập trước khi verify.
+External result luôn gắn nhãn chưa xác minh nội bộ, không tự promote. E3 không dùng AI suy luận bệnh,
+specialty, vị trí hay xếp hạng; AI-assisted search được triển khai sau E3.
 
 ## 4. Giai đoạn 0 — Release operation ngoài source
 
@@ -397,7 +401,7 @@ ghi hoàn tất chỉ vì backend route tồn tại.
 | ---- | ----------------------------------------- | ----------------------- | --------------------------------- |
 | E1   | Consultation policy, booking, queue       | A                       | Không nếu đã nhận thay đổi policy |
 | E2   | Family Companion                          | E1                      | Có                                |
-| E3   | Facility directory                        | E2 + DEC-E3             | Có                                |
+| E3   | Facility directory                        | DEC-E3; review E2 trước release | Có; core có thể chạy song song với gate vận hành/consumer E2 |
 | E4   | Notification/Realtime/Mobile/Web consumer | A; chọn từng slice      | Có                                |
 | E5   | Medication adherence/AI moderation        | Care Program P0 ổn định | Có                                |
 
@@ -557,26 +561,65 @@ API/worker smoke. Đây không đóng E2; các gate DDD/read-revoke, FE consumer
 
 ### E3 — Tìm cơ sở y tế
 
-**Slice:** DIR-01. **Phụ thuộc:** FAM-01 đạt gate và còn capacity.
+**Trạng thái:** 🚧 Core đã triển khai và local checks pass; release exit gate còn mở.
+**Slice:** DIR-01. E3 core được làm trong khi E2 còn chờ staging/consumer evidence;
+trước release phải review dependency và giữ nguyên trạng thái gate E2. Bắt đầu E3
+không có nghĩa E2 đã hoàn tất.
 
-1. Chốt taxonomy `DiseaseSpecialty` và lifecycle Admin-reviewed `MedicalFacility`.
-2. Admin CRUD/verify/audit facility và disease-to-specialty mapping.
-3. Patient search/filter/location/pagination với stable sort và bounded projection.
-4. Map provider chỉ là fallback; không gửi PHI/Care Alert/consultation history.
+**Quyết định bổ sung:** pilot TP. Hồ Chí Minh; `super_admin` duyệt Facility và
+mapping. Mọi Patient active đều được tìm, không chặn theo FREE/PLUS/CARE;
+`benefits.facilitySearch` được giữ nhưng không áp dụng làm gate trong pilot.
+Program mapping ưu tiên disease mapping; thiếu mapping thì yêu cầu Patient tự chọn
+specialty. Google Maps/Places chỉ chạy khi Patient bấm “Tìm thêm từ Google Maps”
+hoặc super_admin tìm candidate; không tự gọi chỉ vì nội bộ trả rỗng. Admin tìm map
+candidate theo `query` (tên/chi nhánh/địa chỉ) hoặc `specialtyCode` active; selector
+là loại trừ nhau. Place type chỉ lọc taxonomy Google. Khi chọn Place ID, backend
+kiểm tra receipt trước, gọi Place Details, lưu Place ID và trả preview tạm có
+attribution. Tên/địa chỉ không persist; tọa độ chỉ được trả trong preview tạm. super_admin nhập dữ liệu sẽ công bố từ nguồn chính thức độc lập trước
+khi verify. Vị trí Patient chỉ ở request body, không lưu/log/audit. AI-assisted
+search được hoãn đến sau E3. Places policy được rà soát 26/11/2026: [Google Places
+policies](https://developers.google.com/maps/documentation/places/web-service/policies).
 
-**Công việc thực hiện:**
+Duplicate review đã được bổ sung: create manual/from-map kiểm tra draft, verified
+và retired; verify kiểm tra lại verified; exact Place ID collision luôn chặn.
+super_admin mở candidate hoặc xác nhận đúng cặp Facility IDs với reason theo
+phương án A. Decision được lưu với audit; verify không hỏi lại cùng cặp, nhưng
+candidate mới vẫn cần review. API cập nhật metadata Facility cho phép gắn Place
+ID đã provider-validate vào Facility draft/verified hiện hữu, chỉ lưu ID và
+không sửa Facility details. Decision được nhúng tối đa 50 cặp trong Facility;
+guard HCMC được giữ để tuần tự hóa verify cạnh tranh.
 
-1. Migrate `DiseaseSpecialties` và `MedicalFacilities` cùng status
-   `draft|verified|retired`, source/last-checked/audit metadata và index search.
-2. Xây Admin workflow create → verify → retire, cùng disease/program-to-specialty
-   mapping versioned; không auto-verify dữ liệu map API.
-3. Xây Patient query internal-first với location ephemeral, specialty/region filter,
-   reason code/source/freshness label và stable sort.
-4. Chỉ gọi provider ngoài sau empty internal result hoặc explicit expand; gắn nhãn
-   external và cho Admin promote vào `draft`, không promote thẳng `verified`.
+**Thứ tự thực hiện:**
 
-**Exit gate:** migration/verifier/index/explain, role/filter/privacy tests và provider
-fallback evidence; dữ liệu chưa duyệt không xuất hiện cho Patient.
+1. Tạo specialty catalog canonical và mapping versioned; super_admin duyệt nguồn.
+2. Tạo Facility draft/revision; lúc tạo dò ứng viên trùng và cho super_admin mở
+   candidate, gắn Place ID vào record có sẵn hoặc xác nhận cặp khác nhau theo
+   phương án A; verify dò lại sau khi có địa chỉ/định vị/liên hệ, specialty active
+   và nguồn chính thức được kiểm chứng độc lập.
+3. Chạy migration forward-only, verifier/no-op; kiểm tra `2dsphere`, unique index,
+   duplicate indexes, query plan và concurrency.
+4. Mở Patient internal search/detail, verified-only, HCMC, stable sort, pagination,
+   reason code và freshness.
+5. Mở external search thành thao tác riêng, có consent khi gửi vị trí chính xác,
+   attribution, timeout, Redis rate limit và kill switch riêng. Admin map-candidates
+   hỗ trợ `query` theo tên/chi nhánh/địa chỉ hoặc `specialtyCode` active; Place type
+   là filter Google riêng, không tự gán taxonomy nội bộ.
+6. Khi Admin chọn Place ID, gọi Place Details sau receipt check; trả preview mới
+   ngay lần đầu, lưu Place ID; tọa độ chỉ hiển thị tạm. Không persist
+   tên/địa chỉ Google; Admin hoàn thiện draft từ nguồn chính thức và verify riêng.
+7. Validate OpenAPI, FE contract/consumer, redaction, runbook và rollback.
+8. Chỉ bật feature sau khi corpus được super_admin duyệt và staging smoke pass.
+
+**Đã có trong source và kiểm tra local:** DDD module `care-directory`; catalog/mapping/Facility
+draft-revision-verify-retire; duplicate review theo cặp và verify guard HCMC;
+gắn Place ID vào Facility thủ công; Patient/Admin routes; Chronic Care public query
+port; Mongo migration/index/verifier; Google Places adapter; flags mặc định tắt;
+audit, idempotency và Redis rate limit. AI-assisted search không thuộc E3.
+
+**Gate còn cần evidence thực tế:** corpus TP.HCM từ nguồn chính thức được
+super_admin duyệt; Google credential và provider smoke; FE consumer validation;
+staging API/worker/deploy smoke và rollback rehearsal. Không đánh dấu E3 ✅ nếu các
+mục này chưa có.
 
 ### E4 — Delivery channels và consumer
 

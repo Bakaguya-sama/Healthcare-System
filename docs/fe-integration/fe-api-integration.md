@@ -303,16 +303,18 @@ E2 dùng cùng một invitation cho contact đã có hoặc chưa có tài kho�
 tra cứu và thao tác tạo lời mời là hai bước độc lập. FE không gửi email/số điện
 thoại vào API tạo lời mời và không tự lưu user ID của contact.
 
-| Nghiệp vụ | Endpoint | Actor | Ghi chú FE |
-| --- | --- | --- | --- |
-| Tìm contact | `GET /api/v1/users/family-companion/contacts?search={text}&page={page}&limit={limit}` | Patient | Tìm gần đúng theo tên, email hoặc số điện thoại đã xác minh; phân trang; chỉ trả Patient đang hoạt động và đã xác minh email. FE cho Patient chọn một record từ `items`; dùng `id` được chọn khi tạo lời mời. |
-| Tạo lời mời cho contact đã chọn | `POST /api/v1/family-links` | Patient | Gửi `contactUserId` lấy từ record đã chọn, `relationship` và `Idempotency-Key`. Backend tải lại và kiểm tra eligibility của ID trước khi tạo link. |
-| Tạo lời mời để tự chia sẻ | `POST /api/v1/family-links` | Patient | Gửi `share: true`, không gửi `contactUserId`. Response trả link/QR/code reveal-once. |
-| Xem link của tôi | `GET /api/v1/family-links` | Patient/contact | Chỉ trả quan hệ, status, permission summary và entitlement; không trả clinical detail. |
-| Redeem link/mã | `POST /api/v1/family-links/redeem` | Patient đã đăng nhập | Nhập short code hoặc opaque token. Người chưa có account phải đăng ký Patient và verify email trước. |
-| Accept/reject | `POST /api/v1/family-links/{id}/accept`, `POST /api/v1/family-links/{id}/actions/decline` | Contact được mời | Chỉ accept trước khi invitation hết hạn và sau khi xem consent version. |
-| Pause/resume/revoke | `POST /api/v1/family-links/{id}/actions/{action}` | Patient/contact theo policy | `pause`, `resume`, `revoke`; revoke có hiệu lực ngay với query/reminder mới. |
-| Cấp lại link/mã | `POST /api/v1/family-links/{id}/regenerate-artifacts` | Patient mời | Artifact cũ bị vô hiệu; raw link/QR/code chỉ hiển thị một lần. |
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | E2 · Liên kết | Tìm contact | `GET /api/v1/users/family-companion/contacts?search={text}&page={page}&limit={limit}` | JWT Patient | Query `search`, `page`, `limit` | `SearchFamilyCompanionContactsResponse` | 400, 401, 403 | Tìm gần đúng theo tên, email hoặc số điện thoại đã xác minh; phân trang; chỉ trả Patient đang hoạt động và đã xác minh email. FE cho Patient chọn một record từ `items`; dùng `id` được chọn khi tạo lời mời. |
+| 2 | E2 · Liên kết | Tạo lời mời | `POST /api/v1/family-links` | JWT Patient | `relationship`, đúng một trong `contactUserId` hoặc `share: true`, `Idempotency-Key` | `CreateFamilyInvitationResponse` | 400, 401, 403, 404, 409 | Tạo link và artifact reveal-once. |
+| 3 | E2 · Liên kết | Liệt kê link | `GET /api/v1/family-links` | JWT Patient | Bộ lọc, phân trang | Danh sách `FamilyLink` | 401, 403 | Xem liên kết của tôi. |
+| 4 | E2 · Liên kết | Redeem | `POST /api/v1/family-links/redeem` | JWT Patient | Opaque token hoặc short code, `Idempotency-Key` | Preview liên kết | 400, 401, 403, 404, 409, 429 | Đọc lời mời. |
+| 5 | E2 · Liên kết | Chấp nhận | `POST /api/v1/family-links/{id}/accept` | JWT Patient | `id`, consent, quyền thông báo, `Idempotency-Key` | Liên kết đã chấp nhận | 400, 401, 403, 404, 409 | Xác nhận lời mời còn hiệu lực. |
+| 6 | E2 · Liên kết | Đổi trạng thái | `POST /api/v1/family-links/{id}/actions/{action}` | JWT Patient | `id`, `decline`, `pause`, `resume` hoặc `revoke`, `Idempotency-Key` | Liên kết cập nhật | 400, 401, 403, 404, 409 | Áp dụng hành động theo quyền của mỗi bên. |
+| 7 | E2 · Liên kết | Cấp lại artifact | `POST /api/v1/family-links/{id}/regenerate-artifacts` | JWT Patient | `id`, `Idempotency-Key` | `RegenerateFamilyInvitationArtifactsResponse` | 400, 401, 403, 404, 409 | Vô hiệu link/mã cũ và phát artifact mới cho Patient mời. |
+| 8 | E2 · Liên kết | Xem liên kết | `GET /api/v1/family-links/{id}` | JWT Patient thuộc link | Path `id` | Chi tiết `FamilyLink` | 401, 403, 404 | Đọc trạng thái liên kết. |
+| 9 | E2 · Liên kết | Đổi quyền thông báo | `PUT /api/v1/family-links/{id}/permissions` | JWT Patient chủ link | Path `id`, quyền reminder, `Idempotency-Key` | Liên kết cập nhật | 400, 401, 403, 404, 409 | Bật hoặc tắt reminder cho người thân. |
+| 10 | E2 · Liên kết | Rà soát liên kết | `GET /api/v1/admin/family-links` | JWT Admin | Bộ lọc và phân trang | Danh sách quản trị | 400, 401, 403 | Hỗ trợ tra cứu trạng thái liên kết. |
 
 Luồng FE khi Patient tìm và chọn contact:
 
@@ -401,19 +403,19 @@ metadata; chỉ `super_admin` được duyệt, từ chối, kích hoạt, lưu 
 chỉ chứa metadata an toàn, không bao giờ chứa storage URL, hash, chunk, embedding hoặc
 payload của provider.
 
-| Thao tác | Endpoint | Quyền | Request | Response |
-| --- | --- | --- | --- | --- |
-| Liệt kê tài liệu | `GET /api/v1/ai-documents` | Người dùng đã xác thực | Query: `page`, `limit`, `status`, `search`, `sortBy`, `sortOrder` | `{ data: KnowledgeDocument[]; total: number }` |
-| Tìm kiếm tài liệu | `GET /api/v1/ai-documents/search/{query}` | Người dùng đã xác thực | Path: `query` | `KnowledgeDocument[]` |
-| Xem chi tiết | `GET /api/v1/ai-documents/{id}` | Người dùng đã xác thực | Path: `id` | `KnowledgeDocument` |
-| Gửi tài liệu | `POST /api/v1/ai-documents` | `ai_manager`, `super_admin` | `multipart/form-data`: bắt buộc `file`; tùy chọn `title`, `validUntil` | `KnowledgeDocument` |
-| Cập nhật metadata | `PATCH /api/v1/ai-documents/{id}` | `ai_manager`, `super_admin` | JSON: tùy chọn `title`, `fileUrl` (URL upload tin cậy), `fileType`, `status`, `validUntil` | `KnowledgeDocument` |
-| Gửi phiên bản thay thế | `POST /api/v1/ai-documents/{id}/replacements` | `ai_manager`, `super_admin` | `multipart/form-data`: bắt buộc `file`; tùy chọn `title`, `validUntil` | Phiên bản `KnowledgeDocument` mới |
-| Duyệt | `POST /api/v1/ai-documents/{id}/approve` | `super_admin` | Không có body | `KnowledgeDocument` |
-| Từ chối | `POST /api/v1/ai-documents/{id}/reject` | `super_admin` | JSON: tùy chọn `reason` | `KnowledgeDocument` bị từ chối |
-| Kích hoạt | `POST /api/v1/ai-documents/{id}/activate` | `super_admin` | Không có body | `KnowledgeDocument` đang hoạt động |
-| Lưu trữ | `PATCH /api/v1/ai-documents/{id}/archive` | `super_admin` | Không có body | `KnowledgeDocument` đã lưu trữ/không hoạt động |
-| Xóa | `DELETE /api/v1/ai-documents/{id}` | `super_admin` | Không có body | Metadata tài liệu đã xóa |
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | Kho tri thức | Liệt kê tài liệu | `GET /api/v1/ai-documents` | JWT · Người dùng đã xác thực | Query: `page`, `limit`, `status`, `search`, `sortBy`, `sortOrder` | `{ data: KnowledgeDocument[]; total: number }` | 401, 403; lỗi nghiệp vụ tùy thao tác | Liệt kê tài liệu |
+| 2 | Kho tri thức | Tìm kiếm tài liệu | `GET /api/v1/ai-documents/search/{query}` | JWT · Người dùng đã xác thực | Path: `query` | `KnowledgeDocument[]` | 401, 403; lỗi nghiệp vụ tùy thao tác | Tìm kiếm tài liệu |
+| 3 | Kho tri thức | Xem chi tiết | `GET /api/v1/ai-documents/{id}` | JWT · Người dùng đã xác thực | Path: `id` | `KnowledgeDocument` | 401, 403; lỗi nghiệp vụ tùy thao tác | Xem chi tiết |
+| 4 | Kho tri thức | Gửi tài liệu | `POST /api/v1/ai-documents` | JWT · `ai_manager`, `super_admin` | `multipart/form-data`: bắt buộc `file`; tùy chọn `title`, `validUntil` | `KnowledgeDocument` | 401, 403; lỗi nghiệp vụ tùy thao tác | Gửi tài liệu |
+| 5 | Kho tri thức | Cập nhật metadata | `PATCH /api/v1/ai-documents/{id}` | JWT · `ai_manager`, `super_admin` | JSON: tùy chọn `title`, `fileUrl` (URL upload tin cậy), `fileType`, `status`, `validUntil` | `KnowledgeDocument` | 401, 403; lỗi nghiệp vụ tùy thao tác | Cập nhật metadata |
+| 6 | Kho tri thức | Gửi phiên bản thay thế | `POST /api/v1/ai-documents/{id}/replacements` | JWT · `ai_manager`, `super_admin` | `multipart/form-data`: bắt buộc `file`; tùy chọn `title`, `validUntil` | Phiên bản `KnowledgeDocument` mới | 401, 403; lỗi nghiệp vụ tùy thao tác | Gửi phiên bản thay thế |
+| 7 | Kho tri thức | Duyệt | `POST /api/v1/ai-documents/{id}/approve` | JWT · `super_admin` | Không có body | `KnowledgeDocument` | 401, 403; lỗi nghiệp vụ tùy thao tác | Duyệt |
+| 8 | Kho tri thức | Từ chối | `POST /api/v1/ai-documents/{id}/reject` | JWT · `super_admin` | JSON: tùy chọn `reason` | `KnowledgeDocument` bị từ chối | 401, 403; lỗi nghiệp vụ tùy thao tác | Từ chối |
+| 9 | Kho tri thức | Kích hoạt | `POST /api/v1/ai-documents/{id}/activate` | JWT · `super_admin` | Không có body | `KnowledgeDocument` đang hoạt động | 401, 403; lỗi nghiệp vụ tùy thao tác | Kích hoạt |
+| 10 | Kho tri thức | Lưu trữ | `PATCH /api/v1/ai-documents/{id}/archive` | JWT · `super_admin` | Không có body | `KnowledgeDocument` đã lưu trữ/không hoạt động | 401, 403; lỗi nghiệp vụ tùy thao tác | Lưu trữ |
+| 11 | Kho tri thức | Xóa | `DELETE /api/v1/ai-documents/{id}` | JWT · `super_admin` | Không có body | Metadata tài liệu đã xóa | 401, 403; lỗi nghiệp vụ tùy thao tác | Xóa |
 
 Vòng đời: `pending_review` → `approved` + `pending_ingestion` → `processing` →
 `ready_for_activation` → `active`. Nếu ingestion thất bại, `status = error`. Chỉ cho
@@ -432,12 +434,12 @@ Tất cả route candidate yêu cầu tài khoản đã xác thực với role n
 kiểm tra sub-role; frontend không được suy luận quyền chỉ từ role nền. Không endpoint nào
 nhận hoặc trả về abstract PubMed.
 
-| Thao tác | Endpoint | Quyền | Request | Response |
-| --- | --- | --- | --- | --- |
-| Liệt kê candidate | `GET /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | Không có | `KnowledgeCandidate[]` |
-| Đề xuất metadata | `POST /api/v1/ai-knowledge-candidates` | `ai_manager`, `super_admin` | `{ pmid, title, sourceUrl }` | `KnowledgeCandidate` đang chờ duyệt |
-| Promote candidate | `POST /api/v1/ai-knowledge-candidates/{id}/promote` | `super_admin` | Không có | `{ candidate, document }` |
-| Từ chối candidate | `POST /api/v1/ai-knowledge-candidates/{id}/reject` | `super_admin` | `{ reason? }` | `KnowledgeCandidate` bị từ chối |
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | Candidate PubMed | Liệt kê candidate | `GET /api/v1/ai-knowledge-candidates` | JWT · `ai_manager`, `super_admin` | Không có | `KnowledgeCandidate[]` | 401, 403; lỗi nghiệp vụ tùy thao tác | Liệt kê candidate |
+| 2 | Candidate PubMed | Đề xuất metadata | `POST /api/v1/ai-knowledge-candidates` | JWT · `ai_manager`, `super_admin` | `{ pmid, title, sourceUrl }` | `KnowledgeCandidate` đang chờ duyệt | 401, 403; lỗi nghiệp vụ tùy thao tác | Đề xuất metadata |
+| 3 | Candidate PubMed | Promote candidate | `POST /api/v1/ai-knowledge-candidates/{id}/promote` | JWT · `super_admin` | Không có | `{ candidate, document }` | 401, 403; lỗi nghiệp vụ tùy thao tác | Promote candidate |
+| 4 | Candidate PubMed | Từ chối candidate | `POST /api/v1/ai-knowledge-candidates/{id}/reject` | JWT · `super_admin` | `{ reason? }` | `KnowledgeCandidate` bị từ chối | 401, 403; lỗi nghiệp vụ tùy thao tác | Từ chối candidate |
 
 Thao tác promote tạo tài liệu với `reviewStatus = pending_review`; tài liệu chưa thể được
 truy xuất ngay. Cần tiếp tục qua bước duyệt tài liệu, ingestion bất đồng bộ và kích hoạt
@@ -777,21 +779,19 @@ pnpm.cmd --filter api realtime:check
 
 ### Scheduled booking and queue
 
-| Capability | HTTP contract | Client rule |
-| --- | --- | --- |
-| Patient discovers a slot | `GET /availability-slots/doctors/:doctorId?from&to&page&limit&sortOrder` | Only available slots are returned; `from`/`to` are required ISO dates. |
-| Doctor manages own slots | `GET/POST /availability-slots`, `PATCH/DELETE /availability-slots/:id` | Doctor scope is server derived. |
-| Patient books | `POST /consultations/scheduled` + `Idempotency-Key` | `{ availabilitySlotId, patientNotes? }`; server atomically claims the slot and reserves ordinary quota. No consultation PaymentOrder/VNPAY call is created. |
-| Cancel / reschedule | `POST /consultations/:id/cancel`; `POST /consultations/:id/reschedule` + `Idempotency-Key` | Snapshot cutoff applies. Reschedule body is only `{ availabilitySlotId }` and keeps the existing reservation. |
+- **Patient discovers a slot.** `GET /availability-slots/doctors/:doctorId?from&to&page&limit&sortOrder`. Only available slots are returned; `from`/`to` are required ISO dates.
+- **Doctor manages own slots.** `GET/POST /availability-slots`, `PATCH/DELETE /availability-slots/:id`. Doctor scope is server derived.
+- **Patient books.** `POST /consultations/scheduled` + `Idempotency-Key`. `{ availabilitySlotId, patientNotes? }`; server atomically claims the slot and reserves ordinary quota. No consultation PaymentOrder/VNPAY call is created.
+- **Cancel / reschedule.** `POST /consultations/:id/cancel`; `POST /consultations/:id/reschedule` + `Idempotency-Key`. Snapshot cutoff applies. Reschedule body is only `{ availabilitySlotId }` and keeps the existing reservation.
 
 ### E1 — Cấu hình đặt lịch của Bác sĩ
 
-| Người dùng | API | Mục đích | Lưu ý giao diện |
-| --- | --- | --- | --- |
-| Doctor | `GET /api/v1/doctor-booking-settings/me` | Đọc cấu hình lịch làm việc đang áp dụng cho booking mới. | Nếu nhận `404`, hiển thị trạng thái chưa cấu hình; Doctor không thể tạo slot hoặc nhận lịch scheduled cho đến khi lưu cấu hình hợp lệ. |
-| Doctor | `PATCH /api/v1/doctor-booking-settings/me` | Lưu cấu hình `instant` của chính mình. | Chỉ gửi số nguyên trong giới hạn: buffer 0–60, notice/cancel 0–10.080, check-in/no-show 0–1.440 phút. Không hiển thị lựa chọn `approval_required`. |
-| Admin | `GET /api/v1/doctor-booking-settings/:doctorId` | Xem cấu hình của Doctor. | Chỉ dành cho màn quản trị. |
-| Admin | `PATCH /api/v1/doctor-booking-settings/:doctorId/override` | Override cấu hình Doctor khi có lý do vận hành. | `overrideReason` bắt buộc; không dùng API này để sửa policy của consultation đã đặt. |
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | E1 · Đặt lịch | Đọc cấu hình lịch làm việc đang áp dụng cho booking mới. | `GET /api/v1/doctor-booking-settings/me` | JWT Doctor | — | `DoctorBookingSettingsResponse` | 401, 403, 404 | Nếu nhận `404`, hiển thị trạng thái chưa cấu hình; Doctor không thể tạo slot hoặc nhận lịch scheduled cho đến khi lưu cấu hình hợp lệ. |
+| 2 | E1 · Đặt lịch | Lưu cấu hình `instant` của chính mình. | `PATCH /api/v1/doctor-booking-settings/me` | JWT Doctor | Body `UpdateDoctorBookingSettingsRequest` | `DoctorBookingSettingsResponse` | 401, 403, 404, 400 | Chỉ gửi số nguyên trong giới hạn: buffer 0–60, notice/cancel 0–10.080, check-in/no-show 0–1.440 phút. Không hiển thị lựa chọn `approval_required`. |
+| 3 | E1 · Đặt lịch | Xem cấu hình của Doctor. | `GET /api/v1/doctor-booking-settings/:doctorId` | JWT Admin | Path `doctorId` | `DoctorBookingSettingsResponse` | 401, 403, 404 | Chỉ dành cho màn quản trị. |
+| 4 | E1 · Đặt lịch | Override cấu hình Doctor khi có lý do vận hành. | `PATCH /api/v1/doctor-booking-settings/:doctorId/override` | JWT Admin | Body `OverrideDoctorBookingSettingsRequest` | `DoctorBookingSettingsResponse` | 401, 403, 404, 400 | `overrideReason` bắt buộc; không dùng API này để sửa policy của consultation đã đặt. |
 
 Body settings dùng chung:
 
@@ -814,8 +814,11 @@ thị “chưa có ước tính” thay vì tự tính ETA.
 
 Lịch scheduled quá 24 giờ chưa được xử lý chỉ được đưa vào review nội bộ; Patient
 và Doctor không được hiểu đây là lịch bị tự hủy, no-show hay hoàn quota.
-| Check-in / own queue | `POST /consultations/:id/check-in` + key; `GET /consultations/:id/queue` | Scheduled, accepted consultation only. Position is authoritative; `estimatedWaitMinutes` can be `null`, so never derive ETA from position. |
-| Doctor queue / call-next | `GET /doctors/me/queue?page&limit`; `POST /doctors/me/queue/call-next` + key | Scheduled-only queue. Call-next is atomic but does not start the consultation. |
+
+- Patient đã có lịch scheduled được chấp nhận có thể check-in và xem hàng đợi.
+  Dùng vị trí do server trả và hiển thị “chưa có ước tính” khi `estimatedWaitMinutes` là `null`.
+- Doctor xem danh sách hàng đợi scheduled và gọi lượt kế tiếp. Gọi lượt kế tiếp
+  chưa bắt đầu phiên tư vấn. Xem method và payload ở các bảng Phiên tư vấn và Hàng đợi tư vấn.
 
 Pilot values are buffer `15`, minimum notice `60`, cancellation/reschedule
 cutoff `60`, and check-in early window `15` minutes. Existing consultations use
@@ -825,14 +828,12 @@ their snapshot and must not be reinterpreted in the client. A
 
 ### Chronic Care
 
-| Area | Contract | Restriction |
-| --- | --- | --- |
-| Catalog/enrollment | `GET /care-programs`, `/care-programs/:id`, `/care-enrollments`, `/care-enrollments/:id` | Patient owns enrollment; Doctor must be assigned; Admin has no Enrollment clinical read in DA2. |
-| Tasks | `GET /care-enrollments/:id/tasks`, `GET /care-tasks/:id` | Bounded list/detail only; do not render/cache raw responses, metrics, review notes, rule snapshots, or audit data. |
-| Task response | `POST /care-tasks/:id/responses` + key | Metric remains HLTH-02. Education acknowledges approved immutable content. Check-in accepts only `health-check-in.v1`; unsupported policy/content fails closed. |
-| Doctor review | `POST /care-tasks/:id/doctor-review` + key | Assigned Doctor only; reason code is allowlisted and the plaintext note is not returned by default task read. |
-| Rule | `GET /care-programs/:id/rules?view=active \| draft` | Patient denied; active+approved Doctor gets active summary; Admin gets sanitized active/draft declarative projection, never raw traces/clinical inputs. |
-| Export | `POST /care-reports/:id/exports` + key; `GET /care-report-exports/:id` | Async owner-only job. Poll status; use `download.url` only when ready and before expiry. |
+- **Catalog/enrollment.** `GET /care-programs`, `/care-programs/:id`, `/care-enrollments`, `/care-enrollments/:id`. Patient owns enrollment; Doctor must be assigned; Admin has no Enrollment clinical read in DA2.
+- **Tasks.** `GET /care-enrollments/:id/tasks`, `GET /care-tasks/:id`. Bounded list/detail only; do not render/cache raw responses, metrics, review notes, rule snapshots, or audit data.
+- **Task response.** `POST /care-tasks/:id/responses` + key. Metric remains HLTH-02. Education acknowledges approved immutable content. Check-in accepts only `health-check-in.v1`; unsupported policy/content fails closed.
+- **Doctor review.** `POST /care-tasks/:id/doctor-review` + key. Assigned Doctor only; reason code is allowlisted and the plaintext note is not returned by default task read.
+- **Rule.** `GET /care-programs/:id/rules?view=active \| draft`. Patient denied; active+approved Doctor gets active summary; Admin gets sanitized active/draft declarative projection, never raw traces/clinical inputs.
+- **Export.** `POST /care-reports/:id/exports` + key; `GET /care-report-exports/:id`. Async owner-only job. Poll status; use `download.url` only when ready and before expiry.
 
 Enrollment state đổi đồng bộ ngay trong response, còn CareTask schedule/cancel là
 outbox side effect bất đồng bộ. Sau `active`/`resume`, tải lại danh sách task theo
@@ -901,18 +902,25 @@ is disabled.
 > `forgot-password`, `send-otp`, `confirm-otp`, OAuth re-authentication, link,
 > or unlink endpoints.
 
-| User intent | Endpoint and input | Expected result / frontend behavior |
-| --- | --- | --- |
-| Đăng ký Patient | `POST /api/v1/auth/register/patient` JSON: `{ email, password, fullName, phoneNumber? }` | `201`, `{ status: "pending_verification", message }`. Không gửi `role`. Hiển thị màn hình xác minh email bằng OTP; đây chưa phải phiên đăng nhập. |
-| Đăng ký Doctor | `POST /api/v1/auth/register/doctor` multipart: trường local cùng `specialty`, `workplace`, `experienceYears`, tùy chọn `newFilesToUpload[]` | Chờ xác minh email. Sau đó Doctor vẫn cần Admin duyệt riêng. Không gửi role hoặc URL tài liệu. |
-| Khôi phục hồ sơ Doctor bị từ chối | `POST /api/v1/auth/doctor-reapplication/restore`: `{ email, password }` | Trả trường hồ sơ nghề nghiệp và metadata tài liệu opaque để điền lại, không trả URL tài liệu. Gửi lại qua endpoint Doctor cùng file mới nếu có; server giữ file cũ. |
-| Yêu cầu/gửi lại OTP xác minh | `POST /api/v1/auth/request-email-verification`: `{ email }` | Luôn hiển thị kết quả chung. Đăng ký đã gửi OTP đầu tiên; chỉ gọi khi người dùng yêu cầu gửi lại. |
-| Xác minh email bằng OTP | `POST /api/v1/auth/verify-email`: `{ email, otpCode }` | `200`; email xác định thử thách, OTP chứng minh quyền sở hữu. Điều hướng sang đăng nhập bằng mật khẩu. Việc này không duyệt hồ sơ Doctor. |
-| Đăng nhập bằng mật khẩu | `POST /api/v1/auth/login`: `{ email, password }` | Chỉ trả access/refresh token nếu chính sách cấp quyền đầy đủ đạt (`user` gồm `hasPassword`, `authProvider`). Account chờ xác minh chuyển sang giao diện xác minh/gửi lại OTP. |
-| Khôi phục mật khẩu | `POST /api/v1/auth/password-recovery`: `{ email }`, sau đó `POST /api/v1/auth/reset-password`: `{ email, otpCode, newPassword }` | Kết quả yêu cầu chung. Reset dùng OTP một lần, thu hồi mọi session rồi chuyển sang đăng nhập. OAuth-only không có luồng reset mật khẩu local; dùng `GET /auth/me` hoặc `session.user` (`hasPassword: false`, `authProvider: "google"`) để ẩn nút đổi mật khẩu local. |
-| Đăng nhập/đăng ký Google Patient trên web | Điều hướng trình duyệt: `GET /api/v1/auth/oauth/google`, sau đó callback từ provider | Dùng state/PKCE do server quản lý và cookie HttpOnly của cùng trình duyệt. Provider subject đủ điều kiện đầu tiên tạo account Patient OAuth-only. Email trùng account mật khẩu trả lỗi an toàn; hướng người dùng sang đăng nhập bằng mật khẩu. |
-| Đăng nhập/đăng ký Google trên mobile | Tạo challenge: `POST /api/v1/auth/oauth/google/mobile/attempt`; đổi ticket: `POST /api/v1/auth/oauth/google/exchange` | App tự tạo verifier/challenge; server sinh attempt ID và relative authorize path. Callback trả app-link có ticket một lần; exchange bắt buộc attempt ID + verifier. Chỉ exchange trả session (`user` gồm `hasPassword: false`, `authProvider: "google"`). |
-| Phiên đăng nhập & Hồ sơ auth | `GET /auth/me`; `GET /auth/sessions`; `POST /auth/refresh`; `POST /auth/logout`; `POST /auth/logout-all`; `POST /auth/sessions/revoke` `{ sessionId }` | Cần Bearer token. `GET /auth/me` trả hồ sơ không kèm `passwordHash` cùng cờ `hasPassword` và `authProvider`. `GET /auth/sessions` chỉ trả các phiên chưa thu hồi còn hạn và đánh dấu `current: true` khớp `sid`. `logout` thu hồi phiên hiện tại; `logout-all` thu hồi mọi phiên thuộc người dùng. Refresh chỉ nhận `{ refreshToken }`, không nhận `userId`. |
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | Xác thực | Đăng ký Patient | `POST /api/v1/auth/register/patient` | Công khai | JSON `email`, `password`, `fullName`, `phoneNumber?` | `201 pending_verification` | 400, 409 | Tạo tài khoản chờ xác minh OTP. |
+| 2 | Xác thực | Đăng ký Doctor | `POST /api/v1/auth/register/doctor` | Công khai | Multipart với dữ liệu local, `specialty`, `workplace`, `experienceYears`, `newFilesToUpload[]?` | Chờ xác minh email | 400, 409 | Gửi hồ sơ Doctor để tiếp tục quy trình duyệt. |
+| 3 | Xác thực | Khôi phục hồ sơ Doctor | `POST /api/v1/auth/doctor-reapplication/restore` | Email và mật khẩu | `{ email, password }` | Hồ sơ nghề nghiệp và metadata tài liệu opaque | 400, 401, 404 | Điền lại hồ sơ bị từ chối. |
+| 4 | Xác thực | Yêu cầu OTP xác minh | `POST /api/v1/auth/request-email-verification` | Công khai | `{ email }` | Thông báo chung | 400, 429 | Gửi lại OTP khi người dùng yêu cầu. |
+| 5 | Xác thực | Xác minh email | `POST /api/v1/auth/verify-email` | Công khai | `{ email, otpCode }` | Xác minh thành công | 400, 429 | Xác thực quyền sở hữu email. |
+| 6 | Xác thực | Đăng nhập | `POST /api/v1/auth/login` | Công khai | `{ email, password }` | Access/refresh token và `user` (`hasPassword`, `authProvider`) nếu đủ điều kiện | 400, 401, 403, 429 | Tạo phiên đăng nhập local. |
+| 7 | Xác thực | Yêu cầu khôi phục | `POST /api/v1/auth/password-recovery` | Công khai | `{ email }` | Thông báo chung | 400, 429 | Yêu cầu OTP khôi phục. |
+| 8 | Xác thực | Đặt lại mật khẩu | `POST /api/v1/auth/reset-password` | OTP | `{ email, otpCode, newPassword }` | Đặt lại thành công | 400, 429 | Đặt mật khẩu mới và thu hồi phiên. OAuth-only không có luồng local; dùng `GET /auth/me` hoặc `session.user` (`hasPassword: false`, `authProvider: "google"`) để ẩn nút đổi mật khẩu local. |
+| 9 | Xác thực | Bắt đầu Google web | `GET /api/v1/auth/oauth/google` | Browser | Điều hướng trình duyệt | Redirect OAuth | Lỗi OAuth | Bắt đầu đăng nhập Google Patient. |
+| 10 | Xác thực | Tạo Google mobile attempt | `POST /api/v1/auth/oauth/google/mobile/attempt` | Công khai | Challenge của app | Attempt ID và authorize path | 400, 429 | Khởi tạo OAuth mobile. |
+| 11 | Xác thực | Đổi Google mobile ticket | `POST /api/v1/auth/oauth/google/exchange` | Ticket + proof | Ticket, attempt ID, verifier | Session (`user` gồm `hasPassword: false`, `authProvider: "google"`) | 400, 401, 429 | Hoàn tất OAuth mobile. |
+| 12 | Xác thực | Làm mới phiên | `POST /api/v1/auth/refresh` | Refresh token | `{ refreshToken }` | Token mới | 400, 401, 429 | Làm mới phiên hiện hành. |
+| 13 | Xác thực | Hồ sơ xác thực hiện tại | `GET /api/v1/auth/me` | JWT | — | Hồ sơ auth không kèm `passwordHash`, gồm `hasPassword` và `authProvider` | 401 | Đọc hồ sơ auth hiện tại và phân biệt tài khoản local với OAuth-only. |
+| 14 | Xác thực | Liệt kê phiên | `GET /api/v1/auth/sessions` | JWT | — | Danh sách phiên chưa thu hồi còn hạn (đánh dấu `current: true` khớp `sid`) | 401 | Xem thiết bị và phiên đang hoạt động. |
+| 15 | Xác thực | Đăng xuất | `POST /api/v1/auth/logout` | JWT | — | Thu hồi phiên hiện tại | 401 | Kết thúc phiên hiện tại. |
+| 16 | Xác thực | Đăng xuất mọi phiên | `POST /api/v1/auth/logout-all` | JWT | — | Thu hồi các phiên | 401 | Kết thúc mọi phiên. |
+| 17 | Xác thực | Thu hồi phiên đã chọn | `POST /api/v1/auth/sessions/revoke` | JWT | `{ sessionId }` | Kết quả thu hồi | 400, 401, 404 | Thu hồi một phiên của tài khoản. |
 
 ### Google OAuth UX boundary
 
@@ -999,13 +1007,13 @@ và dữ liệu mới, quyền không tự hết hạn; `all` bao gồm metric t
 thống có projection an toàn. Patient có thể đổi hoặc thu hồi quyền; dữ liệu đã
 được người nhận sao chép không thể thu hồi khỏi thiết bị của họ.
 
-| Thao tác | API và input | Kết quả |
-| --- | --- | --- |
-| Xem quyền | `GET /api/v1/family-links/{id}/health-metric-sharing` | `data.linkStatus` và `data.sharing` (`null` nếu chưa có grant active); chỉ hai bên của link. |
-| Cấp/đổi quyền | `PUT /api/v1/family-links/{id}/health-metric-sharing`, header `Idempotency-Key` | Body `{ "scope": "all", "consentVersion": "family-health-metric-sharing.v1" }`, hoặc `{ "scope": "selected", "metricTypes": ["weight", "blood_pressure"], "consentVersion": "family-health-metric-sharing.v1" }`; trả `data.revision`. Chỉ Patient sở hữu. Không gửi `metricTypes` cùng `all`; selected phải không rỗng, không trùng. |
-| Thu hồi | `DELETE /api/v1/family-links/{id}/health-metric-sharing`, header `Idempotency-Key` | Patient sở hữu nhận `{ "data": { "revoked": true } }`. |
-| Xem summary | `GET /api/v1/family-links/{id}/health-metrics/summary?metricType=weight` | Companion được cấp quyền nhận count, average, minimum, maximum, latest và `data.window`. Không có số liệu trong cửa sổ thì trả `404 No metrics found for this type`; FE hiển thị empty state. |
-| Xem trend | `GET /api/v1/family-links/{id}/health-metrics/trend?metricType=weight&limit=20` | Nhận các điểm đo gốc trong `data.items`, `data.nextCursor` và `data.window`; truyền cursor để xem trang cũ hơn trong cùng cửa sổ. |
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | E2 · Chia sẻ chỉ số | Xem quyền | `GET /api/v1/family-links/{id}/health-metric-sharing` | JWT Patient thuộc link | Path `id` | `FamilyHealthMetricSharingResponse` | 401, 403, 404 | Xem grant của hai bên liên kết. |
+| 2 | E2 · Chia sẻ chỉ số | Cấp hoặc đổi quyền | `PUT /api/v1/family-links/{id}/health-metric-sharing` | JWT Patient chủ link | `Idempotency-Key` và `FamilyHealthMetricSharingRequest` | `data.revision` | 400, 401, 403, 404, 409 | Chọn tất cả hoặc danh sách metric. |
+| 3 | E2 · Chia sẻ chỉ số | Thu hồi quyền | `DELETE /api/v1/family-links/{id}/health-metric-sharing` | JWT Patient chủ link | `Idempotency-Key` | `data: { revoked: true }` | 400, 401, 403, 404, 409 | Thu hồi quyền đọc. |
+| 4 | E2 · Chia sẻ chỉ số | Xem thống kê | `GET /api/v1/family-links/{id}/health-metrics/summary` | JWT Companion được cấp quyền | Query `FamilyHealthMetricSummaryQuery` | `FamilyHealthMetricSummaryResponse` | 400, 401, 403, 404, 429 | Thống kê toàn kỳ. Kỳ rỗng trả 404. |
+| 5 | E2 · Chia sẻ chỉ số | Xem xu hướng | `GET /api/v1/family-links/{id}/health-metrics/trend` | JWT Companion được cấp quyền | Query `FamilyHealthMetricQuery` | `FamilyHealthMetricTrendResponse` | 400, 401, 403, 404, 429 | Đọc điểm đo theo cursor. |
 
 Summary/trend dùng chung một cửa sổ thời gian đã chuẩn hóa. Không truyền bộ lọc
 nào thì mặc định là tuần lịch hiện tại theo `Asia/Ho_Chi_Minh`: thứ Hai 00:00
@@ -1074,3 +1082,297 @@ sai JWT; `403 FAMILY_HEALTH_ACCESS_DENIED` khi không đủ quyền hoặc entit
 `404` khi không tìm thấy link hoặc không có số liệu summary; `409` khi key đã
 dùng cho payload khác; `429` khi vượt throttle. Không cache kết quả quyền để
 thay thế kiểm tra ở backend; làm mới UI sau khi Patient thay đổi quyền.
+
+## E3 — Danh bạ cơ sở y tế
+
+Các route dưới đây chỉ dùng khi `FACILITY_DIRECTORY_ENABLED=true`; mọi API Patient
+cần Bearer JWT role Patient. Pilot chỉ có dữ liệu TP. Hồ Chí Minh. Mọi Patient
+account đang hoạt động đều được tìm, không phân biệt FREE/PLUS/CARE. Không đưa
+chẩn đoán hoặc hồ sơ bệnh nhân vào request tìm kiếm.
+
+### Luồng Patient
+
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | E3 · Patient | Liệt kê chuyên khoa | `GET /api/v1/medical-facilities/specialties` | JWT Patient | — | `data: FacilityDirectorySpecialty[]` | 401, 403, 503 | Chọn chuyên khoa active. |
+| 2 | E3 · Patient | Tìm nội bộ | `POST /api/v1/medical-facilities/search` | JWT Patient | `FacilityDirectorySearchRequest` | `FacilityDirectorySearchResponse` | 400, 401, 403, 404, 503 | Tìm cơ sở đã xác minh. |
+| 3 | E3 · Patient | Xem chi tiết | `GET /api/v1/medical-facilities/{id}` | JWT Patient | Path `id` | `data: FacilityDirectoryDetail` | 401, 403, 404, 503 | Xem thông tin cơ sở đã xác minh. |
+| 4 | E3 · Patient | Tìm thêm qua Google | `POST /api/v1/medical-facilities/external-search` | JWT Patient | `FacilityDirectoryExternalSearchRequest` | `FacilityDirectoryExternalSearchResponse` | 400, 401, 403, 429, 503 | Tìm bên ngoài theo yêu cầu của Patient. |
+
+1. Lấy specialty đang hoạt động bằng `GET /api/v1/medical-facilities/specialties`.
+   FE có thể cho Patient chọn trực tiếp specialty hoặc chọn `programCode`/
+   `diseaseKey` đã được Chronic Care công bố.
+2. Gọi `POST /api/v1/medical-facilities/search` cho danh mục nội bộ. Chọn đúng
+   một trong `specialtyCode`, `programCode`, `diseaseKey`; đồng thời chọn `area`
+   hoặc `location`. `location` phải do Patient chủ động cấp và đi cùng
+   `locationConsent: true`. Gửi tọa độ trong JSON body; không đưa vào URL, analytics,
+   crash report hay log FE.
+3. Nếu chọn Program, backend thử mapping đã publish cho Program trước, sau đó
+   mapping `diseaseKey`. Nếu không có mapping, response có
+   `mappingStatus: "manual_specialty_required"`, danh sách rỗng và pagination
+   rỗng; FE yêu cầu Patient chọn specialty, không tự đoán.
+4. Kết quả chỉ có Facility nội bộ đã `verified`. Khi Patient muốn tìm rộng hơn,
+   FE hiển thị nút riêng “Tìm thêm trên Google Maps” và gọi
+   `POST /api/v1/medical-facilities/external-search`. Không tự gọi API này khi
+   internal search rỗng. Kết quả Google là tạm thời, `verifiedInternally: false`,
+   có attribution; không gộp chúng vào danh sách đã xác minh.
+5. Xem chi tiết nội bộ bằng `GET /api/v1/medical-facilities/{id}`. Chỉ hiển thị
+   website/đặt lịch nếu có; booking link không có nghĩa là lịch đã trống hoặc đã
+   đặt thành công. Luồng urgent hiện hữu phải hiển thị trước directory.
+
+Request nội bộ ví dụ theo specialty và khu vực:
+
+```json
+{
+  "specialtyCode": "cardiology",
+  "area": "Quận 3",
+  "page": 1,
+  "limit": 20
+}
+```
+
+Ví dụ tìm quanh vị trí Patient (tọa độ là dữ liệu nhạy cảm; không ghi lại request):
+
+```json
+{
+  "programCode": "hypertension-care",
+  "location": { "longitude": 106.7009, "latitude": 10.7769 },
+  "locationConsent": true,
+  "radiusKm": 10,
+  "page": 1,
+  "limit": 20
+}
+```
+
+Search mặc định bán kính 10 km, cho phép 1–50 km; page size mặc định 20, tối đa
+50. Sắp xếp theo specialty match, rồi khoảng cách tăng dần khi có vị trí, sau đó
+normalized name và ID ổn định; tìm theo khu vực dùng normalized name/ID. Đây là
+deterministic filtering, không phải xếp hạng chất lượng lâm sàng. Mỗi item có
+`source`, `reasonCode`, `matchedSpecialtyCodes`, `distanceMeters` nếu có,
+`verificationLabel` và `lastCheckedAt`. Quá 180 ngày gắn nhãn
+`needs_recheck` nhưng vẫn có thể xuất hiện; thông tin có thể cần xác nhận lại.
+
+`reasonCode` hiện dùng `manual_specialty_specialty_match`,
+`program_mapping_specialty_match` hoặc `disease_mapping_specialty_match`; khi có
+vị trí, thêm hậu tố `_nearby`. FE nên ánh xạ mã thành lời giải thích trung tính
+(“Khớp chuyên khoa bạn đã chọn”, “Khớp chuyên khoa theo chương trình”, “Gần vị
+trí đã cung cấp”), không thành khuyến nghị điều trị hay đánh giá chất lượng.
+
+Search response có dạng:
+
+```json
+{
+  "data": {
+    "mappingStatus": "matched",
+    "mappingSource": "program_mapping",
+    "items": [],
+    "pagination": { "page": 1, "limit": 20, "total": 0, "hasNextPage": false }
+  }
+}
+```
+
+Chỉ gửi `area` hoặc `location`, không gửi cả hai. Location phải có consent; không
+gửi tọa độ trong query string. Internal list không trả tọa độ Facility; detail mới
+có tọa độ cơ sở để mở chỉ đường. Page bắt đầu từ 1, `limit` tối đa 50; page sort
+ổn định theo tie-breaker nhưng không phải snapshot bất biến khi Admin sửa dữ liệu.
+
+### Google Maps/Places và consent
+
+Patient external search tiếp tục dùng contract specialty hiện có. Riêng màn hình
+quản trị có thể tìm Google Places bằng `query` (tên cơ sở, tên kèm chi nhánh hoặc
+địa chỉ), hoặc theo `specialtyCode` nội bộ đang active. Hai chế độ loại trừ nhau;
+không gửi cả hai. Query có thể đi kèm `area` hoặc `location`; không gửi đồng thời
+cả hai. Tìm theo specialty bắt buộc đúng một trong `area`/`location`. `radiusKm`
+chỉ hợp lệ cùng location.
+
+Google response phải có attribution “Google Maps”; FE tuân theo điều khoản
+attribution/cache và không hiển thị Google content trên bản đồ không phải Google.
+Admin candidate trả Place ID, tên/địa chỉ/vị trí nếu có, link bản đồ an toàn và
+attribution. `placeType` chỉ lọc taxonomy Google được allowlist; không dùng để
+điền `facilityType` hoặc `specialtyCodes` nội bộ. Khi location được gửi cho Admin,
+Google `locationBias` ưu tiên kết quả gần đó, không bảo đảm mọi kết quả nằm trong
+bán kính.
+
+Place ID là field provider duy nhất lưu bền vững. Tên, địa chỉ và Places content
+khác chỉ tồn tại trong response preview; không gửi ngược các field này vào body
+draft. Tọa độ Google chỉ xuất hiện trong preview tạm và không nằm trong
+`details`; FE chỉ hiển thị kèm attribution và không coi là vị trí đã xác minh.
+Provider lỗi, timeout, bị tắt hoặc bị rate-limit chỉ làm trạng thái external
+unavailable; internal results đã tải vẫn giữ được. Không tự động retry liên tục.
+
+### Luồng quản trị `super_admin`
+
+Các route quản trị ở `/api/v1/admin/...` yêu cầu JWT Admin và quyền canonical
+`adminProfile.adminRole = super_admin`; `ai_manager`/`user_manager` bị từ chối.
+Admin tạo draft thủ công hoặc tìm map candidate rồi chọn đúng dòng theo tên, địa
+chỉ, chi nhánh, Place ID và bản đồ. FE phải giữ `placeId` của đúng dòng được chọn.
+Khi gọi tạo draft, response mới có thể kèm `providerPreview` để đối chiếu; đây là
+preview tạm có attribution, không phải các field đã lưu trong `details`. UI không
+được tự chép tên/địa chỉ preview vào payload `PUT /draft`. Tọa độ preview được
+đánh dấu “Google — cần kiểm tra” và không thay thế việc
+nhập tọa độ từ nguồn chính thức.
+
+Place ID được lưu trong draft. Tên, loại cơ sở, địa chỉ, specialty, dịch vụ, liên
+hệ, nguồn chính thức và booking link cần được `super_admin` xác minh độc lập rồi
+nhập; Google không cung cấp căn cứ để tự gán specialty, facilityType, nguồn chính
+thức hoặc booking link. Trước khi verify Facility có Place ID, FE gửi
+`providerDataReviewedAgainstOfficialSource: true` chỉ sau khi reviewer đã thực sự
+đối chiếu nguồn chính thức. Verify vẫn yêu cầu đủ tên, loại, địa chỉ HCMC, tọa độ,
+specialty active, kênh liên hệ và URL nguồn HTTPS phù hợp. `details` của draft
+được phép thiếu trường; khi gửi `PUT` FE phải gửi toàn bộ `details` muốn giữ vì
+request thay thế nội dung draft, không phải patch. Một Facility verified được sửa
+qua draft revision; bản hiện hành tiếp tục hiển thị cho Patient đến khi revision
+mới được verify. Retire loại
+Facility ngay khỏi search. Các thay đổi cần header `Idempotency-Key`; key không
+được ghi log hoặc dùng làm định danh UI.
+
+Specialty và Program/disease mappings cũng do `super_admin` quản lý. Mapping có
+version `draft → published → retired`, có source references và chỉ cho một bản
+published trên mỗi scope/key. Mapping là bộ lọc định hướng; không phải chẩn đoán
+hay khuyến nghị điều trị.
+
+| STT | Nhóm | Tên | Method + Endpoint | Auth | Input | Response | Error | Mục đích |
+| --: | :--- | :-- | :---------------- | :--- | :---- | :------- | :---- | :------- |
+| 1 | E3 · Quản trị | Liệt kê cơ sở | `GET /api/v1/admin/medical-facilities` | JWT `super_admin` | Query `status`, `needsRecheck`, `page`, `limit` | `data: { items, total }` | 401, 403 | Liệt kê cơ sở trong danh bạ quản trị. |
+| 2 | E3 · Quản trị | Xem cơ sở | `GET /api/v1/admin/medical-facilities/{id}` | JWT `super_admin` | Path `id` | `data: FacilityDirectoryAdminRecord` | 401, 403, 404 | Xem cơ sở trong danh bạ quản trị. |
+| 3 | E3 · Quản trị | Tạo draft | `POST /api/v1/admin/medical-facilities` | JWT `super_admin` | `Idempotency-Key` và `{ details, duplicateReview? }` | `data: FacilityDirectoryAdminRecord`; có thể trả candidate conflict | 400, 401, 403, 404, 409 `FACILITY_POSSIBLE_DUPLICATE` | Tạo draft; nếu có candidate cần mở để đối chiếu trước khi xác nhận tiếp. |
+| 4 | E3 · Quản trị | Tìm candidate Google | `POST /api/v1/admin/medical-facilities/map-candidates` | JWT `super_admin` | Một trong `{ query, area? }`, `{ query, location?, radiusKm? }`, `{ specialtyCode, area }`, `{ specialtyCode, location, radiusKm? }`; thêm `placeType?` | `data: FacilityDirectoryExternalSearchResponse` | 400, 401, 403, 429, 503 | Tìm theo tên/chi nhánh/địa chỉ hoặc specialty active; location chỉ ưu tiên kết quả; loại Google không gán taxonomy nội bộ. |
+| 5 | E3 · Quản trị | Tạo draft từ candidate | `POST /api/v1/admin/medical-facilities/from-map-candidate` | JWT `super_admin` | `Idempotency-Key` và `{ placeId, duplicateReview? }` | Lần tạo: `data: FacilityDirectoryAdminRecord & { providerPreview? }`; replay: draft đã lưu, preview có thể vắng | 400, 401, 403, 404, 409 `FACILITY_POSSIBLE_DUPLICATE` hoặc `FACILITY_GOOGLE_PLACE_ALREADY_LINKED`, 429, 503 | Lưu Place ID và draft; duplicate check dùng preview tạm; Place ID trùng chính xác luôn chặn. |
+| 6 | E3 · Quản trị | Lấy preview mới | `GET /api/v1/admin/medical-facilities/{id}/map-candidate` | JWT `super_admin` | Path `id` của draft có Place ID | `data: FacilityDirectoryMapPreview` | 400, 401, 403, 404, 429, 503 | Gọi Places lấy preview mới, có thể thất bại nếu provider không khả dụng. |
+| 7 | E3 · Quản trị | Sửa draft | `PUT /api/v1/admin/medical-facilities/{id}/draft` | JWT `super_admin` | `Idempotency-Key` và `{ details, revisionId?, expectedRevision }` | `data: FacilityDirectoryAdminRecord` | 400, 401, 403, 404, 409 | Sửa draft trong danh bạ quản trị. |
+| 8 | E3 · Quản trị | Tạo revision | `POST /api/v1/admin/medical-facilities/{id}/revisions` | JWT `super_admin` | `Idempotency-Key` | `data: FacilityDirectoryRevision` | 400, 401, 403, 404, 409 | Tạo revision trong danh bạ quản trị. |
+| 9 | E3 · Quản trị | Xác minh cơ sở | `POST /api/v1/admin/medical-facilities/{id}/actions/verify` | JWT `super_admin` | `Idempotency-Key` và `{ revisionId, expectedRevision, providerDataReviewedAgainstOfficialSource?: true, duplicateReview? }`; bắt buộc `true` nếu có Place ID | `data: FacilityDirectoryAdminRecord`; có thể trả candidate mới | 400, 401, 403, 404, 409 `FACILITY_POSSIBLE_DUPLICATE` | Dò lại các Facility verified; cặp đã xác nhận được bỏ qua, candidate mới phải review. |
+| 10 | E3 · Quản trị | Ngừng công bố | `POST /api/v1/admin/medical-facilities/{id}/actions/retire` | JWT `super_admin` | `Idempotency-Key` và `{ reason, expectedRevision }` | `data: { retired: true }` | 400, 401, 403, 404, 409 | Ngừng công bố trong danh bạ quản trị. |
+| 11 | E3 · Quản trị | Liệt kê chuyên khoa | `GET /api/v1/admin/medical-specialties` | JWT `super_admin` | Query `status?` | `data: FacilityDirectoryAdminSpecialty[]` | 401, 403 | Liệt kê chuyên khoa trong danh bạ quản trị. |
+| 12 | E3 · Quản trị | Tạo chuyên khoa | `POST /api/v1/admin/medical-specialties` | JWT `super_admin` | `Idempotency-Key` và `{ code, nameVi, synonyms? }` | `data: FacilityDirectoryAdminSpecialty` | 400, 401, 403, 404, 409 | Tạo chuyên khoa trong danh bạ quản trị. |
+| 13 | E3 · Quản trị | Sửa chuyên khoa | `PATCH /api/v1/admin/medical-specialties/{code}` | JWT `super_admin` | `Idempotency-Key` và `{ nameVi, synonyms?, expectedRevision }` | `data: FacilityDirectoryAdminSpecialty` | 400, 401, 403, 404, 409 | Sửa chuyên khoa trong danh bạ quản trị. |
+| 14 | E3 · Quản trị | Ngừng chuyên khoa | `POST /api/v1/admin/medical-specialties/{code}/actions/retire` | JWT `super_admin` | `Idempotency-Key` và `{ reason, expectedRevision }` | `data: { retired: true }` | 400, 401, 403, 404, 409 | Ngừng chuyên khoa trong danh bạ quản trị. |
+| 15 | E3 · Quản trị | Liệt kê mapping | `GET /api/v1/admin/disease-specialty-mappings` | JWT `super_admin` | Query `scope?`, `scopeKey?`, `status?` | `data: FacilityDirectoryMapping[]` | 401, 403 | Liệt kê mapping trong danh bạ quản trị. |
+| 16 | E3 · Quản trị | Tạo mapping | `POST /api/v1/admin/disease-specialty-mappings` | JWT `super_admin` | `Idempotency-Key` và `{ scope, scopeKey, specialtyCodes, sourceReferences }` | `data: FacilityDirectoryMapping` | 400, 401, 403, 404, 409 | Tạo mapping trong danh bạ quản trị. |
+| 17 | E3 · Quản trị | Sửa mapping | `PATCH /api/v1/admin/disease-specialty-mappings/{id}` | JWT `super_admin` | `Idempotency-Key` và `{ specialtyCodes, sourceReferences, expectedRevision }` | `data: FacilityDirectoryMapping` | 400, 401, 403, 404, 409 | Sửa mapping trong danh bạ quản trị. |
+| 18 | E3 · Quản trị | Công bố mapping | `POST /api/v1/admin/disease-specialty-mappings/{id}/actions/publish` | JWT `super_admin` | `Idempotency-Key` và `{ expectedRevision }` | `data: FacilityDirectoryMapping` | 400, 401, 403, 404, 409 | Công bố mapping trong danh bạ quản trị. |
+| 19 | E3 · Quản trị | Ngừng mapping | `POST /api/v1/admin/disease-specialty-mappings/{id}/actions/retire` | JWT `super_admin` | `Idempotency-Key` và `{ reason, expectedRevision }` | `data: { retired: true }` | 400, 401, 403, 404, 409 | Ngừng mapping trong danh bạ quản trị. |
+| 20 | E3 · Quản trị | Cập nhật metadata Facility | `PATCH /api/v1/admin/medical-facilities/{id}` | JWT `super_admin` | `Idempotency-Key` và `{ placeId, expectedRevision }` | `data: FacilityDirectoryAdminRecord` | 400, 401, 403, 404, 409, 503 | Gắn Place ID lần đầu vào Facility draft/verified sau khi provider xác minh; không sửa details hoặc thay/gỡ ID. |
+
+Ví dụ tìm theo tên/chi nhánh:
+
+```json
+{
+  "query": "Phòng khám Minh An chi nhánh Quận 3",
+  "placeType": "medical_clinic",
+  "area": "Quận 3"
+}
+```
+
+Ví dụ tìm theo specialty nội bộ và vị trí để ưu tiên kết quả gần đó:
+
+```json
+{
+  "specialtyCode": "cardiology",
+  "location": { "latitude": 10.7769, "longitude": 106.7009 },
+  "radiusKm": 10,
+  "placeType": "hospital"
+}
+```
+
+`query` và `specialtyCode` cùng gửi sẽ trả `400`; query rỗng cũng bị từ chối.
+Tìm theo specialty đòi đúng một trong `area`/`location`. `placeType` phải thuộc
+`GooglePlaceTypeFilter`; giá trị này chỉ là bộ lọc Places. FE hiển thị candidate
+với attribution, cho Admin chọn đúng chi nhánh, rồi chỉ gửi `placeId` và
+`Idempotency-Key` khi tạo draft.
+
+Response lần đầu có thể gồm preview:
+
+```json
+{
+  "data": {
+    "id": "<facilityId>",
+    "status": "draft",
+    "googlePlaceId": "<placeId>",
+    "draftRevisionId": "<revisionId>",
+    "providerPreview": {
+      "placeId": "<placeId>",
+      "name": "Phòng khám Minh An - Quận 3",
+      "address": "<địa chỉ do Google trả>",
+      "location": { "latitude": 10.77, "longitude": 106.69 },
+      "mapsUrl": "https://www.google.com/maps/...",
+      "attribution": "Google Maps",
+      "source": "google_maps",
+      "verifiedInternally": false
+    }
+  }
+}
+```
+
+`providerPreview` là response tạm, không nằm trong draft đã lưu. Tọa độ chỉ xuất hiện trong response tạm. Replay cùng actor/key/placeId trả draft đã commit kể
+cả khi Google lỗi; preview là tùy chọn và thường không có. Nếu lần đầu lỗi trước
+commit và Google vẫn lỗi, UI báo thử lại bằng cùng key. Key đã dùng cho Place ID
+khác trả `409`. Khi cần preview mới, gọi GET map-candidate.
+
+### Xử lý candidate trùng và gắn Place ID
+
+Khi tạo draft thủ công hoặc từ Google, backend tự rà soát candidate nội bộ. Nếu
+có thể trùng, mutation trả `409 FACILITY_POSSIBLE_DUPLICATE`; response có
+`details.candidates` tối đa 50 record và `details.truncated`. Candidate gồm ID,
+tên/địa chỉ nội bộ, status, revision, Place ID nếu có, `reasonCodes` và khoảng
+cách nếu tính được. Không dùng Google preview làm dữ liệu candidate đã lưu.
+
+FE cho Admin hiển thị thao tác **Mở cơ sở** trên từng candidate. Nếu hai record
+là cùng cơ sở và Facility nội bộ chưa có Place ID, gọi `PATCH
+/admin/medical-facilities/{id}` trên Facility đang được giữ lại. Nếu là hai cơ
+sở khác nhau, FE gửi ví dụ:
+
+```json
+{
+  "details": { "name": "Phòng khám Minh An - chi nhánh 2" },
+  "duplicateReview": {
+    "confirmedDistinct": true,
+    "reason": "Hai chi nhánh ở hai địa chỉ khác nhau.",
+    "reviewedFacilityIds": ["<candidateFacilityId>"]
+  }
+}
+```
+
+Tương tự, khi retry verify do candidate mới, gửi `duplicateReview` cùng
+`revisionId` và `expectedRevision`. Gửi `Idempotency-Key` mới mỗi khi body đã
+thay đổi sau một conflict. API chạy duplicate check lại; ID xác nhận mới phải
+thuộc candidate hiện tại, nếu không trả `409
+FACILITY_DUPLICATE_REVIEW_CANDIDATE_NOT_CURRENT`. Candidate chưa được xác nhận
+tiếp tục trả conflict. Khi `truncated=true`, FE không được hiển thị nút xác nhận
+“đã rà hết”; yêu cầu Admin hoàn thiện địa chỉ/vị trí hoặc tên phân biệt rồi gửi
+lại. Draft thiếu dữ liệu vẫn có thể tạo, nhưng verify sẽ dò lại.
+
+Quyết định Option A được nhúng trong Facility đang tạo/verify, gắn đúng cặp
+`(Facility đang tạo/verify, candidateFacilityId)` và lưu actor, thời điểm, lý
+do. Mỗi Facility giữ tối đa 50 quyết định; nếu đạt giới hạn, API trả `409
+FACILITY_DUPLICATE_REVIEW_LIMIT_REACHED`; FE hướng Admin tới directory owner để
+rà soát record thay vì retry cùng lệnh. Cùng cặp không bị
+hỏi lại ở verify dù chi tiết thay đổi; candidate mới vẫn cần review. Decision
+không cho phép trùng Place ID chính xác. `PATCH /admin/medical-facilities/{id}`
+nhận `{ placeId, expectedRevision }`, chỉ lưu Place ID sau khi Google xác nhận;
+không điền/cập nhật Facility details, không thay/gỡ ID. Conflict vì Place ID đã thuộc Facility khác
+trả `FACILITY_GOOGLE_PLACE_ALREADY_LINKED` cùng projection an toàn để FE mở record.
+
+Mutation quản trị gửi `Idempotency-Key`; update/verify/publish/retire gửi thêm
+`expectedRevision` tương ứng. Cùng key và cùng payload trả lại cùng kết quả; cùng
+key nhưng payload khác trả conflict. Admin list hỗ trợ `status`, `needsRecheck`,
+`page`, `limit` (tối đa 100) để rà freshness.
+
+### Trạng thái giao diện và lỗi
+
+| Trạng thái | Điều kiện | Hành vi FE |
+| --- | --- | --- |
+| Đang tải | Request specialty/search/detail | Hiện loading; không hiển thị kết quả cũ nếu filter/location đã đổi. |
+| Rỗng | `items: []`, kể cả `manual_specialty_required` | Phân biệt “chưa có mapping—chọn chuyên khoa” với “chưa có cơ sở phù hợp”; có thể cho Patient chủ động mở rộng sang Google. |
+| Bị cấm | `401/403` | Đăng nhập lại hoặc báo không đủ quyền; không thử gọi API Admin từ Patient. |
+| Feature tắt | `503 FACILITY_DIRECTORY_DISABLED` | Ẩn/disable entry point và báo tính năng tạm chưa khả dụng. |
+| Google unavailable | `503 MAP_PROVIDER_DISABLED` / `MAP_PROVIDER_UNAVAILABLE`, `429` | Giữ internal results; hiển thị external section không khả dụng và nút thử lại có chủ đích. |
+| Sai input | `400` selector/location/radius/page không hợp lệ | Báo chọn đúng một specialty/Program/disease; location cần consent; không retry tự động. |
+| Không tìm thấy | `404 VERIFIED_FACILITY_NOT_FOUND` | Trang detail báo cơ sở không còn khả dụng; quay lại danh sách và tải lại. |
+| Có thể trùng | `409 FACILITY_POSSIBLE_DUPLICATE` | Hiển thị candidate để Admin mở, gắn Place ID vào record nội bộ hoặc xác nhận từng cặp là cơ sở khác. |
+| Danh sách candidate cũ | `409 FACILITY_DUPLICATE_REVIEW_CANDIDATE_NOT_CURRENT` | Tải lại/đối chiếu candidate mới; không tái sử dụng danh sách cũ. |
+| Place ID đã gắn | `409 FACILITY_GOOGLE_PLACE_ALREADY_LINKED` | Mở Facility đang sở hữu ID; không cho tiếp tục xác nhận khác cơ sở. |
+
+Empty/loading/error/forbidden cần được xác nhận trên FE consumer thật; contract
+và HTTP E2E trong repo backend không thay thế được kiểm thử UI. AI-assisted
+Facility search chưa có trong E3.

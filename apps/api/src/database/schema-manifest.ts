@@ -90,6 +90,15 @@ import {
   CARE_RULE_NUMERIC_VERSION_VALIDATOR,
 } from './migrations/202611251000-care-catalog-numeric-version-validator';
 import { CONSULTATION_SLOT_PARTIAL_UNIQUE_INDEX } from './migrations/202611231200-consultation-slot-partial-unique';
+import {
+  E3_FACILITY_DIRECTORY_COLLECTIONS,
+  E3_FACILITY_DIRECTORY_INDEXES,
+} from './migrations/202611251100-e3-medical-facility-directory';
+import {
+  E3_DUPLICATE_REVIEW_FACILITIES_VALIDATOR,
+  E3_FACILITY_DUPLICATE_COLLECTIONS,
+  E3_FACILITY_DUPLICATE_INDEXES,
+} from './migrations/202611271000-e3-facility-duplicate-review';
 
 export const SCHEMA_MIGRATIONS_COLLECTION = '_schema_migrations';
 export const MIGRATION_LOCK_COLLECTION = '_migration_lock';
@@ -133,6 +142,14 @@ export const INFRASTRUCTURE_COLLECTIONS: ReadonlyArray<{
 ];
 
 export const EXPECTED_DATABASE_COLLECTIONS = [
+  ...E3_FACILITY_DIRECTORY_COLLECTIONS.filter(
+    (collection) => collection.name !== 'medicalfacilities',
+  ),
+  {
+    name: 'medicalfacilities',
+    validator: E3_DUPLICATE_REVIEW_FACILITIES_VALIDATOR,
+  },
+  ...E3_FACILITY_DUPLICATE_COLLECTIONS,
   {
     name: 'familycommandreceipts',
     validator: FAMILY_COMMAND_RECEIPTS_VALIDATOR,
@@ -191,6 +208,8 @@ export const EXPECTED_DATABASE_COLLECTIONS = [
 ] as const;
 
 export const MANAGED_DATABASE_INDEXES = [
+  ...E3_FACILITY_DIRECTORY_INDEXES,
+  ...E3_FACILITY_DUPLICATE_INDEXES,
   {
     collection: 'familycommandreceipts',
     name: 'actor_operation_keyhash_unique',

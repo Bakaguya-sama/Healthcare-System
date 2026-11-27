@@ -9,7 +9,8 @@ export type RedisDataClass =
   | 'consultation'
   | 'quota'
   | 'cache'
-  | 'queue';
+  | 'queue'
+  | 'maps';
 
 @Injectable()
 export class RedisKeyService {

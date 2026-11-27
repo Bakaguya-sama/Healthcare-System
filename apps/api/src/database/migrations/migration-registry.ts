@@ -389,6 +389,18 @@ import {
   CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_NAME,
   CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_VERSION,
 } from './202611251000-care-catalog-numeric-version-validator';
+import {
+  applyE3FacilityDirectory,
+  E3_FACILITY_DIRECTORY_CHECKSUM,
+  E3_FACILITY_DIRECTORY_NAME,
+  E3_FACILITY_DIRECTORY_VERSION,
+} from './202611251100-e3-medical-facility-directory';
+import {
+  applyE3FacilityDuplicateReview,
+  E3_FACILITY_DUPLICATE_REVIEW_CHECKSUM,
+  E3_FACILITY_DUPLICATE_REVIEW_NAME,
+  E3_FACILITY_DUPLICATE_REVIEW_VERSION,
+} from './202611271000-e3-facility-duplicate-review';
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
   {
@@ -780,6 +792,18 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
     name: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_NAME,
     checksum: CARE_CATALOG_NUMERIC_VERSION_VALIDATOR_CHECKSUM,
     up: applyCareCatalogNumericVersionValidator,
+  },
+  {
+    version: E3_FACILITY_DIRECTORY_VERSION,
+    name: E3_FACILITY_DIRECTORY_NAME,
+    checksum: E3_FACILITY_DIRECTORY_CHECKSUM,
+    up: applyE3FacilityDirectory,
+  },
+  {
+    version: E3_FACILITY_DUPLICATE_REVIEW_VERSION,
+    name: E3_FACILITY_DUPLICATE_REVIEW_NAME,
+    checksum: E3_FACILITY_DUPLICATE_REVIEW_CHECKSUM,
+    up: applyE3FacilityDuplicateReview,
   },
 ];
 
