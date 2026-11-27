@@ -787,7 +787,10 @@ export class CareTaskProgressService {
         HttpStatus.CONFLICT,
         'Care Task no longer accepts responses',
       );
-    if (now > new Date(task.windowEnd))
+    if (
+      now < new Date(task.windowStart) ||
+      now > new Date(task.windowEnd)
+    )
       this.fail(
         'CARE_TASK_OUTSIDE_RESPONSE_WINDOW',
         HttpStatus.CONFLICT,
@@ -940,7 +943,7 @@ export class CareTaskProgressService {
       actor.role === UserRole.DOCTOR &&
       task.taskType === CareTaskType.DOCTOR_REVIEW
     )
-      return ['doctor_review'];
+      return now >= new Date(task.windowStart) ? ['doctor_review'] : [];
     if (actor.role !== UserRole.PATIENT) return [];
     if (task.taskType === CareTaskType.METRIC) return ['record_metric'];
     if (
