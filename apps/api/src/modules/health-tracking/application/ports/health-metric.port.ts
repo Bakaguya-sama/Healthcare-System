@@ -15,6 +15,7 @@ export interface HealthMetricPort {
     patientId: string;
     metricType: string;
     values: Record<string, number>;
+    validationStatus?: string;
     recordedAt: Date;
     ingestedAt: Date;
   } | null>;

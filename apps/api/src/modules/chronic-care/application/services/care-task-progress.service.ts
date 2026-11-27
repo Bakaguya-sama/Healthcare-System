@@ -845,6 +845,10 @@ export class CareTaskProgressService {
       id: String(task._id),
       enrollmentId: String(task.patientCareProgramId),
       taskType: task.taskType,
+      ...(task.taskType === CareTaskType.METRIC &&
+      typeof task.completionRule?.metricType === 'string'
+        ? { metricType: task.completionRule.metricType }
+        : {}),
       templateKey: task.templateKey,
       status: task.status,
       required: task.required,

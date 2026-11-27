@@ -128,6 +128,7 @@ export class CareTaskSummaryDto {
   @ApiProperty() id: string;
   @ApiProperty() enrollmentId: string;
   @ApiProperty({ enum: CareTaskType }) taskType: CareTaskType;
+  @ApiPropertyOptional() metricType?: string;
   @ApiProperty() templateKey: string;
   @ApiProperty({ enum: CareTaskStatus }) status: CareTaskStatus;
   @ApiProperty() required: boolean;

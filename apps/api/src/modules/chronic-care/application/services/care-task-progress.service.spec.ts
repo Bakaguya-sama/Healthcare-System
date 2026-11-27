@@ -220,5 +220,35 @@ describe('CareTaskProgressService - doctorReview window & allowedActions', () =>
     expect(page.items[0].allowedActions).toEqual(['doctor_review']);
     expect(page.items[1].allowedActions).toEqual([]);
   });
+
+  it('exposes metricType on metric CareTask summaries when configured in completionRule', async () => {
+    const nowTime = new Date();
+    const metricTask = {
+      _id: dueTaskId,
+      patientCareProgramId: enrollmentId,
+      patientId,
+      doctorId,
+      taskType: CareTaskType.METRIC,
+      templateKey: 'morning_vital_measurement',
+      status: CareTaskStatus.DUE,
+      required: true,
+      scheduledFor: nowTime,
+      windowStart: new Date(nowTime.getTime() - 30 * 60 * 1000),
+      windowEnd: new Date(nowTime.getTime() + 60 * 60 * 1000),
+      completionRule: { metricType: 'blood_glucose' },
+    };
+
+    const { service } = createHarness({ listRows: [metricTask] });
+    const query = Object.assign(new QueryEnrollmentCareTasksDto(), {
+      page: 1,
+      limit: 10,
+      sortBy: 'scheduledFor' as const,
+      sortOrder: 1 as const,
+    });
+
+    const page = await service.list(doctorActor, String(enrollmentId), query);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].metricType).toBe('blood_glucose');
+  });
 });
 

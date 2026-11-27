@@ -79,7 +79,9 @@ export class HealthMetricQueryService
           ],
         },
       })
-      .select('_id meta.patientId meta.metricType values recordedAt ingestedAt')
+      .select(
+        '_id meta.patientId meta.metricType values validationStatus recordedAt ingestedAt',
+      )
       .lean()
       .exec();
     if (!metric) return null;
@@ -88,6 +90,7 @@ export class HealthMetricQueryService
       patientId: String(metric.meta.patientId),
       metricType: metric.meta.metricType,
       values: metric.values,
+      validationStatus: metric.validationStatus,
       recordedAt: metric.recordedAt,
       ingestedAt: metric.ingestedAt,
     };
