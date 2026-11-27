@@ -2,7 +2,7 @@
  * Contract TypeScript dành cho Frontend.
  * Sinh từ controller/DTO/service hiện tại; không import package backend.
  * Quy ước: mọi field ngày/giờ được biểu diễn bằng string ISO 8601, không dùng Date.
- * Ngày đối chiếu: 2026-11-25.
+ * Ngày đối chiếu: 2026-11-26.
  */
 
 // ==================== COMMON ====================
@@ -5946,6 +5946,7 @@ export interface FamilyHealthMetricTrendResponse {
   statusCode: number;
   data: { items: FamilyHealthMetricPoint[]; nextCursor: string | null; window: FamilyHealthMetricWindow };
 }
+export type FamilyHealthMetricSummaryQuery = Omit<FamilyHealthMetricQuery, 'cursor' | 'limit'>;
 export interface FamilyHealthMetricSummaryResponse {
   statusCode: number;
   data: { metricType: FamilySharedMetricType; count: number; average: number; minimum: number; maximum: number; latest: FamilyHealthMetricPoint; window: FamilyHealthMetricWindow };
@@ -5962,4 +5963,294 @@ export interface FamilyHealthMetricWindow {
 export interface FamilyHealthMetricSharingResponse {
   statusCode: number;
   data: { linkStatus: string; sharing: null | { scope: 'all' | 'selected'; metricTypes: FamilySharedMetricType[]; revision: number; consentVersion: string; consentedAt: Da2IsoDateTime } };
+}
+
+// ==================== E3 — MEDICAL FACILITY DIRECTORY ====================
+
+export type DirectoryFacilityType = 'hospital' | 'general_hospital' | 'medical_center' | 'clinic';
+export type DirectoryFacilityStatus = 'draft' | 'verified' | 'retired';
+export type DirectoryMappingScope = 'program' | 'disease';
+export type DirectoryMappingStatus = 'draft' | 'published' | 'retired';
+export type DirectorySearchReasonCode = 'manual_specialty_specialty_match' | 'program_mapping_specialty_match' | 'disease_mapping_specialty_match' | 'manual_specialty_specialty_match_nearby' | 'program_mapping_specialty_match_nearby' | 'disease_mapping_specialty_match_nearby';
+
+export interface FacilityDirectoryLocationRequest {
+  longitude: number;
+  latitude: number;
+}
+
+export interface FacilityDirectorySearchRequest {
+  /** Chỉ gửi một trong specialtyCode, programCode hoặc diseaseKey. */
+  specialtyCode?: string;
+  programCode?: string;
+  diseaseKey?: string;
+  area?: string;
+  /** Nếu gửi vị trí, bắt buộc locationConsent=true. */
+  location?: FacilityDirectoryLocationRequest;
+  locationConsent?: true;
+  radiusKm?: number;
+  page?: number;
+  limit?: number;
+}
+
+export interface FacilityDirectoryAddress {
+  street?: string;
+  ward?: string;
+  district?: string;
+  province: string;
+  provinceCode: 'HCMC';
+  country: 'VN';
+}
+
+export interface FacilityDirectoryContact {
+  phone?: string;
+  website?: string;
+  bookingUrl?: string;
+}
+
+/** Nội dung bản nháp; PUT thay thế toàn bộ details. Verify yêu cầu đủ thông tin. */
+export interface FacilityDirectoryDraftDetailsRequest {
+  name?: string;
+  facilityType?: DirectoryFacilityType;
+  address?: { street?: string; ward?: string; district?: string; province: string };
+  location?: FacilityDirectoryLocationRequest;
+  specialtyCodes?: string[];
+  services?: string[];
+  contact?: FacilityDirectoryContact;
+  officialSourceUrl?: string;
+}
+
+export interface FacilityDirectorySearchItem {
+  id: string;
+  name: string;
+  facilityType: DirectoryFacilityType;
+  address: FacilityDirectoryAddress;
+  matchedSpecialtyCodes: string[];
+  contact?: FacilityDirectoryContact;
+  distanceMeters?: number;
+  source: 'officially_verified_internal';
+  verificationLabel: 'verified' | 'needs_recheck';
+  lastCheckedAt: Da2IsoDateTime;
+  reasonCode: DirectorySearchReasonCode;
+}
+
+export interface FacilityDirectorySearchResponse {
+  statusCode: number;
+  data: {
+    mappingStatus: 'matched' | 'manual_specialty_required';
+    mappingSource: 'program_mapping' | 'disease_mapping' | 'manual_specialty' | null;
+    items: FacilityDirectorySearchItem[];
+    pagination: PagePagination;
+  };
+}
+
+export interface FacilityDirectorySpecialty {
+  code: string;
+  nameVi: string;
+  synonyms: string[];
+  status: 'active';
+  revision: number;
+}
+
+export interface FacilityDirectoryDetail extends Omit<FacilityDirectorySearchItem, 'matchedSpecialtyCodes' | 'distanceMeters' | 'reasonCode' | 'source'> {
+  location: { type: 'Point'; coordinates: [longitude: number, latitude: number] };
+  specialtyCodes: string[];
+  services: string[];
+  source: { type: 'officially_verified_internal'; reference: string };
+  verifiedAt?: Da2IsoDateTime;
+}
+
+export interface FacilityDirectoryExternalSearchRequest {
+  specialtyCode: string;
+  area?: string;
+  location?: FacilityDirectoryLocationRequest;
+  locationConsent?: true;
+  radiusKm?: number;
+}
+
+export interface FacilityDirectoryMapCandidate {
+  placeId: string;
+  name?: string;
+  address?: string;
+  location?: { latitude: number; longitude: number };
+  mapsUrl?: string;
+  attribution: 'Google Maps';
+  thirdPartyAttributions?: Array<{ provider: string; providerUrl?: string }>;
+}
+
+export interface FacilityDirectoryExternalSearchResponse {
+  statusCode: number;
+  data: {
+    source: 'google_maps';
+    verifiedInternally: false;
+    attribution: 'Google Maps';
+    items: FacilityDirectoryMapCandidate[];
+  };
+}
+
+export interface FacilityDirectoryCommandHeaders {
+  'Idempotency-Key': string;
+}
+
+export type GooglePlaceTypeFilter =
+  | 'chiropractor'
+  | 'dental_clinic'
+  | 'dentist'
+  | 'doctor'
+  | 'drugstore'
+  | 'general_hospital'
+  | 'hospital'
+  | 'medical_center'
+  | 'medical_clinic'
+  | 'medical_lab'
+  | 'pharmacy'
+  | 'physiotherapist'
+  | 'skin_care_clinic'
+  | 'wellness_center';
+
+type AdminMapCandidateSearchOptions = { placeType?: GooglePlaceTypeFilter };
+
+/** Query tự do cho tên/chi nhánh/địa chỉ; area và location loại trừ nhau. */
+export type FacilityDirectoryAdminMapQueryRequest = AdminMapCandidateSearchOptions &
+  { query: string; specialtyCode?: never } & (
+    | { area?: string; location?: never }
+    | { area?: never; location: FacilityDirectoryLocationRequest; radiusKm?: number }
+    | { area?: never; location?: never }
+  );
+
+/** Tìm theo specialty nội bộ đang active và đúng một area hoặc location. */
+export type FacilityDirectoryAdminMapSpecialtyRequest = AdminMapCandidateSearchOptions &
+  { specialtyCode: string; query?: never } & (
+    | { area: string; location?: never }
+    | { area?: never; location: FacilityDirectoryLocationRequest; radiusKm?: number }
+  );
+
+export type FacilityDirectoryAdminMapSearchRequest =
+  | FacilityDirectoryAdminMapQueryRequest
+  | FacilityDirectoryAdminMapSpecialtyRequest;
+
+export type FacilityDirectoryMapPreview = FacilityDirectoryMapCandidate & {
+  source: 'google_maps';
+  verifiedInternally: false;
+};
+
+export type FacilityDirectoryAdminSpecialty = Omit<FacilityDirectorySpecialty, 'status'> & {
+  status: 'active' | 'retired';
+};
+
+export type FacilityDirectoryStoredDetails = Omit<FacilityDirectoryDraftDetailsRequest, 'address' | 'location'> & {
+  normalizedName?: string;
+  address?: FacilityDirectoryAddress;
+  location?: FacilityDirectoryDetail['location'];
+};
+
+export interface FacilityDirectoryAdminRecord {
+  id: string;
+  status: DirectoryFacilityStatus;
+  revision: number;
+  googlePlaceId?: string;
+  details?: FacilityDirectoryStoredDetails;
+  currentDetails?: FacilityDirectoryStoredDetails;
+  draftDetails?: FacilityDirectoryStoredDetails;
+  currentRevisionId?: string;
+  draftRevisionId?: string;
+  lastCheckedAt?: Da2IsoDateTime;
+  verifiedAt?: Da2IsoDateTime;
+  needsRecheck?: boolean;
+  duplicateDecisions?: FacilityDirectoryDuplicateDecision[];
+}
+
+export type FacilityDirectoryDuplicateReasonCode =
+  | 'similar_name'
+  | 'similar_address'
+  | 'nearby_location';
+
+export interface FacilityDirectoryDuplicateCandidate {
+  id: string;
+  status: DirectoryFacilityStatus;
+  revision: number;
+  name?: string;
+  address?: FacilityDirectoryAddress;
+  googlePlaceId?: string;
+  reasonCodes: FacilityDirectoryDuplicateReasonCode[];
+  distanceMeters?: number;
+}
+
+export interface FacilityDirectoryDuplicateReviewRequest {
+  confirmedDistinct: true;
+  reason: string;
+  /** Chỉ ID trong candidate list vừa được backend trả mới có thể xác nhận. */
+  reviewedFacilityIds: string[];
+}
+
+export interface FacilityDirectoryDuplicateDecision {
+  candidateFacilityId: string;
+  reason: string;
+  reviewedBy: string;
+  reviewedAt: Da2IsoDateTime;
+}
+
+export interface FacilityDirectoryDuplicateConflict {
+  statusCode: 409;
+  code: 'FACILITY_POSSIBLE_DUPLICATE';
+  message: string;
+  details: {
+    candidates: FacilityDirectoryDuplicateCandidate[];
+    truncated: boolean;
+  };
+}
+
+export interface FacilityDirectoryCreateDraftRequest {
+  details: FacilityDirectoryDraftDetailsRequest;
+  duplicateReview?: FacilityDirectoryDuplicateReviewRequest;
+}
+
+export interface FacilityDirectoryCreateFromMapRequest {
+  placeId: string;
+  duplicateReview?: FacilityDirectoryDuplicateReviewRequest;
+}
+
+export interface FacilityDirectoryUpdateFacilityMetadataRequest {
+  placeId: string;
+  expectedRevision: number;
+}
+
+/** First create response may include transient Place Details; idempotent replay omits this field. */
+export type FacilityDirectoryCreateFromMapResponse = {
+  data: FacilityDirectoryAdminRecord & {
+    providerPreview?: FacilityDirectoryMapPreview;
+  };
+};
+
+export interface FacilityDirectoryVerifyRevisionRequest {
+  revisionId: string;
+  expectedRevision: number;
+  /** Required for a Place-derived draft after the reviewer checked official sources independently. */
+  providerDataReviewedAgainstOfficialSource?: true;
+  duplicateReview?: FacilityDirectoryDuplicateReviewRequest;
+}
+
+export interface FacilityDirectoryUpdateFacilityMetadataResponse {
+  statusCode: number;
+  data: FacilityDirectoryAdminRecord;
+}
+
+export interface FacilityDirectoryRevision {
+  id: string;
+  facilityId: string;
+  version: number;
+  revision: number;
+  status: 'draft' | 'verified' | 'superseded';
+  details: FacilityDirectoryStoredDetails;
+}
+
+export interface FacilityDirectoryMapping {
+  id: string;
+  scope: DirectoryMappingScope;
+  scopeKey: string;
+  version: number;
+  revision: number;
+  status: DirectoryMappingStatus;
+  specialtyCodes: string[];
+  sourceReferences: string[];
+  publishedAt?: Da2IsoDateTime;
 }

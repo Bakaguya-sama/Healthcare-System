@@ -699,31 +699,25 @@ interface FamilyInvitationArtifactsDto {
   revealOnce: true;
 }
 
-interface MedicalFacilityDto {
+interface MedicalFacilitySearchItemDto {
   id: Id;
   name: string;
-  facilityType: string;
-  address: {
-    street?: string;
-    ward?: string;
-    district?: string;
-    province: string;
-    country: string;
-    postalCode?: string;
-    displayText: string;
-  };
-  location: { latitude: number; longitude: number };
-  specialties: string[];
+  facilityType: "hospital" | "general_hospital" | "medical_center" | "clinic";
+  address: { street?: string; ward?: string; district?: string; province: string; provinceCode: "HCMC"; country: "VN" };
+  matchedSpecialtyCodes: string[];
+  contact?: { phone?: string; website?: string; bookingUrl?: string };
+  distanceMeters?: number;
+  source: "officially_verified_internal";
+  verificationLabel: "verified" | "needs_recheck";
+  lastCheckedAt: IsoDateTime;
+  reasonCode: string;
+}
+interface MedicalFacilityDetailDto extends Omit<MedicalFacilitySearchItemDto, "matchedSpecialtyCodes" | "distanceMeters" | "reasonCode" | "source"> {
+  location: { type: "Point"; coordinates: [longitude: number, latitude: number] };
+  specialtyCodes: string[];
   services: string[];
-  phone?: string;
-  email?: string;
-  websiteUrl?: string;
-  distanceKm?: number;
-  source: "internal" | "map_provider";
-  verificationStatus: "verified" | "external_unverified";
-  directionUrl?: string;
-  matchReasons: string[];
-  lastCheckedAt?: IsoDateTime;
+  source: { type: "officially_verified_internal"; reference: string };
+  verifiedAt?: IsoDateTime;
 }
 ```
 
@@ -1343,17 +1337,78 @@ hash và hết hạn sau 7 ngày. Cùng key với payload khác trả conflict. 
 token/code trả preview đã redeem. Artifact link/QR/code chỉ trả raw lần đầu; retry
 create/regenerate không làm lộ lại secret và nếu response đầu tiên thất lạc, Patient
 cần tạo một yêu cầu regenerate mới.
-| FAC-01 | `GET /medical-facilities/search` | Patient | programId/specialty, area hoặc lat/lng, radius, page | verified internal results; optional labelled map fallback | Target P1 sau Family |
-| FAC-02 | `GET /medical-facilities/:id` | Patient/Admin | none | `MedicalFacilityDto` | Target P1 |
-| FAC-03 | `POST /admin/medical-facilities/map-candidates` | Admin | provider candidate snapshot | draft facility | Target P1 |
-| FAC-04 | `POST /admin/medical-facilities/:id/verify` | Admin | official sources, review note + idempotency | verified facility | Target P1 |
-| FAC-05 | `POST /admin/disease-specialties/:id/publish` | Admin | approved mapping version + idempotency | active mapping | Target P1 |
-| FAC-06 | `GET /admin/medical-facilities` | Admin | status/source/search/area/page | facility page | Target P1 sau Family |
-| FAC-07 | `GET /admin/disease-specialties` | Admin | status/programCode/page | mapping versions | Target P1 sau Family |
-| FAC-08 | `PATCH /admin/medical-facilities/:id` | Admin | draft metadata/sources + version | updated draft facility | Target P1; draft only |
-| FAC-09 | `POST /admin/medical-facilities/:id/actions/retire` | Admin | reason + idempotency | retired facility | Target P1; stale/fresh is derived from lastCheckedAt |
-| FAC-10 | `POST /admin/disease-specialties` | Admin | draft mapping + sources + idempotency | draft mapping | Target P1 |
-| FAC-11 | `PATCH /admin/disease-specialties/:id` | Admin | draft mapping changes + version | updated draft mapping | Target P1; draft only |
+| FAC-01 | `GET /medical-facilities/specialties` | Patient | none | Active `MedicalSpecialtyDto[]` | Implemented; `FACILITY_DIRECTORY_ENABLED` required |
+| FAC-02 | `POST /medical-facilities/search` | Patient | JSON: exactly one `specialtyCode`/`programCode`/`diseaseKey`, and exactly one of `area` or `location`; `locationConsent=true` for exact location; `radiusKm=1..50`, `page`, `limit<=50` | verified-only internal results, mapping status/source, stable page, reason/freshness projection | Implemented; exact location is body-only and not persisted/logged |
+| FAC-03 | `GET /medical-facilities/:id` | Patient | Facility ID | Verified Facility detail projection; no internal review metadata | Implemented; draft/retired are not found |
+| FAC-04 | `POST /medical-facilities/external-search` | Patient | JSON `specialtyCode` and exactly one of `area` or consented `location`, optional radius | Transient Google Places candidates with `source=google_maps`, `verifiedInternally=false`, attribution | Implemented; explicit user action only; provider flag, timeout and Redis rate limit |
+| FAC-05 | `GET /admin/medical-facilities` | `super_admin` | `status`, `needsRecheck`, `page`, `limit` | Admin facility page with current/draft revision and freshness | Implemented; account and canonical sub-role checked in use case |
+| FAC-06 | `POST /admin/medical-facilities` | `super_admin` | `{ details, duplicateReview? }` (partial draft allowed) + `Idempotency-Key` | New draft + revision IDs; duplicate-review conflict includes bounded candidate projections | Implemented; checks possible duplicates before create; partial details may be insufficient, so verify checks again |
+| FAC-07 | `POST /admin/medical-facilities/map-candidates` | `super_admin` | Exactly one selector: `{ query, area? }`, `{ query, location?, radiusKm? }`, `{ specialtyCode, area }`, or `{ specialtyCode, location, radiusKm? }`; optional allowlisted Google `placeType`; specialty must be active | Transient candidates: Place ID, optional name/address/location/Maps URL and attribution | Implemented; query searches name/branch/address; query + specialty is rejected; location is Google `locationBias`, not a hard boundary; provider type never maps to internal taxonomy |
+| FAC-08 | `POST /admin/medical-facilities/from-map-candidate` | `super_admin` | `{ placeId, duplicateReview? }` + `Idempotency-Key` | New command: draft + transient `providerPreview` when available; replay: committed draft, preview optional; possible-duplicate conflict includes candidates | Implemented; receipt checked before Google; exact Place ID ownership always conflicts; provider preview is compared transiently and never persisted |
+| FAC-09 | `GET /admin/medical-facilities/:id/map-candidate` | `super_admin` | Facility ID with stored Place ID | Fresh Google preview with attribution | Implemented; response is transient and requires provider availability |
+| FAC-10 | `PUT /admin/medical-facilities/:id/draft` | `super_admin` | Complete replacement of partial draft `details`, optional revision ID, expected revision + `Idempotency-Key` | Updated draft revision | Implemented; verified projection remains unchanged |
+| FAC-11 | `POST /admin/medical-facilities/:id/revisions` | `super_admin` | Facility ID + `Idempotency-Key` | Draft revision copied from current verified data | Implemented |
+| FAC-12 | `POST /admin/medical-facilities/:id/actions/verify` | `super_admin` | Revision ID, expected revision, optional `{ duplicateReview }`, `providerDataReviewedAgainstOfficialSource=true` for Place-derived Facility + `Idempotency-Key` | Verified current projection; possible-duplicate conflict includes new candidates | Implemented; checks verified candidates again; previously reviewed exact pairs are not re-prompted; exact Place ID collision remains blocking |
+| FAC-13 | `POST /admin/medical-facilities/:id/actions/retire` | `super_admin` | reason, expected revision + `Idempotency-Key` | Retired state | Implemented; immediately excluded from Patient search |
+| FAC-14 | `GET/POST /admin/medical-specialties` | `super_admin` | list status or canonical code/name/synonyms + `Idempotency-Key` on create | Specialty catalog records | Implemented |
+| FAC-15 | `PATCH /admin/medical-specialties/:code` | `super_admin` | display name/synonyms, expected revision + `Idempotency-Key` | Updated catalog record | Implemented |
+| FAC-16 | `POST /admin/medical-specialties/:code/actions/retire` | `super_admin` | reason, expected revision + `Idempotency-Key` | Retired specialty | Implemented; blocked while referenced by active mapping/facility |
+| FAC-17 | `GET/POST /admin/disease-specialty-mappings` | `super_admin` | list filters or scope/key/specialty codes/sources + `Idempotency-Key` on create | Mapping versions in draft/published/retired lifecycle | Implemented |
+| FAC-18 | `PATCH /admin/disease-specialty-mappings/:id` | `super_admin` | mapping fields, expected revision + `Idempotency-Key` | Updated draft mapping | Implemented |
+| FAC-19 | `POST /admin/disease-specialty-mappings/:id/actions/publish` | `super_admin` | expected revision + `Idempotency-Key` | New published mapping; prior published version retired | Implemented; partial unique index enforces one active mapping per scope |
+| FAC-20 | `POST /admin/disease-specialty-mappings/:id/actions/retire` | `super_admin` | reason, expected revision + `Idempotency-Key` | Retired mapping | Implemented |
+| FAC-21 | `PATCH /admin/medical-facilities/:id` | `super_admin` | `{ placeId, expectedRevision }` + `Idempotency-Key` | Facility projection with linked Place ID | Gắn Place ID lần đầu vào Facility draft/verified; xác minh qua provider, tăng metadata revision, không sửa details hoặc thay/gỡ ID |
+
+### Duplicate review và liên kết Place ID
+
+Tạo draft thủ công (`FAC-06`) và từ Places (`FAC-08`) đều kiểm tra các Facility
+`draft`, `verified` và `retired`. Nếu phát hiện khả năng trùng, API trả `409`
+`FACILITY_POSSIBLE_DUPLICATE` với tối đa 50 candidate an toàn: ID, tên/địa chỉ
+nội bộ, status/revision, Place ID nếu có, reason codes và khoảng cách khi tính
+được. `truncated=true` nghĩa là candidate scan bị giới hạn; Admin cần bổ sung
+thông tin phân biệt rồi gửi lại, không được hiểu danh sách đó là kết quả rà soát
+đầy đủ. Draft thiếu thông tin so sánh vẫn được tạo; verify là lần kiểm tra bắt buộc
+cuối.
+
+FE mở Facility ứng viên hoặc gửi lại mutation với `duplicateReview`:
+
+```json
+{
+  "confirmedDistinct": true,
+  "reason": "Hai cơ sở cùng thương hiệu nhưng ở hai địa chỉ riêng.",
+  "reviewedFacilityIds": ["<facilityId-da-duoc-review>"]
+}
+```
+
+Server chạy lại duplicate check trong transaction. ID mới xác nhận phải thuộc tập
+candidate hiện tại; ID stale/ngoài tập trả `409`
+`FACILITY_DUPLICATE_REVIEW_CANDIDATE_NOT_CURRENT`. Mọi candidate hiện tại chưa
+được xác nhận vẫn trả `FACILITY_POSSIBLE_DUPLICATE`. Khi chấp nhận, server lưu
+nhúng quyết định trong Facility theo cặp `(facilityId, candidateFacilityId)`,
+actor, thời điểm và lý do trong cùng transaction với Facility mutation, AuditLog
+và receipt. Mỗi Facility giữ tối đa 50 quyết định. Theo phương
+án A, quyết định áp dụng cho đúng hai ID đó ở lần verify sau dù tên/địa chỉ/vị trí
+thay đổi; không áp dụng sang Facility ID khác. Verify chỉ rà các Facility đã
+`verified`, loại chính Facility đang verify; các draft chưa hoàn chỉnh không chặn
+vô thời hạn. Candidate mới ở lần verify được trả lại để Admin xử lý bằng key mới.
+
+So khớp là gợi ý, không phải kết luận trùng: tên phải gần giống và cần thêm địa
+chỉ gần giống hoặc vị trí cách không quá 100 m. Địa chỉ structured so sánh có xét
+quận/huyện; khác quận/huyện không được coi là địa chỉ gần chỉ vì cùng tỉnh. Chỉ
+giống tên, chỉ gần tọa độ hoặc chỉ cùng một tòa nhà không đủ. Candidate có giới
+hạn và stable sort. Verify HCMC dùng một guard document được tăng trong transaction
+để tuần tự hóa các lượt verify cạnh tranh. Tạo draft đồng thời vẫn có thể tạo hai
+draft tương tự; chúng không được Patient nhìn thấy và sẽ được rà lại khi verify.
+Unique index là bảo vệ cuối cho Place ID chính xác.
+
+Place ID trùng chính xác luôn bị chặn, kể cả khi có `duplicateReview`; response
+`409 FACILITY_GOOGLE_PLACE_ALREADY_LINKED` kèm projection an toàn của Facility
+đang sở hữu ID. `FAC-21` dùng `PATCH /admin/medical-facilities/:id` để gắn Place
+ID lần đầu cho Facility draft/verified, yêu cầu optimistic `expectedRevision`,
+xác minh ID qua provider và lưu ID cùng audit/
+receipt. Không thay nội dung Facility, không thay/gỡ ID; Facility retired bị từ
+chối. Nếu cùng Facility đã có đúng ID thì key mới trả kết quả ổn định không tăng
+revision hoặc ghi audit lặp.
 
 Các command trạng thái luôn kiểm tra `allowedActions` lại ở backend; frontend không được suy ra authorization chỉ từ trạng thái. Clinic/Clinic Admin không có endpoint hoặc actor trong DA2.
 
@@ -1618,21 +1673,17 @@ trả `replayed = true` và server không emit lại realtime event.
 | FAM-06 | Cho Admin audit link, invitation version, actor và delivery summary để hỗ trợ tranh chấp; không trả metric/AI/chat/alert reason.                                                                                                        |
 | FAM-07 | Trả chi tiết một FamilyLink và permission đang hiệu lực cho participant/Admin audit; projection phụ thuộc role.                                                                                                                         |
 
-#### Danh mục cơ sở y tế
+#### Tóm tắt nghiệp vụ danh mục cơ sở y tế
 
-| ID     | Chức năng và hành vi chính                                                                                                                   |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| FAC-01 | Tìm cơ sở theo Program/disease mapping, specialty, khu vực hoặc khoảng cách; ưu tiên verified internal và gắn nhãn map fallback.             |
-| FAC-02 | Trả chi tiết cơ sở, nguồn, trạng thái xác minh, liên hệ và lý do khớp; không khẳng định chất lượng hoặc lịch trống chưa tích hợp.            |
-| FAC-03 | Admin chọn một kết quả map provider để tạo draft, chụp provider/placeId/source; candidate không tự trở thành verified.                       |
-| FAC-04 | Admin verify draft sau khi bổ sung nguồn chính thức và checklist; ghi reviewer/time/audit trước khi cho Patient tìm thấy như verified.       |
-| FAC-05 | Publish một DiseaseSpecialty mapping version đã duyệt để search dùng deterministic specialty allowlist.                                      |
-| FAC-06 | Liệt kê facility draft/verified/retired theo nguồn, khu vực và search; freshness được tính từ `lastCheckedAt` theo policy.                   |
-| FAC-07 | Liệt kê các version ánh xạ disease/program–specialty cùng lifecycle và nguồn phê duyệt.                                                      |
-| FAC-08 | Sửa metadata/source của facility còn draft với version check; verified record phải qua lifecycle thay vì sửa ngầm dữ liệu đã công bố.        |
-| FAC-09 | Retire facility với reason; facility verified quá ngưỡng freshness tự bị loại/gắn nhãn theo `lastCheckedAt`, không chuyển sang status riêng. |
-| FAC-10 | Tạo draft DiseaseSpecialty mapping mới từ danh sách chuyên khoa và nguồn do Admin kiểm soát.                                                 |
-| FAC-11 | Sửa mapping còn draft với optimistic version check; active/retired mapping là bất biến.                                                      |
+- Patient tìm nội bộ trước bằng đúng một lựa chọn specialty/Program/disease và đúng một lựa chọn khu vực hoặc vị trí; chỉ Facility verified được trả.
+- Patient xem detail gồm nguồn, freshness và thông tin liên hệ an toàn; hệ thống không khẳng định chất lượng lâm sàng hoặc lịch trống chưa tích hợp.
+- Chỉ `super_admin` quản lý specialty, mapping và Facility. Mapping có version/lifecycle; Program mapping được ưu tiên trước disease mapping.
+- Facility verified chỉ đổi qua draft revision; bản hiện hành tiếp tục hiển thị đến khi revision được xác minh. Retire loại Facility khỏi Patient search ngay.
+- Admin Google candidate hỗ trợ tìm theo tên/chi nhánh/địa chỉ (`query`) hoặc specialty nội bộ active; phải chọn đúng một selector. Query có thể kèm area hoặc location; specialty yêu cầu đúng một area/location. `placeType` chỉ dùng taxonomy allowlist Google. Location gửi trong body và dùng `locationBias` để ưu tiên kết quả, không phải giới hạn bán kính tuyệt đối.
+- Khi chọn candidate, `POST /from-map-candidate` gọi Place Details sau khi kiểm tra quyền và receipt. Response lần tạo đầu tiên có preview tạm kèm attribution; retry trả draft đã commit, preview không lưu trong receipt và có thể không có. FE giữ Place ID; khi cần preview mới gọi `GET /{id}/map-candidate`.
+- Place ID được lưu bền vững. Tên/địa chỉ/Places content khác không được lưu vào draft, receipt, audit hay cache. Tọa độ provider chỉ xuất hiện trong preview tạm, không được lưu. Draft không tự gán facility type, specialty, nguồn chính thức, liên hệ hay booking link từ Google; super_admin nhập dữ liệu công bố từ nguồn chính thức và xác nhận đã review trước verify.
+- Freshness được suy ra từ `lastCheckedAt`; quá ngưỡng chỉ gắn nhãn cần kiểm tra, không tạo status `stale`.
+- Contract endpoint chính thức và trạng thái triển khai được liệt kê tại bảng FAC-01..FAC-20 ở trên; các mã FAC không được tái sử dụng cho capability summary.
 
 #### Subscription, Payment và Refund
 
@@ -1864,8 +1915,8 @@ const queryKeys = {
 | Care report `/patient/care-programs/:id/reports/:reportId` | New                               | CareReportDto + patient CareSummaryDto           | CARE-28/31/32                                | deterministic metrics luôn hiển thị; AI fallback/citation state; export theo entitlement                                        |
 | Medication tasks `/patient/medications`                    | New P1, feature-gated             | CareTaskDto lọc `medication`                     | CARE-10/33                                   | chỉ xác nhận theo kế hoạch có sẵn; không đổi liều/kê đơn; missed là terminal                                                    |
 | Người thân `/patient/family`                               | New P1                            | FamilyLinkDto page + effective `familyLinkLimit` | FAM-01..05, FAM-07                           | invite/accept/pause/resume/revoke; không hiển thị dữ liệu sức khỏe chi tiết                                                     |
-| Tìm cơ sở y tế `/patient/medical-facilities`               | New P1 sau Family                 | MedicalFacilityDto page                          | FAC-01/02                                    | source/verification label, distance và direction URL; không quảng bá xếp hạng chất lượng                                        |
-| Chi tiết cơ sở `/patient/medical-facilities/:id`           | New P1 sau Family                 | MedicalFacilityDto                               | FAC-02                                       | thông tin liên hệ, chuyên khoa khớp, nguồn/ngày kiểm tra và mở chỉ đường; không mô phỏng lịch trống                             |
+| Tìm cơ sở y tế `/patient/medical-facilities`               | E3 core; release review E2 gates | MedicalFacilitySearchItemDto page                | FAC-01..04                                   | specialty/Program/disease, area/location consent, verified-only, explicit Google expansion; không quảng bá xếp hạng chất lượng |
+| Chi tiết cơ sở `/patient/medical-facilities/:id`           | E3 core; release review E2 gates | MedicalFacilityDetailDto                         | FAC-03                                       | contact, nguồn/freshness, website/chỉ đường; không mô phỏng lịch trống hoặc xác nhận đặt lịch                                |
 | AI chat `/patient/ai`                                      | `/ai-chat`                        | conversations/messages/quota                     | AI-01..07                                    | optimistic user message; pending AI response; quota rollback on provider failure                                                |
 | Plans `/patient/plans`                                     | New                               | PlanDto[], effective entitlement                 | BILL-01/02                                   | plan comparison; hide inactive; no price from client in create order                                                            |
 | Checkout/payment result `/patient/billing/orders/:id`      | New                               | PaymentOrderDto                                  | BILL-03/05/07                                | open payment URL; poll/refetch after return; `payment.v1.updated`; never trust query success alone                              |
@@ -1915,7 +1966,7 @@ Doctor route guard phải phân biệt:
 | Care Program editor `/admin/care-programs/:id`          | New                  | Program draft, rule versions, sources, simulation                | CARE-03/04, CARE-18..21, CARE-23/24/27/30             | tabs cấu hình/baseline/tasks/rules/source/preview; publish/activate theo validation/audit, không có review-evidence gate                                |
 | Care operations `/admin/care-operations`                | Hậu DA2              | bounded aggregate/alert audit                                    | CARE-22, ADM-24/25                                    | `CC-OPS-001`; không chặn release DA2; không đóng vai assigned Doctor                                                                                    |
 | Family audit `/admin/family-links`                      | New P1               | scoped FamilyLinkDto/audit                                       | FAM-06, ADM-24                                        | read/audit để hỗ trợ tranh chấp; không tự mở quyền hoặc xem dữ liệu sức khỏe                                                                            |
-| Medical facilities `/admin/medical-facilities`          | New P1 sau Family    | drafts, verified facilities, derived freshness, disease mappings | FAC-02..11                                            | chọn map candidate, sửa draft, xác minh nguồn chính thức, retire, publish mapping                                                                       |
+| Medical facilities `/admin/medical-facilities`          | E3 core; release review E2 gates | drafts, verified facilities, derived freshness, mappings | FAC-05..20 | super_admin tìm candidate bằng query hoặc specialty, giữ Place ID, xem preview tạm có attribution, nhập thông tin từ nguồn chính thức, sửa/revision, verify/retire và quản lý specialty/mapping |
 | AI knowledge `/admin/ai/knowledge`                      | `/ai-knowledge-base` | documents + processing status                                    | ADM-10..13                                            | upload progress; processing polling/event; deactivate instead of unsafe hard delete                                                                     |
 | AI document detail `/admin/ai/knowledge/:id`            | New                  | AiDocumentAdminDto + processing/chunk summary                    | ADM-18..20, ADM-27                                    | approve/reject ở document level; preview citation metadata; exclude chunk lỗi; re-ingest P1                                                             |
 | AI blacklist `/admin/ai/blacklist`                      | tab hiện tại         | keyword page                                                     | ADM-14..17                                            | normalized keyword conflicts; mutation invalidation                                                                                                     |
@@ -2238,12 +2289,12 @@ Route `/admin/violations/:id` là deep-link mở `ViolationDetailDrawer`.
 - **Hành động chính:** lọc/xem; hỗ trợ revoke khi policy cho phép.
 - **Trạng thái bắt buộc:** không hiển thị metric, alert reason, AI/chat/consultation content; luôn hiện invitationVersion và actor/timestamp.
 
-#### A-12. Trang Danh mục cơ sở y tế — `/admin/medical-facilities` — P1 sau Family
+#### A-12. Trang Danh mục cơ sở y tế — `/admin/medical-facilities` — E3 core
 
 - **Trang làm gì:** đưa candidate từ map API vào danh mục nội bộ, đối chiếu nguồn chính thức và quản lý ánh xạ bệnh/chuyên khoa.
 - **Component:** `FacilityStatusTabs`, `FacilityTable`, `MapCandidateSearch`, `MapCandidatePreview`, `FacilityEditor`, `OfficialSourceEditor`, `FacilityMapPreview`, `VerificationChecklist`, `VerifyFacilityDialog`, `RetireFacilityDialog`, `DiseaseSpecialtyMappingEditor`, `MappingVersionTable`, `PublishMappingDialog`.
 - **Hành động chính:** chọn candidate thành draft; chỉnh; verify/retire; hiển thị freshness suy ra từ `lastCheckedAt`; tạo và publish mapping.
-- **Trạng thái bắt buộc:** map result không tự verified; lưu provider/placeId/source; mapping có version/lifecycle; không bổ sung Clinic actor vào scope.
+- **Trạng thái bắt buộc:** map result không tự verified; Place ID được lưu bền vững, tên/địa chỉ chỉ là response preview và tọa độ provider chỉ xuất hiện trong preview tạm; Facility phải được nhập/kiểm tra từ nguồn chính thức độc lập; mapping có version/lifecycle; không bổ sung Clinic actor vào scope.
 
 #### A-13. Trang Notification Campaign — `/admin/notifications/campaigns` — P2/Deferred
 

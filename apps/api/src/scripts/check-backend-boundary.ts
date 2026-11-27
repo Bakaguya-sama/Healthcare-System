@@ -28,6 +28,7 @@ const invalidModuleTopology: string[] = [];
 const invalidCrossContextImports: string[] = [];
 const invalidModuleSourceLayout: string[] = [];
 const invalidFamilyCompanionLayerDirection: string[] = [];
+const invalidCareDirectoryLayerDirection: string[] = [];
 function inspectDirectory(directory: string): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -66,6 +67,7 @@ const allowedBoundedContexts = new Set([
   'billing',
   'consultations',
   'chronic-care',
+  'care-directory',
   'health-tracking',
   'moderation',
   'notifications',
@@ -80,6 +82,7 @@ const allowedContextModuleFiles = new Set([
   'billing/billing.module.ts',
   'consultations/consultations.module.ts',
   'chronic-care/chronic-care.module.ts',
+  'care-directory/care-directory.module.ts',
   'health-tracking/health-tracking.module.ts',
   'moderation/moderation.module.ts',
   'notifications/notifications.module.ts',
@@ -171,6 +174,38 @@ function inspectFamilyCompanionLayers(directory: string): void {
 }
 inspectFamilyCompanionLayers(join(modulesRoot, 'family-companion'));
 
+function inspectCareDirectoryLayers(directory: string): void {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      inspectCareDirectoryLayers(path);
+      continue;
+    }
+    if (!entry.name.endsWith('.ts') || entry.name.endsWith('.spec.ts')) continue;
+    const modulePath = relative(modulesRoot, path).replaceAll('\\', '/');
+    const content = readFileSync(path, 'utf8');
+    if (
+      modulePath.startsWith('care-directory/domain/') &&
+      /@nestjs|from ['"]mongoose['"]|care-directory\/(?:infrastructure|presentation)|\.\.\/\.\.\/(?:infrastructure|presentation)/.test(content)
+    ) {
+      invalidCareDirectoryLayerDirection.push(path);
+    }
+    if (
+      modulePath.startsWith('care-directory/application/') &&
+      /from ['"]mongoose['"]|care-directory\/(?:infrastructure|presentation)|\.\.\/\.\.\/(?:infrastructure|presentation)/.test(content)
+    ) {
+      invalidCareDirectoryLayerDirection.push(path);
+    }
+    if (
+      modulePath.startsWith('care-directory/presentation/') &&
+      /care-directory\/(?:domain|infrastructure)\//.test(content)
+    ) {
+      invalidCareDirectoryLayerDirection.push(path);
+    }
+  }
+}
+inspectCareDirectoryLayers(join(modulesRoot, 'care-directory'));
+
 const contextGroups = new Map([
   ['authentication', 'identity'],
   ['users', 'identity'],
@@ -236,6 +271,12 @@ if (invalidModuleSourceLayout.length > 0) {
 if (invalidFamilyCompanionLayerDirection.length > 0) {
   throw new Error(
     `Family Companion violates DDD dependency direction: ${invalidFamilyCompanionLayerDirection.join(', ')}`,
+  );
+}
+
+if (invalidCareDirectoryLayerDirection.length > 0) {
+  throw new Error(
+    `Care Directory violates DDD dependency direction: ${invalidCareDirectoryLayerDirection.join(', ')}`,
   );
 }
 

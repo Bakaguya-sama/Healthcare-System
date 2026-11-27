@@ -23,6 +23,7 @@ import { ChronicCareModule } from './modules/chronic-care/chronic-care.module';
 import { PlatformAuditModule } from './modules/platform-audit/platform-audit.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { FamilyCompanionModule } from './modules/family-companion/family-companion.module';
+import { CareDirectoryModule } from './modules/care-directory/care-directory.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { FamilyCompanionModule } from './modules/family-companion/family-compani
     PlatformAuditModule,
     BillingModule,
     FamilyCompanionModule,
+    CareDirectoryModule,
     FilesModule,
   ],
   controllers: [],

@@ -474,3 +474,101 @@ lịch sử. Patient API giữ nguyên semantics cũ; request Companion v1 chỉ
   commit vẫn là race giữa hai bounded context; hệ thống kiểm tra ngay trong
   delivery transaction nhưng chưa có khóa dùng chung với mọi lifecycle mutation.
   Không xem đây là atomic barrier.
+
+## E3 — Tra cứu danh bạ cơ sở y tế
+
+### Luồng Patient: nội bộ trước, Google chỉ khi chủ động
+
+```text
+Patient đang active
+  → chọn Program/bệnh đã publish HOẶC specialty
+  → chọn khu vực HOẶC đồng ý gửi vị trí chính xác trong request body
+  → API resolve mapping (Program trước, disease sau; thiếu thì yêu cầu chọn specialty)
+  → query danh mục nội bộ: chỉ verified + HCMC
+  → stable sort + page + reason/freshness projection
+  → Patient có thể bấm riêng “Tìm thêm từ Google Maps”
+  → API gọi Places, trả kết quả external/unverified kèm attribution
+```
+
+- Directory pilot không phụ thuộc Plan; FREE/PLUS/CARE active đều được tìm. Field
+  `benefits.facilitySearch` còn trong snapshot/contract nhưng không gate luồng E3.
+- Nội bộ không gọi Google tự động khi rỗng. Request mở rộng là API riêng; Google
+  nhận specialty và khu vực/vị trí mà Patient chủ động gửi, không nhận bệnh án,
+  HealthMetric, Care Alert, lịch sử consultation hay AI conversation.
+- Tọa độ được gửi trong JSON body, không lưu và không xuất hiện trong request log,
+  audit, outbox hoặc evidence. Redis limiter dùng actor hash và cửa sổ phút; lỗi
+  Redis chỉ chặn fallback Google, không chặn kết quả nội bộ.
+- Kết quả Google hiển thị `Google Maps` attribution, không được coi là verified.
+  Place ID được lưu lâu dài; tên/địa chỉ chỉ có trong response preview. FE không
+  được gửi các field preview trở lại API draft hoặc hiển thị Google content trên
+  bản đồ không phải Google. Tọa độ Places chỉ xuất hiện trong preview tạm; khi cần lấy lại, gọi Google. Xem [Places API policies](https://developers.google.com/maps/documentation/places/web-service/policies)
+  và điều khoản dịch vụ Google đã rà soát 26/11/2026.
+- Khi chưa có mapping cho Program/disease, backend không suy đoán; FE quay lại lựa
+  chọn specialty thủ công. Đây không phải kết quả “không có bệnh viện”.
+- Urgent safety banner/template hiện trước directory và không bị phụ thuộc gói,
+  mapping, vị trí, Google hoặc trạng thái kết quả tìm kiếm.
+
+### Luồng quản trị: draft → xác minh → publish
+
+```text
+super_admin quản lý Specialty catalog
+  → tạo/cập nhật mapping Program hoặc disease ở trạng thái draft
+  → review nguồn và publish version (mỗi scope chỉ một published)
+  → tạo Facility draft thủ công hoặc chọn Place ID candidate
+  → Place Details chỉ trả preview tạm; tên/địa chỉ không ghi vào draft
+  → lấy và nhập field công bố từ nguồn chính thức; tọa độ Places chỉ hiển thị tạm
+  → kiểm tra địa chỉ/liên hệ/tọa độ/specialty
+  → verify revision
+  → Patient search thấy bản verified mới
+  → recheck định kỳ hoặc retire khi dữ liệu sai/không an toàn
+```
+
+### Kiểm tra trùng và gắn Google Place ID
+
+```text
+Tạo draft thủ công hoặc từ Google
+  → backend so khớp candidate nội bộ có giới hạn
+      ├─ không đủ dữ liệu / không có candidate → tạo draft
+      └─ có candidate → 409 FACILITY_POSSIBLE_DUPLICATE + projection an toàn
+           ├─ cùng cơ sở → mở Facility hiện có → gắn Place ID nếu chưa có
+           └─ cơ sở khác → xác nhận đúng candidate IDs + lý do → tạo draft
+  → khi verify, backend kiểm tra lại các Facility đã verified
+      ├─ cặp đã được xác nhận trước đó → tiếp tục
+      └─ candidate mới → 409 để super_admin review bằng command/key mới
+```
+
+- Confirmation được nhúng trong Facility theo `candidateFacilityId`, actor,
+  thời điểm và lý do trong transaction với mutation, audit và idempotency
+  receipt; tối đa 50 quyết định trên mỗi Facility. Quyết định A
+  áp dụng đúng cặp ID, kể cả khi tên/địa chỉ/vị trí đổi; không áp dụng cho ID mới.
+- Place ID trùng chính xác luôn bị chặn qua unique index và không thể bị bypass
+  bởi confirmation. Gắn Place ID vào record thủ công chỉ lưu ID, không sửa dữ
+  liệu Facility, có optimistic revision và không hỗ trợ replace/unlink.
+- Khi scan bị giới hạn, `truncated=true` yêu cầu Admin bổ sung chi tiết; backend
+  không diễn giải danh sách một phần là đã rà soát hết.
+- Verify cạnh tranh được tuần tự hóa qua guard document HCMC trong transaction.
+  Draft có thể được tạo song song; chúng chưa public và sẽ được rà lại lúc verify.
+
+- Các Admin khác và `ai_manager` không được truy cập workflow E3; role guard chỉ
+  xét `ADMIN`, còn application use case đối chiếu `adminProfile.adminRole` đúng
+  `super_admin` và account active.
+- Facility verified không sửa tại chỗ: super_admin tạo revision, bản hiện hành
+  vẫn là kết quả Patient cho tới khi verify revision mới. Admin response thể hiện
+  riêng current/draft details để reviewer so sánh.
+- Admin map-candidates nhận đúng một trong `query` (tên/chi nhánh/địa chỉ) hoặc
+  `specialtyCode` active. Query có thể bổ sung area hoặc location bias; specialty
+  cần đúng một area/location. Google `placeType` chỉ lọc taxonomy provider, không
+  tự gán Facility type/specialty nội bộ. FE giữ Place ID của candidate được chọn.
+- `POST /from-map-candidate` kiểm tra quyền và receipt trước khi gọi Place Details.
+  Response mới có `providerPreview` để đối chiếu với attribution; replay trả draft
+  đã commit, không cần gọi Google và preview có thể vắng mặt. Place ID cùng receipt
+  được ghi trong transaction; tọa độ Places không được lưu. Draft không nhận tên,
+  địa chỉ, specialty, facility type, liên hệ, nguồn hoặc booking URL từ Google.
+- Mỗi command mutation có `Idempotency-Key`, optimistic revision và transaction
+  chung với AuditLog/command receipt. Không có outbox consumer cho E3 nên không tạo
+  event không cần thiết.
+- Freshness hơn 180 ngày chỉ gắn `needs_recheck`; không chuyển status thành stale.
+  Super_admin có thể retire ngay nếu phát hiện nguồn sai hoặc nguy hiểm.
+
+AI-assisted facility search được hoãn sau E3; không gọi LLM để chọn bệnh, specialty,
+vị trí hoặc xếp hạng chất lượng cơ sở.

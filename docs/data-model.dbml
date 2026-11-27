@@ -10,6 +10,8 @@
 // Merge follow-up 2026-11-25: migration 202611251000 updates only CarePrograms.version
 // and CareRules.version validators to accept BSON int/long/double; no schema field or
 // collection is added. OAuth mobile attempts/tickets live in shared Redis, not MongoDB.
+// E3 runtime addendum 2026-11-26: 202611251100 adds care-directory validators/indexes;
+// see the collection definitions below. Place ID is durable; provider names, addresses and coordinates are never persisted from Google.
 // Set Mongoose autoIndex/autoCreate=false in staging and production-like environments.
 
 Table Users {
@@ -1120,59 +1122,123 @@ Table FamilyReminderQuotas [note: "Operational rolling cap state; one record per
   }
 }
 
-Table MedicalFacilities {
+Table MedicalSpecialties [note: "Canonical directory taxonomy; DoctorProfile.specialty remains unchanged for compatibility"] {
   id ObjectID [pk]
-  name varchar [not null]
-  normalizedName varchar [not null]
-  facilityType varchar [not null, note: "hospital, general_hospital, medical_center, clinic"]
-  status varchar [not null, note: "draft, verified, retired; freshness is derived from lastCheckedAt and the configured threshold"]
-  specialties json [not null]
-  services json
-  address json [not null, note: "{ street, ward, district, province, country, postalCode }"]
-  location json [not null, note: "GeoJSON Point { type: Point, coordinates: [longitude, latitude] }; 2dsphere index by migration"]
-  phone varchar
-  email varchar
-  websiteUrl varchar
-  mapProvider varchar [note: "internal, google_places, other"]
-  externalPlaceId varchar
-  dataSources json [not null, note: "Map API source plus official website/document used by Admin to verify"]
-  selectedFromMapAt datetime [note: "When Admin selected this place from map API results"]
-  reviewNote varchar
-  verifiedBy ObjectID
-  verifiedAt datetime
-  lastCheckedAt datetime
+  code varchar [not null, unique]
+  nameVi varchar [not null]
+  synonyms json [not null]
+  status varchar [not null, note: "active, retired"]
+  revision int [not null]
   createdBy ObjectID [not null]
+  updatedBy ObjectID
   createdAt datetime
   updatedAt datetime
 
   Indexes {
-    location [note: "2dsphere index created by migration"]
-    (status, "address.province", "address.district")
-    (status, normalizedName)
-    (mapProvider, externalPlaceId) [unique, note: "Sparse/partial unique where externalPlaceId exists"]
+    code [unique]
+    (status, nameVi, code)
   }
 }
 
-Table DiseaseSpecialties {
+Table DiseaseSpecialties [note: "Versioned Program/disease mapping; only one published version per scope/key"] {
   id ObjectID [pk]
-  diseaseKey varchar [not null]
-  programCode varchar
+  scope varchar [not null, note: "program, disease"]
+  scopeKey varchar [not null, note: "Canonical programCode or diseaseKey"]
   version int [not null]
-  specialties json [not null, note: "Ordered allowlist used for deterministic filtering"]
-  explanation varchar [not null]
-  status varchar [not null, note: "draft, active, retired"]
-  dataSources json [not null]
+  revision int [not null]
+  status varchar [not null, note: "draft, published, retired"]
+  specialtyCodes json [not null]
+  sourceReferences json [not null, note: "References reviewed by super_admin; not a clinical recommendation"]
   createdBy ObjectID [not null]
-  approvedBy ObjectID
-  approvedAt datetime
+  updatedBy ObjectID
+  publishedBy ObjectID
+  publishedAt datetime
+  retiredBy ObjectID
   retiredAt datetime
   createdAt datetime
   updatedAt datetime
 
   Indexes {
-    (diseaseKey, version) [unique]
-    (programCode, status)
-    (status, diseaseKey)
+    (scope, scopeKey, version) [unique]
+    (scope, scopeKey) [unique, note: "Partial unique where status=published"]
+    (status, scope, scopeKey)
+  }
+}
+
+Table MedicalFacilities [note: "Current facility projection; Patient search returns verified only. Provider fields persist Google Place ID only."] {
+  id ObjectID [pk]
+  status varchar [not null, note: "draft, verified, retired"]
+  revision int [not null]
+  currentRevisionId ObjectID
+  draftRevisionId ObjectID
+  name varchar
+  normalizedName varchar
+  facilityType varchar [note: "hospital, general_hospital, medical_center, clinic"]
+  address json [note: "{ street?, ward?, district?, province, provinceCode: HCMC, country: VN }"]
+  location json [note: "GeoJSON Point; coordinates [longitude, latitude]"]
+  specialtyCodes json [not null]
+  services json
+  contact json [note: "{ phone?, website?, bookingUrl? }"]
+  officialSourceUrl varchar
+  googlePlaceId varchar [note: "Long-lived Google Place ID only; provider name/address are never persisted here"]
+  duplicateSearchTokens json [note: "Bounded derived tokens from internal Facility name/address only; not an API projection"]
+  duplicateLocation json [note: "Derived GeoJSON Point for duplicate candidate lookup from internal draft/current details; never from transient Google preview"]
+  createdBy ObjectID [not null]
+  verifiedBy ObjectID
+  verifiedAt datetime
+  lastCheckedAt datetime
+  retiredBy ObjectID
+  retiredAt datetime
+  duplicateReviews json [not null, note: "Up to 50 reviewed candidate Facility IDs with reviewer, reason and timestamp; embedded in this Facility"]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (status, specialtyCodes, id)
+    (status, "address.provinceCode", "address.district", id)
+    location [note: "2dsphere, partial where status=verified"]
+    googlePlaceId [unique, note: "Partial unique when Google Place ID is a string"]
+  }
+}
+
+Table FacilityDuplicateGuards [note: "Short transactional serialization point for final HCMC Facility verification duplicate checks"] {
+  id varchar [pk, note: "Pilot singleton key: hcmc"]
+  revision bigint [not null, note: "Incremented in the same transaction as verification"]
+}
+
+Table MedicalFacilityRevisions [note: "Immutable review history; verified projection changes only after revision approval"] {
+  id ObjectID [pk]
+  facilityId ObjectID [not null]
+  version int [not null]
+  revision int [not null]
+  status varchar [not null, note: "draft, verified, superseded"]
+  details json [not null]
+  createdBy ObjectID [not null]
+  updatedBy ObjectID
+  verifiedBy ObjectID
+  verifiedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (facilityId, version) [unique]
+    (facilityId, status, version)
+  }
+}
+
+Table FacilityCommandReceipts [note: "Idempotency receipt; only key hash is stored, TTL 7 days"] {
+  id ObjectID [pk]
+  actorId ObjectID [not null]
+  operation varchar [not null]
+  keyHash varchar [not null]
+  fingerprint varchar [not null]
+  result json [not null]
+  expiresAt datetime [not null]
+  createdAt datetime
+
+  Indexes {
+    (actorId, operation, keyHash) [unique]
+    expiresAt [note: "TTL index"]
   }
 }
 
@@ -1497,7 +1563,19 @@ Ref: FamilyReminders.notificationId > Notifications.id
 Ref: FamilyReminderQuotas.companionUserId > Users.id
 Ref: MedicalFacilities.verifiedBy > Users.id
 Ref: MedicalFacilities.createdBy > Users.id
+Ref: MedicalFacilities.retiredBy > Users.id
+Ref: MedicalFacilities.currentRevisionId > MedicalFacilityRevisions.id
+Ref: MedicalFacilities.draftRevisionId > MedicalFacilityRevisions.id
+Ref: MedicalFacilityRevisions.facilityId > MedicalFacilities.id
+Ref: MedicalFacilityRevisions.createdBy > Users.id
+Ref: MedicalFacilityRevisions.updatedBy > Users.id
+Ref: MedicalFacilityRevisions.verifiedBy > Users.id
+Ref: MedicalSpecialties.createdBy > Users.id
+Ref: MedicalSpecialties.updatedBy > Users.id
 Ref: DiseaseSpecialties.createdBy > Users.id
-Ref: DiseaseSpecialties.approvedBy > Users.id
+Ref: DiseaseSpecialties.updatedBy > Users.id
+Ref: DiseaseSpecialties.publishedBy > Users.id
+Ref: DiseaseSpecialties.retiredBy > Users.id
+Ref: FacilityCommandReceipts.actorId > Users.id
 Ref: AuditLogs.userId > Users.id
 Ref: AuditLogs.actorId > Users.id

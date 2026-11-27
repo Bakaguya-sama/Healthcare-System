@@ -189,6 +189,11 @@ export function validateEnvironment(
     'GOOGLE_OAUTH_MOBILE_REDIRECT_URL',
     '',
   ).trim();
+  const googleMapsPlacesEnabled = boolean(config, 'GOOGLE_MAPS_PLACES_ENABLED', false);
+  const googleMapsApiKey = stringValue(config, 'GOOGLE_MAPS_API_KEY', '').trim();
+  if (googleMapsPlacesEnabled && !googleMapsApiKey) {
+    throw new Error('GOOGLE_MAPS_API_KEY is required when GOOGLE_MAPS_PLACES_ENABLED=true');
+  }
   const vnpayMobileReturnDeepLink = stringValue(
     config,
     'VNPAY_MOBILE_RETURN_DEEP_LINK',
@@ -280,6 +285,12 @@ export function validateEnvironment(
     GOOGLE_OAUTH_CALLBACK_URL: googleOauthCallbackUrl,
     GOOGLE_OAUTH_MOBILE_REDIRECT_URL: googleOauthMobileRedirectUrl,
     OAUTH_STATE_ENCRYPTION_SECRET: oauthStateEncryptionSecret,
+    FACILITY_DIRECTORY_ENABLED: boolean(config, 'FACILITY_DIRECTORY_ENABLED', false),
+    GOOGLE_MAPS_PLACES_ENABLED: googleMapsPlacesEnabled,
+    GOOGLE_MAPS_API_KEY: googleMapsApiKey,
+    FACILITY_FRESHNESS_DAYS: integer(config, 'FACILITY_FRESHNESS_DAYS', 180, 1, 3_650),
+    GOOGLE_MAPS_REQUESTS_PER_MINUTE_PER_ACTOR: integer(config, 'GOOGLE_MAPS_REQUESTS_PER_MINUTE_PER_ACTOR', 5, 1, 100),
+    GOOGLE_MAPS_REQUESTS_PER_MINUTE_GLOBAL: integer(config, 'GOOGLE_MAPS_REQUESTS_PER_MINUTE_GLOBAL', 60, 1, 1_000),
     NODE_ENV: nodeEnv,
     PORT: integer(config, 'PORT', 3000, 1, 65_535),
     API_PREFIX: normalizePath(config, 'API_PREFIX', 'api'),

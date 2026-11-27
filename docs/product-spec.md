@@ -124,6 +124,11 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 10c. Worker quét CareTask `missed + required` bằng keyset cursor `_id`, tối đa 200 task mỗi batch; mỗi lượt có thời điểm chụp `missedBefore`, lượt chạy kế tiếp tiếp tục nhận task mới. Reminder cùng dispatch outbox được tạo trong một transaction; lỗi của một task không chặn các task khác.
 11. `FamilyLinks` đã biểu diễn quan hệ nhiều-nhiều giữa các tài khoản nên DA2 không tạo `FamilyGroups`. Chỉ thêm group khi có nghiệp vụ thật sự như hộ gia đình dùng chung, vai trò trưởng nhóm hoặc hội thoại nhóm.
 
+**Entitlement directory pilot E3:** Mọi Patient account đang active được tìm Facility
+trong pilot TP. Hồ Chí Minh, không phân biệt FREE/PLUS/CARE. `benefits.facilitySearch`
+được giữ trong contract/snapshot tương thích nhưng không dùng để gate API E3; không
+thay đổi hoặc âm thầm bỏ benefit này khỏi các policy khác.
+
 ## Care rule, evaluation và alert
 
 1. Rule set có lifecycle `draft`, `active`, `retired`; chỉ version active áp dụng cho dữ liệu mới. Mọi Doctor `active + approved` có thể activate sau server validation; không có bước human approval riêng. Activate tự retire version active cũ của cùng Program version.
@@ -144,16 +149,71 @@ Tài liệu này mô tả các quy tắc nghiệp vụ có thể điều chỉnh
 
 ## Tìm cơ sở y tế theo nhu cầu theo dõi (P1)
 
-1. `MedicalFacilities` là danh mục cơ sở y tế do Admin quản lý. Mỗi bản ghi có `status = verified` phải có tối thiểu tên, loại cơ sở, địa chỉ, tọa độ, tỉnh/thành, kênh liên hệ, danh sách chuyên khoa/dịch vụ, nguồn xác minh, `verifiedAt` hoặc `updatedAt` và nhật ký trong `AuditLogs` với `domain = facility`.
-2. `DiseaseSpecialties` ánh xạ bệnh/Care Program sang một hoặc nhiều chuyên khoa. Chỉ Admin có quyền tạo, duyệt, sửa hoặc ngừng dùng ánh xạ; mọi thay đổi phải có phiên bản/nhật ký và không được coi là chẩn đoán hoặc hướng dẫn lâm sàng.
-3. Tìm kiếm cần condition/Program đã chọn rõ ràng hoặc specialty đã duyệt, cùng khu vực hoặc vị trí do Patient chủ động cung cấp. Vị trí chính xác là dữ liệu nhạy cảm: chỉ dùng cho truy vấn hiện tại khi Patient cho phép, không lưu lịch sử mặc định.
-4. Kết quả nội bộ chỉ lấy `MedicalFacilities` đã xác minh, lọc chuyên khoa/khu vực rồi sắp xếp xác định theo mức khớp chuyên khoa và khoảng cách. Không dùng AI score, đánh giá sao, doanh thu hay phí quảng cáo để thay đổi thứ tự phù hợp y khoa.
-5. Mỗi kết quả phải hiển thị source, ngày cập nhật, specialty khớp và reason code dễ hiểu. Hệ thống không tuyên bố “tốt nhất”, “phù hợp điều trị nhất” hoặc bảo đảm khả năng tiếp nhận/đặt lịch nếu không có xác nhận chính thức của cơ sở.
-6. Dịch vụ bản đồ bên ngoài chỉ được gọi khi danh mục nội bộ thiếu kết quả hoặc Patient chủ động mở rộng tìm kiếm. Kết quả phải gắn nhãn nguồn bên ngoài và tuân thủ điều khoản ghi nguồn/lưu dữ liệu của nhà cung cấp. Khi cần bổ sung danh mục, Admin chọn một kết quả bản đồ để tạo `MedicalFacilities.status = draft`, kiểm tra nguồn chính thức rồi mới chuyển sang `verified`; kết quả API không bao giờ tự được xác minh.
-7. AI chỉ được chuẩn hóa văn bản tự nhiên thành bộ lọc condition/specialty/location trong allowlist và giải thích kết quả dựa trên dữ liệu đã trả về. AI không suy luận bệnh, xếp hạng chất lượng cơ sở, chẩn đoán hoặc xử lý tình huống `urgent`.
-8. Trong luồng `urgent`, safety template luôn hiển thị trước. Tìm cơ sở y tế/chỉ đường là tác vụ bổ trợ và không được trì hoãn hướng dẫn liên hệ cấp cứu/cơ sở y tế phù hợp.
-9. Liên kết đặt lịch chỉ xuất hiện khi cơ sở có tích hợp chính thức hoặc đường dẫn đã được Admin xác thực. Không mô phỏng còn chỗ, giá hoặc xác nhận lịch từ dữ liệu bản đồ.
-10. `MedicalFacilities.status` chỉ gồm `draft|verified|retired`. Freshness không là status lưu trữ; backend suy ra từ `lastCheckedAt` và ngưỡng cấu hình để loại hoặc gắn nhãn kết quả cần kiểm tra lại.
+1. E3 pilot áp dụng tại TP. Hồ Chí Minh. Danh mục `MedicalFacilities` do
+   `super_admin` duyệt là nguồn chính; Patient chỉ thấy `verified`. Bản verified
+   cần tên, loại, địa chỉ khu vực, GeoJSON point, ít nhất một specialty active,
+   ít nhất một kênh liên hệ, nguồn chính thức, actor/thời điểm xác minh và
+   `lastCheckedAt`. Các thay đổi quan trọng phải qua draft revision; bản verified
+   hiện tại tiếp tục hiển thị đến khi revision mới được duyệt.
+2. `MedicalSpecialties` là taxonomy canonical, khóa bằng `code` ổn định. Mapping
+   versioned hỗ trợ Program và disease, do `super_admin` duyệt kèm nguồn tham khảo.
+   Tìm theo Program ưu tiên mapping riêng Program, sau đó fallback mapping disease;
+   thiếu cả hai thì yêu cầu Patient chọn specialty, không suy đoán bằng AI.
+3. Mọi Patient account đang active được dùng directory trong pilot, không phân
+   biệt FREE/PLUS/CARE. Field cũ `benefits.facilitySearch` được giữ tương thích
+   nhưng không được dùng để từ chối E3 pilot. Không đổi nghĩa benefit ở các phần
+   khác và không ảnh hưởng urgent/safety guidance.
+4. Patient phải chọn rõ Program/disease hoặc specialty cùng khu vực hoặc vị trí
+   do mình chủ động cung cấp. Khi dùng tọa độ chính xác, FE cần consent rõ; API
+   nhận vị trí trong JSON body. Tọa độ Patient chỉ dùng cho query hiện tại, không
+   lưu/log/audit/outbox/evidence.
+5. Nội bộ chỉ trả Facility verified ở pilot HCMC. Có location: sort khoảng cách,
+   tên đã chuẩn hóa, ID; chỉ area: tên đã chuẩn hóa, ID. Tất cả kết quả đều match
+   specialty filter; thứ tự trong mapping không thể hiện chất lượng lâm sàng.
+   Stable pagination có tie-breaker nhưng không cam kết snapshot bất biến khi dữ
+   liệu thay đổi giữa các request.
+6. Kết quả hiển thị source, specialty match, reason code, khoảng cách khi có và
+   freshness label. Sau hơn 180 ngày từ `lastCheckedAt`, Facility vẫn có thể hiện
+   nhưng mang nhãn “Thông tin cần được kiểm tra lại”; Admin có filter tương ứng.
+   Không tuyên bố “tốt nhất”, phù hợp điều trị nhất, còn chỗ hoặc lịch đã đặt.
+7. Google Maps/Places chỉ được gọi khi Patient chủ động chọn “Tìm thêm từ Google
+   Maps”, kể cả khi internal search rỗng, hoặc khi `super_admin` tìm candidate.
+   External result là unverified, trả attribution và chỉ tồn tại trong response.
+   Place ID được lưu bền vững; tên/địa chỉ và Places content khác chỉ xuất hiện
+   trong preview tạm, không ghi vào draft, receipt, audit hay cache. Tọa độ Places chỉ xuất hiện trong preview tạm và không được lưu.
+   `super_admin` nhập dữ liệu sẽ công bố từ nguồn chính thức độc lập; Google không
+   xác minh facility type, specialty, nguồn chính thức, liên hệ hay booking link.
+   Đã rà soát [Places API policies](https://developers.google.com/maps/documentation/places/web-service/policies)
+   và [Google Maps Platform Service Specific Terms](https://cloud.google.com/maps-platform/terms/maps-service-terms)
+   ngày 26/11/2026; legal owner cần xác nhận điều khoản áp dụng cho project/region.
+   FE hiển thị attribution và không đặt Google content lên non-Google map.
+8. Google fallback có kill switch riêng, timeout và Redis rate cap mặc định 5
+   request/phút/actor, 60/phút toàn hệ thống; Redis lỗi thì fallback fail-closed,
+   nhưng internal search vẫn hoạt động. Provider không nhận PHI, HealthMetric,
+   diagnosis, Care Alert, consultation history hoặc AI conversation.
+9. AI-assisted Facility search được lên kế hoạch sau E3, không thuộc phase này.
+   Không gọi LLM để suy luận bệnh/specialty/location hoặc xếp hạng. Luồng `urgent`
+   luôn hiển thị safety template trước; directory/chỉ đường không được trì hoãn
+   hướng dẫn cấp cứu.
+10. Booking link chỉ được phép khi super_admin xác thực HTTPS host theo policy;
+    không mô phỏng lịch, giá hoặc xác nhận đặt chỗ. `MedicalFacilities.status`
+    chỉ gồm `draft|verified|retired`; freshness suy ra từ `lastCheckedAt` và ngưỡng
+    cấu hình, không tạo status `stale`.
+11. Tạo draft thủ công hoặc từ Google đều dò khả năng trùng trong Facility
+    `draft|verified|retired`; verify dò lại các Facility `verified`. Kết quả chỉ là
+    gợi ý bounded, không tự merge hoặc thay đổi record khác. Draft thiếu dữ liệu
+    vẫn tạo được nhưng không được coi là đã kiểm tra sạch. Exact Place ID thuộc
+    Facility khác luôn chặn, không có override.
+12. Nếu có ứng viên, `super_admin` mở record để so sánh. Nếu đúng là một cơ sở,
+    có thể dùng `PATCH /admin/medical-facilities/{id}` để gắn Place ID vào
+    Facility nội bộ chưa có ID. Nếu là cơ sở khác, Admin
+    gửi xác nhận theo từng candidate ID cùng lý do. Quyết định phương án A gắn
+    chính xác cặp ID và được giữ khi verify kể cả khi nội dung thay đổi; ứng viên
+    mới vẫn cần review, decision không lan sang ID khác.
+13. So khớp pilot: tên gần giống kết hợp địa chỉ gần giống hoặc tọa độ cách tối
+    đa 100 m. Khác quận/huyện không được xem là địa chỉ gần chỉ vì cùng tỉnh;
+    chỉ gần tọa độ hoặc chỉ giống tên không đủ. Nếu candidate scan bị cắt, API
+    trả `truncated=true` và không cho xác nhận tập chưa đầy đủ.
 
 ## Doctor Priority Inbox và follow-up
 
@@ -486,7 +546,7 @@ Sản phẩm hỗ trợ:
 - Rule engine version hóa phân tầng `normal|attention|urgent` với lý do giải thích được; kết quả không phải chẩn đoán.
 - Bác sĩ theo dõi Priority Inbox và báo cáo 7/30 ngày thay vì đọc toàn bộ dữ liệu thô.
 - Bệnh nhân chủ động đặt lịch theo slot bác sĩ đã mở.
-- Ở mức P1, bệnh nhân tìm cơ sở y tế theo chương trình theo dõi/chuyên khoa và vị trí; danh mục nội bộ đã kiểm duyệt là nguồn chính, dịch vụ bản đồ chỉ bổ sung khi thiếu kết quả.
+- Ở mức P1, Patient tìm cơ sở y tế theo Program/disease hoặc specialty và khu vực/vị trí. Pilot TP. Hồ Chí Minh dùng danh mục nội bộ do `super_admin` duyệt; Google Maps/Places chỉ được gọi qua thao tác mở rộng rõ ràng của Patient hoặc tìm candidate của `super_admin`, không tự gọi khi nội bộ rỗng.
 - Bệnh nhân gửi yêu cầu tư vấn nhanh theo cơ chế on-demand.
 - Bác sĩ tiếp nhận yêu cầu, quản lý lịch, hàng đợi và tư vấn qua chat/audio/video.
 - AI cung cấp thông tin, tóm tắt và truy xuất tri thức RAG; không tự đưa ra chẩn đoán.
@@ -683,7 +743,7 @@ lịch scheduled vẫn là câu hỏi mở, không phải behavior mặc định
 - Care Alert `urgent` phải hiển thị hành động an toàn từ template đã duyệt và không chờ LLM.
 - Người thân đồng hành là tính năng P1, không phải vai trò y tế mới: người thân đăng ký tài khoản Patient bình thường, đăng nhập bằng cơ chế sẵn có rồi xác nhận liên kết do Patient mời. Người thân chỉ nhận nhắc nhở chung sau khi Patient bỏ lỡ nhiệm vụ quá khoảng thời gian cấu hình; mặc định không xem HealthMetrics, nội dung AI, consultation hoặc Care Alert.
 - Patient luôn được nhắc trước. Thông báo cho contact không chứa chỉ số, chẩn đoán hay lý do cảnh báo; mọi consent, thay đổi quyền, gửi thông báo và thu hồi quyền phải audit. `urgent` không biến contact thành kênh cấp cứu; chỉ thông báo contact nếu Patient bật lựa chọn riêng.
-- Tìm cơ sở y tế P1 nhận đầu vào là Program/bệnh được chọn rõ ràng hoặc chuyên khoa được duyệt cùng khu vực/vị trí do Patient chọn. Hệ thống dùng `DiseaseSpecialties` do Admin duyệt, lọc `MedicalFacilities` đã xác minh, rồi sắp xếp xác định theo mức khớp chuyên khoa và khoảng cách. Khi dữ liệu nội bộ chưa đủ, backend gọi API bản đồ; Admin phải chọn kết quả, tạo bản nháp và kiểm tra nguồn chính thức trước khi đánh dấu đã xác minh.
+- Tìm cơ sở y tế E3 nhận Program/bệnh hoặc specialty rõ ràng cùng khu vực/vị trí. Mọi Patient active đều được tìm, không phân biệt gói. Mapping và Facility do `super_admin` duyệt; provider chỉ được gọi sau thao tác mở rộng rõ ràng. AI-assisted search nằm sau E3.
 - AI chỉ chuẩn hóa truy vấn tự nhiên thành specialty/khu vực và giải thích reason code; AI không suy luận diagnosis, không xếp hạng chất lượng cơ sở và không thay thế safety flow. External map result phải có source label, chỉ được dùng làm fallback và không tự thành dữ liệu verified.
 - Doctor Priority Inbox chỉ chứa Patient thuộc enrollment được phân công và có pagination/stable sort.
 - Báo cáo 7/30 ngày tính số liệu bằng backend; LLM chỉ diễn đạt từ payload chuẩn hóa và phải có fallback.
@@ -782,7 +842,7 @@ Backend sử dụng Modular Monolith, chia theo capability:
 | consultations           | AvailabilitySlots, Consultations, ConsultationMessages, Reviews                                                                                                     |
 | health-tracking         | HealthMetrics                                                                                                                                                       |
 | chronic-care            | CarePrograms, CareRules, PatientCarePrograms, CareTasks, HealthEvaluations, CareAlerts, CareReports, CareSummaries, FamilyLinks, FamilyPermissions, FamilyReminders |
-| care-directory          | MedicalFacilities, DiseaseSpecialties                                                                                                                               |
+| care-directory          | MedicalFacilities, MedicalFacilityRevisions, MedicalSpecialties, DiseaseSpecialties, FacilityCommandReceipts                                                         |
 | ai-advisory             | AiConversations, AiMessages, AiUsageDaily, AiDocuments, AiDocumentChunks, BlacklistKeywords                                                                         |
 | billing                 | Plans, PaymentOrders, PaymentTransactions, Subscriptions, SubscriptionAddOns, ConsultationUsages, PaymentRefunds                                                    |
 | notifications           | NotificationCampaigns, NotificationCampaignRecipients, Notifications, OutboxEvents                                                                                  |
@@ -869,7 +929,7 @@ Các API/page hiện tại và API/page đích được phân biệt rõ trong `
 - AI hỗ trợ moderation.
 - Medication adherence sau khi hai chương trình P0 đạt gate.
 - Người thân đồng hành với số liên kết theo `familyLinkLimit`, lời mời/xác nhận/thu hồi consent, nhắc bỏ lỡ nhiệm vụ và audit; không cần FamilyGroup trong DA2.
-- Tìm cơ sở y tế chỉ sau Người thân đồng hành và khi còn buffer trước feature freeze; dịch vụ bản đồ bên ngoài chỉ là fallback.
+- Medical Facility Directory E3 core có thể chạy song song khi E2 còn chờ evidence vận hành/consumer; trước release phải review dependency E2. Google Maps/Places chỉ là external search chủ động, không tự động fallback. AI-assisted search triển khai sau E3.
 - Product/operations metrics và dashboard KPI (`CC-OPS-001`) thực hiện hậu DA2; release regression, security/privacy, migration rehearsal và demo evidence vẫn thuộc P0 DA2.
 
 ### Ngoài phạm vi DA2
