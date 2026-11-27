@@ -1,6 +1,11 @@
 import { ForbiddenException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
+import { Types } from 'mongoose';
 import { AuthService } from './auth.service';
+import { AuthSessionSchema } from '../../domain/entities/auth-session.schema';
+import { AuthEventSchema } from '../../domain/entities/auth-event.schema';
+import { OAuthIdentitySchema } from '../../domain/entities/oauth-identity.schema';
 import {
   AccountStatus,
   DoctorVerificationStatus,
@@ -354,5 +359,318 @@ describe('AuthService Phase A lifecycle', () => {
       'owned-document-url',
     ]);
     expect(otp.issue).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService session lifecycle, ObjectId schemas, and auth profile', () => {
+  function setupSessionSuite() {
+    const userFindById = jest.fn<
+      { select: jest.Mock<Promise<unknown>, [string]> },
+      [unknown]
+    >();
+    const users = {
+      findById: userFindById,
+    };
+
+    const sessionFindOne = jest.fn<
+      { select: jest.Mock<Promise<unknown>, [string]> },
+      [Record<string, unknown>]
+    >();
+    const sessionFind = jest.fn<
+      {
+        sort: jest.Mock<
+          { lean: jest.Mock<Promise<unknown[]>, []> },
+          [Record<string, unknown>]
+        >;
+      },
+      [Record<string, unknown>]
+    >();
+    const sessionCreate = jest.fn<
+      Promise<unknown>,
+      [Record<string, unknown>]
+    >();
+    const sessionUpdateOne = jest.fn<
+      Promise<{ matchedCount?: number; modifiedCount?: number }>,
+      [Record<string, unknown>, Record<string, unknown>]
+    >();
+    const sessionUpdateMany = jest.fn<
+      Promise<{ modifiedCount?: number }>,
+      [Record<string, unknown>, Record<string, unknown>]
+    >();
+    const sessions = {
+      findOne: sessionFindOne,
+      find: sessionFind,
+      create: sessionCreate,
+      updateOne: sessionUpdateOne,
+      updateMany: sessionUpdateMany,
+    };
+
+    const eventCreate = jest.fn<Promise<void>, [Record<string, unknown>]>()
+      .mockResolvedValue(undefined);
+    const events = { create: eventCreate };
+
+    const jwtVerify = jest.fn<unknown, [string]>();
+    const jwtSign = jest.fn<string, [Record<string, unknown>, Record<string, unknown>]>();
+
+    const service = new AuthService(
+      users as never,
+      sessions as never,
+      events as never,
+      {} as never,
+      { verify: jwtVerify, sign: jwtSign } as never,
+      {} as never,
+      {} as never,
+      { get: jest.fn() } as never,
+      {} as never,
+    );
+
+    return {
+      service,
+      userFindById,
+      sessionFindOne,
+      sessionFind,
+      sessionCreate,
+      sessionUpdateOne,
+      sessionUpdateMany,
+      eventCreate,
+      jwtVerify,
+      jwtSign,
+    };
+  }
+
+  it('compiles userId and replacedBySessionId as ObjectId paths in auth Mongoose schemas', () => {
+    expect(AuthSessionSchema.path('userId').instance).toBe('ObjectId');
+    expect(AuthSessionSchema.path('replacedBySessionId').instance).toBe(
+      'ObjectId',
+    );
+    expect(AuthEventSchema.path('userId').instance).toBe('ObjectId');
+    expect(OAuthIdentitySchema.path('userId').instance).toBe('ObjectId');
+  });
+
+  it('queries AuthSession with ObjectId keys and atomically rotates refresh tokens', async () => {
+    const {
+      service,
+      userFindById,
+      sessionFindOne,
+      sessionCreate,
+      sessionUpdateOne,
+      jwtVerify,
+      jwtSign,
+    } = setupSessionSuite();
+
+    const userId = new Types.ObjectId().toString();
+    const sessionId = new Types.ObjectId().toString();
+    const rawRefreshToken = 'raw-refresh-token';
+    const tokenHash = createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
+
+    jwtVerify.mockReturnValue({ sub: userId, jti: sessionId });
+    jwtSign
+      .mockReturnValueOnce('next-access-token')
+      .mockReturnValueOnce('next-refresh-token');
+
+    const sessionSelect = jest.fn<Promise<unknown>, [string]>().mockResolvedValue({
+      _id: new Types.ObjectId(sessionId),
+      userId: new Types.ObjectId(userId),
+      familyId: 'family-1',
+      refreshTokenHash: tokenHash,
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    sessionFindOne.mockReturnValue({ select: sessionSelect });
+
+    const userSelect = jest.fn<Promise<unknown>, [string]>().mockResolvedValue({
+      _id: new Types.ObjectId(userId),
+      email: 'patient@example.com',
+      emailVerifiedAt: new Date(),
+      fullName: 'Local Patient',
+      role: UserRole.PATIENT,
+      accountStatus: AccountStatus.ACTIVE,
+      passwordHash: 'bcrypt-hash',
+    });
+    userFindById.mockReturnValue({ select: userSelect });
+    sessionUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    sessionCreate.mockResolvedValue(undefined);
+
+    const result = await service.refreshToken(rawRefreshToken, {
+      userAgent: 'TestAgent/1.0',
+    });
+
+    const queryFilter = sessionFindOne.mock.calls[0][0];
+    expect(queryFilter._id).toBeInstanceOf(Types.ObjectId);
+    expect(queryFilter.userId).toBeInstanceOf(Types.ObjectId);
+    expect(sessionSelect).toHaveBeenCalledWith('+refreshTokenHash');
+    expect(userSelect).toHaveBeenCalledWith('+passwordHash');
+
+    const rotationUpdate = sessionUpdateOne.mock.calls[0][1] as {
+      $set: { revokeReason: string; replacedBySessionId: unknown };
+    };
+    expect(rotationUpdate.$set.revokeReason).toBe('rotated');
+    expect(rotationUpdate.$set.replacedBySessionId).toBeInstanceOf(
+      Types.ObjectId,
+    );
+    expect(result.user).toMatchObject({
+      id: userId,
+      hasPassword: true,
+      authProvider: 'local',
+    });
+  });
+
+  it('revokes the token family if concurrent refresh rotation already consumed the session', async () => {
+    const {
+      service,
+      userFindById,
+      sessionFindOne,
+      sessionUpdateOne,
+      sessionUpdateMany,
+      jwtVerify,
+    } = setupSessionSuite();
+
+    const userId = new Types.ObjectId().toString();
+    const sessionId = new Types.ObjectId().toString();
+    const rawRefreshToken = 'concurrent-refresh-token';
+    const tokenHash = createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
+
+    jwtVerify.mockReturnValue({ sub: userId, jti: sessionId });
+    sessionFindOne.mockReturnValue({
+      select: jest.fn<Promise<unknown>, [string]>().mockResolvedValue({
+        _id: new Types.ObjectId(sessionId),
+        userId: new Types.ObjectId(userId),
+        familyId: 'family-race',
+        refreshTokenHash: tokenHash,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      }),
+    });
+    userFindById.mockReturnValue({
+      select: jest.fn<Promise<unknown>, [string]>().mockResolvedValue({
+        _id: new Types.ObjectId(userId),
+        role: UserRole.PATIENT,
+        accountStatus: AccountStatus.ACTIVE,
+      }),
+    });
+    sessionUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+    sessionUpdateMany.mockResolvedValue({ modifiedCount: 1 });
+
+    await expect(service.refreshToken(rawRefreshToken)).rejects.toThrow(
+      'Refresh token is invalid',
+    );
+    const [replayFilter, replayUpdate] = sessionUpdateMany.mock.calls[0] as [
+      Record<string, unknown>,
+      { $set: { revokeReason: string; revokedAt: Date } },
+    ];
+    expect(replayFilter).toEqual({ familyId: 'family-race', revokedAt: null });
+    expect(replayUpdate.$set.revokeReason).toBe('refresh_replay');
+    expect(replayUpdate.$set.revokedAt).toBeInstanceOf(Date);
+  });
+
+  it('lists active unrevoked sessions using ObjectId and detects current sid', async () => {
+    const { service, sessionFind } = setupSessionSuite();
+    const userId = new Types.ObjectId().toString();
+    const currentSid = new Types.ObjectId();
+    const otherSid = new Types.ObjectId();
+
+    const lean = jest.fn<Promise<unknown[]>, []>().mockResolvedValue([
+      {
+        _id: currentSid,
+        deviceLabel: 'Device A',
+        issuedAt: new Date('2026-11-27T01:00:00Z'),
+        lastActiveAt: new Date('2026-11-27T02:00:00Z'),
+        revokedAt: null,
+      },
+      {
+        _id: otherSid,
+        deviceLabel: null,
+        issuedAt: new Date('2026-11-26T01:00:00Z'),
+        lastActiveAt: new Date('2026-11-26T02:00:00Z'),
+        revokedAt: null,
+      },
+    ]);
+    const sort = jest.fn<{ lean: typeof lean }, [Record<string, unknown>]>().mockReturnValue({ lean });
+    sessionFind.mockReturnValue({ sort });
+
+    const rows = await service.listSessions(userId, currentSid.toString());
+    const filter = sessionFind.mock.calls[0][0];
+    expect(filter.userId).toBeInstanceOf(Types.ObjectId);
+    expect(filter.revokedAt).toBeNull();
+    expect(rows).toEqual([
+      expect.objectContaining({ id: currentSid.toString(), current: true }),
+      expect.objectContaining({
+        id: otherSid.toString(),
+        deviceLabel: 'Unknown device',
+        current: false,
+      }),
+    ]);
+  });
+
+  it('revokes single session and all user sessions using ObjectId filters', async () => {
+    const { service, sessionUpdateOne, sessionUpdateMany } = setupSessionSuite();
+    const userId = new Types.ObjectId().toString();
+    const sessionId = new Types.ObjectId().toString();
+    sessionUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    sessionUpdateMany.mockResolvedValue({ modifiedCount: 2 });
+
+    await expect(service.revokeSession(userId, sessionId)).resolves.toEqual({
+      message: 'Session revoked',
+    });
+    const revokeFilter = sessionUpdateOne.mock.calls[0][0];
+    expect(revokeFilter._id).toBeInstanceOf(Types.ObjectId);
+    expect(revokeFilter.userId).toBeInstanceOf(Types.ObjectId);
+
+    await expect(service.revokeAllSessions(userId)).resolves.toEqual({
+      message: 'All sessions revoked',
+    });
+    const revokeAllFilter = sessionUpdateMany.mock.calls[0][0];
+    expect(revokeAllFilter.userId).toBeInstanceOf(Types.ObjectId);
+  });
+
+  it('returns hasPassword and authProvider in getProfile without exposing passwordHash', async () => {
+    const { service, userFindById } = setupSessionSuite();
+
+    const localUser = {
+      _id: new Types.ObjectId(),
+      email: 'local@example.com',
+      fullName: 'Local User',
+      role: UserRole.PATIENT,
+      passwordHash: 'secret-bcrypt-hash',
+    };
+    const googleUser = {
+      _id: new Types.ObjectId(),
+      email: 'google@example.com',
+      fullName: 'Google User',
+      role: UserRole.PATIENT,
+      passwordHash: undefined,
+    };
+
+    userFindById
+      .mockReturnValueOnce({
+        select: jest.fn<Promise<unknown>, [string]>().mockReturnValue({
+          lean: jest.fn<Promise<unknown>, []>().mockResolvedValue(localUser),
+        } as never),
+      } as never)
+      .mockReturnValueOnce({
+        select: jest.fn<Promise<unknown>, [string]>().mockReturnValue({
+          lean: jest.fn<Promise<unknown>, []>().mockResolvedValue(googleUser),
+        } as never),
+      } as never);
+
+    const localProfile = await service.getProfile(localUser._id.toString());
+    expect(localProfile).toMatchObject({
+      email: 'local@example.com',
+      hasPassword: true,
+      authProvider: 'local',
+    });
+    expect(localProfile).not.toHaveProperty('passwordHash');
+
+    const googleProfile = await service.getProfile(googleUser._id.toString());
+    expect(googleProfile).toMatchObject({
+      email: 'google@example.com',
+      hasPassword: false,
+      authProvider: 'google',
+    });
+    expect(googleProfile).not.toHaveProperty('passwordHash');
   });
 });

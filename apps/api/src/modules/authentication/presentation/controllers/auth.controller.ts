@@ -185,18 +185,20 @@ export class AuthController {
         user: {
           type: 'object',
           required: ['id', 'role', 'emailVerified'],
-          properties: {
-            id: { type: 'string' },
-            email: { type: 'string' },
-            emailVerified: { type: 'boolean' },
-            fullName: { type: 'string' },
-            role: { type: 'string', example: 'patient' },
-            avatarUrl: { type: 'string' },
+            properties: {
+              id: { type: 'string' },
+              email: { type: 'string' },
+              emailVerified: { type: 'boolean' },
+              fullName: { type: 'string' },
+              role: { type: 'string', example: 'patient' },
+              avatarUrl: { type: 'string' },
+              hasPassword: { type: 'boolean' },
+              authProvider: { type: 'string', enum: ['local', 'google'] },
+            },
           },
         },
       },
-    },
-  })
+    })
   async exchangeGoogleOAuthTicket(
     @Body() dto: ExchangeOAuthTicketDto,
     @Req() req: Request,
@@ -289,8 +291,8 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  login(@Body() dto: LoginDto, @Req() req?: Request) {
+    return this.auth.login(dto, this.meta(req));
   }
 
   @Post('refresh') @Throttle({ default: { limit: 10, ttl: 60_000 } }) refresh(
@@ -341,8 +343,8 @@ export class AuthController {
     return this.auth.getProfile(userId);
   }
 
-  private meta(req: Request) {
-    return { userAgent: req.get('user-agent') };
+  private meta(req?: Request) {
+    return { userAgent: req?.get?.('user-agent') };
   }
 
   private googleAuthorizePath() {

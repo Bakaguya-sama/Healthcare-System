@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type OAuthIdentityDocument = HydratedDocument<OAuthIdentity>;
 
@@ -7,7 +7,12 @@ export type OAuthIdentityDocument = HydratedDocument<OAuthIdentity>;
 export class OAuthIdentity {
   @Prop({ required: true, enum: ['google'] }) provider!: 'google';
   @Prop({ required: true }) providerAccountId!: string;
-  @Prop({ type: Types.ObjectId, required: true, ref: 'User', index: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    required: true,
+    ref: 'User',
+    index: true,
+  })
   userId!: Types.ObjectId;
   @Prop({ type: String, default: null }) providerEmail?: string | null;
   /** True only when Google's authenticated OIDC userinfo claim was true. */

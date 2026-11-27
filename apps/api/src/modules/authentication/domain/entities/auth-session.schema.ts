@@ -1,11 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type AuthSessionDocument = HydratedDocument<AuthSession>;
 
 @Schema({ timestamps: true, collection: 'auth_sessions' })
 export class AuthSession {
-  @Prop({ type: Types.ObjectId, required: true, ref: 'User', index: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    required: true,
+    ref: 'User',
+    index: true,
+  })
   userId!: Types.ObjectId;
 
   @Prop({ required: true, unique: true, select: false })
@@ -23,7 +28,7 @@ export class AuthSession {
   @Prop({ type: String, default: null })
   revokeReason?: string | null;
 
-  @Prop({ type: Types.ObjectId, default: null, ref: 'AuthSession' })
+  @Prop({ type: MongooseSchema.Types.ObjectId, default: null, ref: 'AuthSession' })
   replacedBySessionId?: Types.ObjectId | null;
 
   @Prop({ type: String, default: null })

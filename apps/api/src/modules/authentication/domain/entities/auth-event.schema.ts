@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type AuthEventDocument = HydratedDocument<AuthEvent>;
 
@@ -22,7 +22,12 @@ export enum AuthEventType {
 
 @Schema({ timestamps: true, collection: 'auth_events' })
 export class AuthEvent {
-  @Prop({ type: Types.ObjectId, ref: 'User', default: null, index: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+    index: true,
+  })
   userId?: Types.ObjectId | null;
 
   @Prop({ type: String, enum: AuthEventType, required: true, index: true })

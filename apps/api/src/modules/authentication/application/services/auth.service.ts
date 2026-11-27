@@ -467,10 +467,17 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
-    if (!p.sub || !p.jti || !Types.ObjectId.isValid(p.jti))
+    if (
+      !p.sub ||
+      !p.jti ||
+      !Types.ObjectId.isValid(p.sub) ||
+      !Types.ObjectId.isValid(p.jti)
+    )
       throw new UnauthorizedException('Invalid refresh token');
+    const userObjectId = new Types.ObjectId(p.sub);
+    const sessionObjectId = new Types.ObjectId(p.jti);
     const session = await this.sessions
-      .findOne({ _id: p.jti, userId: p.sub })
+      .findOne({ _id: sessionObjectId, userId: userObjectId })
       .select('+refreshTokenHash');
     if (
       !session ||
@@ -483,10 +490,10 @@ export class AuthService {
           { familyId: session.familyId, revokedAt: null },
           { $set: { revokedAt: new Date(), revokeReason: 'refresh_replay' } },
         );
-      await this.record(AuthEventType.REFRESH_REUSED, p.sub);
+      await this.record(AuthEventType.REFRESH_REUSED, userObjectId);
       throw new UnauthorizedException('Refresh token is invalid');
     }
-    const user = await this.users.findById(p.sub);
+    const user = await this.users.findById(userObjectId).select('+passwordHash');
     if (
       !user ||
       !mayReceiveFullAccess({
@@ -496,24 +503,44 @@ export class AuthService {
       })
     )
       throw new UnauthorizedException('Access denied');
-    await this.sessions.updateOne(
+    const nextSessionId = new Types.ObjectId();
+    const rotated = await this.sessions.updateOne(
       { _id: session._id, revokedAt: null },
       {
         $set: {
           revokedAt: new Date(),
           revokeReason: 'rotated',
+          replacedBySessionId: nextSessionId,
           lastActiveAt: new Date(),
         },
       },
     );
-    const result = await this.issueSession(user, meta, session.familyId);
+    if (rotated.modifiedCount !== 1) {
+      await this.sessions.updateMany(
+        { familyId: session.familyId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revokeReason: 'refresh_replay' } },
+      );
+      await this.record(AuthEventType.REFRESH_REUSED, userObjectId);
+      throw new UnauthorizedException('Refresh token is invalid');
+    }
+    const result = await this.issueSession(
+      user,
+      meta,
+      session.familyId,
+      nextSessionId,
+    );
     await this.record(AuthEventType.REFRESH_ROTATED, user._id);
     return result;
   }
 
   async listSessions(userId: string, currentSessionId?: string) {
+    if (!Types.ObjectId.isValid(userId)) return [];
     const rows = await this.sessions
-      .find({ userId, expiresAt: { $gt: new Date() } })
+      .find({
+        userId: new Types.ObjectId(userId),
+        revokedAt: null,
+        expiresAt: { $gt: new Date() },
+      })
       .sort({ lastActiveAt: -1 })
       .lean();
     return rows.map((s) => ({
@@ -535,44 +562,66 @@ export class AuthService {
     sessionId: string,
     reason = 'owner_revoke',
   ) {
+    if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(sessionId))
+      throw new NotFoundException('Session not found');
+    const userObjectId = new Types.ObjectId(userId);
     const r = await this.sessions.updateOne(
-      { _id: sessionId, userId, revokedAt: null },
+      {
+        _id: new Types.ObjectId(sessionId),
+        userId: userObjectId,
+        revokedAt: null,
+      },
       { $set: { revokedAt: new Date(), revokeReason: reason } },
     );
     if (!r.matchedCount) throw new NotFoundException('Session not found');
-    await this.record(AuthEventType.LOGOUT, userId, { reason });
+    await this.record(AuthEventType.LOGOUT, userObjectId, { reason });
     return { message: 'Session revoked' };
   }
 
   async revokeAllSessions(userId: string, reason = 'logout_all') {
+    if (!Types.ObjectId.isValid(userId))
+      return { message: 'All sessions revoked' };
+    const userObjectId = new Types.ObjectId(userId);
     await this.sessions.updateMany(
-      { userId, revokedAt: null },
+      { userId: userObjectId, revokedAt: null },
       { $set: { revokedAt: new Date(), revokeReason: reason } },
     );
-    await this.record(AuthEventType.LOGOUT_ALL, userId, { reason });
+    await this.record(AuthEventType.LOGOUT_ALL, userObjectId, { reason });
     return { message: 'All sessions revoked' };
   }
 
   async getProfile(userId: string) {
     const user = await this.users
       .findById(userId)
-      .select('-passwordHash')
+      .select('+passwordHash')
       .lean();
     if (!user) throw new UnauthorizedException('User not found');
-    return user;
+    const { passwordHash, ...safeUser } = user;
+    const hasPassword = Boolean(passwordHash);
+    const authProvider: 'local' | 'google' = hasPassword ? 'local' : 'google';
+    return {
+      ...safeUser,
+      hasPassword,
+      authProvider,
+    };
   }
 
   private async issueSession(
     user: UserDocument | GooglePatientAccount,
     meta: Meta,
     familyId: string = randomUUID(),
+    sessionObjectId: Types.ObjectId = new Types.ObjectId(),
   ) {
     const isMongooseUser = '_id' in user;
     const userId = isMongooseUser ? user._id.toString() : user.id;
     const emailVerified = isMongooseUser
       ? Boolean(user.emailVerifiedAt)
       : user.emailVerified;
-    const sid = new Types.ObjectId().toString(),
+    const hasPassword = isMongooseUser
+      ? Boolean(user.passwordHash)
+      : user.hasPassword;
+    const authProvider: 'local' | 'google' = hasPassword ? 'local' : 'google';
+    const sid = sessionObjectId.toString(),
       payload = { sub: userId, role: user.role, sid };
     const accessToken = this.jwt.sign(payload, { expiresIn: '30m' });
     const refreshToken = this.jwt.sign(
@@ -581,7 +630,7 @@ export class AuthService {
     );
     const now = new Date();
     await this.sessions.create({
-      _id: sid,
+      _id: sessionObjectId,
       userId: new Types.ObjectId(userId),
       familyId,
       refreshTokenHash: this.hash(refreshToken),
@@ -602,6 +651,8 @@ export class AuthService {
         fullName: user.fullName,
         role: user.role,
         avatarUrl: user.avatarUrl,
+        hasPassword,
+        authProvider,
       },
     };
   }
@@ -619,9 +670,13 @@ export class AuthService {
     userId?: string | Types.ObjectId,
     metadata?: Record<string, unknown>,
   ) {
+    const normalizedUserId =
+      typeof userId === 'string' && Types.ObjectId.isValid(userId)
+        ? new Types.ObjectId(userId)
+        : (userId ?? null);
     await this.events.create({
       eventType,
-      userId: userId ?? null,
+      userId: normalizedUserId,
       metadata: metadata ?? null,
     });
   }
