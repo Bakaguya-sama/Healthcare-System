@@ -829,6 +829,16 @@
                         },
                         "avatarUrl": {
                           "type": "string"
+                        },
+                        "hasPassword": {
+                          "type": "boolean"
+                        },
+                        "authProvider": {
+                          "type": "string",
+                          "enum": [
+                            "local",
+                            "google"
+                          ]
                         }
                       }
                     }
@@ -33609,6 +33619,9 @@
           },
           "activeCareProgramLimit": {
             "type": "number"
+          },
+          "familyLinkLimit": {
+            "type": "number"
           }
         },
         "required": [
@@ -33616,7 +33629,8 @@
           "aiTokenLimit",
           "aiQuotaPeriod",
           "consultationLimitPerCycle",
-          "activeCareProgramLimit"
+          "activeCareProgramLimit",
+          "familyLinkLimit"
         ]
       },
       "PatientPlanBenefitsDto": {
@@ -33829,6 +33843,9 @@
           "activeCareProgramLimit": {
             "type": "number"
           },
+          "familyLinkLimit": {
+            "type": "number"
+          },
           "benefits": {
             "$ref": "#/components/schemas/PatientPlanBenefitsDto"
           }
@@ -33839,6 +33856,7 @@
           "aiQuotaPeriod",
           "consultationLimitPerCycle",
           "activeCareProgramLimit",
+          "familyLinkLimit",
           "benefits"
         ]
       },
@@ -35159,6 +35177,9 @@
               "doctor_review"
             ]
           },
+          "metricType": {
+            "type": "string"
+          },
           "templateKey": {
             "type": "string"
           },
@@ -35261,6 +35282,9 @@
               "appointment",
               "doctor_review"
             ]
+          },
+          "metricType": {
+            "type": "string"
           },
           "templateKey": {
             "type": "string"
